@@ -17,19 +17,52 @@ const CATEGORY_CONFIG: Record<string, { markup: number; shipping: number }> = {
   "ファッション":  { markup: 2.0, shipping: 1200 },
   "コスメ":        { markup: 1.8, shipping: 800  },
   "家電":          { markup: 1.5, shipping: 2000 },
+  "トレカ":        { markup: 2.5, shipping: 500  },
+  "ガンプラ":      { markup: 2.2, shipping: 1200 },
+  "LEGO":          { markup: 2.0, shipping: 2000 },
+  "レゴ":          { markup: 2.0, shipping: 2000 },
+  "CD":            { markup: 2.0, shipping: 800  },
+  "レコード":      { markup: 2.5, shipping: 1000 },
+  "漫画":          { markup: 1.8, shipping: 1500 },
+  "画集":          { markup: 2.2, shipping: 1200 },
+  "腕時計":        { markup: 2.0, shipping: 1000 },
+  "時計":          { markup: 2.0, shipping: 1000 },
+  "和雑貨":        { markup: 2.5, shipping: 1500 },
+  "工芸":          { markup: 2.3, shipping: 1500 },
+  "ボードゲーム":  { markup: 2.0, shipping: 1500 },
+  "カメラ":        { markup: 2.0, shipping: 1500 },
+  "フィルム":      { markup: 2.2, shipping: 500  },
+  "スニーカー":    { markup: 2.0, shipping: 1200 },
+  "楽器":          { markup: 1.8, shipping: 2500 },
+  "スポーツ":      { markup: 1.7, shipping: 1500 },
   "default":       { markup: 1.8, shipping: 1500 },
 };
 
 // カテゴリ別メルカリ想定倍率と送料
 const MERCARI_CONFIG: Record<string, { markup: number; shipping: number }> = {
-  "フィギュア":    { markup: 1.6, shipping: 600  }, // 需要高・ファン多い
-  "ゲーム":        { markup: 1.5, shipping: 400  }, // 競合多いが回転早い
+  "フィギュア":    { markup: 1.6, shipping: 600  },
+  "ゲーム":        { markup: 1.5, shipping: 400  },
   "おもちゃ":      { markup: 1.5, shipping: 600  },
-  "アニメ":        { markup: 1.6, shipping: 500  }, // グッズ系は高値つきやすい
-  "ヴィンテージ":  { markup: 1.8, shipping: 600  }, // 希少性で高値
+  "アニメ":        { markup: 1.6, shipping: 500  },
+  "ヴィンテージ":  { markup: 1.8, shipping: 600  },
   "ファッション":  { markup: 1.5, shipping: 500  },
-  "コスメ":        { markup: 1.4, shipping: 300  }, // 消耗品は低め
-  "家電":          { markup: 1.3, shipping: 1000 }, // 重い・競合多い
+  "コスメ":        { markup: 1.4, shipping: 300  },
+  "家電":          { markup: 1.3, shipping: 1000 },
+  "トレカ":        { markup: 1.8, shipping: 200  },
+  "ガンプラ":      { markup: 1.6, shipping: 500  },
+  "LEGO":          { markup: 1.6, shipping: 800  },
+  "レゴ":          { markup: 1.6, shipping: 800  },
+  "CD":            { markup: 1.5, shipping: 300  },
+  "レコード":      { markup: 1.7, shipping: 500  },
+  "漫画":          { markup: 1.5, shipping: 600  },
+  "腕時計":        { markup: 1.6, shipping: 400  },
+  "時計":          { markup: 1.6, shipping: 400  },
+  "和雑貨":        { markup: 1.7, shipping: 600  },
+  "ボードゲーム":  { markup: 1.5, shipping: 600  },
+  "カメラ":        { markup: 1.5, shipping: 700  },
+  "スニーカー":    { markup: 1.6, shipping: 500  },
+  "楽器":          { markup: 1.5, shipping: 1000 },
+  "スポーツ":      { markup: 1.4, shipping: 600  },
   "default":       { markup: 1.4, shipping: 500  },
 };
 

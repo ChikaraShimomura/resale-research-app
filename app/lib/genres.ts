@@ -17,4 +17,12 @@ export const GENRES: Genre[] = [
   { id: "electronics", label: "家電・ガジェット", emoji: "📱", description: "スマホ周辺・イヤホンなど", color: "bg-cyan-50 border-cyan-200 text-cyan-700" },
   { id: "sports", label: "スポーツ用品", emoji: "⚽", description: "シューズ・ウェアなど", color: "bg-green-50 border-green-200 text-green-700" },
   { id: "fashion", label: "ファッション", emoji: "👕", description: "ブランド・限定品など", color: "bg-rose-50 border-rose-200 text-rose-700" },
+  { id: "cd-record", label: "CD・レコード", emoji: "🎵", description: "邦楽・アニソン・限定盤など", color: "bg-violet-50 border-violet-200 text-violet-700" },
+  { id: "manga", label: "漫画・画集", emoji: "📚", description: "全巻セット・限定版・画集など", color: "bg-amber-50 border-amber-200 text-amber-700" },
+  { id: "watch", label: "腕時計", emoji: "⌚", description: "セイコー・シチズン・カシオなど", color: "bg-slate-50 border-slate-200 text-slate-700" },
+  { id: "japanese-craft", label: "和雑貨・工芸", emoji: "🎎", description: "伝統工芸・和食器・着物小物など", color: "bg-red-50 border-red-200 text-red-800" },
+  { id: "board-game", label: "ボードゲーム", emoji: "🧩", description: "日本限定・絶版ゲームなど", color: "bg-teal-50 border-teal-200 text-teal-700" },
+  { id: "camera", label: "カメラ・フィルム", emoji: "📷", description: "フィルムカメラ・レンズ・フィルムなど", color: "bg-stone-50 border-stone-200 text-stone-700" },
+  { id: "sneaker", label: "スニーカー", emoji: "👟", description: "限定コラボ・日本限定モデルなど", color: "bg-lime-50 border-lime-200 text-lime-700" },
+  { id: "instrument", label: "楽器・音楽機材", emoji: "🎸", description: "ヤマハ・ローランド・エフェクターなど", color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700" },
 ];

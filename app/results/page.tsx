@@ -15,9 +15,31 @@ function ResultsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ジャンルIDから検索キーワードへのマッピング
+  const GENRE_KEYWORDS: Record<string, string> = {
+    "trading-card":   "トレカ ポケモンカード 遊戯王",
+    "gunpla":         "ガンプラ MG RG HG",
+    "lego":           "LEGO レゴ",
+    "game":           "ゲーム Switch PS5",
+    "cosme":          "コスメ スキンケア 日焼け止め",
+    "figure":         "フィギュア アニメ",
+    "toy":            "おもちゃ キャラクター",
+    "electronics":    "家電 ガジェット イヤホン",
+    "sports":         "スポーツ シューズ",
+    "fashion":        "ファッション ブランド",
+    "cd-record":      "CD レコード アニソン",
+    "manga":          "漫画 全巻 画集",
+    "watch":          "腕時計 セイコー シチズン",
+    "japanese-craft": "和雑貨 工芸 着物",
+    "board-game":     "ボードゲーム",
+    "camera":         "カメラ フィルムカメラ レンズ",
+    "sneaker":        "スニーカー 限定",
+    "instrument":     "楽器 ギター エフェクター",
+  };
+
   useEffect(() => {
     setLoading(true);
-    const q = keyword || genre || "フィギュア おもちゃ";
+    const q = keyword || (genre ? GENRE_KEYWORDS[genre] ?? genre : "フィギュア おもちゃ");
     searchRakuten(q)
       .then((items) => {
         const sorted = items.sort((a: Product, b: Product) => {
