@@ -14,6 +14,13 @@ function ResultsContent() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+
+  const sorted = [...products].sort((a, b) => {
+    const bestA = Math.max(...a.profits.map((p) => p.profitRate));
+    const bestB = Math.max(...b.profits.map((p) => p.profitRate));
+    return sortOrder === "desc" ? bestB - bestA : bestA - bestB;
+  });
 
   // ジャンルIDから検索キーワードへのマッピング
   const GENRE_KEYWORDS: Record<string, string> = {
@@ -41,14 +48,7 @@ function ResultsContent() {
     setLoading(true);
     const q = keyword || (genre ? GENRE_KEYWORDS[genre] ?? genre : "フィギュア おもちゃ");
     searchRakuten(q)
-      .then((items) => {
-        const sorted = items.sort((a: Product, b: Product) => {
-          const bestA = Math.max(...a.profits.map((p) => p.profitRate));
-          const bestB = Math.max(...b.profits.map((p) => p.profitRate));
-          return bestB - bestA;
-        });
-        setProducts(sorted);
-      })
+      .then((items) => setProducts(items))
       .catch((e) => { console.error(e); setProducts([]); })
       .finally(() => setLoading(false));
   }, [keyword, genre]);
@@ -69,11 +69,27 @@ function ResultsContent() {
             「{keyword || genre || "すべて"}」の検索結果
           </h2>
           {!loading && (
-            <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
-              <span>{products.length}件 · 最大利益率の高い順</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />利益率30%↑</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />10〜30%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />10%↓</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap flex-1">
+                <span>{sorted.length}件</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />30%↑</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />10〜30%</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />10%↓</span>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium shrink-0">
+                <button
+                  onClick={() => setSortOrder("desc")}
+                  className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-indigo-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                >
+                  利益率↑高い順
+                </button>
+                <button
+                  onClick={() => setSortOrder("asc")}
+                  className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-indigo-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                >
+                  利益率↓低い順
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -94,7 +110,7 @@ function ResultsContent() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {products.map((product) => (
+            {sorted.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
             {products.length === 0 && (
