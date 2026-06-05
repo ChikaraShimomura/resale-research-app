@@ -155,58 +155,95 @@ export async function POST(req: NextRequest) {
   const cached = getCached(cacheKey);
   if (cached) return Response.json({ ...cached, fromCache: true });
 
-  // Step1: 型番抽出でキーワード強化
+  // Step1: タイトル正規化
   const codes = extractProductCode(rakutenTitle);
   const cleanTitle = rakutenTitle
-    .replace(/【[^】]*】/g, "").replace(/\([^)]*\)/g, "")
-    .replace(/送料無料|新品|未開封/g, "").trim();
-  const words = cleanTitle.split(/\s+/).slice(0, 3).join(" ");
-  const searchKeyword = codes.length > 0 ? `${words} ${codes[0]}` : words;
+    .replace(/【[^】]*】/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/（[^）]*）/g, "")
+    .replace(/送料無料|新品|未開封|未使用|正規品|セール|互換|風/g, "")
+    .replace(/\s+/g, " ").trim();
 
-  // Step2: メルカリ売り切れ商品取得
-  const mercariItems = await getMercariSoldItems(searchKeyword);
-  if (mercariItems.length === 0) {
-    const result = { matched: false, avgPrice: null, count: 0, confidence: 0 };
-    setCache(cacheKey, { matched: false, confidence: 0 });
-    return Response.json(result);
+  // 型番がある場合は型番を主キーワードに
+  // 英字ブランド名（LEGO, Pokemon等）を優先
+  const brandMatch = cleanTitle.match(/\b[A-Z][A-Za-z]{2,}(?:\s+[A-Z][A-Za-z]+)?\b/);
+  const brand = brandMatch ? brandMatch[0] : "";
+  const jpWords = cleanTitle.replace(/[A-Za-z0-9]/g, " ").split(/\s+/).filter((w) => w.length >= 2).slice(0, 2).join(" ");
+
+  let searchKeyword: string;
+  if (codes.length > 0) {
+    // 型番あり: 型番 + ブランドor日本語
+    searchKeyword = brand ? `${brand} ${codes[0]}` : `${jpWords} ${codes[0]}`;
+  } else if (brand) {
+    // ブランド名あり
+    searchKeyword = `${brand} ${jpWords}`.trim();
+  } else {
+    // 日本語のみ
+    searchKeyword = jpWords || cleanTitle.split(/\s+/).slice(0, 3).join(" ");
   }
 
-  // Step3: 価格フィルター（仕入れ価格の30%〜300%の範囲のみ）
+  // Step2: メルカリ売り切れ商品取得（通常 + リトライ用短縮キーワード）
+  let mercariItems = await getMercariSoldItems(searchKeyword);
+  if (mercariItems.length === 0 && searchKeyword.includes(" ")) {
+    // キーワードを短縮してリトライ
+    const shorter = searchKeyword.split(" ").slice(0, 2).join(" ");
+    mercariItems = await getMercariSoldItems(shorter);
+  }
+  if (mercariItems.length === 0) {
+    setCache(cacheKey, { matched: false, confidence: 0 });
+    return Response.json({ matched: false, avgPrice: null, count: 0, confidence: 0 });
+  }
+
+  // Step3: 価格フィルター（仕入れ価格の50%〜400%）
   const priceFiltered = mercariItems.filter(
-    (item) => item.price >= rakutenPrice * 0.3 && item.price <= rakutenPrice * 3
+    (item) => item.price >= rakutenPrice * 0.5 && item.price <= rakutenPrice * 4
   );
   if (priceFiltered.length === 0) {
     setCache(cacheKey, { matched: false, confidence: 0 });
     return Response.json({ matched: false, avgPrice: null, count: 0, confidence: 0 });
   }
 
-  // Step4: 型番が一致するものを優先
-  let bestMatch = priceFiltered[0];
+  // Step4: 型番一致 → 高信頼度で即確定
   if (codes.length > 0) {
-    const codeMatch = priceFiltered.find((item) =>
-      codes.some((code) => item.title.includes(code))
+    const codeMatches = priceFiltered.filter((item) =>
+      codes.some((code) => item.title.toUpperCase().includes(code.toUpperCase()))
     );
-    if (codeMatch) {
-      // 型番一致 → 高信頼度でマッチ確定
-      const prices = priceFiltered.map((i) => i.price).sort((a, b) => a - b);
-      const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-      const result = { matched: true, avgPrice, count: prices.length, confidence: 95 };
+    if (codeMatches.length > 0) {
+      const prices = codeMatches.map((i) => i.price).sort((a, b) => a - b);
+      // 外れ値除去（中央値の50〜200%）
+      const median = prices[Math.floor(prices.length / 2)];
+      const valid = prices.filter((p) => p >= median * 0.5 && p <= median * 2);
+      const avgPrice = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+      const result = { matched: true, avgPrice, count: valid.length, confidence: 95 };
       setCache(cacheKey, { matched: true, confidence: 95 });
       return Response.json(result);
     }
   }
 
-  // Step5: Gemini画像認識でマッチング
+  // Step5: タイトル類似度チェック（Gemini前の簡易フィルター）
+  // ブランド名または主要語が両方のタイトルに含まれるか確認
+  const keyTokens = searchKeyword.toLowerCase().split(/\s+/);
+  const titleMatches = priceFiltered.filter((item) => {
+    const t = item.title.toLowerCase();
+    const matchCount = keyTokens.filter((tok) => t.includes(tok)).length;
+    return matchCount >= Math.ceil(keyTokens.length * 0.5); // 50%以上一致
+  });
+  const candidates = titleMatches.length > 0 ? titleMatches : priceFiltered;
+  const bestMatch = candidates[0];
+
+  // Step6: Gemini画像認識でマッチング
   if (rakutenImageUrl && bestMatch.imageUrl) {
     const geminiResult = await matchWithGemini(
       rakutenTitle, rakutenImageUrl,
       bestMatch.title, bestMatch.imageUrl
     );
 
-    if (geminiResult.matched && geminiResult.confidence >= 70) {
-      const prices = priceFiltered.map((i) => i.price).sort((a, b) => a - b);
-      const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
-      const result = { matched: true, avgPrice, count: prices.length, confidence: geminiResult.confidence };
+    if (geminiResult.matched && geminiResult.confidence >= 65) {
+      const prices = candidates.map((i) => i.price).sort((a, b) => a - b);
+      const median = prices[Math.floor(prices.length / 2)];
+      const valid = prices.filter((p) => p >= median * 0.5 && p <= median * 2);
+      const avgPrice = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+      const result = { matched: true, avgPrice, count: valid.length, confidence: geminiResult.confidence };
       setCache(cacheKey, { matched: true, confidence: geminiResult.confidence });
       return Response.json(result);
     }

@@ -22,26 +22,51 @@ export function getProfitBadgeStyle(rate: number): string {
   return "bg-red-100 text-red-600 border-red-200";
 }
 
-// 楽天タイトルからノイズを除去してコアキーワードを抽出
+// 楽天タイトルからノイズを除去してコアキーワードを抽出（精度重視版）
 export function extractCoreKeyword(title: string): string {
-  const cleaned = title
-    // 【】や()内のノイズ除去
+  // Step1: ノイズ除去
+  let cleaned = title
     .replace(/【[^】]*】/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/（[^）]*）/g, "")
-    // 記号除去
-    .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※]/g, "")
-    // ノイズワード除去
-    .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|限定|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり/g, "")
-    // 数量・個数表記除去
-    .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット/g, "")
-    // 余分なスペース整理
+    .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
+    .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり|お買い得|お得|激安|大人気/g, "")
+    .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット|\d+体セット|\d+冊セット/g, "")
+    .replace(/互換|風|もどき/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
-  // スペースで分割して最初の3ワードだけ使う（短くシンプルに）
+  // Step2: 型番・品番を最優先で抽出
+  const codePatterns = [
+    /[A-Z]{2,}-?\d{3,}/g,        // SW-1234, SV1S
+    /\b[A-Z]\d{4,}[A-Z]?\b/g,   // F4567A
+    /\b\d{4}-\d{4}\b/g,          // 1234-5678
+    /(?:第\d+弾|Vol\.\d+)/g,     // 第3弾, Vol.2
+    /No\.\d+/ig,                  // No.123
+  ];
+  const codes: string[] = [];
+  for (const pat of codePatterns) {
+    const m = cleaned.match(pat);
+    if (m) codes.push(...m);
+  }
+
+  // Step3: ブランド・シリーズ名を抽出（英数字混在ワード優先）
   const words = cleaned.split(/[\s　]+/).filter(Boolean);
-  return words.slice(0, 3).join(" ");
+
+  // 英字を含むワードを優先（ブランド名・型番が多い）
+  const brandWords = words.filter((w) => /[A-Za-z]/.test(w) && w.length >= 2);
+  // 日本語ワード（短すぎるものは除外）
+  const jpWords = words.filter((w) => !/[A-Za-z]/.test(w) && w.length >= 2 && !/^\d+$/.test(w));
+
+  // 組み合わせ: 型番 > 英字ブランド > 日本語ワード
+  const priority: string[] = [];
+  if (codes.length > 0) priority.push(codes[0]);
+  priority.push(...brandWords.slice(0, 2));
+  priority.push(...jpWords.slice(0, 2));
+
+  // 重複除去して最大3ワード
+  const unique = [...new Set(priority)].slice(0, 3);
+  return unique.length > 0 ? unique.join(" ") : words.slice(0, 3).join(" ");
 }
 
 // eBay販売実績（Sold Listings）検索URL
