@@ -1,68 +1,52 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { fetchProducts } from "../lib/products";
-import { searchRakuten } from "../lib/rakuten";
-import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
-
+import { ProfitProduct } from "../lib/profitFilter";
 
 function ResultsContent() {
   const params = useSearchParams();
   const keyword = params.get("q") ?? "";
   const genre = params.get("genre") ?? "";
 
-  const [products, setProducts] = useState<ProfitProduct[]>([]);
+  const [allProducts, setAllProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState({ checked: 0, total: 0 });
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const isLiveSearch = keyword.trim() !== "" || genre !== "";
+  useEffect(() => {
+    setLoading(true);
+    fetchProducts()
+      .then(({ products, lastUpdated }) => {
+        setAllProducts(products);
+        setLastUpdated(lastUpdated);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-  const sorted = [...products].sort((a, b) =>
-    sortOrder === "desc"
-      ? b.realProfitRate - a.realProfitRate
-      : a.realProfitRate - b.realProfitRate
+  // クライアントサイドでキーワード/ジャンルフィルター
+  const filtered = useMemo(() => {
+    const q = (keyword || genre).toLowerCase().trim();
+    if (!q) return allProducts;
+    return allProducts.filter((p) =>
+      p.title.toLowerCase().includes(q) ||
+      (p.coreKeyword ?? "").toLowerCase().includes(q)
+    );
+  }, [allProducts, keyword, genre]);
+
+  const sorted = useMemo(() =>
+    [...filtered].sort((a, b) =>
+      sortOrder === "desc"
+        ? b.realProfitRate - a.realProfitRate
+        : a.realProfitRate - b.realProfitRate
+    ),
+    [filtered, sortOrder]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setProducts([]);
-
-    if (!isLiveSearch) {
-      // キーワードなし → KVから読むだけ
-      fetchProducts().then(({ products, lastUpdated }) => {
-        if (cancelled) return;
-        setProducts(products);
-        setLastUpdated(lastUpdated);
-      }).finally(() => { if (!cancelled) setLoading(false); });
-      return () => { cancelled = true; };
-    }
-
-    // キーワードあり → リアルタイムで楽天→eBay比較
-    const q = keyword || genre;
-    searchRakuten(q)
-      .then((items) => {
-        if (cancelled) return;
-        setProgress({ checked: 0, total: items.length });
-        return filterProfitable(items, (found, checked, total) => {
-          if (cancelled) return;
-          setProducts([...found]);
-          setProgress({ checked, total });
-        });
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [keyword, genre]);
-
   const displayLabel = keyword || genre || "すべて";
-  const isChecking = loading || progress.checked < progress.total;
   const updatedLabel = lastUpdated
     ? `更新: ${new Date(lastUpdated).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
     : null;
@@ -81,8 +65,8 @@ function ResultsContent() {
       <main className="max-w-2xl mx-auto px-4 pt-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            {isLiveSearch && isChecking && progress.total > 0 ? (
-              <span>確認中 {progress.checked}/{progress.total}件…</span>
+            {loading ? (
+              <span>読み込み中…</span>
             ) : (
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-600">{sorted.length}件</span>
@@ -102,7 +86,7 @@ function ResultsContent() {
           </div>
         </div>
 
-        {loading && products.length === 0 && (
+        {loading ? (
           <div className="flex flex-col gap-3">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
@@ -117,22 +101,20 @@ function ResultsContent() {
               </div>
             ))}
           </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          {sorted.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-
-        {!loading && products.length === 0 && (
+        ) : sorted.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-4xl mb-3">⏳</p>
             <p className="text-gray-400 text-sm">
-              {isLiveSearch ? "利益が出る商品が見つかりませんでした" : "データ準備中です"}
+              {allProducts.length === 0 ? "データ準備中です" : "該当する商品が見つかりませんでした"}
             </p>
-            {!isLiveSearch && <p className="text-gray-300 text-xs mt-1">1日2回自動更新されます</p>}
+            {allProducts.length === 0 && <p className="text-gray-300 text-xs mt-1">1日2回自動更新されます</p>}
             <Link href="/search" className="mt-4 inline-block text-indigo-600 text-sm font-medium">← 戻る</Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {sorted.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         )}
 

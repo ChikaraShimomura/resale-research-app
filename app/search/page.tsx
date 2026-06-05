@@ -61,7 +61,7 @@ export default function SearchPage() {
             </Link>
             {GENRES.map((genre) => (
               <Link key={genre.id}
-                href={`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`}
+                href={`/results?q=${encodeURIComponent(genre.label)}`}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-600 text-xs font-medium shadow-sm active:bg-gray-50">
                 {genre.emoji} {genre.label}
               </Link>

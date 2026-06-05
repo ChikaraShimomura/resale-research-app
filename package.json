@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@vercel/kv": "^3.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
