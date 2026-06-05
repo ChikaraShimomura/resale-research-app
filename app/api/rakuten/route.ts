@@ -103,7 +103,16 @@ function parseImageUrl(urls: any): string {
   return "";
 }
 
+let lastError = "";
+
 async function fetchPage(keyword: string, page: number): Promise<any[]> {
+  const headers = {
+    "Referer": "https://www.yushutsu-fukugyo.com",
+    "Origin": "https://www.yushutsu-fukugyo.com",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  };
+
+  // Try new API
   try {
     const params = new URLSearchParams({
       applicationId: RAKUTEN_APP_ID,
@@ -118,34 +127,45 @@ async function fetchPage(keyword: string, page: number): Promise<any[]> {
 
     const res = await fetch(
       `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`,
-      { next: { revalidate: 3600 } }
+      { headers, cache: "no-store" }
     );
 
-    if (!res.ok) {
-      // Fallback to old API
-      const params2 = new URLSearchParams({
-        applicationId: RAKUTEN_APP_ID,
-        affiliateId: RAKUTEN_AFFILIATE_ID,
-        keyword,
-        hits: "30",
-        page: String(page),
-        sort: "-reviewCount",
-        format: "json",
-      });
-      const res2 = await fetch(
-        `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params2}`,
-        { next: { revalidate: 3600 } }
-      );
-      if (!res2.ok) return [];
+    if (res.ok) {
+      const data = await res.json();
+      return data.Items ?? [];
+    }
+    const errText = await res.text().catch(() => "");
+    lastError = `new API ${res.status}: ${errText.slice(0, 200)}`;
+  } catch (e) {
+    lastError = `new API exception: ${e}`;
+  }
+
+  // Fallback: old API
+  try {
+    const params2 = new URLSearchParams({
+      applicationId: RAKUTEN_APP_ID,
+      affiliateId: RAKUTEN_AFFILIATE_ID,
+      keyword,
+      hits: "30",
+      page: String(page),
+      sort: "-reviewCount",
+      format: "json",
+    });
+    const res2 = await fetch(
+      `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params2}`,
+      { headers, cache: "no-store" }
+    );
+    if (res2.ok) {
       const data2 = await res2.json();
       return data2.Items ?? [];
     }
-
-    const data = await res.json();
-    return data.Items ?? [];
-  } catch {
-    return [];
+    const errText2 = await res2.text().catch(() => "");
+    lastError += ` | old API ${res2.status}: ${errText2.slice(0, 200)}`;
+  } catch (e) {
+    lastError += ` | old API exception: ${e}`;
   }
+
+  return [];
 }
 
 export async function GET(req: NextRequest) {
@@ -219,5 +239,5 @@ export async function GET(req: NextRequest) {
     })
     .filter((product) => product.profits.some((p) => p.profit > 0));
 
-  return Response.json({ products });
+  return Response.json({ products, debug: { total: allItems.length, filtered: products.length, error: lastError || null } });
 }
