@@ -30,9 +30,3 @@ export function toEbayListingUrl(title: string): string {
   return `https://www.ebay.com/sl/list?title=${encodeURIComponent(title)}`;
 }
 
-const SOLD_EXPIRY_MS = 36 * 60 * 60 * 1000;
-
-export function isSoldExpired(soldAt?: string): boolean {
-  if (!soldAt) return false;
-  return Date.now() - new Date(soldAt).getTime() > SOLD_EXPIRY_MS;
-}

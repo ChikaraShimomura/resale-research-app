@@ -52,7 +52,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-4">
             {[
               { icon: Search, title: "1. ジャンルや商品名で探す", desc: "トレカ・ガンプラ・コスメなどジャンル別に、利益が出やすい商品を一覧表示" },
-              { icon: TrendingUp, title: "2. eBay・メルカリの相場を確認", desc: "海外（eBay）と国内（メルカリ）、どちらで売れば利益が出るかをひと目で比較できます" },
+              { icon: TrendingUp, title: "2. eBayの落札実績を確認", desc: "海外（eBay）での過去の落札価格をもとに、実際に利益が出る商品だけをリストアップします" },
               { icon: ShoppingBag, title: "3. リンクから仕入れて、売るだけ", desc: "仕入れ先のリンクをそのまま掲載。気に入った商品が見つかったらすぐ動けます" },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="bg-white rounded-xl p-5 border border-gray-200 flex gap-4">
@@ -74,18 +74,15 @@ export default function LandingPage() {
         <h2 className="text-xl font-bold text-gray-900 text-center mb-6">利益が出る商品の例</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { name: "ポケモンカードBOX", buy: "¥6,600", point: "10%", mercari: "+¥3,136", ebay: "+¥6,318" },
-            { name: "資生堂アネッサ", buy: "¥2,200", point: "20%", mercari: "×赤字", ebay: "+¥3,272" },
-            { name: "LEGOテクニック", buy: "¥32,000", point: "12%", mercari: "+¥2,690", ebay: "+¥20,540" },
-            { name: "Switch有機EL", buy: "¥37,980", point: "8%", mercari: "×赤字", ebay: "+¥10,166" },
+            { name: "ポケモンカードBOX", buy: "¥6,600", point: "10%", ebay: "+¥6,318" },
+            { name: "資生堂アネッサ", buy: "¥2,200", point: "20%", ebay: "+¥3,272" },
+            { name: "LEGOテクニック", buy: "¥32,000", point: "12%", ebay: "+¥20,540" },
+            { name: "Switch有機EL", buy: "¥37,980", point: "8%", ebay: "+¥10,166" },
           ].map((item) => (
             <div key={item.name} className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="font-medium text-gray-900 text-sm mb-2">{item.name}</p>
               <p className="text-xs text-gray-500 mb-3">楽天 {item.buy}（ポイント{item.point}）</p>
               <div className="flex gap-2">
-                <span className="flex items-center gap-1 text-xs px-2 py-1 bg-red-50 text-red-600 rounded-full border border-red-100">
-                  <ShoppingBag size={10} />メルカリ {item.mercari}
-                </span>
                 <span className="flex items-center gap-1 text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                   <Globe size={10} />eBay {item.ebay}
                 </span>

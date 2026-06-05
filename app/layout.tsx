@@ -19,24 +19,24 @@ const SITE_URL = "https://www.yushutsu-fukugyo.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "輸出で副業しようよ｜楽天商品をeBay・メルカリで利益を出す",
+    default: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
     template: "%s | 輸出で副業しようよ",
   },
-  description: "楽天で仕入れてeBayやメルカリで売る！利益率が高い商品を自動でリストアップ。日本の商品を海外に輸出して副収入を得たい方向けの無料リサーチツール。",
-  keywords: ["輸出副業", "せどり", "eBay輸出", "メルカリ転売", "楽天仕入れ", "副業", "在宅副業", "フィギュア転売"],
+  description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。日本の商品を海外に輸出して副収入を得たい方向けの無料リサーチツール。",
+  keywords: ["輸出副業", "せどり", "eBay輸出", "楽天仕入れ", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     url: SITE_URL,
     siteName: "輸出で副業しようよ",
-    title: "輸出で副業しようよ｜楽天商品をeBay・メルカリで利益を出す",
-    description: "楽天で仕入れてeBayやメルカリで売る！利益率が高い商品を自動でリストアップ。",
+    title: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
+    description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
     locale: "ja_JP",
   },
   twitter: {
     card: "summary_large_image",
-    title: "輸出で副業しようよ｜楽天商品をeBay・メルカリで利益を出す",
-    description: "楽天で仕入れてeBayやメルカリで売る！利益率が高い商品を自動でリストアップ。",
+    title: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
+    description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
   },
   robots: {
     index: true,
