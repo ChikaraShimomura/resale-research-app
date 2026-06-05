@@ -1,0 +1,149 @@
+"use client";
+import { Product, ProfitInfo } from "../types";
+import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl } from "../lib/utils";
+import { Globe, ShoppingBag } from "lucide-react";
+import Link from "next/link";
+import ListingHelper from "./ListingHelper";
+import { useState, useEffect } from "react";
+
+const LISTING_LIMIT = 30;
+
+const SITE_STYLES: Record<string, string> = {
+  rakuten: "bg-red-50 text-red-600 border-red-100",
+  surugaya: "bg-purple-50 text-purple-600 border-purple-100",
+  bookoff: "bg-green-50 text-green-600 border-green-100",
+};
+
+function ProfitRow({ p }: { p: ProfitInfo }) {
+  const icon = p.platform === "ebay"
+    ? <Globe size={11} className="text-blue-500 shrink-0" />
+    : <ShoppingBag size={11} className="text-red-400 shrink-0" />;
+
+  const monthlyMarket = Math.round(p.soldCount / 3);
+  const myMonthly = Math.max(1, Math.round(monthlyMarket * 0.1));
+  const monthlyProfit = myMonthly * p.profit;
+
+  return (
+    <div className="py-1 border-t border-gray-100 first:border-0">
+      <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 w-16 shrink-0">
+          {icon}
+          <span className="text-xs text-gray-400">{p.platformName}</span>
+        </div>
+        <span className="flex-1 text-xs text-gray-400 truncate">
+          {formatJpy(p.avgPrice)}<span className="text-gray-300 ml-0.5">({p.soldCount}件)</span>
+        </span>
+        <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0", getProfitBadgeStyle(p.profitRate))}>
+          {p.profit >= 0 ? "+" : ""}{formatJpy(p.profit)}（{p.profitRate}%）
+        </span>
+      </div>
+      {p.profit > 0 && (
+        <p className="text-xs text-gray-400 mt-0.5 pl-0.5">
+          月{monthlyMarket}件の需要 →
+          <span className="text-indigo-500 font-medium"> 月{myMonthly}個売れば {formatJpy(monthlyProfit)}/月</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function ProductCard({ product }: { product: Product }) {
+  const { source } = product;
+  const siteStyle = SITE_STYLES[source.site] ?? "bg-gray-50 text-gray-600 border-gray-200";
+  const sourceUrl = source.site === "rakuten" ? toRakutenAffiliateUrl(source.url) : source.url;
+
+  const [listingCount, setListingCount] = useState(0);
+
+  useEffect(() => {
+    fetch(`/api/listing-count/${product.id}`)
+      .then((r) => r.json())
+      .then((d) => setListingCount(d.count ?? 0))
+      .catch(() => {});
+  }, [product.id]);
+
+  const limitReached = listingCount >= LISTING_LIMIT;
+
+  return (
+    <div className={cn(
+      "relative bg-white border border-gray-200 rounded-xl overflow-hidden transition-shadow",
+      product.soldOut || limitReached ? "opacity-60" : "hover:shadow-md"
+    )}>
+      {/* SOLD オーバーレイ */}
+      {product.soldOut && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <span className="rotate-[-20deg] border-4 border-red-500 text-red-500 text-2xl font-black px-4 py-1 rounded-lg tracking-widest opacity-80">
+            SOLD
+          </span>
+        </div>
+      )}
+
+      {/* 利用上限オーバーレイ */}
+      {limitReached && !product.soldOut && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-center shadow-md max-w-xs">
+            <p className="text-xs font-bold text-gray-700 leading-relaxed">
+              利用上限に達しました。
+            </p>
+            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+              ※各フリマサイトに同じ商品が乱立するのを回避するため、本商品のご紹介は終了します。
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* NEW バッジ */}
+      {product.isNew && (
+        <span className="absolute top-2 right-2 z-10 bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          NEW
+        </span>
+      )}
+
+      {/* 商品情報 */}
+      <div className="flex gap-2.5 p-3">
+        <img src={product.imageUrl} alt={product.title}
+          className="w-12 h-12 rounded-lg object-cover shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <span className={cn("text-xs px-1.5 py-0 rounded-full font-medium border leading-5", siteStyle)}>
+              {source.siteName} {formatJpy(source.price)}
+            </span>
+          </div>
+          <h3 className="font-medium text-gray-900 text-xs leading-snug line-clamp-2">
+            {product.title}
+          </h3>
+        </div>
+      </div>
+
+      {/* 利益比較 */}
+      <div className="px-3 pb-2">
+        {product.profits.map((p) => (
+          <ProfitRow key={p.platform} p={p} />
+        ))}
+        {source.site === "rakuten" && source.pointAmount && (
+          <div className="flex items-center gap-1 pt-1.5 border-t border-gray-100 mt-1">
+            <span className="text-xs text-orange-500 font-medium">
+              🎁 さらに +{source.pointAmount.toLocaleString()}楽天ポイント が別途もらえます
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* フッター */}
+      <div className="px-3 pb-3 space-y-1.5">
+        <div className="flex gap-1.5">
+          <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+            className="flex-1 text-center py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+            {source.siteName}で仕入れる ↗
+          </a>
+          <Link href={`/product/${product.id}`}
+            className="px-2.5 py-1.5 border border-gray-200 text-gray-500 text-xs rounded-lg hover:bg-gray-50 transition-colors">
+            詳細
+          </Link>
+        </div>
+        {!limitReached && (
+          <ListingHelper product={product} onCountChange={setListingCount} />
+        )}
+      </div>
+    </div>
+  );
+}
