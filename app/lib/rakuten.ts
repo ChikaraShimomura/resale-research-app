@@ -1,6 +1,7 @@
 import { Product } from "../types";
 
-const RAKUTEN_APP_ID = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
+const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
+const RAKUTEN_ACCESS_KEY = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
 
 const EBAY_FEE_RATE = 0.1325;
@@ -26,6 +27,7 @@ function calcMercariProfit(buyPrice: number) {
 export async function searchRakuten(keyword: string): Promise<Product[]> {
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
+    accessKey: RAKUTEN_ACCESS_KEY,
     affiliateId: RAKUTEN_AFFILIATE_ID,
     keyword,
     hits: "20",
@@ -34,7 +36,7 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
   });
 
   const res = await fetch(
-    `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params}`
+    `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`
   );
 
   if (!res.ok) throw new Error("Rakuten API error");
