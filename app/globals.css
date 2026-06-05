@@ -67,3 +67,12 @@ textarea {
 .pb-nav {
   padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
+
+/* 横スクロール時のスクロールバーを非表示（ジャンルタブなど） */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

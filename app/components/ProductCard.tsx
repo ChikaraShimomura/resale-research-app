@@ -1,6 +1,6 @@
 "use client";
-import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl } from "../lib/utils";
-import { ShoppingBag, Heart, Share2 } from "lucide-react";
+import { formatJpy, cn, toRakutenAffiliateUrl } from "../lib/utils";
+import { Heart, Share2, TrendingUp, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
@@ -18,6 +18,29 @@ function useFavorite(productId: string) {
     setIsFav(next);
   };
   return { isFav, toggle };
+}
+
+function ProfitBadge({ rate }: { rate: number }) {
+  if (rate >= 50) return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-black px-2.5 py-1 rounded-full bg-red-500 text-white shadow-sm shadow-red-200">
+      🔥 +{rate}%
+    </span>
+  );
+  if (rate >= 30) return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500 text-white shadow-sm shadow-emerald-200">
+      ↑ +{rate}%
+    </span>
+  );
+  if (rate >= 10) return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400 text-white shadow-sm shadow-amber-100">
+      +{rate}%
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
+      +{rate}%
+    </span>
+  );
 }
 
 export default function ProductCard({ product }: { product: ProfitProduct }) {
@@ -40,11 +63,20 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://www.yushutsu-fukugyo.com")}`, "_blank");
   };
 
+  const isHot = product.realProfitRate >= 50;
+
   return (
     <div className={cn(
-      "relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all active:scale-[0.99]",
+      "relative bg-white rounded-2xl overflow-hidden transition-all",
+      "shadow-[0_2px_12px_rgba(0,0,0,0.06)] active:shadow-[0_1px_4px_rgba(0,0,0,0.08)] active:scale-[0.992]",
       (product.soldOut || limitReached) && "opacity-50"
     )}>
+
+      {/* ホット商品ライン */}
+      {isHot && !product.soldOut && (
+        <div className="h-1 bg-gradient-to-r from-orange-400 via-red-500 to-pink-500" />
+      )}
+
       {product.soldOut && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
           <span className="rotate-[-20deg] border-4 border-red-500 text-red-500 text-2xl font-black px-4 py-1 rounded-lg tracking-widest opacity-80">SOLD</span>
@@ -59,93 +91,144 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         </div>
       )}
 
-      {/* ヘッダー */}
-      <div className="flex gap-3 p-4 pb-0">
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.title}
-            className="w-16 h-16 rounded-xl object-cover shrink-0 bg-gray-100" />
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-2xl">📦</div>
-        )}
-        <div className="flex-1 min-w-0 pt-0.5">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-50 text-red-600 border border-red-100">
-              楽天 {formatJpy(source.price)}
-            </span>
-            {product.isNew && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-indigo-600 text-white">NEW</span>
+      <div className="p-4">
+        {/* 上段：画像 + タイトル + バッジ */}
+        <div className="flex gap-3 mb-3">
+          {/* サムネイル（メルカリ風：大きめ） */}
+          <div className="shrink-0">
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.title}
+                className="w-20 h-20 rounded-xl object-cover bg-gray-100"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-3xl">
+                📦
+              </div>
             )}
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full font-bold border ml-auto",
-              getProfitBadgeStyle(product.realProfitRate)
-            )}>
-              +{product.realProfitRate}%
-            </span>
           </div>
-          <h3 className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{product.title}</h3>
-        </div>
-      </div>
 
-      {/* eBay実績 */}
-      <div className="px-4 pt-3 pb-1">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 w-16 shrink-0">
-            <ShoppingBag size={12} className="text-blue-400 shrink-0" />
-            <span className="text-xs font-medium text-gray-500">eBay</span>
-          </div>
+          {/* 情報 */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs text-gray-600 font-medium">{formatJpy(product.realAvgPrice)}</span>
-              <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                実績{product.realCount}件
+            {/* タグ行 */}
+            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+              {product.isNew && (
+                <span className="text-xs px-1.5 py-0.5 rounded font-bold bg-indigo-600 text-white leading-none">NEW</span>
+              )}
+              {isHot && (
+                <span className="text-xs px-1.5 py-0.5 rounded font-bold bg-orange-50 text-orange-500 border border-orange-200 leading-none">急騰中</span>
+              )}
+              <span className="ml-auto">
+                <ProfitBadge rate={product.realProfitRate} />
               </span>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {product.ebaySoldUrl && (
-              <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-indigo-400 hover:text-indigo-600"
-                onClick={(e) => e.stopPropagation()}>
-                eBay↗
-              </a>
+
+            {/* 商品名 */}
+            <h3 className="text-[13px] font-medium text-gray-800 leading-snug line-clamp-2 mb-2">
+              {product.title}
+            </h3>
+
+            {/* ポイント還元 */}
+            {(source.pointAmount ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-orange-500 font-semibold">
+                🎁 {(source.pointAmount ?? 0).toLocaleString()}pt 還元
+              </span>
             )}
-            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", getProfitBadgeStyle(product.realProfitRate))}>
-              +{product.realProfitRate}%
-            </span>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1 pl-0.5">
-          利益 <span className="text-indigo-500 font-semibold">{formatJpy(product.realProfit)}</span>／個
-          <span className="text-gray-300 ml-1">（eBay手数料10% + 送料¥500）</span>
-        </p>
 
-        {(source.pointAmount ?? 0) > 0 && (
-          <div className="flex items-center gap-1 pt-2 border-t border-gray-100 mt-2">
-            <span className="text-xs text-orange-500 font-medium">🎁 +{(source.pointAmount ?? 0).toLocaleString()}pt 還元</span>
+        {/* 価格フロー（Yahoo!フリマ風：矢印で仕入れ→売値を表現） */}
+        <div className="bg-gray-50 rounded-xl px-3 py-2.5 mb-3">
+          <div className="flex items-center gap-2">
+            {/* 仕入れ価格 */}
+            <div className="text-center min-w-0">
+              <p className="text-[10px] text-gray-400 font-medium mb-0.5">楽天仕入れ</p>
+              <p className="text-sm font-bold text-gray-700">{formatJpy(source.price)}</p>
+            </div>
+
+            {/* 矢印 */}
+            <div className="flex flex-col items-center gap-0.5 shrink-0">
+              <ChevronRight size={16} className="text-indigo-400" />
+            </div>
+
+            {/* eBay売値 */}
+            <div className="text-center min-w-0">
+              <p className="text-[10px] text-blue-500 font-medium mb-0.5">eBay平均落札</p>
+              <p className="text-sm font-bold text-blue-600">{formatJpy(product.realAvgPrice)}</p>
+            </div>
+
+            {/* 区切り */}
+            <div className="w-px h-8 bg-gray-200 mx-1 shrink-0" />
+
+            {/* 利益額（PayPay風：大きく強調） */}
+            <div className="flex-1 text-right">
+              <p className="text-[10px] text-emerald-600 font-medium mb-0.5">利益（手数料後）</p>
+              <p className="text-base font-black text-emerald-600">
+                {formatJpy(product.realProfit)}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* アクションボタン */}
-      <div className="px-4 pb-4 pt-2 space-y-2">
-        <div className="flex gap-2">
-          <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
-            className="flex-1 text-center py-2.5 bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
-            楽天で仕入れる ↗
-          </a>
-          <button onClick={toggleFav}
-            className={cn("w-10 h-10 flex items-center justify-center rounded-xl border transition-colors",
-              isFav ? "bg-rose-50 border-rose-200 text-rose-500" : "bg-gray-50 border-gray-200 text-gray-400")}>
-            <Heart size={16} fill={isFav ? "currentColor" : "none"} />
-          </button>
-          <button onClick={shareOnX}
-            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-400">
-            <Share2 size={16} />
-          </button>
+          {/* 実績件数 */}
+          {product.realCount > 0 && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+              <div className="flex items-center gap-1">
+                <TrendingUp size={11} className="text-blue-400" />
+                <span className="text-[11px] text-gray-400">eBay落札実績</span>
+                <span className="text-[11px] font-bold text-blue-500">{product.realCount}件</span>
+              </div>
+              {product.ebaySoldUrl && (
+                <a
+                  href={product.ebaySoldUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] text-indigo-400 font-medium hover:text-indigo-600"
+                >
+                  実績を見る ↗
+                </a>
+              )}
+            </div>
+          )}
         </div>
-        {!limitReached && (
-          <ListingHelper product={product} onCountChange={setListingCount} />
-        )}
+
+        {/* アクションボタン群 */}
+        <div className="space-y-2">
+          {/* 仕入れ＋ハートボタン */}
+          <div className="flex gap-2">
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center py-2.5 bg-indigo-600 active:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors"
+            >
+              楽天で仕入れる ↗
+            </a>
+            <button
+              onClick={toggleFav}
+              className={cn(
+                "w-10 h-10 flex items-center justify-center rounded-xl border-2 transition-colors",
+                isFav
+                  ? "bg-rose-50 border-rose-300 text-rose-500"
+                  : "bg-gray-50 border-gray-200 text-gray-300"
+              )}
+            >
+              <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+            </button>
+            <button
+              onClick={shareOnX}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100"
+            >
+              <Share2 size={16} />
+            </button>
+          </div>
+
+          {/* eBay出品ボタン */}
+          {!limitReached && (
+            <ListingHelper product={product} onCountChange={setListingCount} />
+          )}
+        </div>
       </div>
     </div>
   );
