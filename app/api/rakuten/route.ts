@@ -8,8 +8,7 @@ const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
 // eBay手数料・送料の概算
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 40; // $0.30 ≈ ¥40
-const INTL_SHIPPING = 2250; // 〜500g EMS
-const USD_JPY = 150;
+const INTL_SHIPPING = 1500; // 概算（小型商品）
 
 function calcEbayProfit(buyPrice: number): { avgPrice: number; profit: number; profitRate: number } {
   // eBay想定売価 = 仕入れ価格の2倍（概算）
@@ -57,7 +56,7 @@ export async function GET(req: NextRequest) {
   const items = data.Items ?? [];
 
   const products: Product[] = items
-    .filter((item: any) => item.Item.itemPrice > 500)
+    .filter((item: any) => item.Item.itemPrice >= 1000)
     .map((item: any): Product => {
       const it = item.Item;
       const price: number = it.itemPrice;
@@ -100,7 +99,7 @@ export async function GET(req: NextRequest) {
         isNew: false,
       };
     })
-    .filter((p: Product) => p.profits.some((pr) => pr.profit > 0));
+    ;
 
   return Response.json({ products });
 }
