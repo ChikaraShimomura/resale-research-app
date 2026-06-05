@@ -5,6 +5,7 @@ import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { Product } from "../types";
+import { searchRakuten } from "../lib/rakuten";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -17,17 +18,16 @@ function ResultsContent() {
   useEffect(() => {
     setLoading(true);
     const q = keyword || genre || "フィギュア おもちゃ";
-    fetch(`/api/rakuten?keyword=${encodeURIComponent(q)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const sorted = (d.products ?? []).sort((a: Product, b: Product) => {
+    searchRakuten(q)
+      .then((items) => {
+        const sorted = items.sort((a: Product, b: Product) => {
           const bestA = Math.max(...a.profits.map((p) => p.profitRate));
           const bestB = Math.max(...b.profits.map((p) => p.profitRate));
           return bestB - bestA;
         });
         setProducts(sorted);
       })
-      .catch(() => setProducts([]))
+      .catch((e) => { console.error(e); setProducts([]); })
       .finally(() => setLoading(false));
   }, [keyword, genre]);
 
