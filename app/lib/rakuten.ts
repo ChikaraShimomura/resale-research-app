@@ -114,7 +114,7 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
     accessKey: RAKUTEN_ACCESS_KEY,
     affiliateId: RAKUTEN_AFFILIATE_ID,
     keyword,
-    hits: "20",
+    hits: "30",
     sort: "-reviewCount",
     format: "json",
   });

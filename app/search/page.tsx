@@ -96,7 +96,7 @@ export default function SearchPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {products.slice(0, 10).map((product) => (
+              {products.slice(0, 30).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
