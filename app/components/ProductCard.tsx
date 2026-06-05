@@ -63,7 +63,9 @@ function ProfitRow({ p, mercariReal, buyPrice, coreKeyword }: { p: ProfitInfo; m
         <span className="flex-1 text-xs text-gray-400 truncate">
           {formatJpy(displayAvgPrice)}
           {isRealData
-            ? <span className="text-green-500 ml-0.5 font-medium">({mercariReal!.count}件実績)</span>
+            ? <span className="text-green-500 ml-0.5 font-medium">
+                ({mercariReal!.count}件一致{mercariReal!.confidence ? ` ${mercariReal!.confidence}%` : ""})
+              </span>
             : <span className="text-gray-300 ml-0.5">({p.soldCount}件)</span>
           }
           {coreKeyword && (
@@ -99,16 +101,24 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const [listingCount, setListingCount] = useState(0);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
-  const [mercariReal, setMercariReal] = useState<{ avgPrice: number; count: number } | null>(null);
+  const [mercariReal, setMercariReal] = useState<{ avgPrice: number; count: number; confidence?: number } | null>(null);
 
   const coreKeyword = extractCoreKeyword(product.title);
 
   useEffect(() => {
-    fetch(`/api/mercari?q=${encodeURIComponent(coreKeyword)}`)
+    fetch("/api/match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rakutenTitle: product.title,
+        rakutenImageUrl: product.imageUrl,
+        rakutenPrice: source.price,
+      }),
+    })
       .then((r) => r.json())
-      .then((d) => { if (d.avgPrice) setMercariReal(d); })
+      .then((d) => { if (d.matched && d.avgPrice) setMercariReal(d); })
       .catch(() => {});
-  }, [product.id, product.title]);
+  }, [product.id]);
 
   const shareOnX = () => {
     const bestProfit = product.profits.reduce((a, b) => a.profitRate > b.profitRate ? a : b);
