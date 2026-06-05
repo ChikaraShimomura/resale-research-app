@@ -168,18 +168,20 @@ async function fetchPage(keyword: string, page: number): Promise<any[]> {
   return [];
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const keyword = searchParams.get("keyword") ?? "フィギュア おもちゃ";
 
   const ebayConfig = getEbayConfig(keyword);
 
-  // Fetch pages 1 and 2 in parallel, page 3 after
-  const [page1, page2] = await Promise.all([
-    fetchPage(keyword, 1),
-    fetchPage(keyword, 2),
-  ]);
-  const page3 = page1.length >= 30 ? await fetchPage(keyword, 3) : [];
+  // Sequential fetch to avoid 429 rate limit
+  const page1 = await fetchPage(keyword, 1);
+  await sleep(600);
+  const page2 = page1.length >= 30 ? await fetchPage(keyword, 2) : [];
+  await sleep(600);
+  const page3 = page2.length >= 30 ? await fetchPage(keyword, 3) : [];
 
   const allItems = [...page1, ...page2, ...page3];
 
