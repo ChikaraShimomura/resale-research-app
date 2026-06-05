@@ -18,14 +18,9 @@ function toEbaySoldUrl(keyword: string): string {
   return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
 }
 
-function toMercariSoldUrl(keyword: string): string {
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
-}
-
 const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
 const RAKUTEN_ACCESS_KEY = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
-
 
 function parseImageUrl(urls: any): string {
   if (!urls) return "";
@@ -34,11 +29,9 @@ function parseImageUrl(urls: any): string {
   return "";
 }
 
-// In-memory cache to avoid hammering Rakuten API (1h TTL)
+// In-memory cache (1h TTL)
 const pageCache = new Map<string, { items: any[]; expiresAt: number }>();
-
 let lastError = "";
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchPage(keyword: string, page: number): Promise<any[]> {
@@ -52,7 +45,6 @@ async function fetchPage(keyword: string, page: number): Promise<any[]> {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
   };
 
-  // Retry up to 3 times on 429
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const params = new URLSearchParams({
@@ -85,10 +77,10 @@ async function fetchPage(keyword: string, page: number): Promise<any[]> {
       }
 
       const errText = await res.text().catch(() => "");
-      lastError = `new API ${res.status}: ${errText.slice(0, 200)}`;
+      lastError = `${res.status}: ${errText.slice(0, 200)}`;
       break;
     } catch (e) {
-      lastError = `new API exception: ${e}`;
+      lastError = `exception: ${e}`;
       break;
     }
   }
@@ -100,7 +92,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const keyword = searchParams.get("keyword") ?? "フィギュア おもちゃ";
 
-  // Sequential fetch to avoid 429 rate limit
+  // Sequential fetch to avoid 429
   const page1 = await fetchPage(keyword, 1);
   await sleep(600);
   const page2 = page1.length >= 30 ? await fetchPage(keyword, 2) : [];
@@ -109,7 +101,7 @@ export async function GET(req: NextRequest) {
 
   const allItems = [...page1, ...page2, ...page3];
 
-  // Dedup
+  // Dedup by itemCode
   const seen = new Set<string>();
   const unique = allItems.filter((item: any) => {
     const id = item.Item?.itemCode;
@@ -139,13 +131,14 @@ export async function GET(req: NextRequest) {
           pointRate: it.pointRate,
           pointAmount: Math.floor(price * (it.pointRate ?? 1) / 100),
         },
-        profits: [], // 実績価格が取れたクライアント側で計算・表示
         isNew: false,
         coreKeyword: coreKw,
         ebaySoldUrl: toEbaySoldUrl(coreKw),
-        mercariSoldUrl: toMercariSoldUrl(coreKw),
       };
     });
 
-  return Response.json({ products, debug: { total: allItems.length, filtered: products.length, error: lastError || null } });
+  return Response.json({
+    products,
+    debug: { total: allItems.length, filtered: products.length, error: lastError || null },
+  });
 }

@@ -1,14 +1,14 @@
 import { Product } from "../types";
 
-const MERCARI_SHIPPING = 500;
+const EBAY_SHIPPING = 500;   // 国内送料概算（eBay発送コスト）
 const MIN_PROFIT = 500;
-const BATCH_SIZE = 5; // 同時リクエスト数
+const BATCH_SIZE = 5;
 
 export interface ProfitProduct extends Product {
-  realAvgPrice: number;
-  realProfit: number;
-  realProfitRate: number;
-  realCount: number;
+  realAvgPrice: number;  // eBay落札平均価格（円換算）
+  realProfit: number;    // 利益額
+  realProfitRate: number; // 利益率（%）
+  realCount: number;     // 落札件数
 }
 
 async function checkProfit(product: Product): Promise<ProfitProduct | null> {
@@ -18,7 +18,6 @@ async function checkProfit(product: Product): Promise<ProfitProduct | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         rakutenTitle: product.title,
-        rakutenImageUrl: product.imageUrl,
         rakutenPrice: product.source.price,
       }),
     });
@@ -26,8 +25,8 @@ async function checkProfit(product: Product): Promise<ProfitProduct | null> {
     if (!d.matched || !d.avgPrice) return null;
 
     const avg = d.avgPrice as number;
-    const fee = Math.round(avg * 0.1);
-    const profit = avg - product.source.price - fee - MERCARI_SHIPPING;
+    const fee = Math.round(avg * 0.1);  // eBay手数料 約10%
+    const profit = avg - product.source.price - fee - EBAY_SHIPPING;
     if (profit < MIN_PROFIT) return null;
 
     const profitRate = Math.round((profit / product.source.price) * 100);
@@ -37,7 +36,6 @@ async function checkProfit(product: Product): Promise<ProfitProduct | null> {
   }
 }
 
-// バッチ処理で利益商品だけ返す
 export async function filterProfitable(
   products: Product[],
   onProgress?: (found: ProfitProduct[], checked: number, total: number) => void

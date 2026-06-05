@@ -22,42 +22,12 @@ export function getProfitBadgeStyle(rate: number): string {
   return "bg-red-100 text-red-600 border-red-200";
 }
 
-// 楽天タイトルからノイズを除去してコアキーワードを抽出
-export function extractCoreKeyword(title: string): string {
-  return title
-    .replace(/【[^】]*】/g, "")
-    .replace(/\([^)]*\)/g, "")
-    .replace(/（[^）]*）/g, "")
-    .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 4)
-    .join(" ");
-}
-
-// eBay販売実績（Sold Listings）検索URL
 export function toEbaySoldUrl(keyword: string): string {
   return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
 }
 
-// メルカリ販売実績（売り切れ）検索URL
-export function toMercariSoldUrl(keyword: string): string {
-  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&status=sold_out`;
-}
-
-// eBay出品URL（タイトル・説明文を事前入力）
-export function toEbayListingUrl(titleEn: string, descriptionEn: string): string {
-  const params = new URLSearchParams({
-    title: titleEn,
-    description: descriptionEn,
-  });
-  return `https://www.ebay.com/sl/list?${params.toString()}`;
-}
-
-// メルカリ出品URL（写真撮影から出品できる出品ページ）
-export function toMercariListingUrl(): string {
-  return "https://jp.mercari.com/sell/item";
+export function toEbayListingUrl(title: string): string {
+  return `https://www.ebay.com/sl/list?title=${encodeURIComponent(title)}`;
 }
 
 const SOLD_EXPIRY_MS = 36 * 60 * 60 * 1000;

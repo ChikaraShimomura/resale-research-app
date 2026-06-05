@@ -19,7 +19,7 @@ export default function FavoritesPage() {
       return;
     }
 
-    searchRakuten("フィギュア おもちゃ ゲーム アニメ")
+    searchRakuten("フィギュア おもちゃ")
       .then((items) => {
         const favItems = items.filter((p) => favIds.includes(p.id));
         return filterProfitable(favItems);

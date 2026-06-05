@@ -22,7 +22,7 @@ function useFavorite(productId: string) {
 
 export default function ProductCard({ product }: { product: ProfitProduct }) {
   const { source } = product;
-  const sourceUrl = source.site === "rakuten" ? toRakutenAffiliateUrl(source.url) : source.url;
+  const sourceUrl = toRakutenAffiliateUrl(source.url);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
   const [listingCount, setListingCount] = useState(0);
 
@@ -86,11 +86,11 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         </div>
       </div>
 
-      {/* メルカリ利益 */}
+      {/* eBay実績 */}
       <div className="px-4 pt-3 pb-1">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 w-16 shrink-0">
-            <ShoppingBag size={12} className="text-rose-400 shrink-0" />
+            <ShoppingBag size={12} className="text-blue-400 shrink-0" />
             <span className="text-xs font-medium text-gray-500">eBay</span>
           </div>
           <div className="flex-1 min-w-0">
@@ -102,8 +102,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {product.mercariSoldUrl && (
-              <a href={product.mercariSoldUrl} target="_blank" rel="noopener noreferrer"
+            {product.ebaySoldUrl && (
+              <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-indigo-400 hover:text-indigo-600"
                 onClick={(e) => e.stopPropagation()}>
                 eBay↗
@@ -116,7 +116,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         </div>
         <p className="text-xs text-gray-400 mt-1 pl-0.5">
           利益 <span className="text-indigo-500 font-semibold">{formatJpy(product.realProfit)}</span>／個
-          <span className="text-gray-300 ml-1">（手数料10% + 送料¥500）</span>
+          <span className="text-gray-300 ml-1">（eBay手数料10% + 送料¥500）</span>
         </p>
 
         {(source.pointAmount ?? 0) > 0 && (
