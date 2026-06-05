@@ -1,6 +1,12 @@
 import { ProfitProduct } from "./profitFilter";
 
-export async function fetchProducts(): Promise<{ products: ProfitProduct[]; lastUpdated: string | null }> {
+export interface ProductsResponse {
+  products: ProfitProduct[];
+  lastUpdated: string | null;
+  isSample?: boolean;
+}
+
+export async function fetchProducts(): Promise<ProductsResponse> {
   try {
     const res = await fetch("/api/products", { cache: "no-store" });
     if (!res.ok) return { products: [], lastUpdated: null };

@@ -4,7 +4,7 @@ import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
 import { GENRES } from "../lib/genres";
-import { fetchProducts } from "../lib/products";
+import { fetchProducts, ProductsResponse } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 
@@ -12,12 +12,14 @@ export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [isSample, setIsSample] = useState(false);
 
   useEffect(() => {
     fetchProducts()
-      .then(({ products, lastUpdated }) => {
+      .then(({ products, lastUpdated, isSample }) => {
         setProducts(products);
         setLastUpdated(lastUpdated);
+        setIsSample(isSample ?? false);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -85,6 +87,16 @@ export default function SearchPage() {
 
         {/* 商品リスト */}
         <div>
+          {/* サンプルバナー */}
+          {isSample && !loading && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-3">
+              <span className="text-base">🔔</span>
+              <p className="text-xs text-amber-700 font-medium leading-snug">
+                現在サンプル商品を表示しています。データ収集が完了すると実際の利益商品に更新されます。
+              </p>
+            </div>
+          )}
+
           {/* セクションヘッダー */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
