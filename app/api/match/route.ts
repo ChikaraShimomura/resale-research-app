@@ -156,8 +156,7 @@ export async function POST(req: NextRequest) {
   const cached = getCached(cacheKey);
   if (cached) return Response.json({ ...cached, fromCache: true });
 
-  // Step1: タイトル正規化
-  const codes = extractProductCode(rakutenTitle);
+  // Step1: 【】と()を完全除去してクリーンなタイトルに
   const cleanTitle = rakutenTitle
     .replace(/【[^】]*】/g, "")
     .replace(/\([^)]*\)/g, "")
@@ -165,23 +164,25 @@ export async function POST(req: NextRequest) {
     .replace(/送料無料|新品|未開封|未使用|正規品|セール|互換|風/g, "")
     .replace(/\s+/g, " ").trim();
 
-  // 型番がある場合は型番を主キーワードに
-  // 英字ブランド名（LEGO, Pokemon等）を優先
-  const brandMatch = cleanTitle.match(/\b[A-Z][A-Za-z]{2,}(?:\s+[A-Z][A-Za-z]+)?\b/);
-  const brand = brandMatch ? brandMatch[0] : "";
-  const jpWords = cleanTitle.replace(/[A-Za-z0-9]/g, " ").split(/\s+/).filter((w) => w.length >= 2).slice(0, 2).join(" ");
+  const codes = extractProductCode(cleanTitle);
 
-  let searchKeyword: string;
-  if (codes.length > 0) {
-    // 型番あり: 型番 + ブランドor日本語
-    searchKeyword = brand ? `${brand} ${codes[0]}` : `${jpWords} ${codes[0]}`;
-  } else if (brand) {
-    // ブランド名あり
-    searchKeyword = `${brand} ${jpWords}`.trim();
-  } else {
-    // 日本語のみ
-    searchKeyword = jpWords || cleanTitle.split(/\s+/).slice(0, 3).join(" ");
+  // 製品番号 + 重複除去した先頭ワードでキーワード生成
+  const words = cleanTitle.split(/\s+/).filter((w) => w.length >= 2);
+  const seen = new Set<string>();
+  const uniqueWords: string[] = [];
+  for (const w of words) {
+    const key = w.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); uniqueWords.push(w); }
   }
+  const numCode = codes[0] ?? null;
+  const keyParts: string[] = [];
+  if (numCode) keyParts.push(numCode);
+  for (const w of uniqueWords) {
+    if (keyParts.length >= 3) break;
+    if (w === numCode) continue;
+    keyParts.push(w);
+  }
+  let searchKeyword = keyParts.join(" ");
 
   // Step2: メルカリ売り切れ商品取得（通常 + リトライ用短縮キーワード）
   let mercariItems = await getMercariSoldItems(searchKeyword);

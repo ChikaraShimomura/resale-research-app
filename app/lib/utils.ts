@@ -22,13 +22,13 @@ export function getProfitBadgeStyle(rate: number): string {
   return "bg-red-100 text-red-600 border-red-200";
 }
 
-// 楽天タイトルからノイズを除去してコアキーワードを抽出（精度重視版）
+// 楽天タイトルからノイズを除去してコアキーワードを抽出
 export function extractCoreKeyword(title: string): string {
-  // Step1: ノイズ除去
-  let cleaned = title
-    .replace(/【[^】]*】/g, "")
-    .replace(/\([^)]*\)/g, "")
-    .replace(/（[^）]*）/g, "")
+  // Step1: 【】と()を完全除去してクリーンなタイトルに
+  const cleaned = title
+    .replace(/【[^】]*】/g, "")   // 【】とその中身を全消し
+    .replace(/\([^)]*\)/g, "")   // ()とその中身を全消し
+    .replace(/（[^）]*）/g, "")  // 全角()も除去
     .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
     .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり|お買い得|お得|激安|大人気/g, "")
     .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット|\d+体セット|\d+冊セット/g, "")
@@ -36,42 +36,30 @@ export function extractCoreKeyword(title: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  // Step2: 型番・品番を最優先で抽出
-  const codePatterns = [
-    /[A-Z]{2,}-?\d{3,}/g,        // SW-1234, SV1S
-    /\b[A-Z]\d{4,}[A-Z]?\b/g,   // F4567A
-    /\b\d{4}-\d{4}\b/g,          // 1234-5678
-    /(?:第\d+弾|Vol\.\d+)/g,     // 第3弾, Vol.2
-    /No\.\d+/ig,                  // No.123
-    /\b\d{4,5}\b/g,              // 21358, 75192 (LEGO番号など4〜5桁)
-  ];
-  const codes: string[] = [];
-  for (const pat of codePatterns) {
-    const m = cleaned.match(pat);
-    if (m) codes.push(...m);
+  // Step2: 製品番号を抽出（最優先）
+  const numCode = cleaned.match(/\b\d{4,5}\b/)?.[0]   // 21358 など4〜5桁
+    ?? cleaned.match(/[A-Z]{2,}-?\d{3,}/)?.[0]         // SW-1234 など
+    ?? cleaned.match(/\b[A-Z]\d{4,}\b/)?.[0];          // F4567 など
+
+  // Step3: 残ワードから重複を除いて先頭から取る
+  const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const w of words) {
+    const key = w.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); unique.push(w); }
   }
 
-  // Step3: ブランド・シリーズ名を抽出（英数字混在ワード優先）
-  const words = cleaned.split(/[\s　]+/).filter(Boolean);
-
-  // 英字を含むワードを優先（ブランド名・型番が多い）
-  const brandWords = words.filter((w) => /[A-Za-z]/.test(w) && w.length >= 2);
-  // 日本語ワード（短すぎるもの・数字のみは除外）
-  const jpWords = words.filter((w) => !/[A-Za-z]/.test(w) && w.length >= 2 && !/^\d+$/.test(w));
-
-  // 組み合わせ: 型番 > 英字ブランド > 日本語ワード（重複除去）
-  const priority: string[] = [];
-  if (codes.length > 0) priority.push(codes[0]);
-  for (const w of brandWords.slice(0, 2)) {
-    if (!priority.some((p) => p.toLowerCase() === w.toLowerCase())) priority.push(w);
-  }
-  for (const w of jpWords.slice(0, 2)) {
-    if (!priority.includes(w)) priority.push(w);
+  // 製品番号 + 先頭2ワード（製品番号と被らないもの）
+  const result: string[] = [];
+  if (numCode) result.push(numCode);
+  for (const w of unique) {
+    if (result.length >= 3) break;
+    if (w === numCode) continue;
+    result.push(w);
   }
 
-  // 重複除去して最大3ワード
-  const unique = [...new Set(priority)].slice(0, 3);
-  return unique.length > 0 ? unique.join(" ") : words.slice(0, 3).join(" ");
+  return result.join(" ");
 }
 
 // eBay販売実績（Sold Listings）検索URL
