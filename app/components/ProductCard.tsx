@@ -1,6 +1,6 @@
 "use client";
 import { Product, ProfitInfo } from "../types";
-import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl } from "../lib/utils";
+import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl, extractCoreKeyword, toEbaySoldUrl, toMercariSoldUrl } from "../lib/utils";
 import { Globe, ShoppingBag, Heart, Share2 } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
@@ -28,7 +28,7 @@ const SITE_STYLES: Record<string, string> = {
   bookoff: "bg-green-50 text-green-600 border-green-100",
 };
 
-function ProfitRow({ p, mercariReal, buyPrice }: { p: ProfitInfo; mercariReal?: { avgPrice: number; count: number } | null; buyPrice?: number }) {
+function ProfitRow({ p, mercariReal, buyPrice, coreKeyword }: { p: ProfitInfo; mercariReal?: { avgPrice: number; count: number } | null; buyPrice?: number; coreKeyword?: string }) {
   const icon = p.platform === "ebay"
     ? <Globe size={11} className="text-blue-500 shrink-0" />
     : <ShoppingBag size={11} className="text-red-400 shrink-0" />;
@@ -66,6 +66,17 @@ function ProfitRow({ p, mercariReal, buyPrice }: { p: ProfitInfo; mercariReal?: 
             ? <span className="text-green-500 ml-0.5 font-medium">({mercariReal!.count}件実績)</span>
             : <span className="text-gray-300 ml-0.5">({p.soldCount}件)</span>
           }
+          {coreKeyword && (
+            <a
+              href={p.platform === "ebay" ? toEbaySoldUrl(coreKeyword) : toMercariSoldUrl(coreKeyword)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1.5 text-indigo-400 hover:text-indigo-600 underline underline-offset-2 shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              実績確認↗
+            </a>
+          )}
         </span>
         <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0", getProfitBadgeStyle(displayProfitRate))}>
           {displayProfit >= 0 ? "+" : ""}{formatJpy(displayProfit)}（{displayProfitRate}%）
@@ -90,10 +101,10 @@ export default function ProductCard({ product }: { product: Product }) {
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
   const [mercariReal, setMercariReal] = useState<{ avgPrice: number; count: number } | null>(null);
 
+  const coreKeyword = extractCoreKeyword(product.title);
+
   useEffect(() => {
-    // 商品タイトルから短いキーワードを抽出（最初の20文字程度）
-    const shortKeyword = product.title.slice(0, 20);
-    fetch(`/api/mercari?q=${encodeURIComponent(shortKeyword)}`)
+    fetch(`/api/mercari?q=${encodeURIComponent(coreKeyword)}`)
       .then((r) => r.json())
       .then((d) => { if (d.avgPrice) setMercariReal(d); })
       .catch(() => {});
@@ -169,7 +180,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* 利益比較 */}
       <div className="px-3 pb-2">
         {product.profits.map((p) => (
-          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} />
+          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} coreKeyword={coreKeyword} />
         ))}
         {source.site === "rakuten" && source.pointAmount && (
           <div className="flex items-center gap-1 pt-1.5 border-t border-gray-100 mt-1">

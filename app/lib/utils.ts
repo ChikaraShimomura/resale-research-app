@@ -22,6 +22,32 @@ export function getProfitBadgeStyle(rate: number): string {
   return "bg-red-100 text-red-600 border-red-200";
 }
 
+// 楽天タイトルからノイズを除去してコアキーワードを抽出
+export function extractCoreKeyword(title: string): string {
+  return title
+    // 【】や()内のノイズ除去
+    .replace(/【[^】]*】/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/（[^）]*）/g, "")
+    // 一般的なノイズワード除去
+    .replace(/送料無料|新品|未開封|未使用|正規品|国内正規|日本正規|限定|セール|特典付き?|プレゼント|ギフト|包装|ラッピング/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    // 最初の30文字（意味のある部分）
+    .slice(0, 30)
+    .trim();
+}
+
+// eBay販売実績（Sold Listings）検索URL
+export function toEbaySoldUrl(keyword: string): string {
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
+}
+
+// メルカリ販売実績（売り切れ）検索URL
+export function toMercariSoldUrl(keyword: string): string {
+  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&status=sold_out`;
+}
+
 // eBay出品URL（タイトル・説明文を事前入力）
 export function toEbayListingUrl(titleEn: string, descriptionEn: string): string {
   const params = new URLSearchParams({
