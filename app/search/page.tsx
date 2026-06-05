@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { GENRES } from "../lib/genres";
@@ -11,7 +10,6 @@ import { Product } from "../types";
 export default function SearchPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     searchRakuten("フィギュア おもちゃ ゲーム アニメ")
@@ -48,32 +46,23 @@ export default function SearchPage() {
           <span className="text-indigo-300 text-lg">›</span>
         </Link>
 
-        {/* ジャンル選択（ドロップダウン） */}
+
+        {/* ジャンル一覧（小タグ） */}
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-gray-500 mb-2">ジャンルから探す</h2>
-          <select
-            defaultValue=""
-            onChange={(e) => {
-              const val = e.target.value;
-              if (!val) return;
-              if (val === "all") {
-                router.push("/results?q=");
-              } else {
-                const genre = GENRES.find((g) => g.id === val);
-                if (genre) router.push(`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`);
-              }
-            }}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center" }}
-          >
-            <option value="" disabled>🔍 ジャンルを選んでください</option>
-            <option value="all">🔍 すべて</option>
+          <div className="flex flex-wrap gap-1.5">
+            <Link href="/results?q="
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-500 text-xs font-medium hover:bg-gray-100 transition-colors">
+              🔍 すべて
+            </Link>
             {GENRES.map((genre) => (
-              <option key={genre.id} value={genre.id}>
-                {genre.emoji} {genre.label} — {genre.description}
-              </option>
+              <Link key={genre.id}
+                href={`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-gray-50 transition-colors">
+                {genre.emoji} {genre.label}
+              </Link>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* キーワード検索 */}
