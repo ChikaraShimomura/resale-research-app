@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -16,6 +16,15 @@ const geistMono = Geist_Mono({
 });
 
 const SITE_URL = "https://www.yushutsu-fukugyo.com";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,         // iOS Safariのピンチズームを無効（入力フォームズーム防止）
+  userScalable: false,
+  viewportFit: "cover",    // iPhone ノッチ・ホームバーにコンテンツを広げる
+  themeColor: "#4f46e5",   // Safariのアドレスバー色 / Android PWAヘッダー色
+};
 
 export const metadata: Metadata = {
   title: {

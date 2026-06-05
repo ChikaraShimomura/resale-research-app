@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProductCard from "../components/ProductCard";
+import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 
@@ -27,13 +28,13 @@ export default function FavoritesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-dvh bg-gray-50 pb-nav">
       <nav className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <Link href="/search" className="font-bold text-xl text-indigo-600">輸出で副業しようよ</Link>
         <Link href="/guide" className="text-xs text-gray-500 hover:text-indigo-600 transition-colors">はじめてガイド</Link>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 pt-8 pb-12">
+      <main className="max-w-2xl mx-auto px-4 pt-8 pb-6">
         <div className="flex items-center gap-2 mb-6">
           <h1 className="text-lg font-bold text-gray-900">❤️ お気に入り</h1>
           {!loading && <span className="text-sm text-gray-400">{products.length}件</span>}
@@ -69,6 +70,7 @@ export default function FavoritesPage() {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 }

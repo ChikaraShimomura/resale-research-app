@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
+import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 
@@ -52,7 +53,7 @@ function ResultsContent() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-dvh bg-gray-50 pb-nav">
       <header className="bg-white sticky top-0 z-20 border-b border-gray-100 px-4 pt-3 pb-3 shadow-sm">
         <div className="flex items-center gap-2 mb-2">
           <Link href="/search" className="text-gray-400 text-lg px-1">‹</Link>
@@ -123,24 +124,7 @@ function ResultsContent() {
         </p>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex items-center justify-around px-2 py-2 z-20 shadow-lg">
-        <Link href="/search" className="flex flex-col items-center gap-0.5 px-4 py-1 text-gray-400">
-          <span className="text-xl">🏠</span>
-          <span className="text-xs font-medium">ホーム</span>
-        </Link>
-        <Link href="/results?q=" className="flex flex-col items-center gap-0.5 px-4 py-1 text-indigo-600">
-          <span className="text-xl">🔍</span>
-          <span className="text-xs font-semibold">検索</span>
-        </Link>
-        <Link href="/favorites" className="flex flex-col items-center gap-0.5 px-4 py-1 text-gray-400">
-          <span className="text-xl">❤️</span>
-          <span className="text-xs font-medium">お気に入り</span>
-        </Link>
-        <Link href="/guide" className="flex flex-col items-center gap-0.5 px-4 py-1 text-gray-400">
-          <span className="text-xl">📖</span>
-          <span className="text-xs font-medium">ガイド</span>
-        </Link>
-      </nav>
+      <BottomNav />
     </div>
   );
 }

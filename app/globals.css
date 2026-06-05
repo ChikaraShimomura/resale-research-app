@@ -12,15 +12,58 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ライトモード固定（ダークモード無効化 - アプリの白基調デザインを維持） */
+
+html {
+  /* スクロールバーをなめらかに */
+  scroll-behavior: smooth;
+  /* iOS Safariのバウンス時の背景色を白に */
+  background-color: #f9fafb;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* iOSのタップハイライト（青フラッシュ）を消す */
+  -webkit-tap-highlight-color: transparent;
+  /* テキスト選択を防ぐ（UIボタン等） */
+  -webkit-touch-callout: none;
+  /* iOS Safariのフォントサイズ自動調整を無効化 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* フォーム要素のiOS固有スタイルリセット */
+input, button, select, textarea {
+  /* iOSのデフォルトスタイル（角丸・影）を無効化 */
+  -webkit-appearance: none;
+  appearance: none;
+  /* タップハイライト消去 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safariのフォーカス時ズームを防ぐ（16px以上に強制） */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+textarea {
+  font-size: 16px;
+}
+
+/* スクロール可能なコンテナに慣性スクロール */
+.overflow-y-auto,
+.overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ボトムナビのセーフエリア対応（iPhone ホームバー） */
+.bottom-nav-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ページコンテンツのボトムナビ分パディング */
+.pb-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }

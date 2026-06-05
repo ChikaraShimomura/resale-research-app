@@ -23,7 +23,7 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="商品名で検索（例: ポケモンカード BOX）"
-            className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
         <button
