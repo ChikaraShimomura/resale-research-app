@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
   const codes = extractProductCode(cleanTitle);
 
   // 製品番号 + 重複除去した先頭ワードでキーワード生成
-  const words = cleanTitle.split(/\s+/).filter((w) => w.length >= 2);
+  const words = cleanTitle.split(/\s+/).filter((w: string) => w.length >= 2);
   const seen = new Set<string>();
   const uniqueWords: string[] = [];
   for (const w of words) {
