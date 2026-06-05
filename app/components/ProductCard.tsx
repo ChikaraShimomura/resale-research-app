@@ -28,14 +28,30 @@ const SITE_STYLES: Record<string, string> = {
   bookoff: "bg-green-50 text-green-600 border-green-100",
 };
 
-function ProfitRow({ p }: { p: ProfitInfo }) {
+function ProfitRow({ p, mercariReal, buyPrice }: { p: ProfitInfo; mercariReal?: { avgPrice: number; count: number } | null; buyPrice?: number }) {
   const icon = p.platform === "ebay"
     ? <Globe size={11} className="text-blue-500 shrink-0" />
     : <ShoppingBag size={11} className="text-red-400 shrink-0" />;
 
+  // メルカリの場合は実データで上書き
+  let displayAvgPrice = p.avgPrice;
+  let displayProfit = p.profit;
+  let displayProfitRate = p.profitRate;
+  let isRealData = false;
+
+  if (p.platform === "mercari" && mercariReal && buyPrice) {
+    const realAvg = mercariReal.avgPrice;
+    const fees = Math.round(realAvg * 0.1);
+    const shipping = 500;
+    displayAvgPrice = realAvg;
+    displayProfit = realAvg - buyPrice - fees - shipping;
+    displayProfitRate = Math.round((displayProfit / buyPrice) * 100);
+    isRealData = true;
+  }
+
   const monthlyMarket = Math.round(p.soldCount / 3);
   const myMonthly = Math.max(1, Math.round(monthlyMarket * 0.1));
-  const monthlyProfit = myMonthly * p.profit;
+  const monthlyProfit = myMonthly * displayProfit;
 
   return (
     <div className="py-1 border-t border-gray-100 first:border-0">
@@ -45,13 +61,17 @@ function ProfitRow({ p }: { p: ProfitInfo }) {
           <span className="text-xs text-gray-400">{p.platformName}</span>
         </div>
         <span className="flex-1 text-xs text-gray-400 truncate">
-          {formatJpy(p.avgPrice)}<span className="text-gray-300 ml-0.5">({p.soldCount}件)</span>
+          {formatJpy(displayAvgPrice)}
+          {isRealData
+            ? <span className="text-green-500 ml-0.5 font-medium">({mercariReal!.count}件実績)</span>
+            : <span className="text-gray-300 ml-0.5">({p.soldCount}件)</span>
+          }
         </span>
-        <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0", getProfitBadgeStyle(p.profitRate))}>
-          {p.profit >= 0 ? "+" : ""}{formatJpy(p.profit)}（{p.profitRate}%）
+        <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0", getProfitBadgeStyle(displayProfitRate))}>
+          {displayProfit >= 0 ? "+" : ""}{formatJpy(displayProfit)}（{displayProfitRate}%）
         </span>
       </div>
-      {p.profit > 0 && (
+      {displayProfit > 0 && (
         <p className="text-xs text-gray-400 mt-0.5 pl-0.5">
           月{monthlyMarket}件の需要 →
           <span className="text-indigo-500 font-medium"> 月{myMonthly}個売れば {formatJpy(monthlyProfit)}/月</span>
@@ -68,6 +88,16 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const [listingCount, setListingCount] = useState(0);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
+  const [mercariReal, setMercariReal] = useState<{ avgPrice: number; count: number } | null>(null);
+
+  useEffect(() => {
+    // 商品タイトルから短いキーワードを抽出（最初の20文字程度）
+    const shortKeyword = product.title.slice(0, 20);
+    fetch(`/api/mercari?q=${encodeURIComponent(shortKeyword)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.avgPrice) setMercariReal(d); })
+      .catch(() => {});
+  }, [product.id, product.title]);
 
   const shareOnX = () => {
     const bestProfit = product.profits.reduce((a, b) => a.profitRate > b.profitRate ? a : b);
@@ -139,7 +169,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* 利益比較 */}
       <div className="px-3 pb-2">
         {product.profits.map((p) => (
-          <ProfitRow key={p.platform} p={p} />
+          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} />
         ))}
         {source.site === "rakuten" && source.pointAmount && (
           <div className="flex items-center gap-1 pt-1.5 border-t border-gray-100 mt-1">

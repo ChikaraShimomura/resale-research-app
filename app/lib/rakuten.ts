@@ -20,6 +20,19 @@ const CATEGORY_CONFIG: Record<string, { markup: number; shipping: number }> = {
   "default":       { markup: 1.8, shipping: 1500 },
 };
 
+// カテゴリ別メルカリ想定倍率と送料
+const MERCARI_CONFIG: Record<string, { markup: number; shipping: number }> = {
+  "フィギュア":    { markup: 1.6, shipping: 600  }, // 需要高・ファン多い
+  "ゲーム":        { markup: 1.5, shipping: 400  }, // 競合多いが回転早い
+  "おもちゃ":      { markup: 1.5, shipping: 600  },
+  "アニメ":        { markup: 1.6, shipping: 500  }, // グッズ系は高値つきやすい
+  "ヴィンテージ":  { markup: 1.8, shipping: 600  }, // 希少性で高値
+  "ファッション":  { markup: 1.5, shipping: 500  },
+  "コスメ":        { markup: 1.4, shipping: 300  }, // 消耗品は低め
+  "家電":          { markup: 1.3, shipping: 1000 }, // 重い・競合多い
+  "default":       { markup: 1.4, shipping: 500  },
+};
+
 function getConfig(keyword: string) {
   for (const [key, val] of Object.entries(CATEGORY_CONFIG)) {
     if (keyword.includes(key)) return val;
@@ -35,10 +48,18 @@ function calcEbayProfit(buyPrice: number, markup: number, shipping: number) {
   return { avgPrice, profit, profitRate };
 }
 
-function calcMercariProfit(buyPrice: number) {
-  const avgPrice = Math.round(buyPrice * 1.4);
-  const fees = Math.round(avgPrice * 0.1);
-  const profit = avgPrice - buyPrice - fees;
+function getMercariConfig(keyword: string) {
+  for (const [key, val] of Object.entries(MERCARI_CONFIG)) {
+    if (keyword.includes(key)) return val;
+  }
+  return MERCARI_CONFIG["default"];
+}
+
+function calcMercariProfit(buyPrice: number, keyword: string) {
+  const mercariCfg = getMercariConfig(keyword);
+  const avgPrice = Math.round(buyPrice * mercariCfg.markup);
+  const fees = Math.round(avgPrice * 0.1); // メルカリ手数料10%
+  const profit = avgPrice - buyPrice - fees - mercariCfg.shipping;
   const profitRate = Math.round((profit / buyPrice) * 100);
   return { avgPrice, profit, profitRate };
 }
@@ -80,7 +101,7 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
       const it = item.Item;
       const price: number = it.itemPrice;
       const ebay = calcEbayProfit(price, config.markup, config.shipping);
-      const mercari = calcMercariProfit(price);
+      const mercari = calcMercariProfit(price, keyword);
       const imageUrl = parseImageUrls(it.mediumImageUrls) || parseImageUrls(it.smallImageUrls);
 
       return {
