@@ -33,7 +33,7 @@ const plans = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-dvh bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <Link href="/" className="font-bold text-xl text-indigo-600">輸出で副業しようよ</Link>
         <Link href="/search" className="text-sm text-gray-600 hover:text-gray-900">検索する</Link>

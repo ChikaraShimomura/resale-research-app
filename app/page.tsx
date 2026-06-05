@@ -4,7 +4,7 @@ import { GENRES } from "./lib/genres";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-dvh bg-white">
       <nav className="border-b border-gray-100 px-4 py-4 max-w-6xl mx-auto flex items-center justify-between">
         <span className="font-bold text-xl text-indigo-600">輸出で副業しようよ</span>
         <Link href="/guide" className="text-xs text-gray-500 hover:text-indigo-600 transition-colors">はじめてガイド</Link>
@@ -35,7 +35,7 @@ export default function LandingPage() {
           {GENRES.slice(0, 10).map((genre) => (
             <Link
               key={genre.id}
-              href={`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`}
+              href={`/results?q=${encodeURIComponent(genre.label)}`}
               className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl border-2 text-center transition-all hover:shadow-sm ${genre.color}`}
             >
               <span className="text-2xl">{genre.emoji}</span>

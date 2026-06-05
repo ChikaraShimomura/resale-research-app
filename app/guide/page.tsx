@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, AlertCircle, CheckCircle, Globe, CreditCard, Truck, FileText, DollarSign, ShoppingBag, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, AlertCircle, CheckCircle, Globe, CreditCard, Truck, FileText, DollarSign, ExternalLink } from "lucide-react";
 
 function StepNumber({ n, color = "bg-indigo-600" }: { n: number; color?: string }) {
   return (
@@ -72,7 +72,7 @@ function FlowDiagram({ steps, bg }: { steps: { emoji: string; label: string }[];
 
 export default function GuidePage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-dvh bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <Link href="/" className="font-bold text-lg text-indigo-600">輸出で副業しようよ</Link>
         <Link href="/search" className="text-xs text-indigo-600 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50">商品を探す</Link>
@@ -84,7 +84,7 @@ export default function GuidePage() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-1">はじめてガイド</h1>
-        <p className="text-sm text-gray-500 mb-8">eBay・メルカリへの出品方法と、海外への発送手順をわかりやすく解説します。</p>
+        <p className="text-sm text-gray-500 mb-8">eBayへの出品方法と、海外への発送手順をわかりやすく解説します。</p>
 
         {/* 目次 */}
         <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
@@ -93,8 +93,7 @@ export default function GuidePage() {
             {[
               { href: "#ebay", label: "① eBayへの出品方法", color: "text-indigo-600" },
               { href: "#shipping", label: "② 海外への発送方法（EMS）", color: "text-indigo-600" },
-              { href: "#mercari", label: "③ メルカリへの出品方法", color: "text-red-500" },
-              { href: "#faq", label: "④ よくある質問", color: "text-gray-600" },
+              { href: "#faq", label: "③ よくある質問", color: "text-gray-600" },
             ].map((item) => (
               <a key={item.href} href={item.href} className={`block text-sm ${item.color} hover:underline`}>{item.label}</a>
             ))}
@@ -318,130 +317,6 @@ export default function GuidePage() {
               </div>
               <div className="mt-2">
                 <Tip>追跡番号を入れると買い手に自動通知が届き、評価アップにつながります</Tip>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ メルカリ出品 ============ */}
-        <section id="mercari" className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
-          <SectionTitle icon={ShoppingBag} title="メルカリへの出品方法" sub="国内販売はメルカリが最速・最簡単" color="bg-red-50" iconColor="text-red-500" />
-
-          <FlowDiagram bg="bg-red-50" steps={[
-            { emoji: "📱", label: "アプリ\nインストール" },
-            { emoji: "📸", label: "商品\n撮影" },
-            { emoji: "📝", label: "出品\n登録" },
-            { emoji: "💰", label: "売れた!" },
-            { emoji: "📦", label: "発送" },
-          ]} />
-
-          {/* STEP 1 */}
-          <div className="flex gap-3 mb-5">
-            <StepNumber n={1} color="bg-red-500" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">アプリをインストールして登録</h3>
-              <p className="text-sm text-gray-500 mb-2">
-                <ExtLink href="https://apps.apple.com/jp/app/mercari/id667861049">App Store</ExtLink> /
-                <ExtLink href="https://play.google.com/store/apps/details?id=com.kouzoh.mercari"> Google Play</ExtLink> で「メルカリ」を検索してインストール。電話番号で本人確認するだけで始められます。
-              </p>
-              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-                <p>① アプリを開き「新規登録」をタップ</p>
-                <p>② 電話番号でSMS認証</p>
-                <p>③ プロフィール写真・名前を設定</p>
-                <p>④ 振込先銀行口座を登録（売上受け取り用）</p>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 2 */}
-          <div className="flex gap-3 mb-5">
-            <StepNumber n={2} color="bg-red-500" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">出品する</h3>
-              <p className="text-sm text-gray-500 mb-2">画面下の「出品」ボタンから。写真を撮るとAIがタイトルや説明を自動入力してくれます。</p>
-              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-2">
-                <div className="flex gap-2">
-                  <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">写真</span>
-                  <span>最大12枚まで載せられる。1枚目が一覧に出るので、いちばんきれいな写真を選ぶ</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">タイトル</span>
-                  <span>AIが自動入力してくれるが、型番・状態・「未開封」「新品」などを追記すると売れやすい</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">価格</span>
-                  <span>相場より100〜200円安くすると早く売れる。値下げ交渉を前提に少し高めに設定してもOK</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">送料</span>
-                  <span>「送料込み（出品者負担）」の方が購入されやすい。らくらくメルカリ便がおすすめ</span>
-                </div>
-              </div>
-              <div className="mt-2 space-y-2">
-                <Tip>メルカリ手数料は販売価格の10%。¥1,000で売れたら手数料¥100引いて¥900が収入</Tip>
-                <Warn>24時間以内に発送できない場合は「発送まで2〜3日」を選んでおきましょう</Warn>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 3 */}
-          <div className="flex gap-3 mb-5">
-            <StepNumber n={3} color="bg-red-500" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">発送する</h3>
-              <p className="text-sm text-gray-500 mb-2">メルカリ専用の配送サービスを使うと匿名配送・追跡つきで安く送れます。</p>
-              <div className="overflow-x-auto mb-3">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="text-left p-2 border border-gray-100 text-gray-500">サービス</th>
-                      <th className="text-left p-2 border border-gray-100 text-gray-500">持込先</th>
-                      <th className="text-left p-2 border border-gray-100 text-gray-500">料金目安</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { name: "らくらくメルカリ便", href: "https://www.mercari.com/jp/help/5/", place: "ヤマト営業所\nファミマ・セブン", price: "¥230〜", highlight: true },
-                      { name: "ゆうゆうメルカリ便", href: "https://www.mercari.com/jp/help/6/", place: "郵便局\nローソン", price: "¥230〜", highlight: false },
-                    ].map((row) => (
-                      <tr key={row.name} className={row.highlight ? "bg-red-50" : ""}>
-                        <td className="p-2 border border-gray-100 font-medium">
-                          <a href={row.href} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline underline-offset-1">{row.name}</a>
-                          {row.highlight && <span className="text-red-400 text-xs ml-1">★おすすめ</span>}
-                        </td>
-                        <td className="p-2 border border-gray-100 text-gray-500 whitespace-pre-line">{row.place}</td>
-                        <td className="p-2 border border-gray-100 text-gray-500">{row.price}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-                <p>① 売れたら「取引画面」を開く</p>
-                <p>② 「配送用QRコードを表示」をタップ</p>
-                <p>③ コンビニや営業所のレジでスキャン</p>
-                <p>④ バーコードシールを貼って荷物を渡すだけ</p>
-              </div>
-              <div className="mt-2">
-                <Tip>住所を相手に知らせずに送れる「匿名配送」が標準。安心して取引できます</Tip>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 4 */}
-          <div className="flex gap-3">
-            <StepNumber n={4} color="bg-red-500" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">評価して売上を受け取る</h3>
-              <p className="text-sm text-gray-500 mb-2">買い手が受け取り評価をすると売上金が確定します。</p>
-              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-                <p>① 相手が「受け取り評価」をする</p>
-                <p>② 自分も相手を評価（良かった・普通・残念）</p>
-                <p>③ 売上金が「売上残高」に追加される</p>
-                <p>④ <ExtLink href="https://www.mercari.com/jp/help/18/">振込申請</ExtLink>（200円手数料）で銀行口座へ</p>
-              </div>
-              <div className="mt-2">
-                <Tip>売上金は次の仕入れにそのまま使えます。振込せず回転させると手数料を節約できます</Tip>
               </div>
             </div>
           </div>
