@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
   if (cached) return Response.json({ ...cached, fromCache: true });
 
   const result = await fetchEbaySoldPrices(keyword);
-  if (!result) return Response.json({ avgPrice: null, count: 0 });
+  if (!result) return Response.json({ avgPrice: null, count: 0, debug: lastDebug });
 
   setCache(cacheKey, result);
   return Response.json({ ...result, debug: lastDebug });
