@@ -26,11 +26,12 @@ function useFavorite(productId: string) {
 
 const LISTING_LIMIT = 30;
 
-function ProfitRow({ p, mercariReal, buyPrice, coreKeyword }: {
+function ProfitRow({ p, mercariReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
   p: ProfitInfo;
   mercariReal?: MercariReal | null;
   buyPrice?: number;
-  coreKeyword?: string;
+  ebaySoldUrl?: string;
+  mercariSoldUrl?: string;
 }) {
   const isEbay = p.platform === "ebay";
   const icon = isEbay
@@ -53,9 +54,7 @@ function ProfitRow({ p, mercariReal, buyPrice, coreKeyword }: {
   const monthlyMarket = Math.round(p.soldCount / 3);
   const myMonthly = Math.max(1, Math.round(monthlyMarket * 0.1));
   const monthlyProfit = myMonthly * displayProfit;
-  const soldUrl = isEbay
-    ? (coreKeyword ? toEbaySoldUrl(coreKeyword) : null)
-    : (coreKeyword ? toMercariSoldUrl(coreKeyword) : null);
+  const soldUrl = isEbay ? (ebaySoldUrl ?? null) : (mercariSoldUrl ?? null);
 
   return (
     <div className="py-2 border-t border-gray-100 first:border-0">
@@ -199,7 +198,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* 利益比較 */}
       <div className="px-4 pt-2 pb-1">
         {product.profits.map((p) => (
-          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} coreKeyword={coreKeyword} />
+          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} ebaySoldUrl={product.ebaySoldUrl} mercariSoldUrl={product.mercariSoldUrl} />
         ))}
         {(source.pointAmount ?? 0) > 0 && (
           <div className="flex items-center gap-1 pt-2 border-t border-gray-100 mt-1">

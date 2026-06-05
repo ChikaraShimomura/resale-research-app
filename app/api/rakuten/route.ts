@@ -14,6 +14,14 @@ function buildCoreKeyword(title: string): string {
     .join(" ");
 }
 
+function toEbaySoldUrl(keyword: string): string {
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
+}
+
+function toMercariSoldUrl(keyword: string): string {
+  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&status=sold_out`;
+}
+
 const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
 const RAKUTEN_ACCESS_KEY = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
@@ -246,6 +254,8 @@ export async function GET(req: NextRequest) {
         ],
         isNew: false,
         coreKeyword: buildCoreKeyword(it.itemName),
+        ebaySoldUrl: toEbaySoldUrl(buildCoreKeyword(it.itemName)),
+        mercariSoldUrl: toMercariSoldUrl(buildCoreKeyword(it.itemName)),
       };
     })
     .filter((product) => product.profits.some((p) => p.profit > 0));

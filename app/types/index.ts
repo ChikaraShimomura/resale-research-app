@@ -32,5 +32,7 @@ export interface Product {
   soldOut?: boolean;
   soldAt?: string;
   isNew?: boolean;
-  coreKeyword?: string; // 実績確認用キーワード（サーバー側で計算済み）
+  coreKeyword?: string;
+  ebaySoldUrl?: string;    // サーバー側で生成済みeBay実績確認URL
+  mercariSoldUrl?: string; // サーバー側で生成済みメルカリ実績確認URL
 }
