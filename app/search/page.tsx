@@ -14,7 +14,7 @@ export default function SearchPage() {
   const router = useRouter();
 
   useEffect(() => {
-    searchRakuten("フィギュア おもちゃ ゲーム アニメ トレカ")
+    searchRakuten("フィギュア おもちゃ")
       .then((items) => {
         const sorted = items.sort((a, b) =>
           Math.max(...b.profits.map((p) => p.profitRate)) -
