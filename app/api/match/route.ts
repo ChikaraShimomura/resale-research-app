@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
   const titleMatches = priceFiltered.filter((item) => {
     const t = item.title.toLowerCase();
     const matchCount = keyTokens.filter((tok) => t.includes(tok)).length;
-    return matchCount >= Math.ceil(keyTokens.length * 0.5); // 50%以上一致
+    return matchCount >= Math.ceil(keyTokens.length * 0.7); // 70%以上一致
   });
   const candidates = titleMatches.length > 0 ? titleMatches : priceFiltered;
   const bestMatch = candidates[0];
