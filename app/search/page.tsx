@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { GENRES } from "../lib/genres";
@@ -10,6 +11,7 @@ import { Product } from "../types";
 export default function SearchPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     searchRakuten("フィギュア おもちゃ ゲーム アニメ")
@@ -46,28 +48,32 @@ export default function SearchPage() {
           <span className="text-indigo-300 text-lg">›</span>
         </Link>
 
-        {/* ジャンル一覧 */}
+        {/* ジャンル選択（ドロップダウン） */}
         <div className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 mb-3">ジャンルから探す</h2>
-          <div className="grid grid-cols-4 gap-2">
-            <Link
-              href="/results?q="
-              className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-600 text-center transition-all hover:shadow-sm active:scale-95"
-            >
-              <span className="text-lg">🔍</span>
-              <span className="text-xs font-semibold">すべて</span>
-            </Link>
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">ジャンルから探す</h2>
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) return;
+              if (val === "all") {
+                router.push("/results?q=");
+              } else {
+                const genre = GENRES.find((g) => g.id === val);
+                if (genre) router.push(`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`);
+              }
+            }}
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center" }}
+          >
+            <option value="" disabled>🔍 ジャンルを選んでください</option>
+            <option value="all">🔍 すべて</option>
             {GENRES.map((genre) => (
-              <Link
-                key={genre.id}
-                href={`/results?genre=${genre.id}&q=${encodeURIComponent(genre.label)}`}
-                className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border-2 text-center transition-all hover:shadow-sm active:scale-95 ${genre.color}`}
-              >
-                <span className="text-lg">{genre.emoji}</span>
-                <span className="text-xs font-semibold leading-tight">{genre.label}</span>
-              </Link>
+              <option key={genre.id} value={genre.id}>
+                {genre.emoji} {genre.label} — {genre.description}
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* キーワード検索 */}
