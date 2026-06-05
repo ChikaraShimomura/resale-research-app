@@ -1,6 +1,6 @@
 import { Product } from "../types";
 
-const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
+const RAKUTEN_APP_ID = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
 
 const EBAY_FEE_RATE = 0.1325;
