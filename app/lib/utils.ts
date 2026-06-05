@@ -43,6 +43,7 @@ export function extractCoreKeyword(title: string): string {
     /\b\d{4}-\d{4}\b/g,          // 1234-5678
     /(?:第\d+弾|Vol\.\d+)/g,     // 第3弾, Vol.2
     /No\.\d+/ig,                  // No.123
+    /\b\d{4,5}\b/g,              // 21358, 75192 (LEGO番号など4〜5桁)
   ];
   const codes: string[] = [];
   for (const pat of codePatterns) {
@@ -55,14 +56,18 @@ export function extractCoreKeyword(title: string): string {
 
   // 英字を含むワードを優先（ブランド名・型番が多い）
   const brandWords = words.filter((w) => /[A-Za-z]/.test(w) && w.length >= 2);
-  // 日本語ワード（短すぎるものは除外）
+  // 日本語ワード（短すぎるもの・数字のみは除外）
   const jpWords = words.filter((w) => !/[A-Za-z]/.test(w) && w.length >= 2 && !/^\d+$/.test(w));
 
-  // 組み合わせ: 型番 > 英字ブランド > 日本語ワード
+  // 組み合わせ: 型番 > 英字ブランド > 日本語ワード（重複除去）
   const priority: string[] = [];
   if (codes.length > 0) priority.push(codes[0]);
-  priority.push(...brandWords.slice(0, 2));
-  priority.push(...jpWords.slice(0, 2));
+  for (const w of brandWords.slice(0, 2)) {
+    if (!priority.some((p) => p.toLowerCase() === w.toLowerCase())) priority.push(w);
+  }
+  for (const w of jpWords.slice(0, 2)) {
+    if (!priority.includes(w)) priority.push(w);
+  }
 
   // 重複除去して最大3ワード
   const unique = [...new Set(priority)].slice(0, 3);

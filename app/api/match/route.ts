@@ -22,6 +22,7 @@ function extractProductCode(title: string): string[] {
     /\b[A-Z]\d{4,}[A-Z]?\b/g,      // F4567A
     /\b\d{4}-\d{4}\b/g,            // 1234-5678
     /(?:第\d+弾|Vol\.\d+|BOX\d*)/g, // 第3弾, Vol.2
+    /\b\d{4,5}\b/g,                 // 21358, 75192 (LEGO番号など)
   ];
   const codes: string[] = [];
   for (const pattern of patterns) {
