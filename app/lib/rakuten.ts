@@ -153,6 +153,7 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
   return unique
     .filter((item: any) => item.Item.itemPrice >= 1000)
     .map((item: any): Product => {
+
       const it = item.Item;
       const price: number = it.itemPrice;
       const ebay = calcEbayProfit(price, config.markup, config.shipping);
@@ -194,5 +195,9 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
         ],
         isNew: false,
       };
-    });
+    })
+    // eBay・メルカリ双方で利益がでない商品は除外
+    .filter((product) =>
+      product.profits.some((p) => p.profit > 0)
+    );
 }
