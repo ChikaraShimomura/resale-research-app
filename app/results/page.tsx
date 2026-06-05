@@ -8,26 +8,6 @@ import { fetchProducts } from "../lib/products";
 import { searchRakuten } from "../lib/rakuten";
 import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
 
-const GENRE_KEYWORDS: Record<string, string> = {
-  "trading-card":   "トレカ ポケモンカード 遊戯王",
-  "gunpla":         "ガンプラ MG RG HG",
-  "lego":           "LEGO レゴ",
-  "game":           "ゲーム Switch PS5",
-  "cosme":          "コスメ スキンケア 日焼け止め",
-  "figure":         "フィギュア アニメ",
-  "toy":            "おもちゃ キャラクター",
-  "electronics":    "家電 ガジェット イヤホン",
-  "sports":         "スポーツ シューズ",
-  "fashion":        "ファッション ブランド",
-  "cd-record":      "CD レコード アニソン",
-  "manga":          "漫画 全巻 画集",
-  "watch":          "腕時計 セイコー シチズン",
-  "japanese-craft": "和雑貨 工芸 着物",
-  "board-game":     "ボードゲーム",
-  "camera":         "カメラ フィルムカメラ レンズ",
-  "sneaker":        "スニーカー 限定",
-  "instrument":     "楽器 ギター エフェクター",
-};
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -64,7 +44,7 @@ function ResultsContent() {
     }
 
     // キーワードあり → リアルタイムで楽天→eBay比較
-    const q = keyword || (genre ? GENRE_KEYWORDS[genre] ?? genre : "フィギュア おもちゃ");
+    const q = keyword || genre;
     searchRakuten(q)
       .then((items) => {
         if (cancelled) return;
