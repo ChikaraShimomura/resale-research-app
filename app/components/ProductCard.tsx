@@ -1,15 +1,29 @@
 "use client";
-import { Product, ProfitInfo } from "../types";
-import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl, extractCoreKeyword, toEbaySoldUrl, toMercariSoldUrl } from "../lib/utils";
+import { Product } from "../types";
+import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl, extractCoreKeyword } from "../lib/utils";
 import { Globe, ShoppingBag, Heart, Share2 } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 
+const MERCARI_SHIPPING = 500;  // メルカリ送料概算
+const EBAY_FEE_RATE = 0.1325;
+const EBAY_FEE_FIXED = 40;
+const EBAY_SHIPPING = 1500;    // eBay国際送料概算
+const MIN_PROFIT = 500;        // 最低利益ライン
+
 interface RealPrice {
   avgPrice: number;
   count: number;
   confidence?: number;
+}
+
+interface PlatformResult {
+  avgPrice: number;
+  profit: number;
+  profitRate: number;
+  count: number;
+  soldUrl: string;
 }
 
 function useFavorite(productId: string) {
@@ -26,106 +40,23 @@ function useFavorite(productId: string) {
 
 const LISTING_LIMIT = 30;
 
-function ProfitRow({ p, mercariReal, ebayReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
-  p: ProfitInfo;
-  mercariReal?: RealPrice | null;
-  ebayReal?: RealPrice | null;
-  buyPrice?: number;
-  ebaySoldUrl?: string;
-  mercariSoldUrl?: string;
+export default function ProductCard({
+  product,
+  onUnprofitable,
+}: {
+  product: Product;
+  onUnprofitable?: () => void;
 }) {
-  const isEbay = p.platform === "ebay";
-  const icon = isEbay
-    ? <Globe size={12} className="text-blue-500 shrink-0" />
-    : <ShoppingBag size={12} className="text-rose-400 shrink-0" />;
-
-  let displayAvgPrice = p.avgPrice;
-  let displayProfit = p.profit;
-  let displayProfitRate = p.profitRate;
-  let isRealData = false;
-  let realCount = 0;
-
-  if (isEbay && ebayReal && buyPrice) {
-    const realAvg = ebayReal.avgPrice;
-    displayAvgPrice = realAvg;
-    const fees = Math.round(realAvg * 0.1325 + 40);
-    displayProfit = realAvg - buyPrice - fees - 1500;
-    displayProfitRate = Math.round((displayProfit / buyPrice) * 100);
-    isRealData = true;
-    realCount = ebayReal.count;
-  } else if (!isEbay && mercariReal && buyPrice) {
-    const realAvg = mercariReal.avgPrice;
-    displayAvgPrice = realAvg;
-    displayProfit = realAvg - buyPrice - Math.round(realAvg * 0.1) - 500;
-    displayProfitRate = Math.round((displayProfit / buyPrice) * 100);
-    isRealData = true;
-    realCount = mercariReal.count;
-  }
-
-  const monthlyMarket = Math.round(p.soldCount / 3);
-  const myMonthly = Math.max(1, Math.round(monthlyMarket * 0.1));
-  const monthlyProfit = myMonthly * displayProfit;
-  const soldUrl = isEbay ? (ebaySoldUrl ?? null) : (mercariSoldUrl ?? null);
-
-  return (
-    <div className="py-2 border-t border-gray-100 first:border-0">
-      <div className="flex items-center gap-2">
-        {/* プラットフォーム名 */}
-        <div className="flex items-center gap-1 w-16 shrink-0">
-          {icon}
-          <span className="text-xs font-medium text-gray-500">{p.platformName}</span>
-        </div>
-
-        {/* 相場価格 */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-xs text-gray-600 font-medium">{formatJpy(displayAvgPrice)}</span>
-            {isRealData ? (
-              <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                実績{realCount}件
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400">（推定）</span>
-            )}
-          </div>
-        </div>
-
-        {/* 利益バッジ */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {soldUrl && (
-            <a href={soldUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-indigo-400 hover:text-indigo-600"
-              onClick={(e) => e.stopPropagation()}>
-              確認↗
-            </a>
-          )}
-          <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", getProfitBadgeStyle(displayProfitRate))}>
-            {displayProfit >= 0 ? "+" : ""}{displayProfitRate}%
-          </span>
-        </div>
-      </div>
-
-      {/* 月利計算 */}
-      {displayProfit > 0 && (
-        <p className="text-xs text-gray-400 mt-1 pl-0.5">
-          月{myMonthly}個 →
-          <span className="text-indigo-500 font-semibold"> {formatJpy(monthlyProfit)}/月</span>
-          <span className="text-gray-300 ml-1">（利益 {formatJpy(displayProfit)}/個）</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-export default function ProductCard({ product }: { product: Product }) {
   const { source } = product;
   const sourceUrl = source.site === "rakuten" ? toRakutenAffiliateUrl(source.url) : source.url;
   const coreKeyword = product.coreKeyword || extractCoreKeyword(product.title);
 
   const [listingCount, setListingCount] = useState(0);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
-  const [mercariReal, setMercariReal] = useState<RealPrice | null>(null);
-  const [ebayReal, setEbayReal] = useState<RealPrice | null>(null);
+
+  // 実績価格ステート
+  const [mercariResult, setMercariResult] = useState<PlatformResult | null>(null);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     fetch("/api/match", {
@@ -138,20 +69,23 @@ export default function ProductCard({ product }: { product: Product }) {
       }),
     })
       .then((r) => r.json())
-      .then((d) => { if (d.matched && d.avgPrice) setMercariReal(d); })
-      .catch(() => {});
-  }, [product.id]);
-
-  useEffect(() => {
-    if (product.ebaySoldUrl) {
-      const kw = product.coreKeyword || "";
-      if (kw) {
-        fetch(`/api/ebay-sold?keyword=${encodeURIComponent(kw)}`)
-          .then((r) => r.json())
-          .then((d) => { if (d.avgPrice) setEbayReal({ avgPrice: d.avgPrice, count: d.count ?? 0 }); })
-          .catch(() => {});
-      }
-    }
+      .then((d: RealPrice & { matched: boolean }) => {
+        if (d.matched && d.avgPrice) {
+          const avg = d.avgPrice;
+          const fee = Math.round(avg * 0.1);
+          const profit = avg - source.price - fee - MERCARI_SHIPPING;
+          const profitRate = Math.round((profit / source.price) * 100);
+          setMercariResult({
+            avgPrice: avg,
+            profit,
+            profitRate,
+            count: d.count,
+            soldUrl: product.mercariSoldUrl ?? "",
+          });
+        }
+        setChecking(false);
+      })
+      .catch(() => setChecking(false));
   }, [product.id]);
 
   useEffect(() => {
@@ -161,12 +95,37 @@ export default function ProductCard({ product }: { product: Product }) {
       .catch(() => {});
   }, [product.id]);
 
-  const limitReached = listingCount >= LISTING_LIMIT;
+  // 利益なし → 非表示コールバック
+  useEffect(() => {
+    if (!checking && !mercariResult && onUnprofitable) {
+      onUnprofitable();
+    }
+  }, [checking, mercariResult]);
 
-  const bestProfitRate = Math.max(...product.profits.map((p) => p.profitRate));
+  // 確認中は何も表示しない（ローディング）
+  if (checking) {
+    return (
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-pulse">
+        <div className="flex gap-3">
+          <div className="w-16 h-16 bg-gray-100 rounded-xl shrink-0" />
+          <div className="flex-1 space-y-2 pt-1">
+            <div className="h-3 bg-gray-100 rounded-full w-1/3" />
+            <div className="h-3 bg-gray-100 rounded-full w-3/4" />
+            <div className="h-3 bg-gray-100 rounded-full w-1/2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 利益500円未満 → 非表示
+  if (!mercariResult || mercariResult.profit < MIN_PROFIT) return null;
+
+  const limitReached = listingCount >= LISTING_LIMIT;
+  const bestProfitRate = mercariResult.profitRate;
 
   const shareOnX = () => {
-    const text = `【輸出で副業】${product.title}\n仕入れ: ${formatJpy(source.price)} → 最大利益率${bestProfitRate}%！\n#輸出副業 #eBay`;
+    const text = `【輸出で副業】${product.title}\n仕入れ: ${formatJpy(source.price)} → 利益率${bestProfitRate}%！\n#輸出副業 #メルカリ`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://www.yushutsu-fukugyo.com")}`, "_blank");
   };
 
@@ -175,14 +134,11 @@ export default function ProductCard({ product }: { product: Product }) {
       "relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all active:scale-[0.99]",
       (product.soldOut || limitReached) && "opacity-50"
     )}>
-      {/* SOLD オーバーレイ */}
       {product.soldOut && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
           <span className="rotate-[-20deg] border-4 border-red-500 text-red-500 text-2xl font-black px-4 py-1 rounded-lg tracking-widest opacity-80">SOLD</span>
         </div>
       )}
-
-      {/* 利用上限オーバーレイ */}
       {limitReached && !product.soldOut && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl px-4 py-3 text-center shadow-lg max-w-xs border border-gray-100">
@@ -192,7 +148,7 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* ヘッダー：画像 + タイトル */}
+      {/* ヘッダー */}
       <div className="flex gap-3 p-4 pb-0">
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.title}
@@ -212,20 +168,50 @@ export default function ProductCard({ product }: { product: Product }) {
               "text-xs px-2 py-0.5 rounded-full font-bold border ml-auto",
               getProfitBadgeStyle(bestProfitRate)
             )}>
-              最大{bestProfitRate}%
+              +{bestProfitRate}%
             </span>
           </div>
           <h3 className="text-sm font-medium text-gray-800 leading-snug line-clamp-2">{product.title}</h3>
         </div>
       </div>
 
-      {/* 利益比較 */}
+      {/* メルカリ利益 */}
       <div className="px-4 pt-2 pb-1">
-        {product.profits.map((p) => (
-          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} ebayReal={ebayReal} buyPrice={source.price} ebaySoldUrl={product.ebaySoldUrl} mercariSoldUrl={product.mercariSoldUrl} />
-        ))}
+        <div className="py-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 w-16 shrink-0">
+              <ShoppingBag size={12} className="text-rose-400 shrink-0" />
+              <span className="text-xs font-medium text-gray-500">メルカリ</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs text-gray-600 font-medium">{formatJpy(mercariResult.avgPrice)}</span>
+                <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                  実績{mercariResult.count}件
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {mercariResult.soldUrl && (
+                <a href={mercariResult.soldUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-indigo-400 hover:text-indigo-600"
+                  onClick={(e) => e.stopPropagation()}>
+                  確認↗
+                </a>
+              )}
+              <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", getProfitBadgeStyle(mercariResult.profitRate))}>
+                +{mercariResult.profitRate}%
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-1 pl-0.5">
+            利益 <span className="text-indigo-500 font-semibold">{formatJpy(mercariResult.profit)}</span>／個
+            <span className="text-gray-300 ml-1">（手数料10% + 送料{formatJpy(MERCARI_SHIPPING)}）</span>
+          </p>
+        </div>
+
         {(source.pointAmount ?? 0) > 0 && (
-          <div className="flex items-center gap-1 pt-2 border-t border-gray-100 mt-1">
+          <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
             <span className="text-xs text-orange-500 font-medium">🎁 +{(source.pointAmount ?? 0).toLocaleString()}pt 還元</span>
           </div>
         )}
@@ -233,7 +219,6 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* アクションボタン */}
       <div className="px-4 pb-4 pt-2 space-y-2">
-        {/* 仕入れ + お気に入り + シェア */}
         <div className="flex gap-2">
           <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
             className="flex-1 text-center py-2.5 bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
@@ -249,8 +234,6 @@ export default function ProductCard({ product }: { product: Product }) {
             <Share2 size={16} />
           </button>
         </div>
-
-        {/* 出品ボタン */}
         {!limitReached && (
           <ListingHelper product={product} onCountChange={setListingCount} />
         )}
