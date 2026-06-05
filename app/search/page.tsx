@@ -3,10 +3,27 @@ import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { GENRES } from "../lib/genres";
-import { mockProducts } from "../lib/mock-data";
-import { isSoldExpired } from "../lib/utils";
+import { searchRakuten } from "../lib/rakuten";
+import { useEffect, useState } from "react";
+import { Product } from "../types";
 
 export default function SearchPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    searchRakuten("フィギュア おもちゃ ゲーム アニメ")
+      .then((items) => {
+        const sorted = items.sort((a, b) =>
+          Math.max(...b.profits.map((p) => p.profitRate)) -
+          Math.max(...a.profits.map((p) => p.profitRate))
+        );
+        setProducts(sorted);
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
@@ -26,7 +43,7 @@ export default function SearchPage() {
           <span className="text-indigo-300 text-lg">›</span>
         </Link>
 
-        {/* ジャンル一覧（メイン） */}
+        {/* ジャンル一覧 */}
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-gray-500 mb-3">ジャンルから探す</h2>
           <div className="grid grid-cols-4 gap-2">
@@ -50,7 +67,7 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* キーワード検索（サブ） */}
+        {/* キーワード検索 */}
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
             <span className="flex-1 border-t border-gray-200" />
@@ -62,17 +79,30 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* 商品一覧 */}
+        {/* ピックアップ商品 */}
         <div>
           <h2 className="text-sm font-semibold text-gray-500 mb-3">ピックアップ商品</h2>
-          <div className="flex flex-col gap-3">
-            {mockProducts
-              .filter((p) => !isSoldExpired(p.soldAt))
-              .sort((a, b) => Math.max(...b.profits.map(p => p.profitRate)) - Math.max(...a.profits.map(p => p.profitRate)))
-              .map((product) => (
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+                  <div className="flex gap-3">
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-200 rounded w-3/4" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {products.slice(0, 10).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
-          </div>
+            </div>
+          )}
         </div>
 
       </main>
