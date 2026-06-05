@@ -19,7 +19,7 @@ function toEbaySoldUrl(keyword: string): string {
 }
 
 function toMercariSoldUrl(keyword: string): string {
-  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(keyword)}&status=sold_out`;
+  return `https://auctions.yahoo.co.jp/search/search?p=${encodeURIComponent(keyword)}&va=${encodeURIComponent(keyword)}&exflg=1&b=1&n=20&s1=cbids&o1=d&t=closed&mode=2`;
 }
 
 const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";

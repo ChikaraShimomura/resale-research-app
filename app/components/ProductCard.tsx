@@ -91,7 +91,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 w-16 shrink-0">
             <ShoppingBag size={12} className="text-rose-400 shrink-0" />
-            <span className="text-xs font-medium text-gray-500">メルカリ</span>
+            <span className="text-xs font-medium text-gray-500">ヤフオク</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 flex-wrap">
@@ -106,7 +106,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <a href={product.mercariSoldUrl} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-indigo-400 hover:text-indigo-600"
                 onClick={(e) => e.stopPropagation()}>
-                確認↗
+                ヤフオク↗
               </a>
             )}
             <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", getProfitBadgeStyle(product.realProfitRate))}>
