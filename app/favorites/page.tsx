@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProductCard from "../components/ProductCard";
-import { searchRakuten } from "../lib/rakuten";
-import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
+import { fetchProducts } from "../lib/products";
+import { ProfitProduct } from "../lib/profitFilter";
 
 export default function FavoritesPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
@@ -19,13 +19,10 @@ export default function FavoritesPage() {
       return;
     }
 
-    searchRakuten("フィギュア おもちゃ")
-      .then((items) => {
-        const favItems = items.filter((p) => favIds.includes(p.id));
-        return filterProfitable(favItems);
+    fetchProducts()
+      .then(({ products }) => {
+        setProducts(products.filter((p) => favIds.includes(p.id)));
       })
-      .then((favs) => setProducts(favs))
-      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

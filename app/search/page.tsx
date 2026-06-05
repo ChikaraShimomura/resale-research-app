@@ -3,37 +3,27 @@ import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { GENRES } from "../lib/genres";
-import { searchRakuten } from "../lib/rakuten";
+import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
-import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
+import { ProfitProduct } from "../lib/profitFilter";
 
 export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState({ checked: 0, total: 0 });
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setProducts([]);
-
-    searchRakuten("フィギュア おもちゃ")
-      .then((items) => {
-        if (cancelled) return;
-        setProgress({ checked: 0, total: items.length });
-        return filterProfitable(items, (found, checked, total) => {
-          if (cancelled) return;
-          // 利益率順にソートしながら随時更新
-          const sorted = [...found].sort((a, b) => b.realProfitRate - a.realProfitRate);
-          setProducts(sorted);
-          setProgress({ checked, total });
-        });
+    fetchProducts()
+      .then(({ products, lastUpdated }) => {
+        setProducts(products);
+        setLastUpdated(lastUpdated);
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
+      .finally(() => setLoading(false));
   }, []);
+
+  const updatedLabel = lastUpdated
+    ? `更新: ${new Date(lastUpdated).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -56,7 +46,7 @@ export default function SearchPage() {
           <span className="text-2xl">📦</span>
           <div className="flex-1">
             <p className="font-bold text-sm">はじめての方へ：出品ガイド</p>
-            <p className="text-xs text-indigo-200 mt-0.5">eBay・メルカリへの出品と海外発送を解説</p>
+            <p className="text-xs text-indigo-200 mt-0.5">eBayへの出品と海外発送を解説</p>
           </div>
           <span className="text-indigo-300 text-xl">›</span>
         </Link>
@@ -84,10 +74,8 @@ export default function SearchPage() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-gray-700">🔥 利益率ランキング</p>
             <div className="flex items-center gap-2">
-              {(loading || progress.checked < progress.total) && progress.total > 0 && (
-                <span className="text-xs text-gray-400">
-                  確認中 {progress.checked}/{progress.total}
-                </span>
+              {updatedLabel && (
+                <span className="text-xs text-gray-400">{updatedLabel}</span>
               )}
               {products.length > 0 && (
                 <span className="text-xs text-gray-400">{products.length}件</span>
@@ -95,8 +83,7 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* ローディング（初期） */}
-          {loading && products.length === 0 && (
+          {loading ? (
             <div className="flex flex-col gap-3">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
@@ -111,20 +98,17 @@ export default function SearchPage() {
                 </div>
               ))}
             </div>
-          )}
-
-          {/* 商品カード */}
-          <div className="flex flex-col gap-3">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-
-          {/* 完了後0件 */}
-          {!loading && products.length === 0 && (
+          ) : products.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-4xl mb-3">😅</p>
-              <p className="text-gray-400 text-sm">利益が出る商品が見つかりませんでした</p>
+              <p className="text-4xl mb-3">⏳</p>
+              <p className="text-gray-400 text-sm">データ準備中です</p>
+              <p className="text-gray-300 text-xs mt-1">1日2回自動更新されます</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
           )}
         </div>
