@@ -2,37 +2,16 @@ import { NextRequest } from "next/server";
 import { Product } from "../../types";
 
 function buildCoreKeyword(title: string): string {
-  const cleaned = title
+  return title
     .replace(/【[^】]*】/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/（[^）]*）/g, "")
     .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
-    .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり|お買い得|お得|激安|大人気/g, "")
-    .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット|\d+体セット|\d+冊セット/g, "")
-    .replace(/互換|風|もどき/g, "")
-    .replace(/\s+/g, " ").trim();
-
-  const numCode = cleaned.match(/\b\d{4,5}\b/)?.[0]
-    ?? cleaned.match(/[A-Z]{2,}-?\d{3,}/)?.[0]
-    ?? cleaned.match(/\b[A-Z]\d{4,}\b/)?.[0]
-    ?? null;
-
-  const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const w of words) {
-    const key = w.toLowerCase();
-    if (!seen.has(key)) { seen.add(key); unique.push(w); }
-  }
-
-  const result: string[] = [];
-  if (numCode) result.push(numCode);
-  for (const w of unique) {
-    if (result.length >= 3) break;
-    if (w === numCode) continue;
-    result.push(w);
-  }
-  return result.join(" ");
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 4)
+    .join(" ");
 }
 
 const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";

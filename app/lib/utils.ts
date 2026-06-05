@@ -24,42 +24,16 @@ export function getProfitBadgeStyle(rate: number): string {
 
 // 楽天タイトルからノイズを除去してコアキーワードを抽出
 export function extractCoreKeyword(title: string): string {
-  // Step1: 【】と()を完全除去してクリーンなタイトルに
-  const cleaned = title
-    .replace(/【[^】]*】/g, "")   // 【】とその中身を全消し
-    .replace(/\([^)]*\)/g, "")   // ()とその中身を全消し
-    .replace(/（[^）]*）/g, "")  // 全角()も除去
+  return title
+    .replace(/【[^】]*】/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/（[^）]*）/g, "")
     .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
-    .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり|お買い得|お得|激安|大人気/g, "")
-    .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット|\d+体セット|\d+冊セット/g, "")
-    .replace(/互換|風|もどき/g, "")
     .replace(/\s+/g, " ")
-    .trim();
-
-  // Step2: 製品番号を抽出（最優先）
-  const numCode = cleaned.match(/\b\d{4,5}\b/)?.[0]   // 21358 など4〜5桁
-    ?? cleaned.match(/[A-Z]{2,}-?\d{3,}/)?.[0]         // SW-1234 など
-    ?? cleaned.match(/\b[A-Z]\d{4,}\b/)?.[0];          // F4567 など
-
-  // Step3: 残ワードから重複を除いて先頭から取る
-  const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const w of words) {
-    const key = w.toLowerCase();
-    if (!seen.has(key)) { seen.add(key); unique.push(w); }
-  }
-
-  // 製品番号 + 先頭2ワード（製品番号と被らないもの）
-  const result: string[] = [];
-  if (numCode) result.push(numCode);
-  for (const w of unique) {
-    if (result.length >= 3) break;
-    if (w === numCode) continue;
-    result.push(w);
-  }
-
-  return result.join(" ");
+    .trim()
+    .split(/\s+/)
+    .slice(0, 4)
+    .join(" ");
 }
 
 // eBay販売実績（Sold Listings）検索URL
