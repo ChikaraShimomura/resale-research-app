@@ -106,15 +106,15 @@ function parseImageUrls(urls: any): string {
   return "";
 }
 
-export async function searchRakuten(keyword: string): Promise<Product[]> {
+async function fetchRakutenPage(keyword: string, page: number): Promise<any[]> {
   const config = getConfig(keyword);
-
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
     accessKey: RAKUTEN_ACCESS_KEY,
     affiliateId: RAKUTEN_AFFILIATE_ID,
     keyword,
     hits: "30",
+    page: String(page),
     sort: "-reviewCount",
     format: "json",
   });
@@ -122,13 +122,35 @@ export async function searchRakuten(keyword: string): Promise<Product[]> {
   const res = await fetch(
     `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`
   );
-
-  if (!res.ok) throw new Error("Rakuten API error");
-
+  if (!res.ok) return [];
   const data = await res.json();
-  const items: any[] = data.Items ?? [];
+  return data.Items ?? [];
+}
 
-  return items
+export async function searchRakuten(keyword: string): Promise<Product[]> {
+  const config = getConfig(keyword);
+
+  // 3ページを並列取得（最大90件）
+  const pages = await Promise.allSettled([
+    fetchRakutenPage(keyword, 1),
+    fetchRakutenPage(keyword, 2),
+    fetchRakutenPage(keyword, 3),
+  ]);
+
+  const items: any[] = pages.flatMap((p) =>
+    p.status === "fulfilled" ? p.value : []
+  );
+
+  // 重複除去
+  const seen = new Set<string>();
+  const unique = items.filter((item: any) => {
+    const id = item.Item.itemCode;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+
+  return unique
     .filter((item: any) => item.Item.itemPrice >= 1000)
     .map((item: any): Product => {
       const it = item.Item;
