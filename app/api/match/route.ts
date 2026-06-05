@@ -222,33 +222,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Step5: タイトル類似度チェック（Gemini前の簡易フィルター）
-  // ブランド名または主要語が両方のタイトルに含まれるか確認
-  const keyTokens = searchKeyword.toLowerCase().split(/\s+/);
+  // Step5: タイトル類似度チェック（キーワードの70%以上がメルカリ商品名に含まれる）
+  const keyTokens = searchKeyword.toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
   const titleMatches = priceFiltered.filter((item) => {
     const t = item.title.toLowerCase();
     const matchCount = keyTokens.filter((tok) => t.includes(tok)).length;
-    return matchCount >= Math.ceil(keyTokens.length * 0.7); // 70%以上一致
+    return matchCount >= Math.ceil(keyTokens.length * 0.7);
   });
-  const candidates = titleMatches.length > 0 ? titleMatches : priceFiltered;
-  const bestMatch = candidates[0];
 
-  // Step6: Gemini画像認識でマッチング
-  if (rakutenImageUrl && bestMatch.imageUrl) {
-    const geminiResult = await matchWithGemini(
-      rakutenTitle, rakutenImageUrl,
-      bestMatch.title, bestMatch.imageUrl
-    );
-
-    if (geminiResult.matched && geminiResult.confidence >= 65) {
-      const prices = candidates.map((i) => i.price).sort((a, b) => a - b);
-      const median = prices[Math.floor(prices.length / 2)];
-      const valid = prices.filter((p) => p >= median * 0.5 && p <= median * 2);
-      const avgPrice = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
-      const result = { matched: true, avgPrice, count: valid.length, confidence: geminiResult.confidence };
-      setCache(cacheKey, { matched: true, confidence: geminiResult.confidence });
-      return Response.json(result);
-    }
+  if (titleMatches.length > 0) {
+    const prices = titleMatches.map((i) => i.price).sort((a, b) => a - b);
+    const median = prices[Math.floor(prices.length / 2)];
+    const valid = prices.filter((p) => p >= median * 0.5 && p <= median * 2);
+    const avgPrice = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+    const result = { matched: true, avgPrice, count: valid.length, confidence: 80 };
+    setCache(cacheKey, { matched: true, confidence: 80 });
+    return Response.json(result);
   }
 
   setCache(cacheKey, { matched: false, confidence: 0 });
