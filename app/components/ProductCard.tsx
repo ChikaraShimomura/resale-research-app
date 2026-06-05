@@ -36,7 +36,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const limitReached = listingCount >= LISTING_LIMIT;
 
   const shareOnX = () => {
-    const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → メルカリ利益率${product.realProfitRate}%！\n#転売 #メルカリ`;
+    const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://www.yushutsu-fukugyo.com")}`, "_blank");
   };
 
@@ -91,7 +91,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 w-16 shrink-0">
             <ShoppingBag size={12} className="text-rose-400 shrink-0" />
-            <span className="text-xs font-medium text-gray-500">ヤフオク</span>
+            <span className="text-xs font-medium text-gray-500">eBay</span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 flex-wrap">
@@ -106,7 +106,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <a href={product.mercariSoldUrl} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-indigo-400 hover:text-indigo-600"
                 onClick={(e) => e.stopPropagation()}>
-                ヤフオク↗
+                eBay↗
               </a>
             )}
             <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full border", getProfitBadgeStyle(product.realProfitRate))}>
