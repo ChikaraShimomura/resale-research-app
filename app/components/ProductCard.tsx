@@ -6,7 +6,7 @@ import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 
-interface MercariReal {
+interface RealPrice {
   avgPrice: number;
   count: number;
   confidence?: number;
@@ -26,9 +26,10 @@ function useFavorite(productId: string) {
 
 const LISTING_LIMIT = 30;
 
-function ProfitRow({ p, mercariReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
+function ProfitRow({ p, mercariReal, ebayReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
   p: ProfitInfo;
-  mercariReal?: MercariReal | null;
+  mercariReal?: RealPrice | null;
+  ebayReal?: RealPrice | null;
   buyPrice?: number;
   ebaySoldUrl?: string;
   mercariSoldUrl?: string;
@@ -42,13 +43,23 @@ function ProfitRow({ p, mercariReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
   let displayProfit = p.profit;
   let displayProfitRate = p.profitRate;
   let isRealData = false;
+  let realCount = 0;
 
-  if (!isEbay && mercariReal && buyPrice) {
+  if (isEbay && ebayReal && buyPrice) {
+    const realAvg = ebayReal.avgPrice;
+    displayAvgPrice = realAvg;
+    const fees = Math.round(realAvg * 0.1325 + 40);
+    displayProfit = realAvg - buyPrice - fees - 1500;
+    displayProfitRate = Math.round((displayProfit / buyPrice) * 100);
+    isRealData = true;
+    realCount = ebayReal.count;
+  } else if (!isEbay && mercariReal && buyPrice) {
     const realAvg = mercariReal.avgPrice;
     displayAvgPrice = realAvg;
     displayProfit = realAvg - buyPrice - Math.round(realAvg * 0.1) - 500;
     displayProfitRate = Math.round((displayProfit / buyPrice) * 100);
     isRealData = true;
+    realCount = mercariReal.count;
   }
 
   const monthlyMarket = Math.round(p.soldCount / 3);
@@ -71,7 +82,7 @@ function ProfitRow({ p, mercariReal, buyPrice, ebaySoldUrl, mercariSoldUrl }: {
             <span className="text-xs text-gray-600 font-medium">{formatJpy(displayAvgPrice)}</span>
             {isRealData ? (
               <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                実績{mercariReal!.count}件{mercariReal!.confidence ? ` ${mercariReal!.confidence}%一致` : ""}
+                実績{realCount}件
               </span>
             ) : (
               <span className="text-xs text-gray-400">（推定）</span>
@@ -113,7 +124,8 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const [listingCount, setListingCount] = useState(0);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
-  const [mercariReal, setMercariReal] = useState<MercariReal | null>(null);
+  const [mercariReal, setMercariReal] = useState<RealPrice | null>(null);
+  const [ebayReal, setEbayReal] = useState<RealPrice | null>(null);
 
   useEffect(() => {
     fetch("/api/match", {
@@ -128,6 +140,18 @@ export default function ProductCard({ product }: { product: Product }) {
       .then((r) => r.json())
       .then((d) => { if (d.matched && d.avgPrice) setMercariReal(d); })
       .catch(() => {});
+  }, [product.id]);
+
+  useEffect(() => {
+    if (product.ebaySoldUrl) {
+      const kw = product.coreKeyword || "";
+      if (kw) {
+        fetch(`/api/ebay-sold?keyword=${encodeURIComponent(kw)}`)
+          .then((r) => r.json())
+          .then((d) => { if (d.avgPrice) setEbayReal({ avgPrice: d.avgPrice, count: d.count ?? 0 }); })
+          .catch(() => {});
+      }
+    }
   }, [product.id]);
 
   useEffect(() => {
@@ -198,7 +222,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* 利益比較 */}
       <div className="px-4 pt-2 pb-1">
         {product.profits.map((p) => (
-          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} buyPrice={source.price} ebaySoldUrl={product.ebaySoldUrl} mercariSoldUrl={product.mercariSoldUrl} />
+          <ProfitRow key={p.platform} p={p} mercariReal={mercariReal} ebayReal={ebayReal} buyPrice={source.price} ebaySoldUrl={product.ebaySoldUrl} mercariSoldUrl={product.mercariSoldUrl} />
         ))}
         {(source.pointAmount ?? 0) > 0 && (
           <div className="flex items-center gap-1 pt-2 border-t border-gray-100 mt-1">
