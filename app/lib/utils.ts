@@ -24,18 +24,24 @@ export function getProfitBadgeStyle(rate: number): string {
 
 // 楽天タイトルからノイズを除去してコアキーワードを抽出
 export function extractCoreKeyword(title: string): string {
-  return title
+  const cleaned = title
     // 【】や()内のノイズ除去
     .replace(/【[^】]*】/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/（[^）]*）/g, "")
-    // 一般的なノイズワード除去
-    .replace(/送料無料|新品|未開封|未使用|正規品|国内正規|日本正規|限定|セール|特典付き?|プレゼント|ギフト|包装|ラッピング/g, "")
+    // 記号除去
+    .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※]/g, "")
+    // ノイズワード除去
+    .replace(/送料無料|送料込|新品|未開封|未使用|正規品|国内正規|日本正規|限定|セール|特典付き?|プレゼント|ギフト|包装|ラッピング|代引き?不可|あす楽|即日発送|在庫あり/g, "")
+    // 数量・個数表記除去
+    .replace(/\d+個セット|\d+枚セット|\d+本セット|\d+点セット/g, "")
+    // 余分なスペース整理
     .replace(/\s+/g, " ")
-    .trim()
-    // 最初の30文字（意味のある部分）
-    .slice(0, 30)
     .trim();
+
+  // スペースで分割して最初の3ワードだけ使う（短くシンプルに）
+  const words = cleaned.split(/[\s　]+/).filter(Boolean);
+  return words.slice(0, 3).join(" ");
 }
 
 // eBay販売実績（Sold Listings）検索URL
