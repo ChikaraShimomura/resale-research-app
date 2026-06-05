@@ -28,7 +28,10 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <Link href="/" className="font-bold text-xl text-indigo-600">輸出で副業しようよ</Link>
-        <Link href="/guide" className="text-xs text-gray-500 hover:text-indigo-600 transition-colors">はじめてガイド</Link>
+        <div className="flex items-center gap-3">
+          <Link href="/favorites" className="text-xs text-gray-500 hover:text-pink-500 transition-colors">❤️ お気に入り</Link>
+          <Link href="/guide" className="text-xs text-gray-500 hover:text-indigo-600 transition-colors">はじめてガイド</Link>
+        </div>
       </nav>
 
       <main className="max-w-2xl mx-auto px-4 pt-8 pb-12">

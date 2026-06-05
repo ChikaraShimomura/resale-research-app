@@ -1,10 +1,24 @@
 "use client";
 import { Product, ProfitInfo } from "../types";
 import { formatJpy, getProfitBadgeStyle, cn, toRakutenAffiliateUrl } from "../lib/utils";
-import { Globe, ShoppingBag } from "lucide-react";
+import { Globe, ShoppingBag, Heart, Share2 } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
+
+function useFavorite(productId: string) {
+  const key = `fav_${productId}`;
+  const [isFav, setIsFav] = useState(false);
+  useEffect(() => {
+    setIsFav(localStorage.getItem(key) === "1");
+  }, [key]);
+  const toggle = () => {
+    const next = !isFav;
+    next ? localStorage.setItem(key, "1") : localStorage.removeItem(key);
+    setIsFav(next);
+  };
+  return { isFav, toggle };
+}
 
 const LISTING_LIMIT = 30;
 
@@ -53,6 +67,14 @@ export default function ProductCard({ product }: { product: Product }) {
   const sourceUrl = source.site === "rakuten" ? toRakutenAffiliateUrl(source.url) : source.url;
 
   const [listingCount, setListingCount] = useState(0);
+  const { isFav, toggle: toggleFav } = useFavorite(product.id);
+
+  const shareOnX = () => {
+    const bestProfit = product.profits.reduce((a, b) => a.profitRate > b.profitRate ? a : b);
+    const text = `【輸出で副業】${product.title}\n仕入れ: ${formatJpy(product.source.price)} → 利益率${bestProfit.profitRate}%！\n#輸出副業 #せどり #eBay`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://www.yushutsu-fukugyo.com")}`;
+    window.open(url, "_blank");
+  };
 
   useEffect(() => {
     fetch(`/api/listing-count/${product.id}`)
@@ -135,6 +157,14 @@ export default function ProductCard({ product }: { product: Product }) {
             className="flex-1 text-center py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
             {source.siteName}で仕入れる ↗
           </a>
+          <button onClick={toggleFav}
+            className={cn("px-2.5 py-1.5 border text-xs rounded-lg transition-colors", isFav ? "border-pink-300 bg-pink-50 text-pink-500" : "border-gray-200 text-gray-400 hover:bg-gray-50")}>
+            <Heart size={13} fill={isFav ? "currentColor" : "none"} />
+          </button>
+          <button onClick={shareOnX}
+            className="px-2.5 py-1.5 border border-gray-200 text-gray-400 text-xs rounded-lg hover:bg-gray-50 transition-colors">
+            <Share2 size={13} />
+          </button>
           <Link href={`/product/${product.id}`}
             className="px-2.5 py-1.5 border border-gray-200 text-gray-500 text-xs rounded-lg hover:bg-gray-50 transition-colors">
             詳細
