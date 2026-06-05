@@ -110,7 +110,7 @@ function ProfitRow({ p, mercariReal, buyPrice, coreKeyword }: {
 export default function ProductCard({ product }: { product: Product }) {
   const { source } = product;
   const sourceUrl = source.site === "rakuten" ? toRakutenAffiliateUrl(source.url) : source.url;
-  const coreKeyword = extractCoreKeyword(product.title);
+  const coreKeyword = product.coreKeyword || extractCoreKeyword(product.title);
 
   const [listingCount, setListingCount] = useState(0);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);

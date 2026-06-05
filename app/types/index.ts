@@ -32,4 +32,5 @@ export interface Product {
   soldOut?: boolean;
   soldAt?: string;
   isNew?: boolean;
+  coreKeyword?: string; // 実績確認用キーワード（サーバー側で計算済み）
 }
