@@ -2,15 +2,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProductCard from "../components/ProductCard";
-import { Product } from "../types";
 import { searchRakuten } from "../lib/rakuten";
+import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
 
 export default function FavoritesPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // localStorageからお気に入りIDを取得
     const favIds = Object.keys(localStorage)
       .filter((k) => k.startsWith("fav_") && localStorage.getItem(k) === "1")
       .map((k) => k.replace("fav_", ""));
@@ -20,12 +19,12 @@ export default function FavoritesPage() {
       return;
     }
 
-    // 検索して該当商品を絞り込む
     searchRakuten("フィギュア おもちゃ ゲーム アニメ")
       .then((items) => {
-        const favs = items.filter((p) => favIds.includes(p.id));
-        setProducts(favs);
+        const favItems = items.filter((p) => favIds.includes(p.id));
+        return filterProfitable(favItems);
       })
+      .then((favs) => setProducts(favs))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

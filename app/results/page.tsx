@@ -4,8 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
-import { Product } from "../types";
 import { searchRakuten } from "../lib/rakuten";
+import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
 
 const GENRE_KEYWORDS: Record<string, string> = {
   "trading-card":   "トレカ ポケモンカード 遊戯王",
@@ -33,26 +33,41 @@ function ResultsContent() {
   const keyword = params.get("q") ?? "";
   const genre = params.get("genre") ?? "";
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState({ checked: 0, total: 0 });
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
-  const sorted = [...products].sort((a, b) => {
-    const bestA = Math.max(...a.profits.map((p) => p.profitRate));
-    const bestB = Math.max(...b.profits.map((p) => p.profitRate));
-    return sortOrder === "desc" ? bestB - bestA : bestA - bestB;
-  });
+  const sorted = [...products].sort((a, b) =>
+    sortOrder === "desc"
+      ? b.realProfitRate - a.realProfitRate
+      : a.realProfitRate - b.realProfitRate
+  );
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+    setProducts([]);
+
     const q = keyword || (genre ? GENRE_KEYWORDS[genre] ?? genre : "フィギュア おもちゃ");
     searchRakuten(q)
-      .then((items) => setProducts(items))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .then((items) => {
+        if (cancelled) return;
+        setProgress({ checked: 0, total: items.length });
+        return filterProfitable(items, (found, checked, total) => {
+          if (cancelled) return;
+          setProducts([...found]);
+          setProgress({ checked, total });
+        });
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [keyword, genre]);
 
   const displayLabel = keyword || genre || "すべて";
+  const isChecking = loading || progress.checked < progress.total;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -68,31 +83,30 @@ function ResultsContent() {
 
       <main className="max-w-2xl mx-auto px-4 pt-4">
         {/* ソート＆件数バー */}
-        {!loading && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            {isChecking && progress.total > 0 ? (
+              <span>確認中 {progress.checked}/{progress.total}件…</span>
+            ) : (
               <span className="font-semibold text-gray-600">{sorted.length}件</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />30%↑</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />10〜30%</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />10%↓</span>
-            </div>
-            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold bg-white">
-              <button onClick={() => setSortOrder("desc")}
-                className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>
-                高い順
-              </button>
-              <button onClick={() => setSortOrder("asc")}
-                className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>
-                低い順
-              </button>
-            </div>
+            )}
           </div>
-        )}
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden text-xs font-semibold bg-white">
+            <button onClick={() => setSortOrder("desc")}
+              className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>
+              高い順
+            </button>
+            <button onClick={() => setSortOrder("asc")}
+              className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>
+              低い順
+            </button>
+          </div>
+        </div>
 
-        {/* 商品リスト */}
-        {loading ? (
+        {/* ローディング（初期） */}
+        {loading && products.length === 0 && (
           <div className="flex flex-col gap-3">
-            {[...Array(5)].map((_, i) => (
+            {[...Array(3)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
                 <div className="flex gap-3">
                   <div className="w-16 h-16 bg-gray-100 rounded-xl" />
@@ -105,23 +119,26 @@ function ResultsContent() {
               </div>
             ))}
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {sorted.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-            {products.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-4xl mb-3">🔍</p>
-                <p className="text-gray-400 text-sm">商品が見つかりませんでした</p>
-                <Link href="/search" className="mt-4 inline-block text-indigo-600 text-sm font-medium">← 戻る</Link>
-              </div>
-            )}
+        )}
+
+        {/* 商品カード */}
+        <div className="flex flex-col gap-3">
+          {sorted.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+
+        {/* 完了後0件 */}
+        {!loading && products.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-4xl mb-3">🔍</p>
+            <p className="text-gray-400 text-sm">利益が出る商品が見つかりませんでした</p>
+            <Link href="/search" className="mt-4 inline-block text-indigo-600 text-sm font-medium">← 戻る</Link>
           </div>
         )}
 
         <p className="mt-6 text-xs text-gray-300 leading-relaxed pb-4">
-          ※ 掲載情報は参考値です。実際の利益は商品の状態・競合・送料・手数料などによって異なります。
+          ※ メルカリ売り切れ実績価格をもとに計算しています。実際の利益は状態・競合・送料などによって異なります。
         </p>
       </main>
 

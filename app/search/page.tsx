@@ -1,29 +1,38 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import { GENRES } from "../lib/genres";
 import { searchRakuten } from "../lib/rakuten";
 import { useEffect, useState } from "react";
-import { Product } from "../types";
+import { filterProfitable, ProfitProduct } from "../lib/profitFilter";
 
 export default function SearchPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [progress, setProgress] = useState({ checked: 0, total: 0 });
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setProducts([]);
+
     searchRakuten("フィギュア おもちゃ")
       .then((items) => {
-        const sorted = items.sort((a, b) =>
-          Math.max(...b.profits.map((p) => p.profitRate)) -
-          Math.max(...a.profits.map((p) => p.profitRate))
-        );
-        setProducts(sorted);
+        if (cancelled) return;
+        setProgress({ checked: 0, total: items.length });
+        return filterProfitable(items, (found, checked, total) => {
+          if (cancelled) return;
+          // 利益率順にソートしながら随時更新
+          const sorted = [...found].sort((a, b) => b.realProfitRate - a.realProfitRate);
+          setProducts(sorted);
+          setProgress({ checked, total });
+        });
       })
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -37,7 +46,6 @@ export default function SearchPage() {
             <Link href="/guide" className="text-xs text-gray-500 font-medium">ガイド</Link>
           </div>
         </div>
-        {/* 検索フォーム */}
         <SearchForm />
       </header>
 
@@ -53,7 +61,7 @@ export default function SearchPage() {
           <span className="text-indigo-300 text-xl">›</span>
         </Link>
 
-        {/* ジャンル（小さいピルタグ） */}
+        {/* ジャンル */}
         <div className="mb-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">ジャンルから探す</p>
           <div className="flex flex-wrap gap-1.5">
@@ -71,16 +79,26 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* ピックアップ商品 */}
+        {/* 商品リスト */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-gray-700">🔥 利益率ランキング</p>
-            {!loading && <span className="text-xs text-gray-400">{products.length}件</span>}
+            <div className="flex items-center gap-2">
+              {(loading || progress.checked < progress.total) && progress.total > 0 && (
+                <span className="text-xs text-gray-400">
+                  確認中 {progress.checked}/{progress.total}
+                </span>
+              )}
+              {products.length > 0 && (
+                <span className="text-xs text-gray-400">{products.length}件</span>
+              )}
+            </div>
           </div>
 
-          {loading ? (
+          {/* ローディング（初期） */}
+          {loading && products.length === 0 && (
             <div className="flex flex-col gap-3">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(3)].map((_, i) => (
                 <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
                   <div className="flex gap-3">
                     <div className="w-16 h-16 bg-gray-100 rounded-xl" />
@@ -93,17 +111,20 @@ export default function SearchPage() {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-              {products.length === 0 && (
-                <div className="text-center py-16">
-                  <p className="text-4xl mb-3">😅</p>
-                  <p className="text-gray-400 text-sm">商品を読み込めませんでした</p>
-                </div>
-              )}
+          )}
+
+          {/* 商品カード */}
+          <div className="flex flex-col gap-3">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {/* 完了後0件 */}
+          {!loading && products.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-4xl mb-3">😅</p>
+              <p className="text-gray-400 text-sm">利益が出る商品が見つかりませんでした</p>
             </div>
           )}
         </div>
