@@ -487,15 +487,14 @@ async function main() {
 
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
-  const top100 = profitableProducts.slice(0, 100);
 
-  await kvSet('profitable_products', top100, 8 * 3600); // 8時間TTL（次の実行まで）
+  await kvSet('profitable_products', profitableProducts, 8 * 3600); // 8時間TTL（次の実行まで）
   await kvSet('last_updated', new Date().toISOString(), 8 * 3600);
   await kvSet('refresh_stats', {
     rakutenCount: rakutenProducts.length,
     filteredCount: filtered.length,
     profitableCount: profitableProducts.length,
-    savedCount: top100.length,
+    savedCount: profitableProducts.length,
     ebayApiCalls: ebayApiCallsToday,
     geminiCalls: geminiCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
@@ -506,7 +505,7 @@ async function main() {
 ✨ 完了!
   楽天取得: ${rakutenProducts.length}件
   フィルタ後: ${filtered.length}件
-  利益商品: ${profitableProducts.length}件 → 上位${top100.length}件を保存
+  利益商品: ${profitableProducts.length}件 → 全件を保存
   eBay API呼出: ${ebayApiCallsToday}回
   Gemini呼出: ${geminiCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
