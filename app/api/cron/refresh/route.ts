@@ -219,16 +219,17 @@ async function getEbayToken(): Promise<string | null> {
   }
 }
 
-// ========== eBay Browse API: 出品価格を取得しタイトル類似度でフィルタリング ==========
-async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
+// ========== eBay候補商品の型 ==========
+type EbayCandidate = { price: number; imageUrl: string; title: string };
+
+// ========== eBay Browse API: ①④テキストマッチ済み候補を返す ==========
+async function fetchEbayCandidates(keyword: string): Promise<EbayCandidate[]> {
   if (keyword.length < 3) return [];
   const token = await getEbayToken();
   if (!token) return [];
 
-  // クエリの単語リスト（類似度判定用）
   const queryWords = keyword.split(/\s+/).filter(w => w.length >= 2);
   const queryLower = keyword.toLowerCase();
-  // 意味のある英語単語（ブランド名・型番・数字）が1つ以上なければスキップ
   const meaningfulWords = queryWords.filter(w => /[A-Za-z0-9]{2,}/.test(w));
   if (meaningfulWords.length === 0) return [];
 
@@ -256,7 +257,7 @@ async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const items: any[] = data?.itemSummaries ?? [];
-    const prices: number[] = [];
+    const candidates: EbayCandidate[] = [];
     for (const item of items) {
       // ①+④ 総合マッチスコア：0.35以上で合格
       const score = combinedMatchScore(queryWords, queryLower, item?.title ?? "");
@@ -264,17 +265,74 @@ async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
 
       const price = parseFloat(item?.price?.value);
       const currency = item?.price?.currency;
-      if (!isNaN(price) && price > 0) {
-        if (currency === "USD") {
-          prices.push(Math.round(price * USD_TO_JPY));
-        } else if (currency === "JPY") {
-          prices.push(Math.round(price));
-        }
-      }
+      if (isNaN(price) || price <= 0) continue;
+
+      const priceJpy = currency === "USD" ? Math.round(price * USD_TO_JPY)
+                     : currency === "JPY" ? Math.round(price) : 0;
+      if (priceJpy === 0) continue;
+
+      candidates.push({
+        price: priceJpy,
+        imageUrl: item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? "",
+        title: item?.title ?? "",
+      });
     }
-    return prices;
+    return candidates;
   } catch {
     return [];
+  }
+}
+
+// ========== ③ Gemini画像マッチング ==========
+// 楽天とeBayの商品画像を比較して同一商品か判定
+async function isImageMatch(rakutenImageUrl: string, ebayImageUrl: string): Promise<boolean> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !rakutenImageUrl || !ebayImageUrl) return true; // キー未設定時はスキップ（全通過）
+
+  try {
+    // 両画像をfetchしてbase64に変換
+    const [rakutenRes, ebayRes] = await Promise.all([
+      fetch(rakutenImageUrl, { signal: AbortSignal.timeout(4000) }),
+      fetch(ebayImageUrl, { signal: AbortSignal.timeout(4000) }),
+    ]);
+    if (!rakutenRes.ok || !ebayRes.ok) return true; // 取得失敗時はスキップ
+
+    const [rakutenBuf, ebayBuf] = await Promise.all([
+      rakutenRes.arrayBuffer(),
+      ebayRes.arrayBuffer(),
+    ]);
+    const rakutenB64 = Buffer.from(rakutenBuf).toString("base64");
+    const ebayB64 = Buffer.from(ebayBuf).toString("base64");
+    const rakutenMime = rakutenRes.headers.get("content-type") ?? "image/jpeg";
+    const ebayMime = ebayRes.headers.get("content-type") ?? "image/jpeg";
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: "Are these two product images showing the exact same product (same item, same edition/version)? Reply with only 'YES' or 'NO'." },
+          { inlineData: { mimeType: rakutenMime, data: rakutenB64 } },
+          { inlineData: { mimeType: ebayMime, data: ebayB64 } },
+        ],
+      }],
+      generationConfig: { maxOutputTokens: 4, temperature: 0 },
+    };
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(8000),
+        cache: "no-store",
+      }
+    );
+    if (!geminiRes.ok) return true;
+    const geminiData = await geminiRes.json();
+    const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? "";
+    return answer.startsWith("YES");
+  } catch {
+    return true; // エラー時はスキップ（全通過）
   }
 }
 
@@ -364,7 +422,31 @@ export async function GET(req: Request) {
     const enQuery = toEnglishQuery(it.itemName);
     if (!enQuery || enQuery.length < 3) continue;
 
-    const prices = await fetchEbayMatchedPrices(enQuery);
+    // ①④ テキストマッチで候補取得
+    const candidates = await fetchEbayCandidates(enQuery);
+    if (candidates.length === 0) { await sleep(200); continue; }
+
+    // ③ Gemini画像マッチング（APIキー設定時のみ、上位5件を確認）
+    const rakutenImageUrl = parseImageUrl(it.mediumImageUrls) || parseImageUrl(it.smallImageUrls);
+    const geminiEnabled = !!process.env.GEMINI_API_KEY;
+    let verifiedCandidates: EbayCandidate[];
+
+    if (geminiEnabled && rakutenImageUrl) {
+      // 上位5件のみGemini確認（時間節約）
+      const top5 = candidates.slice(0, 5);
+      const checks = await Promise.all(
+        top5.map(c => c.imageUrl ? isImageMatch(rakutenImageUrl, c.imageUrl) : Promise.resolve(false))
+      );
+      verifiedCandidates = top5.filter((_, i) => checks[i]);
+      // Gemini通過が少なければ残りもテキストマッチのみで追加
+      if (verifiedCandidates.length < 3) {
+        verifiedCandidates = [...verifiedCandidates, ...candidates.slice(5)];
+      }
+    } else {
+      verifiedCandidates = candidates;
+    }
+
+    const prices = verifiedCandidates.map(c => c.price);
     if (prices.length < 3) {
       await sleep(200);
       continue;
@@ -385,7 +467,7 @@ export async function GET(req: Request) {
     profitableProducts.push({
       id: it.itemCode,
       title: it.itemName,
-      imageUrl: parseImageUrl(it.mediumImageUrls) || parseImageUrl(it.smallImageUrls),
+      imageUrl: rakutenImageUrl,
       category: guessCategory(it.itemName),
       source: {
         site: "rakuten",
@@ -416,10 +498,11 @@ export async function GET(req: Request) {
 
   return Response.json({
     ok: true,
-    mode: "full (Rakuten + eBay)",
+    mode: `full (Rakuten + eBay${process.env.GEMINI_API_KEY ? " + Gemini" : ""})`,
     rakutenCount: rakutenProducts.length,
     profitableCount: profitableProducts.length,
     savedCount: top50.length,
+    geminiEnabled: !!process.env.GEMINI_API_KEY,
     elapsedSec: Math.round((Date.now() - startedAt) / 1000),
   });
 }
