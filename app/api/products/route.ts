@@ -2,26 +2,33 @@ import { kv } from "@vercel/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { SAMPLE_PRODUCTS } from "../../lib/sampleProducts";
 
+// KVを読むだけ。計算・外部API呼び出しは一切しない。
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
-    const profitable = await kv.get<ProfitProduct[]>("profitable_products");
+    const [profitable, lastUpdated, stats] = await Promise.all([
+      kv.get<ProfitProduct[]>("profitable_products"),
+      kv.get<string>("last_updated"),
+      kv.get<Record<string, unknown>>("refresh_stats"),
+    ]);
+
     if (profitable && profitable.length > 0) {
-      const lastUpdated = await kv.get<string>("last_updated");
-      return Response.json({ products: profitable, lastUpdated });
+      return Response.json(
+        { products: profitable, lastUpdated, stats },
+        { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=3600" } }
+      );
     }
 
-    // KVにデータがない場合はサンプル商品を返す（UIプレビュー用）
-    return Response.json({
-      products: SAMPLE_PRODUCTS,
-      lastUpdated: null,
-      isSample: true,
-    });
+    // KVにデータがない場合はサンプルを返す
+    return Response.json(
+      { products: SAMPLE_PRODUCTS, lastUpdated: null, isSample: true },
+      { headers: { "Cache-Control": "public, max-age=60" } }
+    );
   } catch {
-    // KV未設定時もサンプルを返す
-    return Response.json({
-      products: SAMPLE_PRODUCTS,
-      lastUpdated: null,
-      isSample: true,
-    });
+    return Response.json(
+      { products: SAMPLE_PRODUCTS, lastUpdated: null, isSample: true },
+      { headers: { "Cache-Control": "public, max-age=60" } }
+    );
   }
 }
