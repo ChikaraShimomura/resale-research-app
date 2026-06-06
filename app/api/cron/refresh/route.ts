@@ -86,6 +86,11 @@ function buildCoreKeyword(title: string): string {
     .replace(/【[^】]*】/g, "")
     .replace(/\([^)]*\)/g, "")
     .replace(/（[^）]*）/g, "")
+    // セール・プロモーション文言を除去
+    .replace(/今だけ[^　\s]*/g, "")
+    .replace(/\d+[%％]OFF[^\s]*/g, "")
+    .replace(/\d+月\d+日(発売|終了|まで)?/g, "")
+    .replace(/送料無料/g, "")
     .replace(/[★☆◆◇●○■□▲△▼▽♪♥♡※〇]/g, "")
     .replace(/\s+/g, " ")
     .trim()
@@ -299,8 +304,8 @@ export async function GET(req: Request) {
     const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
-    // 利益率10%以上かつ利益¥500以上の商品のみ
-    if (profit < 500 || profitRate < 10) {
+    // 利益率10%以上・利益¥500以上・利益率500%以下（異常マッチを除外）
+    if (profit < 500 || profitRate < 10 || profitRate > 500) {
       await sleep(200);
       continue;
     }
