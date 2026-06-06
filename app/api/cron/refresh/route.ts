@@ -5,7 +5,8 @@ export const maxDuration = 60;
 
 // ========== 定数 ==========
 const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID ?? "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
-const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
+const RAKUTEN_ACCESS_KEY = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
+const RAKUTEN_AFFILIATE_ID = "548be677.8bfec03c.548be678.0aee6152";
 const USD_TO_JPY = 155;
 const EBAY_FEE_RATE = 0.1325; // 13.25%
 const EBAY_FEE_FIXED_JPY = 47; // $0.30 ≈ ¥47
@@ -39,22 +40,36 @@ const BRAND_JP_TO_EN: Record<string, string> = {
   "ワンピース": "One Piece",
 };
 
+// eBay向け人気ジャンルのキーワード（楽天API検索用）
+const SEARCH_KEYWORDS = [
+  "ポケモンカード BOX", "遊戯王 BOX", "ガンプラ MG", "LEGO テクニック",
+  "ねんどろいど", "Nintendo Switch", "フィギュア 限定", "セイコー 腕時計",
+  "資生堂 アネッサ", "トミカ ギフト", "ワンピース カード", "鬼滅の刃 フィギュア",
+  "ガンダム RG", "LEGO スターウォーズ", "ポケモン ぬいぐるみ",
+];
+
 // ========== 楽天商品取得 ==========
-async function fetchRakutenPage(sort: string, page: number): Promise<any[]> {
+async function fetchRakutenPage(keyword: string, sort: string, page: number): Promise<any[]> {
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
+    accessKey: RAKUTEN_ACCESS_KEY,
     affiliateId: RAKUTEN_AFFILIATE_ID,
     hits: "30",
     page: String(page),
     sort,
     format: "json",
     minPrice: "1000",
+    keyword,
   });
   try {
     const res = await fetch(
-      `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params}`,
+      `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`,
       {
-        headers: { "User-Agent": "Mozilla/5.0" },
+        headers: {
+          "Referer": "https://resale-research-app.vercel.app/",
+          "Origin": "https://resale-research-app.vercel.app",
+          "User-Agent": "Mozilla/5.0",
+        },
         cache: "no-store",
         signal: AbortSignal.timeout(8000),
       }
@@ -195,12 +210,11 @@ export async function GET(req: Request) {
   const seen = new Set<string>();
   const rakutenProducts: any[] = [];
 
-  // 楽天商品を取得（複数ソート順で幅広く）
-  const SORT_ORDERS = ["-reviewCount", "-seller", "-reviewAverage", "+price"];
-  for (const sort of SORT_ORDERS) {
+  // 楽天商品を取得（人気ジャンルキーワードで幅広く）
+  for (const keyword of SEARCH_KEYWORDS) {
     if (Date.now() - startedAt > 25_000) break; // 25秒でフェーズ1終了
-    for (let page = 1; page <= 3; page++) {
-      const items = await fetchRakutenPage(sort, page);
+    for (let page = 1; page <= 2; page++) {
+      const items = await fetchRakutenPage(keyword, "-reviewCount", page);
       for (const raw of items) {
         const it = raw.Item;
         if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
