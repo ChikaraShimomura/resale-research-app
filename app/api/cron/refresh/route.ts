@@ -4,8 +4,7 @@ import { ProfitProduct } from "../../../lib/profitFilter";
 export const maxDuration = 60;
 
 // ========== 定数 ==========
-const RAKUTEN_APP_ID = "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
-const RAKUTEN_ACCESS_KEY = "pk_NumikiUfx2PbTNjhKnw3O2HAf9XeSUO9KdEUsa9GmVD";
+const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID ?? "ba6c0bfe-08de-4163-bbb4-d118aaacabb0";
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
 const USD_TO_JPY = 155;
 const EBAY_FEE_RATE = 0.1325; // 13.25%
@@ -44,7 +43,6 @@ const BRAND_JP_TO_EN: Record<string, string> = {
 async function fetchRakutenPage(sort: string, page: number): Promise<any[]> {
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
-    accessKey: RAKUTEN_ACCESS_KEY,
     affiliateId: RAKUTEN_AFFILIATE_ID,
     hits: "30",
     page: String(page),
@@ -54,9 +52,9 @@ async function fetchRakutenPage(sort: string, page: number): Promise<any[]> {
   });
   try {
     const res = await fetch(
-      `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`,
+      `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?${params}`,
       {
-        headers: { Referer: "https://yushutsu-fukugyo.com", "User-Agent": "Mozilla/5.0" },
+        headers: { "User-Agent": "Mozilla/5.0" },
         cache: "no-store",
         signal: AbortSignal.timeout(8000),
       }
