@@ -27,6 +27,14 @@ export function toEbaySoldUrl(keyword: string): string {
 }
 
 export function toEbayListingUrl(title: string): string {
-  return `https://www.ebay.com/sl/list?title=${encodeURIComponent(title)}`;
+  // タイトルをeBay向けに英数字主体で整形（80文字以内）
+  const cleaned = title
+    .replace(/【[^】]*】/g, "")
+    .replace(/[^\x00-\x7F\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  const q = encodeURIComponent(cleaned || title.slice(0, 80));
+  return `https://www.ebay.com/sl/list?title=${q}`;
 }
 
