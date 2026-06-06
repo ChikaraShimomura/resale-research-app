@@ -121,6 +121,15 @@ function toEnglishQuery(jpTitle: string): string {
   return words.slice(0, 5).join(" ");
 }
 
+// ========== eBayタイトルと楽天タイトルの類似度スコア（0〜1）==========
+// クエリ単語がeBayタイトルに何割含まれているかで判定
+function titleMatchScore(queryWords: string[], ebayTitle: string): number {
+  if (queryWords.length === 0) return 0;
+  const ebayLower = ebayTitle.toLowerCase();
+  const matches = queryWords.filter(w => w.length >= 2 && ebayLower.includes(w.toLowerCase()));
+  return matches.length / queryWords.length;
+}
+
 // ========== eBay OAuth トークン取得（メモリキャッシュ） ==========
 let ebayTokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -157,16 +166,22 @@ async function getEbayToken(): Promise<string | null> {
   }
 }
 
-// ========== eBay Browse API: 現在出品中の価格を取得（市場価格として利用） ==========
-async function fetchEbaySoldItems(keyword: string): Promise<number[]> {
+// ========== eBay Browse API: 出品価格を取得しタイトル類似度でフィルタリング ==========
+async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
   if (keyword.length < 3) return [];
   const token = await getEbayToken();
   if (!token) return [];
 
+  // クエリの単語リスト（類似度判定用）
+  const queryWords = keyword.split(/\s+/).filter(w => w.length >= 2);
+  // 意味のある英語単語（ブランド名・型番・数字）が1つ以上なければスキップ
+  const meaningfulWords = queryWords.filter(w => /[A-Za-z0-9]{2,}/.test(w));
+  if (meaningfulWords.length === 0) return [];
+
   const params = new URLSearchParams({
     q: keyword,
     filter: "buyingOptions:{FIXED_PRICE},conditions:{NEW|LIKE_NEW}",
-    sort: "price",
+    sort: "bestMatch",
     limit: "20",
     fieldgroups: "COMPACT",
   });
@@ -189,10 +204,13 @@ async function fetchEbaySoldItems(keyword: string): Promise<number[]> {
     const items: any[] = data?.itemSummaries ?? [];
     const prices: number[] = [];
     for (const item of items) {
+      // タイトル類似度チェック：クエリ単語の40%以上がeBayタイトルに含まれること
+      const score = titleMatchScore(queryWords, item?.title ?? "");
+      if (score < 0.4) continue;
+
       const price = parseFloat(item?.price?.value);
       const currency = item?.price?.currency;
       if (!isNaN(price) && price > 0) {
-        // USD→JPY換算、他通貨は除外
         if (currency === "USD") {
           prices.push(Math.round(price * USD_TO_JPY));
         } else if (currency === "JPY") {
@@ -292,7 +310,7 @@ export async function GET(req: Request) {
     const enQuery = toEnglishQuery(it.itemName);
     if (!enQuery || enQuery.length < 3) continue;
 
-    const prices = await fetchEbaySoldItems(enQuery);
+    const prices = await fetchEbayMatchedPrices(enQuery);
     if (prices.length < 3) {
       await sleep(200);
       continue;
