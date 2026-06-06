@@ -123,8 +123,8 @@ const EXCLUDE_PATTERN = /オリパ|ばら売り|パック売り|BOXくじ|ボッ
 
 // ========== ブランド辞書 ==========
 const BRAND_JP_TO_EN = {
-  "任天堂": "Nintendo", "ニンテンドー": "Nintendo",
-  "ソニー": "Sony", "プレイステーション": "PlayStation",
+  "任天堂": "Nintendo", "ニンテンドー": "Nintendo", "ニンテンドウ": "Nintendo",
+  "ソニー": "Sony", "プレイステーション": "PlayStation", "プレステ": "PlayStation",
   "セガ": "Sega", "カプコン": "Capcom", "コナミ": "Konami",
   "バンダイ": "Bandai", "バンダイナムコ": "Bandai Namco",
   "スクウェアエニックス": "Square Enix",
@@ -133,8 +133,9 @@ const BRAND_JP_TO_EN = {
   "マックスファクトリー": "Max Factory", "アルター": "Alter",
   "メガハウス": "MegaHouse", "フリーイング": "FREEing",
   "ポケモン": "Pokemon", "ポケットモンスター": "Pokemon",
+  "ポケモンカード": "Pokemon Card", "ポケモンカードゲーム": "Pokemon TCG",
   "遊戯王": "Yu-Gi-Oh", "デュエルマスターズ": "Duel Masters",
-  "ドラゴンボール": "Dragon Ball", "ナルト": "Naruto",
+  "ドラゴンボール": "Dragon Ball", "ナルト": "Naruto", "ボルト": "Boruto",
   "進撃の巨人": "Attack on Titan", "鬼滅の刃": "Demon Slayer",
   "呪術廻戦": "Jujutsu Kaisen", "エヴァンゲリオン": "Evangelion",
   "ガンダム": "Gundam", "ゴジラ": "Godzilla",
@@ -144,43 +145,152 @@ const BRAND_JP_TO_EN = {
   "セイコー": "Seiko", "シチズン": "Citizen", "カシオ": "Casio",
   "初音ミク": "Hatsune Miku", "ねんどろいど": "Nendoroid",
   "ワンピース": "One Piece", "シャネル": "Chanel", "ディオール": "Dior",
+  "ジョーマローン": "Jo Malone", "イヴサンローラン": "Yves Saint Laurent",
+  "グッチ": "Gucci", "ルイヴィトン": "Louis Vuitton",
+  "ワンピースカード": "One Piece Card", "デュエマ": "Duel Masters",
+  "プリキュア": "Pretty Cure", "セーラームーン": "Sailor Moon",
+  "ドラえもん": "Doraemon", "リラックマ": "Rilakkuma",
+  "スターウォーズ": "Star Wars", "マーベル": "Marvel",
+  "アベンジャーズ": "Avengers", "ハリーポッター": "Harry Potter",
+  "マインクラフト": "Minecraft", "スプラトゥーン": "Splatoon",
+  "ゼルダ": "Zelda", "マリオ": "Mario", "カービィ": "Kirby",
+  "ピカチュウ": "Pikachu", "イーブイ": "Eevee",
 };
 
-// ========== タイトル → 英語クエリ変換 ==========
+// ========== 商品名専用辞書（ブランド辞書より先に適用） ==========
+const PRODUCT_TERMS_JP_TO_EN = {
+  // Pokemon TCG 拡張パック名
+  "黒炎の支配者": "Obsidian Flames",
+  "スノーハザード": "Snow Hazard",
+  "クレイバースト": "Paldea Evolved",
+  "バイオレットex": "Violet ex",
+  "スカーレットex": "Scarlet ex",
+  "サイバージャッジ": "Cyber Judge",
+  "ワイルドフォース": "Wild Force",
+  "ステラミラクル": "Stellar Miracle",
+  "ナイトワンダラー": "Night Wanderer",
+  "レイジングサーフ": "Raging Surf",
+  "テラスタルフェスティバル": "Terastal Festival",
+  "マスカーニャex": "Meowscarada ex",
+  "パラドックスリフト": "Paradox Rift",
+  "VSTARユニバース": "VSTAR Universe",
+  "ハイクラスパック": "High Class Pack",
+  "スカーレット": "Scarlet",
+  "バイオレット": "Violet",
+  // Yu-Gi-Oh
+  "リンクヴレインズ": "Link Vrains",
+  "フォトン・ハイパーノヴァ": "Photon Hypernova",
+  "デュエリストパック": "Duelist Pack",
+  // Gunpla
+  "マスターグレード": "Master Grade",
+  "リアルグレード": "Real Grade",
+  "パーフェクトグレード": "Perfect Grade",
+  "ハイグレード": "High Grade",
+  // General
+  "未開封": "sealed",
+  "新品": "new",
+  "限定版": "limited edition",
+  "限定": "limited",
+  "拡張パック": "booster box",
+  "シュリンク": "shrink wrapped",
+  "シュリンク付": "shrink wrapped",
+  "コレクターズセット": "collectors set",
+  "スターターセット": "starter set",
+  "スターターデッキ": "starter deck",
+  "ニンテンドースイッチ": "Nintendo Switch",
+  "スイッチ": "Nintendo Switch",
+  "国内正規品": "",
+  "正規品": "",
+};
+
+// ========== タイトル → 英語クエリ変換（改良版） ==========
 function toEnglishQuery(jpTitle) {
-  let result = jpTitle;
-  for (const [jp, en] of Object.entries(BRAND_JP_TO_EN)) {
-    result = result.replace(new RegExp(jp, 'g'), en);
-  }
-  result = result
+  // Step1: 装飾ノイズを除去
+  let clean = jpTitle
+    .replace(/【[^】]*】/g, ' ')       // 【送料無料】など
+    .replace(/〔[^〕]*〕/g, ' ')
     .replace(/今だけ[^\s]*/g, '')
     .replace(/\d+[%％]OFF[^\s]*/g, '')
-    .replace(/\d+月\d+日(発売|終了|まで)?/g, '')
+    .replace(/\d+月\d+日[^\s]*/g, '')
     .replace(/送料無料/g, '')
+    .replace(/ポイント\d+[倍%]?/g, '')
+    .replace(/在庫[^\s]*/g, '')
+    .replace(/即納|即日発送|翌日発送/g, '');
+
+  // Step2: タイトル中の英数字コードを最初に抽出（型番・JAN・モデル番号）
+  //        例: "HACPARZGA/A", "MG-1234", "4902370536485"
+  const productCodes = [];
+  const codeMatches = clean.match(/[A-Z]{2,}[A-Z0-9\-\/]{2,}|(?<![A-Za-z])\d{8,}(?![A-Za-z])/g) ?? [];
+  for (const code of codeMatches) {
+    if (code.length >= 4) productCodes.push(code);
+  }
+
+  // Step3: 商品名辞書を適用（拡張パック名など）
+  for (const [jp, en] of Object.entries(PRODUCT_TERMS_JP_TO_EN)) {
+    const escaped = jp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    clean = clean.replace(new RegExp(escaped, 'g'), en ? ` ${en} ` : ' ');
+  }
+
+  // Step4: ブランド辞書を適用
+  for (const [jp, en] of Object.entries(BRAND_JP_TO_EN)) {
+    clean = clean.replace(new RegExp(jp, 'g'), ` ${en} `);
+  }
+
+  // Step5: 残った日本語・記号を除去
+  clean = clean
     .replace(/[぀-ゟ゠-ヿ一-鿿＀-￯]/g, ' ')
     .replace(/[^\w\s\-\.\/]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return result.split(' ').filter(Boolean).slice(0, 6).join(' ');
+
+  // Step6: トークンを組み合わせ（型番コード優先、重複排除、最大10語）
+  const words = clean.split(' ').filter(w => w.length >= 2);
+  const allTokens = [...productCodes, ...words];
+  const seen = new Set();
+  const unique = allTokens.filter(t => {
+    const tl = t.toLowerCase();
+    if (seen.has(tl)) return false;
+    seen.add(tl);
+    return true;
+  });
+
+  return unique.slice(0, 10).join(' ');
 }
 
 // ========== テキストマッチスコア（①④） ==========
 function combinedMatchScore(queryWords, queryLower, ebayTitle) {
   const ebayLower = ebayTitle.toLowerCase();
-  // ①前方: クエリ語 → eBayタイトル
-  const forward = queryWords.length === 0 ? 0 :
-    queryWords.filter(w => w.length >= 2 && ebayLower.includes(w.toLowerCase())).length / queryWords.length;
+
+  // ①前方: クエリ語 → eBayタイトル（重要語は重み2倍）
+  const importantPattern = /^\d{3,}$|[A-Z]{2,}\d|\d[A-Z]{2,}|sealed|limited|master|grade/i;
+  let fwMatch = 0, fwTotal = 0;
+  for (const w of queryWords) {
+    if (w.length < 2) continue;
+    const weight = importantPattern.test(w) ? 2 : 1;
+    fwTotal += weight;
+    if (ebayLower.includes(w.toLowerCase())) fwMatch += weight;
+  }
+  const forward = fwTotal === 0 ? 0 : fwMatch / fwTotal;
+
   // ④逆方向: eBayタイトル語 → クエリ
-  const noiseWords = new Set(['new','the','for','and','with','set','box','lot','sealed','pack','bag','case','japan','japanese']);
+  const noiseWords = new Set([
+    'new','the','for','and','with','set','box','lot','sealed','pack',
+    'bag','case','japan','japanese','from','ship','fast','free','shipping',
+    'item','buy','sale','brand','official','limited','edition','ver','version',
+  ]);
   const ebayWords = ebayTitle.split(/\s+/)
     .filter(w => /^[A-Za-z]{3,}$/.test(w) || /[A-Za-z]\d|\d[A-Za-z]/.test(w) || /^\d{3,}$/.test(w))
     .map(w => w.toLowerCase())
     .filter(w => !noiseWords.has(w));
   const reverse = ebayWords.length === 0 ? 0 :
     ebayWords.filter(w => queryLower.includes(w)).length / ebayWords.length;
-  // 構造トークン（型番・スケール）完全一致ボーナス
-  const scaleMatch = (queryLower.match(/\d+\/\d+/g) ?? []).some(s => ebayLower.includes(s));
-  if (scaleMatch) return 1.0;
+
+  // スケール比・型番の完全一致はボーナス（即通過）
+  const hasScale = (queryLower.match(/\d+\/\d+/g) ?? []).some(s => ebayLower.includes(s));
+  const hasCode  = (queryLower.match(/[a-z]{2,}\d{2,}|\d{2,}[a-z]{2,}/g) ?? [])
+                    .some(s => ebayLower.includes(s));
+  if (hasScale || hasCode) return 1.0;
+
   return forward * 0.6 + reverse * 0.4;
 }
 
@@ -241,9 +351,9 @@ async function fetchEbayCandidates(enQuery) {
   const queryLower = enQuery.toLowerCase();
   const params = new URLSearchParams({
     q: enQuery,
-    filter: 'buyingOptions:{FIXED_PRICE},conditions:{NEW|LIKE_NEW}',
+    filter: 'buyingOptions:{FIXED_PRICE},conditions:{NEW|LIKE_NEW|USED_EXCELLENT}',
     sort: 'bestMatch',
-    limit: '20',
+    limit: '50',
     fieldgroups: 'COMPACT',
   });
 
