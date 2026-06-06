@@ -116,41 +116,83 @@ function toEnglishQuery(jpTitle: string): string {
   return words.slice(0, 5).join(" ");
 }
 
-// ========== eBay Finding API: 売れた商品を取得 ==========
-async function fetchEbaySoldItems(keyword: string): Promise<number[]> {
+// ========== eBay OAuth トークン取得（メモリキャッシュ） ==========
+let ebayTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getEbayToken(): Promise<string | null> {
   const appId = process.env.EBAY_APP_ID;
-  if (!appId || keyword.length < 3) return [];
+  const certId = process.env.EBAY_CLIENT_SECRET;
+  if (!appId || !certId) return null;
+
+  // キャッシュが有効なら再利用
+  if (ebayTokenCache && Date.now() < ebayTokenCache.expiresAt) {
+    return ebayTokenCache.token;
+  }
+
+  const encoded = Buffer.from(`${appId}:${certId}`).toString("base64");
+  try {
+    const res = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${encoded}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope",
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const token = data.access_token as string;
+    const expiresIn = (data.expires_in as number) ?? 7200;
+    ebayTokenCache = { token, expiresAt: Date.now() + (expiresIn - 60) * 1000 };
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+// ========== eBay Browse API: 現在出品中の価格を取得（市場価格として利用） ==========
+async function fetchEbaySoldItems(keyword: string): Promise<number[]> {
+  if (keyword.length < 3) return [];
+  const token = await getEbayToken();
+  if (!token) return [];
 
   const params = new URLSearchParams({
-    "OPERATION-NAME": "findCompletedItems",
-    "SERVICE-VERSION": "1.0.0",
-    "SECURITY-APPNAME": appId,
-    "RESPONSE-DATA-FORMAT": "JSON",
-    "REST-PAYLOAD": "true",
-    "keywords": keyword,
-    "itemFilter(0).name": "SoldItemsOnly",
-    "itemFilter(0).value": "true",
-    "itemFilter(1).name": "ListingType",
-    "itemFilter(1).value": "FixedPrice",
-    "sortOrder": "EndTimeSoonest",
-    "paginationInput.entriesPerPage": "20",
-    "outputSelector(0)": "SellerInfo",
+    q: keyword,
+    filter: "buyingOptions:{FIXED_PRICE},conditions:{NEW|LIKE_NEW}",
+    sort: "price",
+    limit: "20",
+    fieldgroups: "COMPACT",
   });
 
   try {
     const res = await fetch(
-      `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
-      { signal: AbortSignal.timeout(4000), cache: "no-store" }
+      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(6000),
+        cache: "no-store",
+      }
     );
     if (!res.ok) return [];
     const data = await res.json();
-    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+    const items: any[] = data?.itemSummaries ?? [];
     const prices: number[] = [];
     for (const item of items) {
-      const priceStr = item?.sellingStatus?.[0]?.convertedCurrentPrice?.[0]?.["__value__"];
-      const price = parseFloat(priceStr);
+      const price = parseFloat(item?.price?.value);
+      const currency = item?.price?.currency;
       if (!isNaN(price) && price > 0) {
-        prices.push(Math.round(price * USD_TO_JPY));
+        // USD→JPY換算、他通貨は除外
+        if (currency === "USD") {
+          prices.push(Math.round(price * USD_TO_JPY));
+        } else if (currency === "JPY") {
+          prices.push(Math.round(price));
+        }
       }
     }
     return prices;
