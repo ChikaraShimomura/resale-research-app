@@ -121,13 +121,66 @@ function toEnglishQuery(jpTitle: string): string {
   return words.slice(0, 5).join(" ");
 }
 
-// ========== eBayタイトルと楽天タイトルの類似度スコア（0〜1）==========
-// クエリ単語がeBayタイトルに何割含まれているかで判定
-function titleMatchScore(queryWords: string[], ebayTitle: string): number {
+// ========== 型番・スケール等の構造化トークンを抽出 ==========
+function extractStructuredTokens(text: string): string[] {
+  const tokens: string[] = [];
+  // スケール比（1/100, 1/144 等）
+  const scales = text.match(/\d+\/\d+/g) ?? [];
+  tokens.push(...scales);
+  // 型番パターン（英字+数字の組み合わせ: HG, MG, RG, PG, SW-123 等）
+  const modelNums = text.match(/\b[A-Za-z]{1,4}[-\s]?\d{2,6}\b|\b\d{2,6}[-\s]?[A-Za-z]{1,4}\b/g) ?? [];
+  tokens.push(...modelNums.map(t => t.replace(/\s/g, "").toLowerCase()));
+  // バージョン番号（Ver.2, v2 等）
+  const versions = text.match(/\bv(?:er)?\.?\s*\d+\b/gi) ?? [];
+  tokens.push(...versions.map(t => t.toLowerCase()));
+  // 純粋な数字（3桁以上：製品番号として意味がある）
+  const nums = text.match(/\b\d{3,}\b/g) ?? [];
+  tokens.push(...nums);
+  return tokens.filter(Boolean);
+}
+
+// ========== ①前方マッチ: クエリ単語 → eBayタイトル ==========
+function forwardMatchScore(queryWords: string[], ebayTitle: string): number {
   if (queryWords.length === 0) return 0;
   const ebayLower = ebayTitle.toLowerCase();
   const matches = queryWords.filter(w => w.length >= 2 && ebayLower.includes(w.toLowerCase()));
   return matches.length / queryWords.length;
+}
+
+// ========== ④逆方向マッチ: eBayタイトルの重要語 → クエリ ==========
+// eBayタイトルから意味のある英数字トークンを抽出し、それがクエリにどれだけ含まれるか
+function reverseMatchScore(queryLower: string, ebayTitle: string): number {
+  // eBayタイトルから意味のある単語（3文字以上の英字、または型番・数字）を抽出
+  const ebayWords = ebayTitle
+    .split(/\s+/)
+    .filter(w => /^[A-Za-z]{3,}$/.test(w) || /[A-Za-z]\d|\d[A-Za-z]/.test(w) || /^\d{3,}$/.test(w))
+    .map(w => w.toLowerCase())
+    // 一般的なノイズワードを除外
+    .filter(w => !["new", "the", "for", "and", "with", "set", "box", "lot", "sealed", "pack", "bag", "case"].includes(w));
+  if (ebayWords.length === 0) return 0;
+  const matches = ebayWords.filter(w => queryLower.includes(w));
+  return matches.length / ebayWords.length;
+}
+
+// ========== 構造トークンの完全一致ボーナス ==========
+// 型番・スケールが一致すれば信頼度大幅アップ
+function structuredTokenBonus(queryText: string, ebayTitle: string): number {
+  const qTokens = extractStructuredTokens(queryText);
+  const eTokens = extractStructuredTokens(ebayTitle.toLowerCase());
+  if (qTokens.length === 0) return 0;
+  const matches = qTokens.filter(t => eTokens.some(e => e === t.toLowerCase()));
+  return matches.length > 0 ? matches.length / qTokens.length : 0;
+}
+
+// ========== 総合マッチスコア（①＋④＋構造トークン）==========
+function combinedMatchScore(queryWords: string[], queryLower: string, ebayTitle: string): number {
+  const forward = forwardMatchScore(queryWords, ebayTitle);        // ①
+  const reverse = reverseMatchScore(queryLower, ebayTitle);        // ④
+  const structured = structuredTokenBonus(queryLower, ebayTitle); // 型番完全一致
+  // 構造トークンが一致していれば即合格（型番が合えば同一商品の確度高）
+  if (structured >= 0.5) return 1.0;
+  // 前方・逆方向の加重平均（前方重視）
+  return forward * 0.6 + reverse * 0.4;
 }
 
 // ========== eBay OAuth トークン取得（メモリキャッシュ） ==========
@@ -174,6 +227,7 @@ async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
 
   // クエリの単語リスト（類似度判定用）
   const queryWords = keyword.split(/\s+/).filter(w => w.length >= 2);
+  const queryLower = keyword.toLowerCase();
   // 意味のある英語単語（ブランド名・型番・数字）が1つ以上なければスキップ
   const meaningfulWords = queryWords.filter(w => /[A-Za-z0-9]{2,}/.test(w));
   if (meaningfulWords.length === 0) return [];
@@ -204,9 +258,9 @@ async function fetchEbayMatchedPrices(keyword: string): Promise<number[]> {
     const items: any[] = data?.itemSummaries ?? [];
     const prices: number[] = [];
     for (const item of items) {
-      // タイトル類似度チェック：クエリ単語の40%以上がeBayタイトルに含まれること
-      const score = titleMatchScore(queryWords, item?.title ?? "");
-      if (score < 0.4) continue;
+      // ①+④ 総合マッチスコア：0.35以上で合格
+      const score = combinedMatchScore(queryWords, queryLower, item?.title ?? "");
+      if (score < 0.35) continue;
 
       const price = parseFloat(item?.price?.value);
       const currency = item?.price?.currency;
