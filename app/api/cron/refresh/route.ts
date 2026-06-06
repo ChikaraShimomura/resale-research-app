@@ -140,7 +140,7 @@ async function fetchEbaySoldItems(keyword: string): Promise<number[]> {
   try {
     const res = await fetch(
       `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
-      { signal: AbortSignal.timeout(6000), cache: "no-store" }
+      { signal: AbortSignal.timeout(4000), cache: "no-store" }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -210,21 +210,17 @@ export async function GET(req: Request) {
   const seen = new Set<string>();
   const rakutenProducts: any[] = [];
 
-  // 楽天商品を取得（人気ジャンルキーワードで幅広く）
+  // 楽天商品を取得（人気ジャンルキーワード、1ページのみ）
   for (const keyword of SEARCH_KEYWORDS) {
-    if (Date.now() - startedAt > 25_000) break; // 25秒でフェーズ1終了
-    for (let page = 1; page <= 2; page++) {
-      const items = await fetchRakutenPage(keyword, "-reviewCount", page);
-      for (const raw of items) {
-        const it = raw.Item;
-        if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
-        seen.add(it.itemCode);
-        rakutenProducts.push(it);
-      }
-      if (items.length < 30) break;
-      await sleep(400);
+    if (Date.now() - startedAt > 15_000) break; // 15秒でフェーズ1終了
+    const items = await fetchRakutenPage(keyword, "-reviewCount", 1);
+    for (const raw of items) {
+      const it = raw.Item;
+      if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
+      seen.add(it.itemCode);
+      rakutenProducts.push(it);
     }
-    await sleep(500);
+    await sleep(300);
   }
 
   // eBay APIキーが未設定の場合は楽天商品だけ保存して終了
@@ -289,7 +285,7 @@ export async function GET(req: Request) {
       realCount: result.count,
     });
 
-    await sleep(300); // eBay APIレート制限対策
+    await sleep(200); // eBay APIレート制限対策
   }
 
   // 利益率降順でソートして保存
