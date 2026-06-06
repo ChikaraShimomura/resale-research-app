@@ -259,9 +259,9 @@ async function fetchEbayCandidates(keyword: string): Promise<EbayCandidate[]> {
     const items: any[] = data?.itemSummaries ?? [];
     const candidates: EbayCandidate[] = [];
     for (const item of items) {
-      // ①+④ 総合マッチスコア：0.35以上で合格
+      // ①+④ 総合マッチスコア：0.5以上で合格（精度98%目標）
       const score = combinedMatchScore(queryWords, queryLower, item?.title ?? "");
-      if (score < 0.35) continue;
+      if (score < 0.5) continue;
 
       const price = parseFloat(item?.price?.value);
       const currency = item?.price?.currency;
@@ -309,7 +309,7 @@ async function isImageMatch(rakutenImageUrl: string, ebayImageUrl: string): Prom
     const body = {
       contents: [{
         parts: [
-          { text: "Are these two product images showing the exact same product (same item, same edition/version)? Reply with only 'YES' or 'NO'." },
+          { text: "Are these two product images showing the EXACT SAME product — same item name, same edition, same set, same version? Do NOT answer YES if they are merely similar or from the same series. Answer YES only if you are highly confident they are identical products. Reply with only 'YES' or 'NO'." },
           { inlineData: { mimeType: rakutenMime, data: rakutenB64 } },
           { inlineData: { mimeType: ebayMime, data: ebayB64 } },
         ],
@@ -394,6 +394,8 @@ export async function GET(req: Request) {
     for (const raw of items) {
       const it = raw.Item;
       if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
+      // オリパ・パック売り・くじ・ガチャを除外
+      if (/オリパ|ばら売り|パック売り|BOXくじ|ボックスくじ|くじ引き|ガチャ|\d+パック\s*(売り|のみ)|オリジナルパック/i.test(it.itemName)) continue;
       seen.add(it.itemCode);
       rakutenProducts.push(it);
     }
@@ -417,6 +419,9 @@ export async function GET(req: Request) {
   // 残り時間を考慮しながら処理（最大35秒使う）
   for (const it of rakutenProducts) {
     if (Date.now() - startedAt > 52_000) break; // 52秒でeBayループ終了
+
+    // eBayループでも再確認（楽天フィルタ漏れ対策）
+    if (/オリパ|ばら売り|パック売り|BOXくじ|くじ|ガチャ/i.test(it.itemName)) continue;
 
     const coreKw = buildCoreKeyword(it.itemName);
     const enQuery = toEnglishQuery(it.itemName);
@@ -447,7 +452,7 @@ export async function GET(req: Request) {
     }
 
     const prices = verifiedCandidates.map(c => c.price);
-    if (prices.length < 3) {
+    if (prices.length < 5) {  // 最低5件のeBay一致が必要（精度確保）
       await sleep(200);
       continue;
     }
