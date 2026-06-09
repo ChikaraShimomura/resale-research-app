@@ -23,7 +23,7 @@ export const viewport: Viewport = {
   maximumScale: 1,         // iOS Safariのピンチズームを無効（入力フォームズーム防止）
   userScalable: false,
   viewportFit: "cover",    // iPhone ノッチ・ホームバーにコンテンツを広げる
-  themeColor: "#4f46e5",   // Safariのアドレスバー色 / Android PWAヘッダー色
+  themeColor: "#BF0000",   // Safariのアドレスバー色 / Android PWAヘッダー色
 };
 
 export const metadata: Metadata = {

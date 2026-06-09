@@ -34,19 +34,19 @@ export default function SearchPage() {
     <div className="min-h-dvh bg-gray-50 pb-nav">
 
       {/* ヘッダー */}
-      <header className="bg-white sticky top-0 z-20 border-b border-gray-100 shadow-sm"
+      <header className="bg-[#BF0000] sticky top-0 z-20 shadow-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-4 pt-3 pb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="font-black text-lg text-indigo-600 leading-none">輸出で副業しようよ</h1>
-              <p className="text-[10px] text-gray-400 mt-0.5">楽天 → eBay 利益商品リサーチ</p>
+              <h1 className="font-black text-lg text-white leading-none">輸出で副業しようよ</h1>
+              <p className="text-[10px] text-white/60 mt-0.5">楽天ポイント × eBay転売リサーチ</p>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/favorites" className="relative w-8 h-8 flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors" aria-label="お気に入り">
+              <Link href="/favorites" className="relative w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="お気に入り">
                 <span className="text-xl">❤️</span>
               </Link>
-              <Link href="/guide" className="text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full font-medium">ガイド</Link>
+              <Link href="/guide" className="text-xs text-white bg-white/20 px-2.5 py-1 rounded-full font-medium">ガイド</Link>
             </div>
           </div>
           <SearchForm />
@@ -57,7 +57,7 @@ export default function SearchPage() {
 
         {/* はじめてガイドバナー */}
         <Link href="/guide"
-          className="flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl px-4 py-3.5 mb-5 active:opacity-90 transition-opacity shadow-lg shadow-indigo-100">
+          className="flex items-center gap-3 bg-gradient-to-r from-[#BF0000] to-[#E83820] text-white rounded-2xl px-4 py-3.5 mb-5 active:opacity-90 transition-opacity shadow-lg shadow-red-100">
           <span className="text-2xl">📦</span>
           <div className="flex-1">
             <p className="font-bold text-sm">はじめての方へ：出品ガイド</p>
@@ -71,7 +71,7 @@ export default function SearchPage() {
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">ジャンルから探す</p>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
             <Link href="/results?q="
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold shadow-sm shrink-0 active:opacity-80">
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#BF0000] text-white text-xs font-bold shadow-sm shrink-0 active:opacity-80">
               🔍 すべて
             </Link>
             {GENRES.map((genre) => (
@@ -140,7 +140,7 @@ export default function SearchPage() {
               <p className="text-gray-400 text-xs">1日2回自動更新されます</p>
               <div className="mt-4 flex justify-center gap-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-indigo-200 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <div key={i} className="w-2 h-2 rounded-full bg-red-200 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>

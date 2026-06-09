@@ -25,7 +25,7 @@ export default function BottomNav() {
             key={item.href}
             href={item.href}
             className={`flex flex-col items-center gap-0.5 px-4 py-1 min-w-[3rem] ${
-              isActive ? "text-indigo-600" : "text-gray-400"
+              isActive ? "text-[#BF0000]" : "text-gray-400"
             }`}
           >
             <span className="text-xl leading-none">{item.emoji}</span>

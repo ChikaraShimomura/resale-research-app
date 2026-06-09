@@ -247,7 +247,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="space-y-2">
           <div className="flex gap-2">
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="flex-1 text-center py-2.5 bg-indigo-600 active:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors">
+              className="flex-1 text-center py-2.5 bg-[#BF0000] active:bg-[#A00000] text-white text-sm font-bold rounded-xl transition-colors">
               楽天で仕入れる ↗
             </a>
             <button onClick={toggleFav}
