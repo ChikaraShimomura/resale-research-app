@@ -69,10 +69,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
 
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
-  const realCost = source.price - pointAmount; // ポイント分を引いた実質仕入れ
+  const realCost = source.price - pointAmount;
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
-  const pointIncludedProfit = product.realAvgPrice - realCost - ebayFee - SHIPPING_COST;
-  const pointIncludedRate = Math.round((pointIncludedProfit / realCost) * 100);
 
   return (
     <div className={cn(
@@ -153,17 +151,15 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
 
             <div className="w-px h-8 bg-gray-200 mx-0.5 shrink-0" />
 
-            {/* 利益（ポイント込み） */}
+            {/* 利益 */}
             <div className="flex-1 text-right">
-              <p className="text-[10px] text-emerald-600 font-medium mb-0.5">
-                {pointAmount > 0 ? "ポイント込み利益" : "利益（手数料後）"}
-              </p>
+              <p className="text-[10px] text-emerald-600 font-medium mb-0.5">利益（手数料後）</p>
               <p className="text-lg font-black text-emerald-600 leading-none">
-                {formatJpy(pointAmount > 0 ? pointIncludedProfit : product.realProfit)}
+                {formatJpy(product.realProfit)}
               </p>
               {pointAmount > 0 && (
-                <p className="text-[11px] font-bold text-emerald-500 mt-0.5">
-                  利益率 {pointAmount > 0 ? pointIncludedRate : product.realProfitRate}%
+                <p className="text-[11px] font-bold text-orange-500 mt-0.5">
+                  + {pointAmount.toLocaleString()}pt
                 </p>
               )}
             </div>
@@ -236,8 +232,13 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span>- {formatJpy(SHIPPING_COST)}</span>
             </div>
             <div className="flex justify-between font-bold text-emerald-600 pt-1.5 border-t border-gray-200">
-              <span>ポイント込み利益</span>
-              <span>{formatJpy(pointIncludedProfit)}</span>
+              <span>利益</span>
+              <span>
+                {formatJpy(product.realProfit)}
+                {pointAmount > 0 && (
+                  <span className="text-orange-500 ml-1">+ {pointAmount.toLocaleString()}pt</span>
+                )}
+              </span>
             </div>
           </div>
         )}
