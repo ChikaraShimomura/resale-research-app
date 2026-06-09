@@ -490,7 +490,7 @@ async function fetchEbayCandidates(enQuery) {
 
 // ========== ③ Gemini画像マッチング ==========
 let geminiCallsToday = 0;
-const GEMINI_DAILY_LIMIT = 900; // クエリ生成500 + 画像確認900 = 1400上限
+const GEMINI_DAILY_LIMIT = 1400;
 
 async function isImageMatch(rakutenUrl, ebayUrl) {
   if (!GEMINI_API_KEY || !rakutenUrl || !ebayUrl) return true;
@@ -633,36 +633,15 @@ async function main() {
   for (const it of filtered) {
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
 
-    let candidates = [];
-    let searchMethod = 'text';
-
-    // 案A: JANコードがあればGTIN検索（最優先・完全一致）
+    // JANコードなし → スキップ
     const jan = extractJan(it.itemName);
-    if (jan) {
-      candidates = await fetchEbayByGtin(jan);
-      if (candidates.length > 0) {
-        searchMethod = `GTIN:${jan}`;
-      }
-    }
+    if (!jan) continue;
 
-    // 案B: JANなし or GTIN結果0件 → Geminiでクエリ生成
-    if (candidates.length === 0 && GEMINI_API_KEY && geminiQueryCallsToday < GEMINI_QUERY_LIMIT) {
-      const geminiQuery = await generateEbayQuery(it.itemName);
-      if (geminiQuery && geminiQuery.length >= 5) {
-        candidates = await fetchEbayCandidates(geminiQuery);
-        if (candidates.length > 0) searchMethod = `Gemini:"${geminiQuery.slice(0, 30)}"`;
-      }
-    }
+    // JANコードでeBay GTIN検索（完全一致）
+    const candidates = await fetchEbayByGtin(jan);
+    if (candidates.length === 0) continue;
 
-    // フォールバック: 従来のテキスト変換クエリ
-    if (candidates.length === 0) {
-      const enQuery = toEnglishQuery(it.itemName);
-      if (!enQuery || enQuery.length < 5) continue;
-      candidates = await fetchEbayCandidates(enQuery);
-      if (candidates.length === 0) continue;
-    }
-
-    console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
+    console.log(`  [GTIN:${jan}] ${it.itemName.slice(0, 35)}`);
 
     // ③ Gemini画像確認（上位5件のみ）
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
@@ -724,8 +703,7 @@ async function main() {
     profitableCount: profitableProducts.length,
     savedCount: profitableProducts.length,
     ebayApiCalls: ebayApiCallsToday,
-    geminiImageCalls: geminiCallsToday,
-    geminiQueryCalls: geminiQueryCallsToday,
+    geminiCalls: geminiCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 8 * 3600);
@@ -737,7 +715,6 @@ async function main() {
   利益商品: ${profitableProducts.length}件 → 全件を保存
   eBay API呼出: ${ebayApiCallsToday}回
   Gemini画像確認: ${geminiCallsToday}回
-  Geminiクエリ生成: ${geminiQueryCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }
