@@ -294,6 +294,51 @@ function combinedMatchScore(queryWords, queryLower, ebayTitle) {
   return forward * 0.6 + reverse * 0.4;
 }
 
+// ========== 案A: JANコード抽出 ==========
+function extractJan(title) {
+  // 13桁 or 8桁のバーコードを抽出（JANコード / EAN）
+  const m = title.match(/(?<![0-9])(\d{13}|\d{8})(?![0-9])/g) ?? [];
+  return m[0] ?? null;
+}
+
+// ========== 案B: Geminiでクエリ生成（テキストのみ・高速） ==========
+let geminiQueryCallsToday = 0;
+const GEMINI_QUERY_LIMIT = 500; // クエリ生成用
+
+async function generateEbayQuery(jpTitle) {
+  if (!GEMINI_API_KEY || geminiQueryCallsToday >= GEMINI_QUERY_LIMIT) return null;
+
+  // キャッシュ確認（同じ商品名なら再利用）
+  const cacheKey = `gemini_query:${ebayQueryHash(jpTitle)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && typeof cached === 'string') return cached;
+
+  try {
+    const body = {
+      contents: [{
+        parts: [{
+          text: `You are an eBay search expert. Convert this Japanese product title to the best English eBay search query (max 10 words, no Japanese characters). Return ONLY the search query, nothing else.\n\nJapanese title: ${jpTitle}`,
+        }],
+      }],
+      generationConfig: { maxOutputTokens: 30, temperature: 0 },
+    };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) }
+    );
+    geminiQueryCallsToday++;
+    if (!res.ok) return null;
+    const data = await res.json();
+    const query = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    if (!query || query.length < 3) return null;
+
+    // 24時間キャッシュ
+    await kvSet(cacheKey, query, 24 * 3600);
+    return query;
+  } catch { return null; }
+}
+
 // ========== eBay OAuthトークン（メモリキャッシュ） ==========
 let ebayTokenCache = null;
 async function getEbayToken() {
@@ -321,10 +366,57 @@ function ebayQueryHash(query) {
   return Math.abs(h).toString(36);
 }
 
-// ========== eBay Browse API: ①④テキストマッチ済み候補（キャッシュ付き） ==========
+// ========== 案A: eBay GTIN（JANコード）検索 ==========
 let ebayApiCallsToday = 0;
-const EBAY_DAILY_LIMIT = 4800; // 5000のうち200は余裕として確保
+const EBAY_DAILY_LIMIT = 4800;
 
+async function fetchEbayByGtin(jan) {
+  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) return [];
+
+  const cacheKey = `ebay_gtin:${jan}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && Array.isArray(cached)) {
+    console.log(`  [GTIN cache] ${jan}`);
+    return cached;
+  }
+
+  const token = await getEbayToken();
+  if (!token) return [];
+
+  const params = new URLSearchParams({
+    gtin: jan,
+    filter: 'buyingOptions:{FIXED_PRICE}',
+    limit: '50',
+    fieldgroups: 'COMPACT',
+  });
+
+  try {
+    const res = await fetch(
+      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
+      { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }, signal: AbortSignal.timeout(8000) }
+    );
+    ebayApiCallsToday++;
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data?.itemSummaries ?? [];
+    const candidates = items.flatMap(item => {
+      const price = parseFloat(item?.price?.value);
+      const currency = item?.price?.currency;
+      if (isNaN(price) || price <= 0) return [];
+      const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
+                     : currency === 'JPY' ? Math.round(price) : 0;
+      if (priceJpy === 0) return [];
+      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '' }];
+    });
+
+    await kvSet(cacheKey, candidates, 22 * 3600);
+    console.log(`  [eBay GTIN #${ebayApiCallsToday}] JAN:${jan} → ${candidates.length} 件（完全一致）`);
+    await sleep(300);
+    return candidates;
+  } catch { return []; }
+}
+
+// ========== eBay Browse API: テキストマッチ候補（キャッシュ付き） ==========
 async function fetchEbayCandidates(enQuery) {
   if (!enQuery || enQuery.length < 3) return [];
   const queryWords = enQuery.split(/\s+/).filter(w => w.length >= 2);
@@ -398,7 +490,7 @@ async function fetchEbayCandidates(enQuery) {
 
 // ========== ③ Gemini画像マッチング ==========
 let geminiCallsToday = 0;
-const GEMINI_DAILY_LIMIT = 1400;
+const GEMINI_DAILY_LIMIT = 900; // クエリ生成500 + 画像確認900 = 1400上限
 
 async function isImageMatch(rakutenUrl, ebayUrl) {
   if (!GEMINI_API_KEY || !rakutenUrl || !ebayUrl) return true;
@@ -539,12 +631,38 @@ async function main() {
   const profitableProducts = [];
 
   for (const it of filtered) {
-    const enQuery = toEnglishQuery(it.itemName);
-    if (!enQuery || enQuery.length < 5) continue;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
 
-    const candidates = await fetchEbayCandidates(enQuery);
-    if (candidates.length === 0) continue;
+    let candidates = [];
+    let searchMethod = 'text';
+
+    // 案A: JANコードがあればGTIN検索（最優先・完全一致）
+    const jan = extractJan(it.itemName);
+    if (jan) {
+      candidates = await fetchEbayByGtin(jan);
+      if (candidates.length > 0) {
+        searchMethod = `GTIN:${jan}`;
+      }
+    }
+
+    // 案B: JANなし or GTIN結果0件 → Geminiでクエリ生成
+    if (candidates.length === 0 && GEMINI_API_KEY && geminiQueryCallsToday < GEMINI_QUERY_LIMIT) {
+      const geminiQuery = await generateEbayQuery(it.itemName);
+      if (geminiQuery && geminiQuery.length >= 5) {
+        candidates = await fetchEbayCandidates(geminiQuery);
+        if (candidates.length > 0) searchMethod = `Gemini:"${geminiQuery.slice(0, 30)}"`;
+      }
+    }
+
+    // フォールバック: 従来のテキスト変換クエリ
+    if (candidates.length === 0) {
+      const enQuery = toEnglishQuery(it.itemName);
+      if (!enQuery || enQuery.length < 5) continue;
+      candidates = await fetchEbayCandidates(enQuery);
+      if (candidates.length === 0) continue;
+    }
+
+    console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
 
     // ③ Gemini画像確認（上位5件のみ）
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
@@ -606,7 +724,8 @@ async function main() {
     profitableCount: profitableProducts.length,
     savedCount: profitableProducts.length,
     ebayApiCalls: ebayApiCallsToday,
-    geminiCalls: geminiCallsToday,
+    geminiImageCalls: geminiCallsToday,
+    geminiQueryCalls: geminiQueryCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 8 * 3600);
@@ -617,7 +736,8 @@ async function main() {
   フィルタ後: ${filtered.length}件
   利益商品: ${profitableProducts.length}件 → 全件を保存
   eBay API呼出: ${ebayApiCallsToday}回
-  Gemini呼出: ${geminiCallsToday}回
+  Gemini画像確認: ${geminiCallsToday}回
+  Geminiクエリ生成: ${geminiQueryCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }
