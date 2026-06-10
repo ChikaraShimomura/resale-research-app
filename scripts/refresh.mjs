@@ -896,11 +896,10 @@ async function main() {
 
   console.log(`\n✅ 楽天取得完了: ${rakutenProducts.length}件`);
 
-  // Phase 2: 事前フィルタ（レビュー数5件以上を優先してソート・最大200件）
+  // Phase 2: 事前フィルタ（レビュー数3件以上・スキップ除外後に最大800件を処理）
   const filtered = rakutenProducts
-    .filter(it => it.reviewCount >= 3)  // レビューが少なすぎる商品を除外
-    .sort((a, b) => b.reviewCount - a.reviewCount)  // レビュー多い順（需要がある商品優先）
-    .slice(0, 800);  // 処理上限: 最大800件
+    .filter(it => it.reviewCount >= 3)
+    .sort((a, b) => b.reviewCount - a.reviewCount);
 
   console.log(`\n🔍 Phase 2: eBay比較 (${filtered.length}件 → 上位からeBay確認)...`);
 
@@ -924,12 +923,16 @@ async function main() {
   // 既存商品はそのまま引き継ぎ、新規商品だけ検索
   const profitableProducts = [...existingProducts];
   const newCheckedIds = []; // {id, checkedAt} 形式で追加
+  const MAX_PROCESS = 800; // スキップ除外後の処理上限
+  let processedCount = 0;
 
   for (const it of filtered) {
-    // 既にDB登録済みの商品はスキップ（480時間TTLで自然消滅）
+    if (processedCount >= MAX_PROCESS) break;
+    // 既にDB登録済みの商品はスキップ（カウントしない）
     if (existingIds.has(it.itemCode)) continue;
-    // チェック済み（利益なし）商品もスキップ
+    // チェック済み（利益なし）商品もスキップ（カウントしない）
     if (checkedIds.has(it.itemCode)) continue;
+    processedCount++;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
     if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
 
