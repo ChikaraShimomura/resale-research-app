@@ -18,7 +18,7 @@ const GBP_TO_JPY         = 197;  // GBP → JPY
 const AUD_TO_JPY         = 100;  // AUD → JPY
 const EBAY_FEE_RATE      = 0.1325;
 const EBAY_FEE_FIXED_JPY = 47;
-const SHIPPING_COST_JPY  = 2500;
+const SHIPPING_COST_JPY  = 0;  // 送料は購入者負担のため加味しない
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
