@@ -992,6 +992,11 @@ async function main() {
     });
 
     console.log(`  💰 ${profitRate}% 利益: ${it.itemName.slice(0, 40)}`);
+
+    // 都度KVに保存（タイムアウト時も途中データが残る）
+    const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
+    await kvSet('profitable_products', sorted, 480 * 3600);
+    await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
   }
 
   // 利益率降順でソートしてKVに保存
