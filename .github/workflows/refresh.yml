@@ -32,25 +32,3 @@ jobs:
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
         run: node scripts/refresh.mjs
 
-      - name: エラー通知メール
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.GMAIL_USERNAME }}
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject: "❌ 輸出ラボ Refresh失敗（タイムアウトの可能性）"
-          to: chikara0323@gmail.com
-          from: "輸出ラボBot <${{ secrets.GMAIL_USERNAME }}>"
-          body: |
-            商品データの更新処理が失敗しました（タイムアウトの可能性あり）。
-            このまま放置すると商品データが空になり、自動投稿がスキップされます。
-
-            ▼ エラーログを確認
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            ─────────────────────────────
-            ワークフロー : ${{ github.workflow }}
-            トリガー     : ${{ github.event_name }}
