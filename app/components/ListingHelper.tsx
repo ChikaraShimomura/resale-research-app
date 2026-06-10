@@ -59,7 +59,8 @@ export default function ListingHelper({ product, onCountChange }: Props) {
     setState("done");
 
     // 5. eBay出品ページを開く
-    window.open(toEbayListingUrl(product.title), "_blank", "noopener,noreferrer");
+    const listingTitle = product.coreKeyword || product.title;
+    window.open(toEbayListingUrl(listingTitle), "_blank", "noopener,noreferrer");
 
     // 3秒後にリセット
     setTimeout(() => setState("idle"), 3000);
@@ -67,7 +68,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
   return (
     <a
-      href={toEbayListingUrl(product.title)}
+      href={toEbayListingUrl(product.coreKeyword || product.title)}
       onClick={handleListingClick}
       className={`
         flex items-center justify-center gap-1.5 w-full py-2.5
@@ -84,7 +85,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
       {state === "copying" && "準備中..."}
       {state === "done"    && "説明文をコピー済み！eBayが開きます"}
-      {state === "idle"    && "eBayで出品する"}
+      {state === "idle"    && "eBay簡単出品"}
     </a>
   );
 }
