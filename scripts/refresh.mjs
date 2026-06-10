@@ -186,6 +186,31 @@ const PRODUCT_TERMS_JP_TO_EN = {
   "リアルグレード": "Real Grade",
   "パーフェクトグレード": "Perfect Grade",
   "ハイグレード": "High Grade",
+  // Nintendo Switch games
+  "フィットボクシング": "Fit Boxing",
+  "リングフィット": "Ring Fit Adventure",
+  "あつまれどうぶつの森": "Animal Crossing New Horizons",
+  "スプラトゥーン": "Splatoon",
+  "ゼルダの伝説": "Legend of Zelda",
+  "ブレスオブザワイルド": "Breath of the Wild",
+  "ティアーズオブザキングダム": "Tears of the Kingdom",
+  "マリオカート": "Mario Kart",
+  "スマブラ": "Super Smash Bros",
+  "大乱闘スマッシュブラザーズ": "Super Smash Bros",
+  "モンスターハンター": "Monster Hunter",
+  "ポケットモンスター": "Pokemon",
+  "ソードシールド": "Sword Shield",
+  "スカーレットバイオレット": "Scarlet Violet",
+  "ピクミン": "Pikmin",
+  "星のカービィ": "Kirby",
+  "ファイアーエムブレム": "Fire Emblem",
+  "ドラゴンクエスト": "Dragon Quest",
+  "ファイナルファンタジー": "Final Fantasy",
+  "バイオハザード": "Resident Evil",
+  "ロックマン": "Mega Man",
+  "ストリートファイター": "Street Fighter",
+  "鉄拳": "Tekken",
+  "太鼓の達人": "Taiko no Tatsujin",
   // General
   "未開封": "sealed",
   "新品": "new",
@@ -707,9 +732,11 @@ async function main() {
       },
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
       coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
-      ebaySoldUrl: jan
-        ? `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(it.itemName.slice(0,60))}&LH_Complete=1&LH_Sold=1`
-        : `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(enQuery)}&LH_Complete=1&LH_Sold=1`,
+      ebaySoldUrl: (() => {
+        // 実績確認URLは常に英語クエリを使う（日本語はeBayで検索できない）
+        const soldQuery = enQuery || toEnglishQuery(it.itemName);
+        return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
+      })(),
       realAvgPrice: result.avg,
       realProfit: profit,
       realProfitRate: profitRate,
