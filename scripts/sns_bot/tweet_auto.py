@@ -225,12 +225,12 @@ def generate_pattern_b(news_items: list, ai_client: anthropic.Anthropic) -> str 
 
 # ── ツイート組み立て ──────────────────────────────────────────
 def build_tweet_a(body: str) -> str:
-    footer = f"\n{SITE_SEARCH_URL}\n#輸出副業 #eBay転売 #楽天せどり"
+    footer = f"\n{SITE_SEARCH_URL}"
     return body + footer
 
 
 def build_tweet_b(body: str) -> str:
-    footer = f"\n{SITE_SEARCH_URL}\n#輸出副業 #eBay転売"
+    footer = f"\n{SITE_SEARCH_URL}"
     return body + footer
 
 
