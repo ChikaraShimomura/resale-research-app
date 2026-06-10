@@ -3,7 +3,6 @@ import { ProfitProduct } from "./profitFilter";
 export interface ProductsResponse {
   products: ProfitProduct[];
   lastUpdated: string | null;
-  isSample?: boolean;
 }
 
 export async function fetchProducts(): Promise<ProductsResponse> {

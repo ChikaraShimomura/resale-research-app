@@ -12,14 +12,12 @@ export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isSample, setIsSample] = useState(false);
 
   useEffect(() => {
     fetchProducts()
-      .then(({ products, lastUpdated, isSample }) => {
+      .then(({ products, lastUpdated }) => {
         setProducts(products);
         setLastUpdated(lastUpdated);
-        setIsSample(isSample ?? false);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -113,16 +111,6 @@ export default function SearchPage() {
         </div>
 
         <div className="px-0">
-          {/* サンプルバナー */}
-          {isSample && !loading && (
-            <div className="flex items-center gap-2 bg-amber-50 border-b border-amber-200 px-3 py-2.5">
-              <span className="text-base">🔔</span>
-              <p className="text-xs text-amber-700 font-medium leading-snug">
-                現在サンプル商品を表示しています。データ収集が完了すると実際の利益商品に更新されます。
-              </p>
-            </div>
-          )}
-
           {loading ? (
             <div className="flex flex-col gap-2 p-3">
               {[...Array(3)].map((_, i) => (

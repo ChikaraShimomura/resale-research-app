@@ -352,44 +352,6 @@ function extractJan(it) {
   return m[0] ?? null;
 }
 
-// ========== 案B: Geminiでクエリ生成（テキストのみ・高速） ==========
-let geminiQueryCallsToday = 0;
-const GEMINI_QUERY_LIMIT = 500; // クエリ生成用
-
-async function generateEbayQuery(jpTitle) {
-  if (!GEMINI_API_KEY || geminiQueryCallsToday >= GEMINI_QUERY_LIMIT) return null;
-
-  // キャッシュ確認（同じ商品名なら再利用）
-  const cacheKey = `gemini_query:${ebayQueryHash(jpTitle)}`;
-  const cached = await kvGet(cacheKey);
-  if (cached && typeof cached === 'string') return cached;
-
-  try {
-    const body = {
-      contents: [{
-        parts: [{
-          text: `You are an eBay search expert. Convert this Japanese product title to the best English eBay search query (max 10 words, no Japanese characters). Return ONLY the search query, nothing else.\n\nJapanese title: ${jpTitle}`,
-        }],
-      }],
-      generationConfig: { maxOutputTokens: 30, temperature: 0 },
-    };
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) }
-    );
-    geminiQueryCallsToday++;
-    if (!res.ok) return null;
-    const data = await res.json();
-    const query = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    if (!query || query.length < 3) return null;
-
-    // 24時間キャッシュ
-    await kvSet(cacheKey, query, 24 * 3600);
-    return query;
-  } catch { return null; }
-}
-
 // ========== eBay OAuthトークン（メモリキャッシュ） ==========
 let ebayTokenCache = null;
 async function getEbayToken() {
