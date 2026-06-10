@@ -131,7 +131,7 @@ function ResultsContent() {
               {allProducts.length === 0 ? "データ準備中です" : `「${displayLabel}」の商品が見つかりませんでした`}
             </p>
             {allProducts.length === 0
-              ? <p className="text-gray-400 text-xs">6時間ごとに自動更新されます</p>
+              ? <p className="text-gray-400 text-xs">2時間ごとに自動更新されます</p>
               : <p className="text-gray-400 text-xs">別のキーワードで検索してみてください</p>
             }
             <Link href="/search" className="mt-5 inline-block text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2">

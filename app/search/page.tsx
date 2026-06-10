@@ -142,7 +142,7 @@ export default function SearchPage() {
             <div className="text-center py-16 bg-white m-3 border border-gray-200">
               <p className="text-5xl mb-4">⏳</p>
               <p className="text-gray-600 text-sm font-semibold mb-1">データ準備中です</p>
-              <p className="text-gray-400 text-xs">6時間ごとに自動更新されます</p>
+              <p className="text-gray-400 text-xs">2時間ごとに自動更新されます</p>
               <div className="mt-4 flex justify-center gap-1">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="w-2 h-2 rounded-full bg-[#BF0000]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
