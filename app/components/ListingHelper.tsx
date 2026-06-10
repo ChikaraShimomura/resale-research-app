@@ -27,10 +27,12 @@ export default function ListingHelper({ product, onCountChange }: Props) {
     setState("copying");
 
     // 1. 説明文生成
+    const market = "market" in product ? product.market : undefined;
     const description = generateEbayDescription({
       title: product.title,
       price: product.source.price,
       ebayAvgPrice,
+      market,
     });
 
     // 2. クリップボードへコピー
@@ -60,7 +62,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
     // 5. eBay出品ページを開く
     const listingTitle = product.coreKeyword || product.title;
-    window.open(toEbayListingUrl(listingTitle), "_blank", "noopener,noreferrer");
+    window.open(toEbayListingUrl(listingTitle, market), "_blank", "noopener,noreferrer");
 
     // 3秒後にリセット
     setTimeout(() => setState("idle"), 3000);
@@ -68,7 +70,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
   return (
     <a
-      href={toEbayListingUrl(product.coreKeyword || product.title)}
+      href={toEbayListingUrl(product.coreKeyword || product.title, "market" in product ? product.market : undefined)}
       onClick={handleListingClick}
       className={`
         flex items-center justify-center gap-1.5 w-full py-2.5

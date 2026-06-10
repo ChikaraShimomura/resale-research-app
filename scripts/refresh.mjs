@@ -941,8 +941,8 @@ async function main() {
         top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl, rakutenQuantity) : Promise.resolve(false))
       );
       const passed = top5.filter((_, i) => checks[i]);
-      // GTIN検索は1件以上、テキスト検索は2件以上一致で採用
-      const minMatch = jan ? 1 : 2;
+      // 1件以上一致で採用（HaikuのTYPE/PRODUCT/QUANTITY 3点チェック通過済みのため）
+      const minMatch = 1;
       verified = passed.length >= minMatch ? passed : [];
     } else {
       verified = candidates;
@@ -971,6 +971,7 @@ async function main() {
         pointAmount,
       },
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
+      market: verified[0]?.market ?? 'EBAY_US',
       coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
       ebaySoldUrl: (() => {
         // Haiku通過済みのeBay商品タイトルを優先（最も正確）

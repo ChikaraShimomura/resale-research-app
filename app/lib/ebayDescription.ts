@@ -134,10 +134,13 @@ export interface DescriptionOptions {
   price: number;          // 楽天仕入れ価格（参考用・表示しない）
   ebayAvgPrice?: number;  // eBay平均落札価格
   imageUrl?: string;
+  market?: string;        // EBAY_US / EBAY_GB / EBAY_AU
 }
 
 export function generateEbayDescription(opts: DescriptionOptions): string {
-  const { title, ebayAvgPrice } = opts;
+  const { title, ebayAvgPrice, market } = opts;
+  const isUK = market === "EBAY_GB";
+  const isAU = market === "EBAY_AU";
   const norm = normalize(title);
   const translated = translateTitle(norm);
   const condition = detectCondition(norm);
@@ -187,11 +190,23 @@ export function generateEbayDescription(opts: DescriptionOptions): string {
   lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   lines.push("  SHIPPING / 発送について");
   lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  lines.push("• Ships from Japan via Japan Post (EMS / e-Packet / SAL)");
-  lines.push("• Tracking number provided / 追跡番号あり");
-  lines.push("• Usually dispatched within 1–3 business days after payment");
-  lines.push("  （入金確認後、通常1〜3営業日以内に発送）");
-  lines.push("• Combined shipping available / まとめ買い送料割引あり");
+  if (isUK) {
+    lines.push("• Ships from Japan via Japan Post (International Tracked / EMS)");
+    lines.push("• Tracking number provided");
+    lines.push("• Usually dispatched within 1–3 business days after payment");
+    lines.push("• Combined postage available — please request an invoice");
+  } else if (isAU) {
+    lines.push("• Ships from Japan via Japan Post (EMS / International Parcel)");
+    lines.push("• Tracking number provided");
+    lines.push("• Usually dispatched within 1–3 business days after payment");
+    lines.push("• Combined shipping available / まとめ買い送料割引あり");
+  } else {
+    lines.push("• Ships from Japan via Japan Post (EMS / e-Packet / SAL)");
+    lines.push("• Tracking number provided / 追跡番号あり");
+    lines.push("• Usually dispatched within 1–3 business days after payment");
+    lines.push("  （入金確認後、通常1〜3営業日以内に発送）");
+    lines.push("• Combined shipping available / まとめ買い送料割引あり");
+  }
   lines.push("");
 
   // ───────── 注意事項 ─────────

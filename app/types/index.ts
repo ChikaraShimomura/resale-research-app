@@ -18,4 +18,5 @@ export interface Product {
   coreKeyword?: string;
   ebaySoldUrl?: string;
   avgDaysToSell?: number; // eBay平均販売日数（null=不明）
+  market?: string;        // eBayマーケット（EBAY_US / EBAY_GB / EBAY_AU）
 }
