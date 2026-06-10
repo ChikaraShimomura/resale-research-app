@@ -909,14 +909,21 @@ async function main() {
   const existingIds = new Set(existingProducts.map(p => p.id));
   console.log(`  既存DB: ${existingProducts.length}件（IDスキップ対象）`);
 
-  // チェック済み（利益なし）商品IDを取得
-  const checkedIds = new Set(await kvGet('checked_ids') ?? []);
-  console.log(`  チェック済み(利益なし): ${checkedIds.size}件（スキップ対象）`);
+  // チェック済み（利益なし）商品IDを取得（90日以内のみ有効）
+  const CHECKED_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
+  const now90 = Date.now();
+  const rawChecked = await kvGet('checked_ids') ?? [];
+  // 旧形式（文字列配列）との互換性を保ちつつ新形式（{id, checkedAt}）に対応
+  const validChecked = rawChecked
+    .map(entry => typeof entry === 'string' ? { id: entry, checkedAt: 0 } : entry)
+    .filter(entry => now90 - entry.checkedAt < CHECKED_TTL_MS);
+  const checkedIds = new Set(validChecked.map(e => e.id));
+  console.log(`  チェック済み(利益なし): ${checkedIds.size}件（スキップ対象、90日以内）`);
 
   // Phase 3: eBay比較 → Gemini確認
   // 既存商品はそのまま引き継ぎ、新規商品だけ検索
   const profitableProducts = [...existingProducts];
-  const newCheckedIds = [];
+  const newCheckedIds = []; // {id, checkedAt} 形式で追加
 
   for (const it of filtered) {
     // 既にDB登録済みの商品はスキップ（480時間TTLで自然消滅）
@@ -955,7 +962,7 @@ async function main() {
     }
 
     if (candidates.length === 0) {
-      newCheckedIds.push(it.itemCode);
+      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
       continue;
     }
     console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
@@ -978,7 +985,7 @@ async function main() {
     const prices = verified.map(c => c.price);
     const result = calcRobustAverage(prices);
     if (!result) {
-      newCheckedIds.push(it.itemCode);
+      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
       continue;
     }
 
@@ -986,7 +993,7 @@ async function main() {
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
     if (profit < 500 || profitRate < 10 || profitRate > 300) {
-      newCheckedIds.push(it.itemCode);
+      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
       continue;
     }
 
@@ -1024,11 +1031,11 @@ async function main() {
     const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
     await kvSet('profitable_products', sorted, 480 * 3600);
     await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-    // チェック済みIDも随時保存
+    // チェック済みIDも随時保存（タイムスタンプ付き・90日TTL管理）
     if (newCheckedIds.length > 0) {
-      const allChecked = [...checkedIds, ...newCheckedIds];
+      const allChecked = [...validChecked, ...newCheckedIds];
       await kvSetPermanent('checked_ids', allChecked);
-      newCheckedIds.forEach(id => checkedIds.add(id));
+      newCheckedIds.forEach(entry => checkedIds.add(entry.id));
       newCheckedIds.length = 0;
     }
   }
