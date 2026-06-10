@@ -815,6 +815,8 @@ function calcRobustAverage(prices) {
 // ========== 利益計算 ==========
 function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount) {
   const effectiveBuy = rakutenPrice - pointAmount;
+  // Bug5対策: effectiveBuy が0以下（ポイント100%還元等）は計算不能なので除外
+  if (effectiveBuy <= 0) return { profit: 0, profitRate: 0 };
   const ebayFee = Math.round(ebayAvgJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED_JPY;
   const profit = ebayAvgJpy - effectiveBuy - ebayFee - SHIPPING_COST_JPY;
   return { profit, profitRate: Math.round((profit / effectiveBuy) * 100) };
@@ -922,8 +924,9 @@ async function main() {
   // Phase 3: eBay比較 → Gemini確認
   // 既存商品はそのまま引き継ぎ、新規商品だけ検索
   const profitableProducts = [...existingProducts];
-  // allCheckedは累積リスト（保存するたびに追記）
-  let allChecked = [...validChecked];
+  // allCheckedは累積リスト（保存するたびに追記）- IDの重複を防ぐためMapで管理
+  const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
+  // 追加時は allCheckedMap.set(id, entry) を使い、保存時に Array.from(allCheckedMap.values()) で取得
   const MAX_PROCESS = 800; // スキップ除外後の処理上限
   let processedCount = 0;
 
@@ -936,7 +939,7 @@ async function main() {
     // 除外パターンはchecked_idsに登録してスキップ（カウントしない）
     if (EXCLUDE_PATTERN.test(it.itemName) || ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) {
       const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allChecked.push(entry);
+      allCheckedMap.set(entry.id, entry);
       checkedIds.add(it.itemCode);
       continue;
     }
@@ -967,7 +970,7 @@ async function main() {
       if (!enQuery || enQuery.length < 5) enQuery = toEnglishQuery(it.itemName);
       if (!enQuery || enQuery.length < 5) {
         const entry = { id: it.itemCode, checkedAt: Date.now() };
-        allChecked.push(entry);
+        allCheckedMap.set(entry.id, entry);
         checkedIds.add(it.itemCode);
         continue;
       }
@@ -977,7 +980,7 @@ async function main() {
 
     if (candidates.length === 0) {
       const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allChecked.push(entry);
+      allCheckedMap.set(entry.id, entry);
       checkedIds.add(it.itemCode);
       continue;
     }
@@ -1002,7 +1005,7 @@ async function main() {
     const result = calcRobustAverage(prices);
     if (!result) {
       const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allChecked.push(entry);
+      allCheckedMap.set(entry.id, entry);
       checkedIds.add(it.itemCode);
       continue;
     }
@@ -1012,7 +1015,7 @@ async function main() {
 
     if (profit < 500 || profitRate < 10 || profitRate > 300) {
       const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allChecked.push(entry);
+      allCheckedMap.set(entry.id, entry);
       checkedIds.add(it.itemCode);
       continue;
     }
@@ -1051,11 +1054,11 @@ async function main() {
     const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
     await kvSet('profitable_products', sorted, 480 * 3600);
     await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-    await kvSetPermanent('checked_ids', allChecked);
+    await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
   }
 
   // ループ終了後に残ったchecked_idsを保存（Bug2対策：最後に利益商品が出なかった場合）
-  await kvSetPermanent('checked_ids', allChecked);
+  await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
 
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
