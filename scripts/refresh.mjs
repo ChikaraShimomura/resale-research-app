@@ -958,11 +958,24 @@ async function main() {
       rakutenQuantity = classification.quantity;
     }
 
-    // ① JANコードでeBay GTIN検索（最優先・精度最高）
+    // ① JANコードでeBay GTIN検索 → 商品タイトルを特定してFinding API（落札実績）で価格取得
+    // Bug7対策: Browse API（現在出品価格）ではなく落札実績で統一
     const jan = extractJan(it);
     if (jan) {
-      candidates = await fetchEbayByGtin(jan);
-      searchMethod = `GTIN:${jan}`;
+      const gtinCandidates = await fetchEbayByGtin(jan);
+      if (gtinCandidates.length > 0) {
+        const gtinTitle = gtinCandidates[0]?.title ?? '';
+        if (gtinTitle.length >= 5) {
+          // GTINで商品を特定 → そのタイトルで落札実績を検索
+          candidates = await fetchEbayCandidates(gtinTitle);
+          enQuery = gtinTitle; // 画像確認・ebaySoldUrl生成にも使用
+          searchMethod = `GTIN→SOLD:"${gtinTitle.slice(0, 30)}"`;
+        } else {
+          // タイトルが取れない場合はGTIN結果をそのまま使用（フォールバック）
+          candidates = gtinCandidates;
+          searchMethod = `GTIN:${jan}`;
+        }
+      }
     }
 
     // ② JANなし or GTIN結果0 → Haiku生成クエリ or テキスト変換でフォールバック
