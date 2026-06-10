@@ -6,7 +6,7 @@ on:
 jobs:
   reset-and-refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120  # キャッシュゼロ状態からの最大コスト実行に対応
 
     steps:
       - name: Checkout

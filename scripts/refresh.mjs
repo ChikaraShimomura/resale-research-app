@@ -977,7 +977,7 @@ async function main() {
       },
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
       market: verified[0]?.market ?? 'EBAY_US',
-      coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
+      coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
       ebaySoldUrl: (() => {
         // Haiku通過済みのeBay商品タイトルを優先（最も正確）
         const matchedTitle = verified[0]?.title;
