@@ -1,6 +1,5 @@
 import { kv } from "@vercel/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
-import { SAMPLE_PRODUCTS } from "../../lib/sampleProducts";
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。
 export const dynamic = "force-dynamic";
@@ -20,14 +19,14 @@ export async function GET() {
       );
     }
 
-    // KVにデータがない場合はサンプルを返す
+    // KVにデータがない場合は空を返す
     return Response.json(
-      { products: SAMPLE_PRODUCTS, lastUpdated: null, isSample: true },
+      { products: [], lastUpdated: null },
       { headers: { "Cache-Control": "public, max-age=60" } }
     );
   } catch {
     return Response.json(
-      { products: SAMPLE_PRODUCTS, lastUpdated: null, isSample: true },
+      { products: [], lastUpdated: null },
       { headers: { "Cache-Control": "public, max-age=60" } }
     );
   }
