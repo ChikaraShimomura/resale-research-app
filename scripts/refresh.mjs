@@ -921,85 +921,81 @@ async function main() {
   const checkedIds = new Set(validChecked.map(e => e.id));
   console.log(`  チェック済み(利益なし): ${checkedIds.size}件（スキップ対象、90日以内）`);
 
-  // Phase 3: eBay比較 → Gemini確認
-  // 既存商品はそのまま引き継ぎ、新規商品だけ検索
+  // Phase 3: eBay比較（並列5件 + 画像マッチは利益確定後のみ）
   const profitableProducts = [...existingProducts];
-  // allCheckedは累積リスト（保存するたびに追記）- IDの重複を防ぐためMapで管理
   const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
-  // 追加時は allCheckedMap.set(id, entry) を使い、保存時に Array.from(allCheckedMap.values()) で取得
-  const MAX_PROCESS = 800; // スキップ除外後の処理上限
+  const MAX_PROCESS = 800;
+  const CONCURRENCY = 5; // 並列処理数
   let processedCount = 0;
 
+  // 処理対象リストを作成（スキップ済みを除外）
+  const toProcess = [];
   for (const it of filtered) {
-    if (processedCount >= MAX_PROCESS) break;
-    // 既にDB登録済みの商品はスキップ（カウントしない）
+    if (toProcess.length >= MAX_PROCESS) break;
     if (existingIds.has(it.itemCode)) continue;
-    // チェック済み（利益なし）商品もスキップ（カウントしない）
     if (checkedIds.has(it.itemCode)) continue;
-    // 除外パターンはchecked_idsに登録してスキップ（カウントしない）
     if (EXCLUDE_PATTERN.test(it.itemName) || ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) {
-      const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allCheckedMap.set(entry.id, entry);
+      allCheckedMap.set(it.itemCode, { id: it.itemCode, checkedAt: Date.now() });
       checkedIds.add(it.itemCode);
       continue;
     }
-    processedCount++;
+    toProcess.push(it);
+  }
+  console.log(`  処理対象: ${toProcess.length}件（並列${CONCURRENCY}件）`);
 
+  // 1商品の処理（画像マッチなし版）→ 利益候補を返す
+  async function processItem(it) {
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
     let candidates = [];
     let searchMethod = '';
     let enQuery = '';
     let rakutenQuantity = null;
 
-    // ③-A Haiku事前分類（商品種別・個数・検索クエリを取得）
+    // Haiku事前分類（商品種別・個数・検索クエリ）
     const classification = await classifyProduct(rakutenImg, it.itemName);
     if (classification) {
       enQuery = classification.searchQuery;
       rakutenQuantity = classification.quantity;
     }
 
-    // ① JANコードでeBay GTIN検索 → 商品タイトルを特定してFinding API（落札実績）で価格取得
-    // Bug7対策: Browse API（現在出品価格）ではなく落札実績で統一
+    // JANコードでGTIN検索 → タイトル確定 → 落札実績検索
     const jan = extractJan(it);
     if (jan) {
       const gtinCandidates = await fetchEbayByGtin(jan);
       if (gtinCandidates.length > 0) {
         const gtinTitle = gtinCandidates[0]?.title ?? '';
         if (gtinTitle.length >= 5) {
-          // GTINで商品を特定 → そのタイトルで落札実績を検索
           candidates = await fetchEbayCandidates(gtinTitle);
-          enQuery = gtinTitle; // 画像確認・ebaySoldUrl生成にも使用
+          enQuery = gtinTitle;
           searchMethod = `GTIN→SOLD:"${gtinTitle.slice(0, 30)}"`;
         } else {
-          // タイトルが取れない場合はGTIN結果をそのまま使用（フォールバック）
           candidates = gtinCandidates;
           searchMethod = `GTIN:${jan}`;
         }
       }
     }
 
-    // ② JANなし or GTIN結果0 → Haiku生成クエリ or テキスト変換でフォールバック
+    // JANなし or GTIN結果0 → Haiku/テキストクエリでフォールバック
     if (candidates.length === 0) {
       if (!enQuery || enQuery.length < 5) enQuery = toEnglishQuery(it.itemName);
-      if (!enQuery || enQuery.length < 5) {
-        const entry = { id: it.itemCode, checkedAt: Date.now() };
-        allCheckedMap.set(entry.id, entry);
-        checkedIds.add(it.itemCode);
-        continue;
-      }
+      if (!enQuery || enQuery.length < 5) return { type: 'skip', it };
       candidates = await fetchEbayCandidates(enQuery);
       searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
     }
 
-    if (candidates.length === 0) {
-      const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allCheckedMap.set(entry.id, entry);
-      checkedIds.add(it.itemCode);
-      continue;
-    }
-    console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
+    if (candidates.length === 0) return { type: 'skip', it };
 
-    // ③-B Claude Haiku画像確認（種別・商品・個数の3点チェック）
+    // 画像マッチなしで仮利益計算
+    const prices = candidates.map(c => c.price);
+    const result = calcRobustAverage(prices);
+    if (!result) return { type: 'skip', it };
+
+    const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
+    const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
+
+    if (profit < 500 || profitRate < 10 || profitRate > 300) return { type: 'skip', it };
+
+    // 利益が出そうな場合のみ画像マッチで検証
     let verified;
     if (rakutenImg) {
       const top5 = candidates.slice(0, 5);
@@ -1007,71 +1003,82 @@ async function main() {
         top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl, rakutenQuantity) : Promise.resolve(false))
       );
       const passed = top5.filter((_, i) => checks[i]);
-      // 1件以上一致で採用（HaikuのTYPE/PRODUCT/QUANTITY 3点チェック通過済みのため）
-      const minMatch = 1;
-      verified = passed.length >= minMatch ? passed : [];
+      verified = passed.length >= 1 ? passed : [];
     } else {
       verified = candidates;
     }
 
-    const prices = verified.map(c => c.price);
-    const result = calcRobustAverage(prices);
-    if (!result) {
-      const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allCheckedMap.set(entry.id, entry);
-      checkedIds.add(it.itemCode);
-      continue;
-    }
+    if (verified.length === 0) return { type: 'skip', it };
 
-    const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
-    const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
+    // 画像マッチ通過後に再計算（verified のみで）
+    const verifiedPrices = verified.map(c => c.price);
+    const verifiedResult = calcRobustAverage(verifiedPrices);
+    if (!verifiedResult) return { type: 'skip', it };
 
-    if (profit < 500 || profitRate < 10 || profitRate > 300) {
-      const entry = { id: it.itemCode, checkedAt: Date.now() };
-      allCheckedMap.set(entry.id, entry);
-      checkedIds.add(it.itemCode);
-      continue;
-    }
+    const { profit: vProfit, profitRate: vProfitRate } = calcProfit(it.itemPrice, verifiedResult.avg, pointAmount);
+    if (vProfit < 500 || vProfitRate < 10 || vProfitRate > 300) return { type: 'skip', it };
 
-    profitableProducts.push({
-      id: it.itemCode,
-      title: it.itemName,
-      imageUrl: rakutenImg,
-      category: guessCategory(it.itemName),
-      source: {
-        site: 'rakuten',
-        siteName: '楽天',
-        price: it.itemPrice,
-        url: it.affiliateUrl || it.itemUrl,
-        pointRate: it.pointRate ?? 1,
-        pointAmount,
+    console.log(`  [${searchMethod}] 💰 ${vProfitRate}% 利益: ${it.itemName.slice(0, 35)}`);
+
+    return {
+      type: 'profit',
+      it,
+      product: {
+        id: it.itemCode,
+        title: it.itemName,
+        imageUrl: rakutenImg,
+        category: guessCategory(it.itemName),
+        source: {
+          site: 'rakuten',
+          siteName: '楽天',
+          price: it.itemPrice,
+          url: it.affiliateUrl || it.itemUrl,
+          pointRate: it.pointRate ?? 1,
+          pointAmount,
+        },
+        isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
+        market: verified[0]?.market ?? 'EBAY_US',
+        coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
+        ebaySoldUrl: verified[0]?.itemUrl || (() => {
+          const soldQuery = enQuery || toEnglishQuery(it.itemName);
+          return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
+        })(),
+        realAvgPrice: verifiedResult.avg,
+        realProfit: vProfit,
+        realProfitRate: vProfitRate,
+        realCount: verifiedResult.count,
+        avgDaysToSell: await fetchAvgDaysToSell(enQuery || toEnglishQuery(it.itemName)),
       },
-      isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
-      market: verified[0]?.market ?? 'EBAY_US',
-      coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
-      ebaySoldUrl: verified[0]?.itemUrl || (() => {
-        // itemUrlがない場合はenQueryで落札実績を検索
-        const soldQuery = enQuery || toEnglishQuery(it.itemName);
-        return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
-      })(),
-      realAvgPrice: result.avg,
-      realProfit: profit,
-      realProfitRate: profitRate,
-      realCount: result.count,
-      avgDaysToSell: await fetchAvgDaysToSell(enQuery || toEnglishQuery(it.itemName)),
-    });
-
-    console.log(`  💰 ${profitRate}% 利益: ${it.itemName.slice(0, 40)}`);
-
-    // 都度KVに保存（タイムアウト時も途中データが残る）
-    const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
-    await kvSet('profitable_products', sorted, 480 * 3600);
-    await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-    await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
+    };
   }
 
-  // ループ終了後に残ったchecked_idsを保存（Bug2対策：最後に利益商品が出なかった場合）
-  await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
+  // チャンク単位で並列処理
+  for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
+    const chunk = toProcess.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(chunk.map(it => processItem(it).catch(e => {
+      console.error(`  [ERROR] ${it.itemName.slice(0, 30)}: ${e.message}`);
+      return { type: 'skip', it };
+    })));
+
+    for (const res of results) {
+      allCheckedMap.set(res.it.itemCode, { id: res.it.itemCode, checkedAt: Date.now() });
+      processedCount++;
+      if (res.type === 'profit') {
+        profitableProducts.push(res.product);
+        const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
+        await kvSet('profitable_products', sorted, 480 * 3600);
+        await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+        await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
+      }
+    }
+
+    // チャンクごとにchecked_ids保存
+    await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
+
+    if (i % 50 === 0) {
+      console.log(`  進捗: ${Math.min(i + CONCURRENCY, toProcess.length)}/${toProcess.length}件（利益商品: ${profitableProducts.length - existingProducts.length}件）`);
+    }
+  }
 
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
