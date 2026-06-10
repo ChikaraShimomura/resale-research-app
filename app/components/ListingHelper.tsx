@@ -62,7 +62,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
     // 5. eBay出品ページを開く
     const listingTitle = product.coreKeyword || product.title;
-    window.open(toEbayListingUrl(listingTitle, market), "_blank", "noopener,noreferrer");
+    window.open(toEbayListingUrl(listingTitle, market, ebayAvgPrice), "_blank", "noopener,noreferrer");
 
     // 3秒後にリセット
     setTimeout(() => setState("idle"), 3000);
@@ -70,14 +70,14 @@ export default function ListingHelper({ product, onCountChange }: Props) {
 
   return (
     <a
-      href={toEbayListingUrl(product.coreKeyword || product.title, "market" in product ? product.market : undefined)}
+      href={toEbayListingUrl(product.coreKeyword || product.title, "market" in product ? product.market : undefined, isProfitProduct(product) ? product.realAvgPrice : undefined)}
       onClick={handleListingClick}
       className={`
         flex items-center justify-center gap-1.5 w-full py-2.5
         text-sm font-bold rounded-xl border-2 transition-all
         ${state === "done"
           ? "bg-emerald-500 border-emerald-500 text-white"
-          : "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
+          : "bg-gradient-to-r from-blue-600 to-blue-500 border-blue-600 text-white hover:from-blue-700 hover:to-blue-600 active:from-blue-800"
         }
       `}
     >
