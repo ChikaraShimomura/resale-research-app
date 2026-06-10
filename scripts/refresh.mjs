@@ -615,8 +615,8 @@ async function fetchRakutenPage(keyword, page) {
       `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`,
       {
         headers: {
-          Referer: 'https://resale-research-app.vercel.app/',
-          Origin: 'https://resale-research-app.vercel.app',
+          Referer: 'https://www.yushutsu-fukugyo.com/',
+          Origin: 'https://www.yushutsu-fukugyo.com',
           'User-Agent': 'Mozilla/5.0',
         },
         signal: AbortSignal.timeout(10000),
