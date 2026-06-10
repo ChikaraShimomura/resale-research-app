@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
+import ProductCard from "../components/ProductCard";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 
 export default function FavoritesPage() {
-  const [products, setProducts] = useState<ProfitProduct[]>([]);
+  const [favorites, setFavorites] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const favIds = Object.keys(localStorage)
-      .filter((k) => k.startsWith("fav_") && localStorage.getItem(k) === "1")
-      .map((k) => k.replace("fav_", ""));
+      .filter(k => k.startsWith("fav_") && localStorage.getItem(k) === "1")
+      .map(k => k.replace("fav_", ""));
 
     if (favIds.length === 0) {
       setLoading(false);
@@ -22,54 +22,64 @@ export default function FavoritesPage() {
 
     fetchProducts()
       .then(({ products }) => {
-        setProducts(products.filter((p) => favIds.includes(p.id)));
+        setFavorites(products.filter(p => favIds.includes(p.id)));
       })
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="min-h-dvh bg-gray-50 pb-nav">
-      <nav className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
-        <Link href="/search" className="font-bold text-xl text-indigo-600">輸出で副業しようよ</Link>
-        <Link href="/guide" className="text-xs text-gray-500 hover:text-indigo-600 transition-colors">はじめてガイド</Link>
-      </nav>
+    <div className="min-h-dvh bg-[#F5F5F5] pb-nav">
+      <header className="bg-[#BF0000]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className="px-3 py-3 flex items-center gap-2">
+          <Link href="/search"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white text-lg font-bold shrink-0">
+            ‹
+          </Link>
+          <h1 className="text-white font-black text-base">お気に入り</h1>
+        </div>
+      </header>
 
-      <main className="max-w-2xl mx-auto px-4 pt-8 pb-6">
-        <div className="flex items-center gap-2 mb-6">
-          <h1 className="text-lg font-bold text-gray-900">❤️ お気に入り</h1>
-          {!loading && <span className="text-sm text-gray-400">{products.length}件</span>}
+      <main className="max-w-2xl mx-auto">
+        <div className="bg-white border-b border-gray-200 px-3 py-2">
+          <p className="text-xs text-gray-600">
+            <span className="font-black text-[#BF0000] text-base">{loading ? "-" : favorites.length}</span>
+            <span className="ml-0.5">件</span>
+          </p>
         </div>
 
         {loading ? (
-          <div className="flex flex-col gap-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+          <div className="flex flex-col gap-[1px] bg-gray-200 mt-[1px]">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="bg-white p-3 animate-pulse">
                 <div className="flex gap-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-lg" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-1/3" />
-                    <div className="h-3 bg-gray-200 rounded w-3/4" />
+                  <div className="w-[90px] h-[90px] bg-gray-100 shrink-0" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-3 bg-gray-100 rounded w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        ) : products.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">🤍</p>
-            <p className="text-gray-500 text-sm">まだお気に入りがありません</p>
-            <Link href="/search" className="mt-4 inline-block text-indigo-600 text-sm font-medium hover:underline">
+        ) : favorites.length === 0 ? (
+          <div className="text-center py-16 bg-white m-3 border border-gray-200">
+            <p className="text-5xl mb-4">❤️</p>
+            <p className="text-gray-600 text-sm font-semibold mb-1">お気に入りがまだありません</p>
+            <p className="text-gray-400 text-xs mb-5">商品カードの ♡ ボタンで追加できます</p>
+            <Link href="/search"
+              className="inline-block text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2">
               商品を探す →
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {products.map((product) => (
+          <div className="flex flex-col gap-[1px] bg-gray-200 mt-[1px]">
+            {favorites.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
       </main>
+
       <BottomNav />
     </div>
   );

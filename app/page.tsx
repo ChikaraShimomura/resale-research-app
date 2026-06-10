@@ -6,19 +6,21 @@ export default function LandingPage() {
     <div className="min-h-dvh bg-white">
 
       {/* ヘッダー */}
-      <header className="bg-[#BF0000] px-4 py-3">
+      <header className="bg-[#BF0000] px-3 py-2.5">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-white font-black text-lg tracking-tight">輸出で副業しようよ</span>
-            <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded">Powered by 楽天</span>
+            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+              <span className="text-[#BF0000] font-black text-sm leading-none">R</span>
+            </div>
+            <span className="text-white font-black text-base tracking-tight">輸出で副業しようよ</span>
           </div>
-          <Link href="/guide" className="text-white/80 text-xs hover:text-white">はじめてガイド</Link>
+          <Link href="/guide" className="text-white/80 text-xs border border-white/30 px-2 py-0.5 rounded">ガイド</Link>
         </div>
       </header>
 
-      {/* ポイント強調バナー */}
-      <div className="bg-gradient-to-r from-[#BF0000] to-[#E83820] text-white">
-        <div className="max-w-2xl mx-auto px-4 py-6 text-center">
+      {/* ヒーロー */}
+      <div className="bg-gradient-to-b from-[#BF0000] to-[#D42020] text-white">
+        <div className="max-w-2xl mx-auto px-4 py-8 text-center">
           <p className="text-xs font-bold bg-white/20 inline-block px-3 py-1 rounded-full mb-3">
             🎯 楽天ポイント × eBay転売
           </p>
@@ -27,7 +29,7 @@ export default function LandingPage() {
             <span className="text-yellow-300">ポイントを稼ぎながら</span><br />
             eBayで売る
           </h1>
-          <p className="text-white/80 text-sm mb-4">
+          <p className="text-white/80 text-sm mb-5">
             仕入れ価格＋ポイント還元で利益を最大化。<br />日本にしかない商品を海外で高く売る。
           </p>
           <Link href="/search"
@@ -37,34 +39,34 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ポイント仕組み説明 */}
+      {/* 仕組み説明 */}
       <div className="bg-[#FFF5F5] border-b border-red-100">
         <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 overflow-x-auto pb-1">
+          <div className="flex items-center justify-center gap-3">
             {[
               { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#BF0000]" },
-              { step: "→", text: "", sub: "", color: "" },
+              { arrow: true },
               { step: "②", text: "eBayで出品", sub: "海外需要で高値売却", color: "bg-blue-600" },
-              { step: "→", text: "", sub: "", color: "" },
+              { arrow: true },
               { step: "③", text: "利益＋ポイント", sub: "二重取りで稼ぐ", color: "bg-emerald-600" },
             ].map((item, i) =>
-              item.text ? (
+              "arrow" in item ? (
+                <span key={i} className="text-gray-300 text-xl shrink-0">›</span>
+              ) : (
                 <div key={i} className="flex flex-col items-center shrink-0">
-                  <div className={`w-8 h-8 ${item.color} text-white rounded-full flex items-center justify-center text-xs font-black`}>
+                  <div className={`w-9 h-9 ${item.color} text-white rounded-full flex items-center justify-center text-sm font-black`}>
                     {item.step}
                   </div>
                   <p className="text-[11px] font-bold text-gray-700 mt-1 text-center whitespace-nowrap">{item.text}</p>
                   <p className="text-[10px] text-gray-400 text-center whitespace-nowrap">{item.sub}</p>
                 </div>
-              ) : (
-                <span key={i} className="text-gray-300 text-lg shrink-0">›</span>
               )
             )}
           </div>
         </div>
       </div>
 
-      {/* ジャンルクイックアクセス */}
+      {/* カテゴリ */}
       <section className="max-w-2xl mx-auto px-4 py-5">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
@@ -84,49 +86,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 利益例カード */}
+      {/* 利益計算の説明 */}
       <section className="max-w-2xl mx-auto px-4 pb-5">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
-          <h2 className="text-sm font-black text-gray-800">こんな利益が出ています</h2>
+          <h2 className="text-sm font-black text-gray-800">利益の計算方法</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { name: "ポケモンカードBOX", buy: "¥6,600", point: "660pt（10%）", sell: "¥13,500", profit: "+¥4,092", rate: "62%" },
-            { name: "LEGOテクニック", buy: "¥32,000", point: "3,840pt（12%）", sell: "¥56,000", profit: "+¥17,340", rate: "54%" },
-            { name: "シャネル香水 50ml", buy: "¥18,000", point: "1,800pt（10%）", sell: "¥28,000", profit: "+¥6,145", rate: "34%" },
-            { name: "ガンプラ MG 1/100", buy: "¥4,950", point: "495pt（10%）", sell: "¥9,500", profit: "+¥2,838", rate: "57%" },
-          ].map((item) => (
-            <div key={item.name} className="bg-white border border-gray-100 rounded-xl p-3 shadow-sm">
-              <p className="font-bold text-gray-800 text-sm mb-2">{item.name}</p>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">楽天仕入れ</span>
-                <span className="font-semibold text-gray-700">{item.buy}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">楽天ポイント</span>
-                <span className="font-bold text-orange-500">+{item.point}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-2">
-                <span className="text-gray-400">eBay落札</span>
-                <span className="font-semibold text-blue-600">{item.sell}</span>
-              </div>
-              <div className="flex items-center justify-between bg-emerald-50 rounded-lg px-2.5 py-1.5">
-                <span className="text-xs font-bold text-emerald-700">利益（手数料後）</span>
-                <div className="text-right">
-                  <span className="text-sm font-black text-emerald-600">{item.profit}</span>
-                  <span className="text-xs text-emerald-500 ml-1">+{item.rate}</span>
-                </div>
-              </div>
+        <div className="bg-white border border-gray-200 rounded p-4">
+          <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 space-y-1.5 font-mono mb-3">
+            <div className="flex justify-between"><span>eBay平均落札価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
+            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
+            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF6600]">+ XXXpt</span></div>
+            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
+            <div className="flex justify-between"><span>国際送料（目安）</span><span className="text-[#BF0000]">- ¥2,500</span></div>
+            <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
+              <span>利益</span><span>= ¥X,XXX + XXXpt</span>
             </div>
-          ))}
+          </div>
+          <p className="text-[11px] text-gray-400 text-center">全商品の利益計算にはこの計算式を使用しています</p>
         </div>
-        <div className="text-center mt-5">
-          <Link href="/search"
-            className="inline-block bg-[#BF0000] hover:bg-[#A00000] text-white font-black px-8 py-3 rounded-full text-sm transition-colors shadow-md">
-            すべての利益商品を見る →
-          </Link>
-        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-2xl mx-auto px-4 pb-8 text-center">
+        <Link href="/search"
+          className="inline-block bg-[#BF0000] hover:bg-[#A00000] text-white font-black px-8 py-3 text-sm transition-colors shadow-md">
+          すべての利益商品を見る →
+        </Link>
+        <p className="mt-3 text-xs text-gray-400">現在 195件以上の利益商品を掲載中 · 2時間ごと更新</p>
       </section>
 
       {/* フッター */}
