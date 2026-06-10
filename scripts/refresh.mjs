@@ -865,10 +865,10 @@ async function main() {
   const seen = new Set();
   const rakutenProducts = [];
 
-  // キーワードをシャッフルして毎回違う商品を取得（上限30件）
-  const shuffled = [...SEARCH_KEYWORDS].sort(() => Math.random() - 0.5).slice(0, 30);
+  // キーワードをシャッフルして毎回違う商品を取得
+  const shuffled = [...SEARCH_KEYWORDS].sort(() => Math.random() - 0.5);
   for (const keyword of shuffled) {
-    for (const page of [1, 2]) {
+    for (const page of [1, 2, 3, 4, 5]) {
       const items = await fetchRakutenPage(keyword, page);
       for (const raw of items) {
         const it = raw.Item;
