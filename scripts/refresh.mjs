@@ -121,6 +121,9 @@ const SEARCH_KEYWORDS = [
 // ========== 除外パターン（オリパ・パック売り等） ==========
 const EXCLUDE_PATTERN = /オリパ|ばら売り|パック売り|BOXくじ|ボックスくじ|くじ引き|ガチャ|オリジナルパック|アソート売り|\d+パック\s*(売り|のみ|セット)/i;
 
+// カード用アクセサリー・保管用品はeBayで誤マッチするため除外
+const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ローダー|カードスリーブ|スリーブ\d+枚|デッキケース|カードファイル|バインダー|カードバインダー|BOX保管|保管用|保護ケース|スタンド|ディスプレイケース|展示ケース/i;
+
 // ========== ブランド辞書 ==========
 const BRAND_JP_TO_EN = {
   "任天堂": "Nintendo", "ニンテンドー": "Nintendo", "ニンテンドウ": "Nintendo",
@@ -670,6 +673,7 @@ async function main() {
         const it = raw.Item;
         if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
         if (EXCLUDE_PATTERN.test(it.itemName)) continue;
+        if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
         seen.add(it.itemCode);
         rakutenProducts.push(it);
       }
@@ -700,6 +704,7 @@ async function main() {
     // 既にDB登録済みの商品はスキップ（36時間TTLで自然消滅）
     if (existingIds.has(it.itemCode)) continue;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
+    if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
 
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
     let candidates = [];
