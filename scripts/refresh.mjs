@@ -535,23 +535,9 @@ async function fetchEbayCandidates(enQuery) {
     return cached;
   }
 
-  // US落札実績を取得
-  let candidates = await fetchEbaySoldForSite(enQuery, 0);
+  // US落札実績のみで検索（UK/AUは価格基準が混在するため除外）
+  const candidates = await fetchEbaySoldForSite(enQuery, 0);
   console.log(`  [Sold US] ${enQuery.slice(0, 40)} → ${candidates.length}件`);
-
-  // US結果が少なければUKにフォールバック
-  if (candidates.length < 3) {
-    const uk = await fetchEbaySoldForSite(enQuery, 3);
-    console.log(`  [Sold UK] ${enQuery.slice(0, 40)} → ${uk.length}件`);
-    candidates = [...candidates, ...uk];
-  }
-
-  // UK含めても少なければAUにフォールバック
-  if (candidates.length < 3) {
-    const au = await fetchEbaySoldForSite(enQuery, 15);
-    console.log(`  [Sold AU] ${enQuery.slice(0, 40)} → ${au.length}件`);
-    candidates = [...candidates, ...au];
-  }
 
   await kvSet(cacheKey, candidates, 48 * 3600);
   return candidates;
