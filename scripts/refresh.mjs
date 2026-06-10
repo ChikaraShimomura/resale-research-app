@@ -14,6 +14,8 @@ const KV_URL             = process.env.KV_REST_API_URL;
 const KV_TOKEN           = process.env.KV_REST_API_TOKEN;
 
 const USD_TO_JPY         = 155;
+const GBP_TO_JPY         = 197;  // GBP → JPY
+const AUD_TO_JPY         = 100;  // AUD → JPY
 const EBAY_FEE_RATE      = 0.1325;
 const EBAY_FEE_FIXED_JPY = 47;
 const SHIPPING_COST_JPY  = 2500;
@@ -116,6 +118,20 @@ const SEARCH_KEYWORDS = [
   // 香水
   "シャネル 香水 新品 正規品", "ディオール 香水 新品 正規品",
   "ジョーマローン 新品 正規品",
+  // 楽器（関税0%・eBay高需要）
+  "ヤマハ ギター 新品 未使用", "フェンダー ギター 新品 日本製",
+  "ローランド 電子ピアノ 新品", "カシオ 電子キーボード 新品 未使用",
+  "ヤマハ サックス 新品 未使用", "YAMAHA トランペット 新品",
+  "BOSS エフェクター 新品 未使用", "アイバニーズ ギター 新品",
+  // 文房具（関税0%・日本製プレミアム）
+  "パイロット 万年筆 新品 未使用", "プラチナ万年筆 新品",
+  "セーラー万年筆 新品 未使用", "トンボ鉛筆 新品 限定",
+  "ゼブラ ボールペン 新品 限定", "呉竹 書道 新品 未使用",
+  // スポーツ用品（関税0%）
+  "ミズノ バット 新品 未使用", "ミズノ グローブ 新品",
+  "ローリングス グローブ 新品 日本製", "ザバス プロテイン 新品 未使用",
+  "シマノ リール 新品 未使用", "ダイワ リール 新品",
+  "シマノ ロッド 新品 未使用",
 ];
 
 // ========== 除外パターン（オリパ・パック売り等） ==========
@@ -426,7 +442,7 @@ async function fetchEbayByGtin(jan) {
       return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '' }];
     });
 
-    await kvSet(cacheKey, candidates, 22 * 3600);
+    await kvSet(cacheKey, candidates, 48 * 3600);
     console.log(`  [eBay GTIN #${ebayApiCallsToday}] JAN:${jan} → ${candidates.length} 件`);
     await sleep(300);
     return candidates;
@@ -434,29 +450,22 @@ async function fetchEbayByGtin(jan) {
 }
 
 // ========== eBay Browse API: テキストマッチ候補（キャッシュ付き） ==========
-async function fetchEbayCandidates(enQuery) {
+function currencyToJpy(price, currency) {
+  if (currency === 'USD') return Math.round(price * USD_TO_JPY);
+  if (currency === 'GBP') return Math.round(price * GBP_TO_JPY);
+  if (currency === 'AUD') return Math.round(price * AUD_TO_JPY);
+  if (currency === 'JPY') return Math.round(price);
+  return 0;
+}
+
+async function fetchEbayCandidatesForMarket(enQuery, marketplaceId) {
   if (!enQuery || enQuery.length < 3) return [];
-  const queryWords = enQuery.split(/\s+/).filter(w => w.length >= 2);
-  const meaningfulWords = queryWords.filter(w => /[A-Za-z0-9]{2,}/.test(w));
-  if (meaningfulWords.length === 0) return [];
-
-  // KVキャッシュを確認（22時間有効）
-  const cacheKey = `ebay_cache:${ebayQueryHash(enQuery)}`;
-  const cached = await kvGet(cacheKey);
-  if (cached && Array.isArray(cached)) {
-    console.log(`  [cache hit] ${enQuery.slice(0, 40)}`);
-    return cached;
-  }
-
-  // APIレート制限チェック
-  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) {
-    console.log('  [eBay] Daily limit reached, using cache only');
-    return [];
-  }
+  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) return [];
 
   const token = await getEbayToken();
   if (!token) return [];
 
+  const queryWords = enQuery.split(/\s+/).filter(w => w.length >= 2);
   const queryLower = enQuery.toLowerCase();
   const params = new URLSearchParams({
     q: enQuery,
@@ -470,39 +479,73 @@ async function fetchEbayCandidates(enQuery) {
     const res = await fetch(
       `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
       {
-        headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
+        headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplaceId },
         signal: AbortSignal.timeout(8000),
       }
     );
     ebayApiCallsToday++;
     if (!res.ok) return [];
-
     const data = await res.json();
     const items = data?.itemSummaries ?? [];
     const candidates = [];
-
     for (const item of items) {
       const score = combinedMatchScore(queryWords, queryLower, item?.title ?? '');
       if (score < 0.5) continue;
       const price = parseFloat(item?.price?.value);
       const currency = item?.price?.currency;
       if (isNaN(price) || price <= 0) continue;
-      const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
-                     : currency === 'JPY' ? Math.round(price) : 0;
+      const priceJpy = currencyToJpy(price, currency);
       if (priceJpy === 0) continue;
       candidates.push({
         price: priceJpy,
         imageUrl: item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '',
         title: item?.title ?? '',
+        market: marketplaceId,
       });
     }
-
-    // 22時間キャッシュ
-    await kvSet(cacheKey, candidates, 22 * 3600);
-    console.log(`  [eBay API #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${candidates.length} candidates`);
-    await sleep(300); // eBayレート制限
+    await sleep(300);
     return candidates;
   } catch { return []; }
+}
+
+async function fetchEbayCandidates(enQuery) {
+  if (!enQuery || enQuery.length < 3) return [];
+  const meaningfulWords = enQuery.split(/\s+/).filter(w => /[A-Za-z0-9]{2,}/.test(w));
+  if (meaningfulWords.length === 0) return [];
+
+  // KVキャッシュを確認
+  const cacheKey = `ebay_cache:${ebayQueryHash(enQuery)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && Array.isArray(cached)) {
+    console.log(`  [cache hit] ${enQuery.slice(0, 40)}`);
+    return cached;
+  }
+
+  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) {
+    console.log('  [eBay] Daily limit reached, using cache only');
+    return [];
+  }
+
+  // まずeBay USを検索
+  let candidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_US');
+  console.log(`  [eBay US #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${candidates.length} candidates`);
+
+  // US結果が少ない場合はUKにフォールバック
+  if (candidates.length < 3 && ebayApiCallsToday < EBAY_DAILY_LIMIT) {
+    const ukCandidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_GB');
+    console.log(`  [eBay UK #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${ukCandidates.length} candidates`);
+    candidates = [...candidates, ...ukCandidates];
+  }
+
+  // UK含めても少ない場合はAUにフォールバック
+  if (candidates.length < 3 && ebayApiCallsToday < EBAY_DAILY_LIMIT) {
+    const auCandidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_AU');
+    console.log(`  [eBay AU #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${auCandidates.length} candidates`);
+    candidates = [...candidates, ...auCandidates];
+  }
+
+  await kvSet(cacheKey, candidates, 48 * 3600);
+  return candidates;
 }
 
 // ========== ③-A Claude Haiku事前分類 ==========
@@ -571,7 +614,7 @@ SEARCH_QUERY: (best English eBay search query, max 8 words, no Japanese)`
 
     const result = { productType, quantity, searchQuery };
     console.log(`  [Haiku CLS] ${productType} | qty:${quantity} | query:"${searchQuery}"`);
-    await kvSet(cacheKey, result, 22 * 3600);
+    await kvSet(cacheKey, result, 168 * 3600);
     return result;
   } catch { return null; }
 }
@@ -610,7 +653,7 @@ async function isImageMatch(rakutenUrl, ebayUrl, rakutenQuantity = null) {
       const gd = await gr.json();
       const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
       const result = answer.startsWith('YES');
-      await kvSet(cacheKey, result, 22 * 3600);
+      await kvSet(cacheKey, result, 168 * 3600);
       return result;
     } catch { return true; }
   }
@@ -687,7 +730,7 @@ REASON: (one short sentence)`
       console.log(`  [Haiku NG] ${reason}`);
     }
 
-    await kvSet(cacheKey, result, 22 * 3600);
+    await kvSet(cacheKey, result, 168 * 3600);
     return result;
   } catch { return true; }
 }
@@ -738,7 +781,7 @@ async function fetchAvgDaysToSell(query) {
     if (daysList.length === 0) return null;
     const avg = Math.round(daysList.reduce((a, b) => a + b, 0) / daysList.length);
 
-    await kvSet(cacheKey, avg, 22 * 3600);
+    await kvSet(cacheKey, avg, 168 * 3600);
     return avg;
   } catch { return null; }
 }
@@ -814,13 +857,13 @@ async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
   const startedAt = Date.now();
 
-  // Phase 1: 楽天商品取得（全キーワード × 2ページ）
+  // Phase 1: 楽天商品取得（全キーワード × 5ページ）
   console.log('\n📦 Phase 1: 楽天商品取得...');
   const seen = new Set();
   const rakutenProducts = [];
 
   for (const keyword of SEARCH_KEYWORDS) {
-    for (const page of [1, 2]) {
+    for (const page of [1, 2, 3, 4, 5]) {
       const items = await fetchRakutenPage(keyword, page);
       for (const raw of items) {
         const it = raw.Item;
