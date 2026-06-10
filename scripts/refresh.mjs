@@ -530,6 +530,11 @@ async function isImageMatch(rakutenUrl, ebayUrl) {
   if (!GEMINI_API_KEY || !rakutenUrl || !ebayUrl) return true;
   if (geminiCallsToday >= GEMINI_DAILY_LIMIT) return true;
 
+  // 画像URLペアのキャッシュ（22時間）
+  const cacheKey = `gemini_img:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached !== null) return cached === true || cached === 'true';
+
   try {
     const [r1, r2] = await Promise.all([
       fetch(rakutenUrl, { signal: AbortSignal.timeout(5000) }),
@@ -557,7 +562,10 @@ async function isImageMatch(rakutenUrl, ebayUrl) {
     if (!gr.ok) return true;
     const gd = await gr.json();
     const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
-    return answer.startsWith('YES');
+    const result = answer.startsWith('YES');
+    // 結果を22時間キャッシュ（2時間ごと実行でもGemini枠を節約）
+    await kvSet(cacheKey, result, 22 * 3600);
+    return result;
   } catch { return true; }
 }
 
