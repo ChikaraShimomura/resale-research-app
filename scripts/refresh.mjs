@@ -840,8 +840,10 @@ async function main() {
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
       coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
       ebaySoldUrl: (() => {
-        // 実績確認URLは常に英語クエリを使う（日本語はeBayで検索できない）
-        const soldQuery = enQuery || toEnglishQuery(it.itemName);
+        // Haiku通過済みのeBay商品タイトルを優先（最も正確）
+        // フォールバック: 英語クエリ変換
+        const matchedTitle = verified[0]?.title;
+        const soldQuery = matchedTitle || enQuery || toEnglishQuery(it.itemName);
         return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
       })(),
       realAvgPrice: result.avg,
