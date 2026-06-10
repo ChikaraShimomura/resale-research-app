@@ -47,6 +47,9 @@ export const metadata: Metadata = {
     title: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
     description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
   },
+  verification: {
+    google: "GGgOF1LGPqzP6qIa95QjVH1iaMw0HuFZUMZALrg5Lck",
+  },
   robots: {
     index: true,
     follow: true,
