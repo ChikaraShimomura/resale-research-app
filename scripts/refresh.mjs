@@ -922,7 +922,8 @@ async function main() {
   // Phase 3: eBay比較 → Gemini確認
   // 既存商品はそのまま引き継ぎ、新規商品だけ検索
   const profitableProducts = [...existingProducts];
-  const newCheckedIds = []; // {id, checkedAt} 形式で追加
+  // allCheckedは累積リスト（保存するたびに追記）
+  let allChecked = [...validChecked];
   const MAX_PROCESS = 800; // スキップ除外後の処理上限
   let processedCount = 0;
 
@@ -932,9 +933,14 @@ async function main() {
     if (existingIds.has(it.itemCode)) continue;
     // チェック済み（利益なし）商品もスキップ（カウントしない）
     if (checkedIds.has(it.itemCode)) continue;
+    // 除外パターンはchecked_idsに登録してスキップ（カウントしない）
+    if (EXCLUDE_PATTERN.test(it.itemName) || ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) {
+      const entry = { id: it.itemCode, checkedAt: Date.now() };
+      allChecked.push(entry);
+      checkedIds.add(it.itemCode);
+      continue;
+    }
     processedCount++;
-    if (EXCLUDE_PATTERN.test(it.itemName)) continue;
-    if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
 
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
     let candidates = [];
@@ -959,13 +965,20 @@ async function main() {
     // ② JANなし or GTIN結果0 → Haiku生成クエリ or テキスト変換でフォールバック
     if (candidates.length === 0) {
       if (!enQuery || enQuery.length < 5) enQuery = toEnglishQuery(it.itemName);
-      if (!enQuery || enQuery.length < 5) continue;
+      if (!enQuery || enQuery.length < 5) {
+        const entry = { id: it.itemCode, checkedAt: Date.now() };
+        allChecked.push(entry);
+        checkedIds.add(it.itemCode);
+        continue;
+      }
       candidates = await fetchEbayCandidates(enQuery);
       searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
     }
 
     if (candidates.length === 0) {
-      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
+      const entry = { id: it.itemCode, checkedAt: Date.now() };
+      allChecked.push(entry);
+      checkedIds.add(it.itemCode);
       continue;
     }
     console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
@@ -988,7 +1001,9 @@ async function main() {
     const prices = verified.map(c => c.price);
     const result = calcRobustAverage(prices);
     if (!result) {
-      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
+      const entry = { id: it.itemCode, checkedAt: Date.now() };
+      allChecked.push(entry);
+      checkedIds.add(it.itemCode);
       continue;
     }
 
@@ -996,7 +1011,9 @@ async function main() {
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
     if (profit < 500 || profitRate < 10 || profitRate > 300) {
-      newCheckedIds.push({ id: it.itemCode, checkedAt: Date.now() });
+      const entry = { id: it.itemCode, checkedAt: Date.now() };
+      allChecked.push(entry);
+      checkedIds.add(it.itemCode);
       continue;
     }
 
@@ -1034,14 +1051,11 @@ async function main() {
     const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
     await kvSet('profitable_products', sorted, 480 * 3600);
     await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-    // チェック済みIDも随時保存（タイムスタンプ付き・90日TTL管理）
-    if (newCheckedIds.length > 0) {
-      const allChecked = [...validChecked, ...newCheckedIds];
-      await kvSetPermanent('checked_ids', allChecked);
-      newCheckedIds.forEach(entry => checkedIds.add(entry.id));
-      newCheckedIds.length = 0;
-    }
+    await kvSetPermanent('checked_ids', allChecked);
   }
+
+  // ループ終了後に残ったchecked_idsを保存（Bug2対策：最後に利益商品が出なかった場合）
+  await kvSetPermanent('checked_ids', allChecked);
 
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
