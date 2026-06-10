@@ -1,0 +1,39 @@
+name: Reset DB & Refresh
+
+on:
+  workflow_dispatch:
+
+jobs:
+  reset-and-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Flush all KV data
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          curl -s -X POST "$KV_REST_API_URL/flushdb" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN"
+          echo "KV fully flushed."
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run refresh script
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          EBAY_APP_ID:          ${{ secrets.EBAY_APP_ID }}
+          EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/refresh.mjs
