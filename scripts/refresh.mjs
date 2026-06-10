@@ -395,12 +395,12 @@ function ebayQueryHash(query) {
   return Math.abs(h).toString(36);
 }
 
-// ========== 案A: eBay GTIN（JANコード）検索 ==========
+// ========== 案A: eBay GTIN（JANコード）→ Finding API 落札実績 ==========
 let ebayApiCallsToday = 0;
 const EBAY_DAILY_LIMIT = 4800;
 
 async function fetchEbayByGtin(jan) {
-  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) return [];
+  if (!EBAY_APP_ID) return [];
 
   const cacheKey = `ebay_gtin:${jan}`;
   const cached = await kvGet(cacheKey);
@@ -409,41 +409,52 @@ async function fetchEbayByGtin(jan) {
     return cached;
   }
 
-  const token = await getEbayToken();
-  if (!token) return [];
-
-  // Sold Listings（落札済み）を Browse API で取得
-  // filter に lastSoldDate があるバージョンを試みる
-  // Browse API は sold items を直接フィルタできないので Finding API の代替として
-  // まずアクティブ出品でGTIN一致を取り、価格分布の参考にする
+  // Finding API で GTIN を keywords に使って落札実績を取得
   const params = new URLSearchParams({
-    gtin: jan,
-    filter: 'buyingOptions:{FIXED_PRICE|AUCTION},conditions:{NEW|LIKE_NEW|USED_EXCELLENT}',
-    limit: '50',
-    fieldgroups: 'COMPACT',
+    'OPERATION-NAME': 'findCompletedItems',
+    'SERVICE-VERSION': '1.0.0',
+    'SECURITY-APPNAME': EBAY_APP_ID,
+    'RESPONSE-DATA-FORMAT': 'JSON',
+    'keywords': jan,
+    'itemFilter(0).name': 'SoldItemsOnly',
+    'itemFilter(0).value': 'true',
+    'itemFilter(1).name': 'Condition',
+    'itemFilter(1).value': 'New',
+    'paginationInput.entriesPerPage': '50',
+    'sortOrder': 'EndTimeSoonest',
+    'siteId': '0',
   });
 
   try {
     const res = await fetch(
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
-      { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }, signal: AbortSignal.timeout(8000) }
+      `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+      { signal: AbortSignal.timeout(8000) }
     );
-    ebayApiCallsToday++;
     if (!res.ok) return [];
     const data = await res.json();
-    const items = data?.itemSummaries ?? [];
+    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+
     const candidates = items.flatMap(item => {
-      const price = parseFloat(item?.price?.value);
-      const currency = item?.price?.currency;
+      const priceStr = item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__;
+      const currency  = item?.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'];
+      const price = parseFloat(priceStr);
       if (isNaN(price) || price <= 0) return [];
-      const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
-                     : currency === 'JPY' ? Math.round(price) : 0;
+      let priceJpy = 0;
+      if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
+      else if (currency === 'JPY') priceJpy = Math.round(price);
       if (priceJpy === 0) return [];
-      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '', itemUrl: item?.itemWebUrl ?? '', market: 'EBAY_US' }];
+      const itemId = item?.itemId?.[0] ?? '';
+      return [{
+        price: priceJpy,
+        imageUrl: item?.galleryURL?.[0] ?? '',
+        title: item?.title?.[0] ?? '',
+        itemUrl: itemId ? `https://www.ebay.com/itm/${itemId}` : '',
+        market: 'EBAY_US',
+      }];
     });
 
     await kvSet(cacheKey, candidates, 48 * 3600);
-    console.log(`  [eBay GTIN #${ebayApiCallsToday}] JAN:${jan} → ${candidates.length} 件`);
+    console.log(`  [GTIN Sold] JAN:${jan} → ${candidates.length}件`);
     await sleep(300);
     return candidates;
   } catch { return []; }
