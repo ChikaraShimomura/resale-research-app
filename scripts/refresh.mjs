@@ -692,6 +692,57 @@ REASON: (one short sentence)`
   } catch { return true; }
 }
 
+// ========== eBay Finding API: 平均販売日数取得 ==========
+async function fetchAvgDaysToSell(query) {
+  if (!EBAY_APP_ID || !query || query.length < 3) return null;
+
+  const cacheKey = `ebay_days:${ebayQueryHash(query)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached !== null) return typeof cached === 'number' ? cached : null;
+
+  try {
+    const params = new URLSearchParams({
+      'OPERATION-NAME': 'findCompletedItems',
+      'SERVICE-VERSION': '1.0.0',
+      'SECURITY-APPNAME': EBAY_APP_ID,
+      'RESPONSE-DATA-FORMAT': 'JSON',
+      'keywords': query,
+      'itemFilter(0).name': 'SoldItemsOnly',
+      'itemFilter(0).value': 'true',
+      'itemFilter(1).name': 'Condition',
+      'itemFilter(1).value': 'New',
+      'paginationInput.entriesPerPage': '20',
+      'sortOrder': 'EndTimeSoonest',
+    });
+
+    const res = await fetch(
+      `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+    if (items.length === 0) return null;
+
+    const daysList = items
+      .map(item => {
+        const start = item?.listingInfo?.[0]?.startTime?.[0];
+        const end   = item?.listingInfo?.[0]?.endTime?.[0];
+        if (!start || !end) return null;
+        const days = (new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24);
+        return days > 0 && days <= 90 ? Math.round(days) : null;
+      })
+      .filter(d => d !== null);
+
+    if (daysList.length === 0) return null;
+    const avg = Math.round(daysList.reduce((a, b) => a + b, 0) / daysList.length);
+
+    await kvSet(cacheKey, avg, 22 * 3600);
+    return avg;
+  } catch { return null; }
+}
+
 // ========== IQR法で外れ値除去 ==========
 function calcRobustAverage(prices) {
   if (prices.length < 5) return null;
@@ -880,7 +931,6 @@ async function main() {
       coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
       ebaySoldUrl: (() => {
         // Haiku通過済みのeBay商品タイトルを優先（最も正確）
-        // フォールバック: 英語クエリ変換
         const matchedTitle = verified[0]?.title;
         const soldQuery = matchedTitle || enQuery || toEnglishQuery(it.itemName);
         return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
@@ -889,6 +939,7 @@ async function main() {
       realProfit: profit,
       realProfitRate: profitRate,
       realCount: result.count,
+      avgDaysToSell: await fetchAvgDaysToSell(verified[0]?.title || enQuery || ''),
     });
 
     console.log(`  💰 ${profitRate}% 利益: ${it.itemName.slice(0, 40)}`);

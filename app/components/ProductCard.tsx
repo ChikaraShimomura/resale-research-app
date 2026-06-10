@@ -6,10 +6,18 @@ import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 
-const LISTING_LIMIT = 30;
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
 const SHIPPING_COST = 2500;
+
+// 平均販売日数に応じた出品上限
+function getListingLimit(avgDaysToSell?: number): number {
+  if (avgDaysToSell === undefined || avgDaysToSell === null) return 30;
+  if (avgDaysToSell < 10)  return 100;
+  if (avgDaysToSell < 20)  return 50;
+  if (avgDaysToSell < 30)  return 40;
+  return 30;
+}
 
 function useFavorite(productId: string) {
   const key = `fav_${productId}`;
@@ -76,7 +84,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
       .catch(() => {});
   }, [product.id]);
 
-  const limitReached = listingCount >= LISTING_LIMIT;
+  const listingLimit = getListingLimit(product.avgDaysToSell);
+  const limitReached = listingCount >= listingLimit;
 
   const shareOnX = () => {
     const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay #輸出副業`;
@@ -176,6 +185,11 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <p className="text-[10px] text-gray-400">{product.realCount}件の落札実績</p>
                   <TrustBadge count={product.realCount} />
+                  {product.avgDaysToSell != null && (
+                    <span className="text-[10px] text-gray-400">
+                      平均{product.avgDaysToSell}日で売れる
+                    </span>
+                  )}
                   {product.ebaySoldUrl && (
                     <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

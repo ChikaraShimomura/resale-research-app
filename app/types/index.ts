@@ -17,4 +17,5 @@ export interface Product {
   isNew?: boolean;
   coreKeyword?: string;
   ebaySoldUrl?: string;
+  avgDaysToSell?: number; // eBay平均販売日数（null=不明）
 }
