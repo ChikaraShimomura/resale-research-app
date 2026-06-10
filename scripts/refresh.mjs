@@ -449,59 +449,68 @@ async function fetchEbayByGtin(jan) {
   } catch { return []; }
 }
 
-// ========== eBay Browse API: テキストマッチ候補（キャッシュ付き） ==========
-function currencyToJpy(price, currency) {
-  if (currency === 'USD') return Math.round(price * USD_TO_JPY);
-  if (currency === 'GBP') return Math.round(price * GBP_TO_JPY);
-  if (currency === 'AUD') return Math.round(price * AUD_TO_JPY);
-  if (currency === 'JPY') return Math.round(price);
-  return 0;
-}
+// ========== eBay Finding API: 落札実績候補（テキスト検索・キャッシュ付き） ==========
+// siteId: 0=US, 3=UK, 15=AU
+const EBAY_SITE_BASE = { 0: 'https://www.ebay.com', 3: 'https://www.ebay.co.uk', 15: 'https://www.ebay.com.au' };
+const EBAY_SITE_MARKET = { 0: 'EBAY_US', 3: 'EBAY_GB', 15: 'EBAY_AU' };
 
-async function fetchEbayCandidatesForMarket(enQuery, marketplaceId) {
-  if (!enQuery || enQuery.length < 3) return [];
-  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) return [];
-
-  const token = await getEbayToken();
-  if (!token) return [];
+async function fetchEbaySoldForSite(enQuery, siteId) {
+  if (!EBAY_APP_ID || !enQuery || enQuery.length < 3) return [];
 
   const queryWords = enQuery.split(/\s+/).filter(w => w.length >= 2);
   const queryLower = enQuery.toLowerCase();
+  const market = EBAY_SITE_MARKET[siteId] ?? 'EBAY_US';
+  const base = EBAY_SITE_BASE[siteId] ?? 'https://www.ebay.com';
+
   const params = new URLSearchParams({
-    q: enQuery,
-    filter: 'buyingOptions:{FIXED_PRICE},conditions:{NEW|LIKE_NEW|USED_EXCELLENT}',
-    sort: 'bestMatch',
-    limit: '50',
-    fieldgroups: 'COMPACT',
+    'OPERATION-NAME': 'findCompletedItems',
+    'SERVICE-VERSION': '1.0.0',
+    'SECURITY-APPNAME': EBAY_APP_ID,
+    'RESPONSE-DATA-FORMAT': 'JSON',
+    'keywords': enQuery,
+    'itemFilter(0).name': 'SoldItemsOnly',
+    'itemFilter(0).value': 'true',
+    'itemFilter(1).name': 'Condition',
+    'itemFilter(1).value': 'New',
+    'paginationInput.entriesPerPage': '50',
+    'sortOrder': 'EndTimeSoonest',
+    'siteId': String(siteId),
   });
 
   try {
     const res = await fetch(
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
-      {
-        headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplaceId },
-        signal: AbortSignal.timeout(8000),
-      }
+      `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+      { signal: AbortSignal.timeout(8000) }
     );
-    ebayApiCallsToday++;
     if (!res.ok) return [];
     const data = await res.json();
-    const items = data?.itemSummaries ?? [];
+    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+
     const candidates = [];
     for (const item of items) {
-      const score = combinedMatchScore(queryWords, queryLower, item?.title ?? '');
+      const title = item?.title?.[0] ?? '';
+      const score = combinedMatchScore(queryWords, queryLower, title);
       if (score < 0.5) continue;
-      const price = parseFloat(item?.price?.value);
-      const currency = item?.price?.currency;
+
+      const priceStr = item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__;
+      const currency = item?.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'];
+      const price = parseFloat(priceStr);
       if (isNaN(price) || price <= 0) continue;
-      const priceJpy = currencyToJpy(price, currency);
+
+      let priceJpy = 0;
+      if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
+      else if (currency === 'GBP') priceJpy = Math.round(price * GBP_TO_JPY);
+      else if (currency === 'AUD') priceJpy = Math.round(price * AUD_TO_JPY);
+      else if (currency === 'JPY') priceJpy = Math.round(price);
       if (priceJpy === 0) continue;
+
+      const itemId = item?.itemId?.[0] ?? '';
       candidates.push({
         price: priceJpy,
-        imageUrl: item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '',
-        title: item?.title ?? '',
-        itemUrl: item?.itemWebUrl ?? '',
-        market: marketplaceId,
+        imageUrl: item?.galleryURL?.[0] ?? '',
+        title,
+        itemUrl: itemId ? `${base}/itm/${itemId}` : '',
+        market,
       });
     }
     await sleep(300);
@@ -514,35 +523,29 @@ async function fetchEbayCandidates(enQuery) {
   const meaningfulWords = enQuery.split(/\s+/).filter(w => /[A-Za-z0-9]{2,}/.test(w));
   if (meaningfulWords.length === 0) return [];
 
-  // KVキャッシュを確認
-  const cacheKey = `ebay_cache:${ebayQueryHash(enQuery)}`;
+  const cacheKey = `ebay_sold:${ebayQueryHash(enQuery)}`;
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached)) {
-    console.log(`  [cache hit] ${enQuery.slice(0, 40)}`);
+    console.log(`  [sold cache] ${enQuery.slice(0, 40)}`);
     return cached;
   }
 
-  if (ebayApiCallsToday >= EBAY_DAILY_LIMIT) {
-    console.log('  [eBay] Daily limit reached, using cache only');
-    return [];
+  // US落札実績を取得
+  let candidates = await fetchEbaySoldForSite(enQuery, 0);
+  console.log(`  [Sold US] ${enQuery.slice(0, 40)} → ${candidates.length}件`);
+
+  // US結果が少なければUKにフォールバック
+  if (candidates.length < 3) {
+    const uk = await fetchEbaySoldForSite(enQuery, 3);
+    console.log(`  [Sold UK] ${enQuery.slice(0, 40)} → ${uk.length}件`);
+    candidates = [...candidates, ...uk];
   }
 
-  // まずeBay USを検索
-  let candidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_US');
-  console.log(`  [eBay US #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${candidates.length} candidates`);
-
-  // US結果が少ない場合はUKにフォールバック
-  if (candidates.length < 3 && ebayApiCallsToday < EBAY_DAILY_LIMIT) {
-    const ukCandidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_GB');
-    console.log(`  [eBay UK #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${ukCandidates.length} candidates`);
-    candidates = [...candidates, ...ukCandidates];
-  }
-
-  // UK含めても少ない場合はAUにフォールバック
-  if (candidates.length < 3 && ebayApiCallsToday < EBAY_DAILY_LIMIT) {
-    const auCandidates = await fetchEbayCandidatesForMarket(enQuery, 'EBAY_AU');
-    console.log(`  [eBay AU #${ebayApiCallsToday}] ${enQuery.slice(0, 40)} → ${auCandidates.length} candidates`);
-    candidates = [...candidates, ...auCandidates];
+  // UK含めても少なければAUにフォールバック
+  if (candidates.length < 3) {
+    const au = await fetchEbaySoldForSite(enQuery, 15);
+    console.log(`  [Sold AU] ${enQuery.slice(0, 40)} → ${au.length}件`);
+    candidates = [...candidates, ...au];
   }
 
   await kvSet(cacheKey, candidates, 48 * 3600);

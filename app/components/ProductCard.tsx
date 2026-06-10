@@ -51,16 +51,21 @@ function ProfitRateBadge({ rate }: { rate: number }) {
   );
 }
 
-// 信頼スコアバッジ
+// 信頼スコアバッジ（落札件数ベース）
 function TrustBadge({ count }: { count: number }) {
-  if (count >= 50) return (
+  if (count >= 15) return (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-orange-500">
-      🔥 高信頼
+      🔥 信頼大
     </span>
   );
   if (count >= 10) return (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">
-      ✅ 中信頼
+      ✅ 信頼中
+    </span>
+  );
+  if (count >= 5) return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-500">
+       信頼小
     </span>
   );
   return (
