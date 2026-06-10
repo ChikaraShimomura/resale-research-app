@@ -1,0 +1,22 @@
+name: Clear DB (KV)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clear profitable_products from KV
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          curl -s -X POST "$KV_REST_API_URL/del/profitable_products" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN"
+          curl -s -X POST "$KV_REST_API_URL/del/last_updated" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN"
+          curl -s -X POST "$KV_REST_API_URL/del/refresh_stats" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN"
+          echo "DB cleared."
