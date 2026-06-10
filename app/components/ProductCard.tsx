@@ -43,6 +43,25 @@ function ProfitRateBadge({ rate }: { rate: number }) {
   );
 }
 
+// 信頼スコアバッジ
+function TrustBadge({ count }: { count: number }) {
+  if (count >= 50) return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-orange-500">
+      🔥 高信頼
+    </span>
+  );
+  if (count >= 10) return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">
+      ✅ 中信頼
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">
+      ⚠️ 参考
+    </span>
+  );
+}
+
 export default function ProductCard({ product }: { product: ProfitProduct }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
@@ -154,8 +173,9 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <p className="text-[10px] text-gray-400">eBay平均落札</p>
               <p className="text-base font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <p className="text-[10px] text-gray-400">{product.realCount}件の落札実績</p>
+                  <TrustBadge count={product.realCount} />
                   {product.ebaySoldUrl && (
                     <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

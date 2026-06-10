@@ -543,18 +543,48 @@ async function fetchEbayCandidates(enQuery) {
   } catch { return []; }
 }
 
-// ========== ③ Gemini画像マッチング ==========
-let geminiCallsToday = 0;
-const GEMINI_DAILY_LIMIT = 1400;
+// ========== ③ Claude Haiku画像マッチング ==========
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+let haikuCallsToday = 0;
 
 async function isImageMatch(rakutenUrl, ebayUrl) {
-  if (!GEMINI_API_KEY || !rakutenUrl || !ebayUrl) return true;
-  if (geminiCallsToday >= GEMINI_DAILY_LIMIT) return true;
+  if (!rakutenUrl || !ebayUrl) return true;
 
   // 画像URLペアのキャッシュ（22時間）
-  const cacheKey = `gemini_img:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
+  const cacheKey = `haiku_img:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
+
+  // Anthropic APIキーがなければGeminiにフォールバック
+  if (!ANTHROPIC_API_KEY) {
+    if (!GEMINI_API_KEY) return true;
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch(rakutenUrl, { signal: AbortSignal.timeout(5000) }),
+        fetch(ebayUrl, { signal: AbortSignal.timeout(5000) }),
+      ]);
+      if (!r1.ok || !r2.ok) return true;
+      const [b1, b2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
+      const body = {
+        contents: [{ parts: [
+          { text: 'Are these two product images showing the EXACT SAME product type and model? Answer YES or NO only.' },
+          { inlineData: { mimeType: 'image/jpeg', data: Buffer.from(b1).toString('base64') } },
+          { inlineData: { mimeType: 'image/jpeg', data: Buffer.from(b2).toString('base64') } },
+        ]}],
+        generationConfig: { maxOutputTokens: 4, temperature: 0 },
+      };
+      const gr = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) }
+      );
+      if (!gr.ok) return true;
+      const gd = await gr.json();
+      const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
+      const result = answer.startsWith('YES');
+      await kvSet(cacheKey, result, 22 * 3600);
+      return result;
+    } catch { return true; }
+  }
 
   try {
     const [r1, r2] = await Promise.all([
@@ -564,27 +594,67 @@ async function isImageMatch(rakutenUrl, ebayUrl) {
     if (!r1.ok || !r2.ok) return true;
 
     const [b1, b2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
+
     const body = {
-      contents: [{
-        parts: [
-          { text: 'Are these two product images showing the EXACT SAME product — same item name, same edition, same set, same version? Do NOT say YES if they are merely similar or from the same series. Answer YES only if you are highly confident they are identical products. Reply ONLY with YES or NO.' },
-          { inlineData: { mimeType: r1.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b1).toString('base64') } },
-          { inlineData: { mimeType: r2.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b2).toString('base64') } },
-        ],
-      }],
-      generationConfig: { maxOutputTokens: 4, temperature: 0 },
+      model: 'claude-haiku-4-5',
+      max_tokens: 64,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Compare these two product images carefully.
+Image 1 is from a Japanese online store (Rakuten).
+Image 2 is from eBay.
+
+Answer these two questions:
+1. Are they the SAME type of product? (e.g. both are watch straps, not strap vs watch)
+2. Are they the SAME specific product? (same model, same edition, same version)
+
+Reply in exactly this format:
+SAME_TYPE: YES/NO
+SAME_PRODUCT: YES/NO
+REASON: (one short sentence)`
+          },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: r1.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b1).toString('base64') }
+          },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: r2.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b2).toString('base64') }
+          },
+        ]
+      }]
     };
 
-    const gr = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) }
-    );
-    geminiCallsToday++;
-    if (!gr.ok) return true;
-    const gd = await gr.json();
-    const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
-    const result = answer.startsWith('YES');
-    // 結果を22時間キャッシュ（2時間ごと実行でもGemini枠を節約）
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    haikuCallsToday++;
+
+    if (!res.ok) return true;
+    const data = await res.json();
+    const text = data?.content?.[0]?.text ?? '';
+
+    // SAME_TYPE: YES かつ SAME_PRODUCT: YES の場合のみ一致とみなす
+    const sameType    = /SAME_TYPE:\s*YES/i.test(text);
+    const sameProduct = /SAME_PRODUCT:\s*YES/i.test(text);
+    const result = sameType && sameProduct;
+
+    if (!result) {
+      const reason = text.match(/REASON:\s*(.+)/i)?.[1] ?? '';
+      console.log(`  [Haiku NG] ${reason}`);
+    }
+
     await kvSet(cacheKey, result, 22 * 3600);
     return result;
   } catch { return true; }
@@ -729,20 +799,18 @@ async function main() {
     if (candidates.length === 0) continue;
     console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
 
-    // ③ Gemini画像確認（上位5件のみ）
-    // GTINの場合は既に一致精度が高いのでGemini確認を緩める
+    // ③ Claude Haiku画像確認（上位5件）
+    // GTINヒットでも必ず画像確認する（精度向上）
     let verified;
-    if (jan) {
-      // GTINは高精度なのでGemini確認なしでそのまま使う
-      verified = candidates;
-    } else if (GEMINI_API_KEY && rakutenImg && geminiCallsToday < GEMINI_DAILY_LIMIT) {
+    if (rakutenImg) {
       const top5 = candidates.slice(0, 5);
       const checks = await Promise.all(
         top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl) : Promise.resolve(false))
       );
-      const geminiPassed = top5.filter((_, i) => checks[i]);
-      // テキスト検索はGemini確認必須（2件以上一致した場合のみ採用）
-      verified = geminiPassed.length >= 2 ? geminiPassed : [];
+      const passed = top5.filter((_, i) => checks[i]);
+      // GTIN検索は1件以上、テキスト検索は2件以上一致で採用
+      const minMatch = jan ? 1 : 2;
+      verified = passed.length >= minMatch ? passed : [];
     } else {
       verified = candidates;
     }
@@ -798,7 +866,7 @@ async function main() {
     profitableCount: profitableProducts.length,
     savedCount: profitableProducts.length,
     ebayApiCalls: ebayApiCallsToday,
-    geminiCalls: geminiCallsToday,
+    haikuCalls: haikuCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
@@ -811,7 +879,7 @@ async function main() {
   新規追加: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（36時間TTL）
   eBay API呼出: ${ebayApiCallsToday}回
-  Gemini画像確認: ${geminiCallsToday}回
+  Claude Haiku画像確認: ${haikuCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }

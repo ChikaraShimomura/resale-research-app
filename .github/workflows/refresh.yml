@@ -1,4 +1,4 @@
-name: Background Refresh (Rakuten + eBay + Gemini)
+name: Background Refresh (Rakuten + eBay + Claude Haiku)
 
 on:
   schedule:
@@ -27,6 +27,7 @@ jobs:
           EBAY_APP_ID:          ${{ secrets.EBAY_APP_ID }}
           EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
           GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
         run: node scripts/refresh.mjs
