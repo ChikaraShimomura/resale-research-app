@@ -15,20 +15,20 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <div className="flex-1 relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="商品名で検索（例: ポケモンカード BOX）"
-            className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="商品名を入力"
+            className="w-full pl-9 pr-3 py-2.5 bg-white rounded-md text-sm focus:outline-none border-0 ring-0"
           />
         </div>
         <button
           type="submit"
-          className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="px-5 py-2.5 bg-[#FF6600] hover:bg-[#E05A00] text-white rounded-md text-sm font-bold transition-colors shrink-0"
         >
           検索
         </button>

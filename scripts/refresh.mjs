@@ -294,10 +294,15 @@ function combinedMatchScore(queryWords, queryLower, ebayTitle) {
   return forward * 0.6 + reverse * 0.4;
 }
 
-// ========== 案A: JANコード抽出 ==========
-function extractJan(title) {
-  // 13桁 or 8桁のバーコードを抽出（JANコード / EAN）
-  const m = title.match(/(?<![0-9])(\d{13}|\d{8})(?![0-9])/g) ?? [];
+// ========== JANコード取得（楽天APIフィールド優先 → タイトル抽出フォールバック） ==========
+function extractJan(it) {
+  // 楽天APIのjanCodeフィールドを最優先（一番確実）
+  const fromField = it.jan || it.janCode || it.itemJan || null;
+  if (fromField && /^\d{8}$|^\d{13}$/.test(String(fromField).trim())) {
+    return String(fromField).trim();
+  }
+  // タイトルから13桁 or 8桁のバーコードを抽出（フォールバック）
+  const m = (it.itemName || '').match(/(?<![0-9])(\d{13}|\d{8})(?![0-9])/g) ?? [];
   return m[0] ?? null;
 }
 
@@ -383,9 +388,13 @@ async function fetchEbayByGtin(jan) {
   const token = await getEbayToken();
   if (!token) return [];
 
+  // Sold Listings（落札済み）を Browse API で取得
+  // filter に lastSoldDate があるバージョンを試みる
+  // Browse API は sold items を直接フィルタできないので Finding API の代替として
+  // まずアクティブ出品でGTIN一致を取り、価格分布の参考にする
   const params = new URLSearchParams({
     gtin: jan,
-    filter: 'buyingOptions:{FIXED_PRICE}',
+    filter: 'buyingOptions:{FIXED_PRICE|AUCTION},conditions:{NEW|LIKE_NEW|USED_EXCELLENT}',
     limit: '50',
     fieldgroups: 'COMPACT',
   });
@@ -410,7 +419,7 @@ async function fetchEbayByGtin(jan) {
     });
 
     await kvSet(cacheKey, candidates, 22 * 3600);
-    console.log(`  [eBay GTIN #${ebayApiCallsToday}] JAN:${jan} → ${candidates.length} 件（完全一致）`);
+    console.log(`  [eBay GTIN #${ebayApiCallsToday}] JAN:${jan} → ${candidates.length} 件`);
     await sleep(300);
     return candidates;
   } catch { return []; }
@@ -633,27 +642,43 @@ async function main() {
   for (const it of filtered) {
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
 
-    // JANコードなし → スキップ
-    const jan = extractJan(it.itemName);
-    if (!jan) continue;
+    const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
+    let candidates = [];
+    let searchMethod = '';
+    let enQuery = '';
 
-    // JANコードでeBay GTIN検索（完全一致）
-    const candidates = await fetchEbayByGtin(jan);
+    // ① JANコードでeBay GTIN検索（最優先・精度最高）
+    const jan = extractJan(it);
+    if (jan) {
+      candidates = await fetchEbayByGtin(jan);
+      searchMethod = `GTIN:${jan}`;
+    }
+
+    // ② JANなし or GTIN結果0 → テキスト検索フォールバック
+    if (candidates.length === 0) {
+      enQuery = toEnglishQuery(it.itemName);
+      if (!enQuery || enQuery.length < 5) continue;
+      candidates = await fetchEbayCandidates(enQuery);
+      searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
+    }
+
     if (candidates.length === 0) continue;
-
-    console.log(`  [GTIN:${jan}] ${it.itemName.slice(0, 35)}`);
+    console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
 
     // ③ Gemini画像確認（上位5件のみ）
-    const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
+    // GTINの場合は既に一致精度が高いのでGemini確認を緩める
     let verified;
-
-    if (GEMINI_API_KEY && rakutenImg && geminiCallsToday < GEMINI_DAILY_LIMIT) {
+    if (jan) {
+      // GTINは高精度なのでGemini確認なしでそのまま使う
+      verified = candidates;
+    } else if (GEMINI_API_KEY && rakutenImg && geminiCallsToday < GEMINI_DAILY_LIMIT) {
       const top5 = candidates.slice(0, 5);
       const checks = await Promise.all(
         top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl) : Promise.resolve(false))
       );
       const geminiPassed = top5.filter((_, i) => checks[i]);
-      verified = geminiPassed.length >= 3 ? geminiPassed : [...geminiPassed, ...candidates.slice(5)];
+      // テキスト検索はGemini確認必須（2件以上一致した場合のみ採用）
+      verified = geminiPassed.length >= 2 ? geminiPassed : [];
     } else {
       verified = candidates;
     }
@@ -682,7 +707,9 @@ async function main() {
       },
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
       coreKeyword: it.itemName.split(/\s+/).slice(0, 5).join(' '),
-      ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(enQuery)}&LH_Complete=1&LH_Sold=1`,
+      ebaySoldUrl: jan
+        ? `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(it.itemName.slice(0,60))}&LH_Complete=1&LH_Sold=1`
+        : `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(enQuery)}&LH_Complete=1&LH_Sold=1`,
       realAvgPrice: result.avg,
       realProfit: profit,
       realProfitRate: profitRate,

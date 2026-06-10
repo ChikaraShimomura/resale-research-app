@@ -23,25 +23,22 @@ function useFavorite(productId: string) {
   return { isFav, toggle };
 }
 
-function ProfitBadge({ rate }: { rate: number }) {
-  if (rate >= 100) return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-black px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-sm">
-      🔥 +{rate}%
-    </span>
-  );
-  if (rate >= 50) return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-black px-2.5 py-1 rounded-full bg-red-500 text-white shadow-sm">
-      🔥 +{rate}%
-    </span>
-  );
-  if (rate >= 30) return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500 text-white">
-      ↑ +{rate}%
-    </span>
-  );
+// 楽天風のポイント倍率バッジ
+function PointBadge({ rate }: { rate: number }) {
+  if (rate <= 1) return null;
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400 text-white">
-      +{rate}%
+    <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-[#FF6600] text-white leading-none">
+      {rate}倍
+    </span>
+  );
+}
+
+// 利益率バッジ
+function ProfitRateBadge({ rate }: { rate: number }) {
+  const color = rate >= 50 ? "bg-[#BF0000]" : rate >= 30 ? "bg-orange-500" : "bg-amber-500";
+  return (
+    <span className={`inline-flex items-center text-[11px] font-black px-2 py-0.5 rounded text-white leading-none ${color}`}>
+      利益率 {rate}%
     </span>
   );
 }
@@ -74,14 +71,14 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
 
   return (
     <div className={cn(
-      "relative bg-white rounded-2xl overflow-hidden transition-all",
-      "shadow-[0_2px_12px_rgba(0,0,0,0.06)] active:shadow-[0_1px_4px_rgba(0,0,0,0.08)] active:scale-[0.992]",
+      "relative bg-white border border-gray-200 overflow-hidden transition-all",
+      "shadow-sm hover:shadow-md",
       (product.soldOut || limitReached) && "opacity-50"
     )}>
 
-      {/* ホット商品ライン */}
+      {/* HOTライン */}
       {isHot && !product.soldOut && (
-        <div className="h-1 bg-gradient-to-r from-orange-400 via-red-500 to-pink-500" />
+        <div className="h-0.5 bg-[#BF0000]" />
       )}
 
       {product.soldOut && (
@@ -90,109 +87,105 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         </div>
       )}
       {limitReached && !product.soldOut && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl px-4 py-3 text-center shadow-lg max-w-xs border border-gray-100">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 p-4">
+          <div className="bg-white rounded px-4 py-3 text-center shadow border border-gray-200">
             <p className="text-sm font-bold text-gray-700">出品上限に達しました</p>
             <p className="text-xs text-gray-400 mt-1">市場の乱立防止のため紹介終了</p>
           </div>
         </div>
       )}
 
-      <div className="p-4">
-        {/* 上段：画像 + タイトル + バッジ */}
-        <div className="flex gap-3 mb-3">
+      <div className="p-3">
+        {/* 上段：画像 + 商品情報（楽天スタイル） */}
+        <div className="flex gap-3 mb-2">
+          {/* 画像 */}
           <div className="shrink-0">
             {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.title} className="w-20 h-20 rounded-xl object-cover bg-gray-100" />
+              <img src={product.imageUrl} alt={product.title}
+                className="w-[90px] h-[90px] object-cover bg-gray-50 border border-gray-100" />
             ) : (
-              <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-3xl">📦</div>
+              <div className="w-[90px] h-[90px] bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl">📦</div>
             )}
           </div>
+
+          {/* 商品情報 */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-              {product.isNew && (
-                <span className="text-xs px-1.5 py-0.5 rounded font-bold bg-indigo-600 text-white leading-none">NEW</span>
-              )}
-              {isHot && (
-                <span className="text-xs px-1.5 py-0.5 rounded font-bold bg-orange-50 text-orange-500 border border-orange-200 leading-none">急騰中</span>
-              )}
-              <span className="ml-auto">
-                <ProfitBadge rate={product.realProfitRate} />
-              </span>
+            {/* バッジ行 */}
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+              {isHot && <span className="text-[10px] font-bold bg-[#BF0000] text-white px-1.5 py-0.5 rounded leading-none">急騰中</span>}
+              {product.isNew && <span className="text-[10px] font-bold border border-[#BF0000] text-[#BF0000] px-1.5 py-0.5 rounded leading-none">新品</span>}
+              <PointBadge rate={source.pointRate ?? 1} />
             </div>
-            <h3 className="text-[13px] font-medium text-gray-800 leading-snug line-clamp-2">
+
+            {/* タイトル */}
+            <h3 className="text-[13px] text-gray-800 leading-snug line-clamp-2 mb-1.5">
               {product.title}
             </h3>
+
+            {/* 楽天仕入れ価格 */}
+            <div className="mb-0.5">
+              <span className="text-[10px] text-gray-400">楽天仕入れ </span>
+              <span className="text-base font-black text-[#BF0000]">
+                {formatJpy(source.price)}
+              </span>
+              <span className="text-[11px] text-gray-400 ml-1">（税込）</span>
+            </div>
+
+            {/* ポイント還元（楽天風） */}
+            {pointAmount > 0 && (
+              <div className="flex items-center gap-1">
+                {/* Rポイントアイコン風 */}
+                <span className="inline-flex w-4 h-4 bg-[#BF0000] rounded-full items-center justify-center text-white font-black text-[8px]">R</span>
+                <span className="text-[12px] font-bold text-[#BF0000]">
+                  {pointAmount.toLocaleString()}ポイント
+                </span>
+                <span className="text-[11px] text-gray-400">
+                  （{source.pointRate ?? 1}%還元）
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ━━━ 価格フロー（ポイント込み強調） ━━━ */}
-        <div className="bg-gray-50 rounded-xl px-3 py-2.5 mb-1">
-          {/* 楽天仕入れ → eBay売値 */}
-          <div className="flex items-center gap-2 mb-2">
-            {/* 楽天仕入れ */}
-            <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 font-medium mb-0.5">楽天仕入れ</p>
-              <p className="text-sm font-bold text-gray-700">{formatJpy(source.price)}</p>
-              {pointAmount > 0 && (
-                <p className="text-[11px] font-bold text-orange-500 mt-0.5">
-                  実質 {formatJpy(realCost)}
-                </p>
+        {/* eBay価格・利益表示エリア（楽天カード風の区切り） */}
+        <div className="border-t border-dashed border-gray-200 pt-2 mb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-400">eBay平均落札</p>
+              <p className="text-base font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
+              {product.realCount > 0 && (
+                <p className="text-[10px] text-gray-400">{product.realCount}件の落札実績</p>
               )}
             </div>
 
-            <span className="text-gray-300 text-lg shrink-0">→</span>
-
-            {/* eBay売値 */}
-            <div className="min-w-0">
-              <p className="text-[10px] text-blue-500 font-medium mb-0.5">eBay平均落札</p>
-              <p className="text-sm font-bold text-blue-600">{formatJpy(product.realAvgPrice)}</p>
-            </div>
-
-            <div className="w-px h-8 bg-gray-200 mx-0.5 shrink-0" />
+            {/* 区切り */}
+            <div className="text-gray-300 text-xl">→</div>
 
             {/* 利益 */}
-            <div className="flex-1 text-right">
-              <p className="text-[10px] text-emerald-600 font-medium mb-0.5">利益（手数料後）</p>
-              <p className="text-lg font-black text-emerald-600 leading-none">
+            <div className="text-right">
+              <ProfitRateBadge rate={product.realProfitRate} />
+              <p className="text-[11px] text-gray-500 mt-1">利益（手数料後）</p>
+              <p className="text-xl font-black text-[#BF0000] leading-tight">
                 {formatJpy(product.realProfit)}
               </p>
               {pointAmount > 0 && (
-                <p className="text-[11px] font-bold text-orange-500 mt-0.5">
+                <p className="text-[12px] font-bold text-[#FF6600]">
                   + {pointAmount.toLocaleString()}pt
                 </p>
               )}
             </div>
           </div>
 
-          {/* ポイント還元バー */}
+          {/* ポイント強調バー（楽天のSPUバー風） */}
           {pointAmount > 0 && (
-            <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-100 rounded-lg px-2.5 py-1.5 mb-2">
-              <span className="text-sm">🎁</span>
-              <span className="text-[12px] font-bold text-orange-600">
-                楽天ポイント {pointAmount.toLocaleString()}pt 還元
-              </span>
-              <span className="text-[11px] text-orange-400 ml-auto">
-                （{source.pointRate ?? 1}%）
-              </span>
-            </div>
-          )}
-
-          {/* 落札実績 */}
-          {product.realCount > 0 && (
-            <div className="flex items-center justify-between pt-1.5 border-t border-gray-200">
-              <div className="flex items-center gap-1">
-                <TrendingUp size={11} className="text-blue-400" />
-                <span className="text-[11px] text-gray-400">eBay落札実績</span>
-                <span className="text-[11px] font-bold text-blue-500">{product.realCount}件</span>
+            <div className="mt-2 bg-[#FFF3E0] border border-[#FF6600]/30 rounded px-2.5 py-1.5 flex items-center gap-2">
+              <span className="inline-flex w-5 h-5 bg-[#FF6600] rounded-full items-center justify-center text-white font-black text-[9px] shrink-0">R</span>
+              <div className="flex-1">
+                <span className="text-[11px] font-bold text-[#FF6600]">
+                  楽天ポイント {pointAmount.toLocaleString()}ポイント獲得
+                </span>
+                <span className="text-[10px] text-gray-500 ml-1">（実質 {formatJpy(realCost)}）</span>
               </div>
-              {product.ebaySoldUrl && (
-                <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-[11px] text-indigo-400 font-medium hover:text-indigo-600">
-                  実績を見る ↗
-                </a>
-              )}
             </div>
           )}
         </div>
@@ -203,62 +196,64 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
           className="w-full flex items-center justify-center gap-1 text-[11px] text-gray-400 py-1 mb-2 hover:text-gray-600 transition-colors"
         >
           {showBreakdown ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {showBreakdown ? "明細を閉じる" : "利益の計算内訳を見る"}
+          {showBreakdown ? "内訳を閉じる" : "利益の計算内訳を見る"}
         </button>
 
         {/* 明細パネル */}
         {showBreakdown && (
-          <div className="bg-gray-50 rounded-xl px-3 py-2.5 mb-2 text-[12px] text-gray-600 space-y-1.5">
+          <div className="bg-gray-50 border border-gray-100 px-3 py-2.5 mb-2 text-[12px] text-gray-600 space-y-1.5">
             <div className="flex justify-between">
               <span>eBay平均落札価格</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
-            <div className="flex justify-between text-red-500">
+            <div className="flex justify-between text-[#BF0000]">
               <span>楽天仕入れ価格</span>
               <span>- {formatJpy(source.price)}</span>
             </div>
             {pointAmount > 0 && (
-              <div className="flex justify-between text-orange-500">
+              <div className="flex justify-between text-[#FF6600]">
                 <span>楽天ポイント還元（{source.pointRate ?? 1}%）</span>
                 <span>+ {formatJpy(pointAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-red-500">
+            <div className="flex justify-between text-[#BF0000]">
               <span>eBay手数料（13.25% + ¥47）</span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
-            <div className="flex justify-between text-red-500">
+            <div className="flex justify-between text-[#BF0000]">
               <span>国際送料（目安）</span>
               <span>- {formatJpy(SHIPPING_COST)}</span>
             </div>
-            <div className="flex justify-between font-bold text-emerald-600 pt-1.5 border-t border-gray-200">
-              <span>利益</span>
+            <div className="flex justify-between font-black text-[#BF0000] pt-1.5 border-t border-gray-200 text-[13px]">
+              <span>利益合計</span>
               <span>
                 {formatJpy(product.realProfit)}
                 {pointAmount > 0 && (
-                  <span className="text-orange-500 ml-1">+ {pointAmount.toLocaleString()}pt</span>
+                  <span className="text-[#FF6600] ml-1">+ {pointAmount.toLocaleString()}pt</span>
                 )}
               </span>
             </div>
           </div>
         )}
 
-        {/* アクションボタン群 */}
+        {/* アクションボタン */}
         <div className="space-y-2">
+          {/* 楽天で仕入れ（楽天の「カートに入れる」ボタン風） */}
           <div className="flex gap-2">
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="flex-1 text-center py-2.5 bg-[#BF0000] active:bg-[#A00000] text-white text-sm font-bold rounded-xl transition-colors">
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#BF0000] hover:bg-[#A00000] active:bg-[#900000] text-white text-sm font-bold rounded transition-colors">
+              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px]">R</span>
               楽天で仕入れる ↗
             </a>
             <button onClick={toggleFav}
               className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-xl border-2 transition-colors",
-                isFav ? "bg-rose-50 border-rose-300 text-rose-500" : "bg-gray-50 border-gray-200 text-gray-300"
+                "w-10 h-10 flex items-center justify-center rounded border-2 transition-colors",
+                isFav ? "bg-red-50 border-[#BF0000] text-[#BF0000]" : "bg-gray-50 border-gray-200 text-gray-300"
               )}>
               <Heart size={16} fill={isFav ? "currentColor" : "none"} />
             </button>
             <button onClick={shareOnX}
-              className="w-10 h-10 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100">
+              className="w-10 h-10 flex items-center justify-center rounded border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100">
               <Share2 size={16} />
             </button>
           </div>
