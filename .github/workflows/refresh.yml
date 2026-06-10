@@ -8,7 +8,7 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60       # 最大60分（Vercelの60秒制限なし）
+    timeout-minutes: 120      # 最大120分（102キーワード×5ページ対応）
 
     steps:
       - name: Checkout

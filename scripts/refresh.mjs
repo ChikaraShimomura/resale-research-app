@@ -439,7 +439,7 @@ async function fetchEbayByGtin(jan) {
       const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
                      : currency === 'JPY' ? Math.round(price) : 0;
       if (priceJpy === 0) return [];
-      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '' }];
+      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '', market: 'EBAY_US' }];
     });
 
     await kvSet(cacheKey, candidates, 48 * 3600);
@@ -622,7 +622,7 @@ SEARCH_QUERY: (best English eBay search query, max 8 words, no Japanese)`
 async function isImageMatch(rakutenUrl, ebayUrl, rakutenQuantity = null) {
   if (!rakutenUrl || !ebayUrl) return true;
 
-  // 画像URLペアのキャッシュ（22時間）
+  // 画像URLペアのキャッシュ（168時間=7日）
   const cacheKey = `haiku_img:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
@@ -786,15 +786,20 @@ async function fetchAvgDaysToSell(query) {
   } catch { return null; }
 }
 
-// ========== IQR法で外れ値除去 ==========
+// ========== IQR法で外れ値除去（3件未満は単純平均にフォールバック） ==========
 function calcRobustAverage(prices) {
-  if (prices.length < 5) return null;
+  if (prices.length === 0) return null;
+  // 3件未満: 外れ値除去できないので単純平均
+  if (prices.length < 3) {
+    const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    return { avg, count: prices.length };
+  }
   const sorted = [...prices].sort((a, b) => a - b);
   const q1 = sorted[Math.floor(sorted.length * 0.25)];
   const q3 = sorted[Math.floor(sorted.length * 0.75)];
   const iqr = q3 - q1;
   const valid = sorted.filter(p => p >= q1 - 1.5 * iqr && p <= q3 + 1.5 * iqr);
-  if (valid.length < 3) return null;
+  if (valid.length === 0) return null;
   return { avg: Math.round(valid.reduce((a, b) => a + b, 0) / valid.length), count: valid.length };
 }
 
@@ -897,7 +902,7 @@ async function main() {
   const profitableProducts = [...existingProducts];
 
   for (const it of filtered) {
-    // 既にDB登録済みの商品はスキップ（36時間TTLで自然消滅）
+    // 既にDB登録済みの商品はスキップ（480時間TTLで自然消滅）
     if (existingIds.has(it.itemCode)) continue;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
     if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
@@ -1013,7 +1018,7 @@ async function main() {
   フィルタ後: ${filtered.length}件
   既存DB引継ぎ: ${existingProducts.length}件
   新規追加: ${profitableProducts.length - existingProducts.length}件
-  DB合計: ${profitableProducts.length}件（36時間TTL）
+  DB合計: ${profitableProducts.length}件（480時間TTL）
   eBay API呼出: ${ebayApiCallsToday}回
   Claude Haiku画像確認: ${haikuCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分

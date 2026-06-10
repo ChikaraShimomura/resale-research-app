@@ -16,15 +16,6 @@ export function formatJpy(amount: number): string {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(amount);
 }
 
-export function getProfitBadgeStyle(rate: number): string {
-  if (rate >= 30) return "bg-green-100 text-green-700 border-green-200";
-  if (rate >= 10) return "bg-yellow-100 text-yellow-700 border-yellow-200";
-  return "bg-red-100 text-red-600 border-red-200";
-}
-
-export function toEbaySoldUrl(keyword: string): string {
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_Complete=1&LH_Sold=1`;
-}
 
 const EBAY_LISTING_BASE: Record<string, string> = {
   EBAY_US: "https://www.ebay.com/sl/list",
