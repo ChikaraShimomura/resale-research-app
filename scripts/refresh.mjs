@@ -669,10 +669,18 @@ async function main() {
 
   console.log(`\n🔍 Phase 2: eBay比較 (${filtered.length}件 → 上位からeBay確認)...`);
 
+  // 既存DB商品を取得（登録済みIDをスキップするため）
+  const existingProducts = await kvGet('profitable_products') ?? [];
+  const existingIds = new Set(existingProducts.map(p => p.id));
+  console.log(`  既存DB: ${existingProducts.length}件（IDスキップ対象）`);
+
   // Phase 3: eBay比較 → Gemini確認
-  const profitableProducts = [];
+  // 既存商品はそのまま引き継ぎ、新規商品だけ検索
+  const profitableProducts = [...existingProducts];
 
   for (const it of filtered) {
+    // 既にDB登録済みの商品はスキップ（36時間TTLで自然消滅）
+    if (existingIds.has(it.itemCode)) continue;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
 
     const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
@@ -757,24 +765,28 @@ async function main() {
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
 
-  await kvSet('profitable_products', profitableProducts, 8 * 3600); // 8時間TTL（次の実行まで）
-  await kvSet('last_updated', new Date().toISOString(), 8 * 3600);
+  await kvSet('profitable_products', profitableProducts, 36 * 3600); // 36時間TTL
+  await kvSet('last_updated', new Date().toISOString(), 36 * 3600);
   await kvSet('refresh_stats', {
     rakutenCount: rakutenProducts.length,
     filteredCount: filtered.length,
+    existingCount: existingProducts.length,
+    newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
     savedCount: profitableProducts.length,
     ebayApiCalls: ebayApiCallsToday,
     geminiCalls: geminiCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
-  }, 8 * 3600);
+  }, 36 * 3600);
 
   console.log(`
 ✨ 完了!
   楽天取得: ${rakutenProducts.length}件
   フィルタ後: ${filtered.length}件
-  利益商品: ${profitableProducts.length}件 → 全件を保存
+  既存DB引継ぎ: ${existingProducts.length}件
+  新規追加: ${profitableProducts.length - existingProducts.length}件
+  DB合計: ${profitableProducts.length}件（36時間TTL）
   eBay API呼出: ${ebayApiCallsToday}回
   Gemini画像確認: ${geminiCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
