@@ -395,12 +395,11 @@ function ebayQueryHash(query) {
   return Math.abs(h).toString(36);
 }
 
-// ========== 案A: eBay GTIN（JANコード）→ Finding API 落札実績 ==========
-let ebayApiCallsToday = 0;
-const EBAY_DAILY_LIMIT = 4800;
-
+// ========== 案A: eBay GTIN（JANコード）検索 → Browse API（バーコード完全一致） ==========
+// GTIN検索は Browse API の gtin: パラメータが唯一の正確な方法
+// Finding API には GTIN フィルタがなく keywords 検索では大半がミスマッチになる
 async function fetchEbayByGtin(jan) {
-  if (!EBAY_APP_ID) return [];
+  if (!EBAY_APP_ID || !EBAY_CLIENT_SECRET) return [];
 
   const cacheKey = `ebay_gtin:${jan}`;
   const cached = await kvGet(cacheKey);
@@ -409,52 +408,36 @@ async function fetchEbayByGtin(jan) {
     return cached;
   }
 
-  // Finding API で GTIN を keywords に使って落札実績を取得
+  const token = await getEbayToken();
+  if (!token) return [];
+
   const params = new URLSearchParams({
-    'OPERATION-NAME': 'findCompletedItems',
-    'SERVICE-VERSION': '1.0.0',
-    'SECURITY-APPNAME': EBAY_APP_ID,
-    'RESPONSE-DATA-FORMAT': 'JSON',
-    'keywords': jan,
-    'itemFilter(0).name': 'SoldItemsOnly',
-    'itemFilter(0).value': 'true',
-    'itemFilter(1).name': 'Condition',
-    'itemFilter(1).value': 'New',
-    'paginationInput.entriesPerPage': '50',
-    'sortOrder': 'EndTimeSoonest',
-    'siteId': '0',
+    gtin: jan,
+    filter: 'buyingOptions:{FIXED_PRICE|AUCTION},conditions:{NEW|LIKE_NEW|USED_EXCELLENT}',
+    limit: '50',
+    fieldgroups: 'COMPACT',
   });
 
   try {
     const res = await fetch(
-      `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
-      { signal: AbortSignal.timeout(8000) }
+      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
+      { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }, signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return [];
     const data = await res.json();
-    const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
-
+    const items = data?.itemSummaries ?? [];
     const candidates = items.flatMap(item => {
-      const priceStr = item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__;
-      const currency  = item?.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'];
-      const price = parseFloat(priceStr);
+      const price = parseFloat(item?.price?.value);
+      const currency = item?.price?.currency;
       if (isNaN(price) || price <= 0) return [];
-      let priceJpy = 0;
-      if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
-      else if (currency === 'JPY') priceJpy = Math.round(price);
+      const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
+                     : currency === 'JPY' ? Math.round(price) : 0;
       if (priceJpy === 0) return [];
-      const itemId = item?.itemId?.[0] ?? '';
-      return [{
-        price: priceJpy,
-        imageUrl: item?.galleryURL?.[0] ?? '',
-        title: item?.title?.[0] ?? '',
-        itemUrl: itemId ? `https://www.ebay.com/itm/${itemId}` : '',
-        market: 'EBAY_US',
-      }];
+      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '', itemUrl: item?.itemWebUrl ?? '', market: 'EBAY_US' }];
     });
 
     await kvSet(cacheKey, candidates, 48 * 3600);
-    console.log(`  [GTIN Sold] JAN:${jan} → ${candidates.length}件`);
+    console.log(`  [GTIN] JAN:${jan} → ${candidates.length}件`);
     await sleep(300);
     return candidates;
   } catch { return []; }
@@ -1020,7 +1003,7 @@ async function main() {
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
     savedCount: profitableProducts.length,
-    ebayApiCalls: ebayApiCallsToday,
+    ebayApiCalls: 'n/a (Finding API)',
     haikuCalls: haikuCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
@@ -1033,7 +1016,7 @@ async function main() {
   既存DB引継ぎ: ${existingProducts.length}件
   新規追加: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  eBay API呼出: ${ebayApiCallsToday}回
+  eBay Finding API使用（落札実績ベース）
   Claude Haiku画像確認: ${haikuCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
