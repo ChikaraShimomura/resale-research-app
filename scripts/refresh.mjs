@@ -439,7 +439,7 @@ async function fetchEbayByGtin(jan) {
       const priceJpy = currency === 'USD' ? Math.round(price * USD_TO_JPY)
                      : currency === 'JPY' ? Math.round(price) : 0;
       if (priceJpy === 0) return [];
-      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '', market: 'EBAY_US' }];
+      return [{ price: priceJpy, imageUrl: item?.image?.imageUrl ?? '', title: item?.title ?? '', itemUrl: item?.itemWebUrl ?? '', market: 'EBAY_US' }];
     });
 
     await kvSet(cacheKey, candidates, 48 * 3600);
@@ -500,6 +500,7 @@ async function fetchEbayCandidatesForMarket(enQuery, marketplaceId) {
         price: priceJpy,
         imageUrl: item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '',
         title: item?.title ?? '',
+        itemUrl: item?.itemWebUrl ?? '',
         market: marketplaceId,
       });
     }
@@ -978,8 +979,8 @@ async function main() {
       isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
       market: verified[0]?.market ?? 'EBAY_US',
       coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
-      ebaySoldUrl: (() => {
-        // 実績検索には短いenQueryを優先（長い出品タイトルは全単語一致で"見つからない"になる）
+      ebaySoldUrl: verified[0]?.itemUrl || (() => {
+        // itemUrlがない場合はenQueryで落札実績を検索
         const soldQuery = enQuery || toEnglishQuery(it.itemName);
         return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
       })(),
