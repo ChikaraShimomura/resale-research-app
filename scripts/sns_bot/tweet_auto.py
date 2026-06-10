@@ -11,15 +11,34 @@ import sys
 import io
 import json
 import random
+import smtplib
 import tweepy
 import requests
 import anthropic
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from email.mime.text import MIMEText
 import pytz
 
 JST = pytz.timezone('Asia/Tokyo')
 SITE_URL = "https://www.yushutsu-fukugyo.com"
+
+def send_alert_email(subject: str, body: str):
+    gmail_user = os.environ.get("GMAIL_USERNAME", "")
+    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD", "")
+    if not gmail_user or not gmail_pass:
+        return
+    try:
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = f"輸出ラボBot <{gmail_user}>"
+        msg["To"] = "chikara0323@gmail.com"
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(gmail_user, gmail_pass)
+            smtp.send_message(msg)
+        print("  通知メール送信完了")
+    except Exception as e:
+        print(f"  メール送信失敗: {e}")
 SITE_SEARCH_URL = "https://www.yushutsu-fukugyo.com/search"
 MAX_CHARS = 280
 
@@ -288,6 +307,10 @@ def main():
     if is_pattern_a:
         if not product:
             print("商品なし - スキップ")
+            send_alert_email(
+                "⚠️ 輸出ラボBot 商品データなし",
+                f"商品データがKVに存在しないため、自動投稿をスキップしました。\n\nrefresh.ymlが正常に完了しているか確認してください。\nhttps://github.com/ChikaraShimomura/resale-research-app/actions/workflows/refresh.yml\n\n実行時刻: {now.strftime('%Y-%m-%d %H:%M')} JST"
+            )
             return
 
         for attempt in range(1, 4):
