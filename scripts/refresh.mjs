@@ -889,7 +889,7 @@ async function main() {
   const filtered = rakutenProducts
     .filter(it => it.reviewCount >= 3)  // レビューが少なすぎる商品を除外
     .sort((a, b) => b.reviewCount - a.reviewCount)  // レビュー多い順（需要がある商品優先）
-    .slice(0, 200);  // 処理上限: 最大200件
+    .slice(0, 800);  // 処理上限: 最大800件
 
   console.log(`\n🔍 Phase 2: eBay比較 (${filtered.length}件 → 上位からeBay確認)...`);
 
