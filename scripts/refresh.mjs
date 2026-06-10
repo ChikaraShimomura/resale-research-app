@@ -898,13 +898,20 @@ async function main() {
   const existingIds = new Set(existingProducts.map(p => p.id));
   console.log(`  既存DB: ${existingProducts.length}件（IDスキップ対象）`);
 
+  // チェック済み（利益なし）商品IDを取得
+  const checkedIds = new Set(await kvGet('checked_ids') ?? []);
+  console.log(`  チェック済み(利益なし): ${checkedIds.size}件（スキップ対象）`);
+
   // Phase 3: eBay比較 → Gemini確認
   // 既存商品はそのまま引き継ぎ、新規商品だけ検索
   const profitableProducts = [...existingProducts];
+  const newCheckedIds = [];
 
   for (const it of filtered) {
     // 既にDB登録済みの商品はスキップ（480時間TTLで自然消滅）
     if (existingIds.has(it.itemCode)) continue;
+    // チェック済み（利益なし）商品もスキップ
+    if (checkedIds.has(it.itemCode)) continue;
     if (EXCLUDE_PATTERN.test(it.itemName)) continue;
     if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
 
@@ -936,7 +943,10 @@ async function main() {
       searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
     }
 
-    if (candidates.length === 0) continue;
+    if (candidates.length === 0) {
+      newCheckedIds.push(it.itemCode);
+      continue;
+    }
     console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
 
     // ③-B Claude Haiku画像確認（種別・商品・個数の3点チェック）
@@ -956,12 +966,18 @@ async function main() {
 
     const prices = verified.map(c => c.price);
     const result = calcRobustAverage(prices);
-    if (!result) continue;
+    if (!result) {
+      newCheckedIds.push(it.itemCode);
+      continue;
+    }
 
     const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
-    if (profit < 500 || profitRate < 10 || profitRate > 300) continue;
+    if (profit < 500 || profitRate < 10 || profitRate > 300) {
+      newCheckedIds.push(it.itemCode);
+      continue;
+    }
 
     profitableProducts.push({
       id: it.itemCode,
@@ -997,6 +1013,13 @@ async function main() {
     const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
     await kvSet('profitable_products', sorted, 480 * 3600);
     await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+    // チェック済みIDも随時保存
+    if (newCheckedIds.length > 0) {
+      const allChecked = [...checkedIds, ...newCheckedIds];
+      await kvSet('checked_ids', allChecked, 480 * 3600);
+      newCheckedIds.forEach(id => checkedIds.add(id));
+      newCheckedIds.length = 0;
+    }
   }
 
   // 利益率降順でソートしてKVに保存
