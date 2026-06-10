@@ -28,8 +28,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
-    template: "%s | 輸出で副業しようよ",
+    default: "輸出ラボ｜楽天商品をeBayで高く売る",
+    template: "%s | 輸出ラボ",
   },
   description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。日本の商品を海外に輸出して副収入を得たい方向けの無料リサーチツール。",
   keywords: ["輸出副業", "せどり", "eBay輸出", "楽天仕入れ", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
@@ -37,14 +37,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: SITE_URL,
-    siteName: "輸出で副業しようよ",
-    title: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
+    siteName: "輸出ラボ",
+    title: "輸出ラボ｜楽天商品をeBayで高く売る",
     description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
     locale: "ja_JP",
   },
   twitter: {
     card: "summary_large_image",
-    title: "輸出で副業しようよ｜楽天商品をeBayで高く売る",
+    title: "輸出ラボ｜楽天商品をeBayで高く売る",
     description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
   },
   verification: {

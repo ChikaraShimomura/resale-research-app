@@ -43,7 +43,7 @@ export default function SearchPage() {
               <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
                 <span className="text-[#BF0000] font-black text-sm leading-none">R</span>
               </div>
-              <span className="text-white font-black text-base tracking-tight">輸出で副業しようよ</span>
+              <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
