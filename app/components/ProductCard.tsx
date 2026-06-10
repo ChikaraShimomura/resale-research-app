@@ -154,7 +154,16 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <p className="text-[10px] text-gray-400">eBay平均落札</p>
               <p className="text-base font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
-                <p className="text-[10px] text-gray-400">{product.realCount}件の落札実績</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-[10px] text-gray-400">{product.realCount}件の落札実績</p>
+                  {product.ebaySoldUrl && (
+                    <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[10px] text-blue-500 font-bold hover:underline">
+                      実績を見る ↗
+                    </a>
+                  )}
+                </div>
               )}
             </div>
 
