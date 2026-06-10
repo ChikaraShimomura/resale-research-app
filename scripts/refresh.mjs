@@ -45,6 +45,17 @@ async function kvSet(key, value, exSeconds = 86400) {
   } catch (e) { console.error('kvSet error:', e.message); }
 }
 
+async function kvSetPermanent(key, value) {
+  try {
+    // TTLなし（永続保存）
+    await fetch(`${KV_URL}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['SET', key, JSON.stringify(value)]]),
+    });
+  } catch (e) { console.error('kvSetPermanent error:', e.message); }
+}
+
 // ========== 検索キーワード（eBayで売れる商品に特化・80キーワード） ==========
 const SEARCH_KEYWORDS = [
   // ポケモンカード（正規BOX）
@@ -1016,7 +1027,7 @@ async function main() {
     // チェック済みIDも随時保存
     if (newCheckedIds.length > 0) {
       const allChecked = [...checkedIds, ...newCheckedIds];
-      await kvSet('checked_ids', allChecked, 480 * 3600);
+      await kvSetPermanent('checked_ids', allChecked);
       newCheckedIds.forEach(id => checkedIds.add(id));
       newCheckedIds.length = 0;
     }
