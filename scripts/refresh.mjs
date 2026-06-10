@@ -505,11 +505,78 @@ async function fetchEbayCandidates(enQuery) {
   } catch { return []; }
 }
 
-// ========== ③ Claude Haiku画像マッチング ==========
+// ========== ③-A Claude Haiku事前分類 ==========
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 let haikuCallsToday = 0;
 
-async function isImageMatch(rakutenUrl, ebayUrl) {
+/**
+ * 楽天商品画像+タイトルからeBay検索クエリと個数を取得
+ * @returns {{ searchQuery: string, quantity: string } | null}
+ */
+async function classifyProduct(imageUrl, jpTitle) {
+  if (!ANTHROPIC_API_KEY || !imageUrl) return null;
+
+  const cacheKey = `haiku_cls:${ebayQueryHash(imageUrl + jpTitle.slice(0, 30))}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && typeof cached === 'object' && cached.searchQuery) return cached;
+
+  try {
+    const r = await fetch(imageUrl, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return null;
+    const buf = await r.arrayBuffer();
+
+    const body = {
+      model: 'claude-haiku-4-5',
+      max_tokens: 120,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `You are an eBay search expert. Look at this product image and the Japanese title below.
+
+Japanese title: ${jpTitle.slice(0, 100)}
+
+Answer in EXACTLY this format (no extra text):
+PRODUCT_TYPE: (e.g. "Pokemon booster pack single", "watch strap rubber 20mm", "Gundam MG 1/100 kit", "Shiseido eyebrow pencil cartridge")
+QUANTITY: (e.g. "1", "10 pieces", "1 BOX 30 packs", "set of 2")
+SEARCH_QUERY: (best English eBay search query, max 8 words, no Japanese)`
+          },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: r.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(buf).toString('base64') }
+          }
+        ]
+      }]
+    };
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    haikuCallsToday++;
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text ?? '';
+
+    const productType  = text.match(/PRODUCT_TYPE:\s*(.+)/i)?.[1]?.trim() ?? '';
+    const quantity     = text.match(/QUANTITY:\s*(.+)/i)?.[1]?.trim() ?? '1';
+    const searchQuery  = text.match(/SEARCH_QUERY:\s*(.+)/i)?.[1]?.trim() ?? '';
+
+    if (!searchQuery || searchQuery.length < 3) return null;
+
+    const result = { productType, quantity, searchQuery };
+    console.log(`  [Haiku CLS] ${productType} | qty:${quantity} | query:"${searchQuery}"`);
+    await kvSet(cacheKey, result, 22 * 3600);
+    return result;
+  } catch { return null; }
+}
+
+async function isImageMatch(rakutenUrl, ebayUrl, rakutenQuantity = null) {
   if (!rakutenUrl || !ebayUrl) return true;
 
   // 画像URLペアのキャッシュ（22時間）
@@ -567,16 +634,18 @@ async function isImageMatch(rakutenUrl, ebayUrl) {
           {
             type: 'text',
             text: `Compare these two product images carefully.
-Image 1 is from a Japanese online store (Rakuten).
+Image 1 is from a Japanese online store (Rakuten).${rakutenQuantity ? ` Known quantity: ${rakutenQuantity}.` : ''}
 Image 2 is from eBay.
 
-Answer these two questions:
+Answer these three questions:
 1. Are they the SAME type of product? (e.g. both are watch straps, not strap vs watch)
 2. Are they the SAME specific product? (same model, same edition, same version)
+3. Does the QUANTITY match? (e.g. single item vs set of 10, 1 pack vs 1 BOX)
 
 Reply in exactly this format:
 SAME_TYPE: YES/NO
 SAME_PRODUCT: YES/NO
+SAME_QUANTITY: YES/NO
 REASON: (one short sentence)`
           },
           {
@@ -607,10 +676,11 @@ REASON: (one short sentence)`
     const data = await res.json();
     const text = data?.content?.[0]?.text ?? '';
 
-    // SAME_TYPE: YES かつ SAME_PRODUCT: YES の場合のみ一致とみなす
-    const sameType    = /SAME_TYPE:\s*YES/i.test(text);
-    const sameProduct = /SAME_PRODUCT:\s*YES/i.test(text);
-    const result = sameType && sameProduct;
+    // SAME_TYPE・SAME_PRODUCT・SAME_QUANTITY すべてYESの場合のみ一致とみなす
+    const sameType     = /SAME_TYPE:\s*YES/i.test(text);
+    const sameProduct  = /SAME_PRODUCT:\s*YES/i.test(text);
+    const sameQuantity = /SAME_QUANTITY:\s*YES/i.test(text);
+    const result = sameType && sameProduct && sameQuantity;
 
     if (!result) {
       const reason = text.match(/REASON:\s*(.+)/i)?.[1] ?? '';
@@ -742,6 +812,14 @@ async function main() {
     let candidates = [];
     let searchMethod = '';
     let enQuery = '';
+    let rakutenQuantity = null;
+
+    // ③-A Haiku事前分類（商品種別・個数・検索クエリを取得）
+    const classification = await classifyProduct(rakutenImg, it.itemName);
+    if (classification) {
+      enQuery = classification.searchQuery;
+      rakutenQuantity = classification.quantity;
+    }
 
     // ① JANコードでeBay GTIN検索（最優先・精度最高）
     const jan = extractJan(it);
@@ -750,9 +828,9 @@ async function main() {
       searchMethod = `GTIN:${jan}`;
     }
 
-    // ② JANなし or GTIN結果0 → テキスト検索フォールバック
+    // ② JANなし or GTIN結果0 → Haiku生成クエリ or テキスト変換でフォールバック
     if (candidates.length === 0) {
-      enQuery = toEnglishQuery(it.itemName);
+      if (!enQuery || enQuery.length < 5) enQuery = toEnglishQuery(it.itemName);
       if (!enQuery || enQuery.length < 5) continue;
       candidates = await fetchEbayCandidates(enQuery);
       searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
@@ -761,13 +839,12 @@ async function main() {
     if (candidates.length === 0) continue;
     console.log(`  [${searchMethod}] ${it.itemName.slice(0, 35)}`);
 
-    // ③ Claude Haiku画像確認（上位5件）
-    // GTINヒットでも必ず画像確認する（精度向上）
+    // ③-B Claude Haiku画像確認（種別・商品・個数の3点チェック）
     let verified;
     if (rakutenImg) {
       const top5 = candidates.slice(0, 5);
       const checks = await Promise.all(
-        top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl) : Promise.resolve(false))
+        top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl, rakutenQuantity) : Promise.resolve(false))
       );
       const passed = top5.filter((_, i) => checks[i]);
       // GTIN検索は1件以上、テキスト検索は2件以上一致で採用
