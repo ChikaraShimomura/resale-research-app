@@ -31,17 +31,3 @@ jobs:
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.YUSHUTSU_TWITTER_ACCESS_TOKEN_SECRET }}
           ANTHROPIC_API_KEY:           ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/sns_bot/tweet_auto.py
-
-      - name: Notify on failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port:    465
-          secure:         true
-          username:       ${{ secrets.GMAIL_USERNAME }}
-          password:       ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject:        "[輸出ラボ] 自動投稿エラー"
-          body:           "tweet_auto.py が失敗しました。GitHub Actions のログを確認してください。"
-          to:             ${{ secrets.GMAIL_USERNAME }}
-          from:           輸出ラボBot
