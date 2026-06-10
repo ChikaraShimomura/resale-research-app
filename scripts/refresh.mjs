@@ -765,8 +765,8 @@ async function main() {
   // 利益率降順でソートしてKVに保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
 
-  await kvSet('profitable_products', profitableProducts, 36 * 3600); // 36時間TTL
-  await kvSet('last_updated', new Date().toISOString(), 36 * 3600);
+  await kvSet('profitable_products', profitableProducts, 480 * 3600); // 480時間TTL
+  await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
   await kvSet('refresh_stats', {
     rakutenCount: rakutenProducts.length,
     filteredCount: filtered.length,
@@ -778,7 +778,7 @@ async function main() {
     geminiCalls: geminiCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
-  }, 36 * 3600);
+  }, 480 * 3600);
 
   console.log(`
 ✨ 完了!
