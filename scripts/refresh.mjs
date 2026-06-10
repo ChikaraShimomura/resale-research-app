@@ -979,16 +979,15 @@ async function main() {
       market: verified[0]?.market ?? 'EBAY_US',
       coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
       ebaySoldUrl: (() => {
-        // Haiku通過済みのeBay商品タイトルを優先（最も正確）
-        const matchedTitle = verified[0]?.title;
-        const soldQuery = matchedTitle || enQuery || toEnglishQuery(it.itemName);
+        // 実績検索には短いenQueryを優先（長い出品タイトルは全単語一致で"見つからない"になる）
+        const soldQuery = enQuery || toEnglishQuery(it.itemName);
         return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
       })(),
       realAvgPrice: result.avg,
       realProfit: profit,
       realProfitRate: profitRate,
       realCount: result.count,
-      avgDaysToSell: await fetchAvgDaysToSell(verified[0]?.title || enQuery || ''),
+      avgDaysToSell: await fetchAvgDaysToSell(enQuery || toEnglishQuery(it.itemName)),
     });
 
     console.log(`  💰 ${profitRate}% 利益: ${it.itemName.slice(0, 40)}`);
