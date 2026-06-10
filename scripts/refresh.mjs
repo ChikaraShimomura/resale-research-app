@@ -216,7 +216,7 @@ const PRODUCT_TERMS_JP_TO_EN = {
   "新品": "new",
   "限定版": "limited edition",
   "限定": "limited",
-  "拡張パック": "booster box",
+  "拡張パック": "booster pack",
   "シュリンク": "shrink wrapped",
   "シュリンク付": "shrink wrapped",
   "コレクターズセット": "collectors set",
@@ -226,6 +226,24 @@ const PRODUCT_TERMS_JP_TO_EN = {
   "スイッチ": "Nintendo Switch",
   "国内正規品": "",
   "正規品": "",
+  // 時計アクセサリー
+  "時計ベルト": "watch strap",
+  "時計バンド": "watch band",
+  "ラバーベルト": "rubber strap",
+  "シリコンバンド": "silicone band",
+  "レザーベルト": "leather strap",
+  "ダイバーズウォッチ": "diver watch",
+  // カードゲーム細分化
+  "クリアケース": "clear case storage",
+  "スリーブ": "card sleeve",
+  "デッキケース": "deck case",
+  "カードケース": "card case",
+  // コスメ
+  "スティロ": "Stylo",
+  "ブードル": "Poudre",
+  "ファンデーション": "foundation",
+  "アイシャドウ": "eyeshadow",
+  "リップ": "lipstick",
 };
 
 // ========== タイトル → 英語クエリ変換（改良版） ==========
@@ -731,7 +749,7 @@ async function main() {
     const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
-    if (profit < 500 || profitRate < 10 || profitRate > 500) continue;
+    if (profit < 500 || profitRate < 10 || profitRate > 300) continue;
 
     profitableProducts.push({
       id: it.itemCode,
