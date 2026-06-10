@@ -1,0 +1,47 @@
+name: 輸出ラボ 自動投稿
+
+on:
+  schedule:
+    - cron: '15 * * * *'   # 毎時15分（24本/日）
+  workflow_dispatch:        # 手動実行テスト用
+
+jobs:
+  tweet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install tweepy anthropic requests pytz
+
+      - name: Tweet
+        env:
+          TWITTER_API_KEY:             ${{ secrets.YUSHUTSU_TWITTER_API_KEY }}
+          TWITTER_API_SECRET:          ${{ secrets.YUSHUTSU_TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN:        ${{ secrets.YUSHUTSU_TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.YUSHUTSU_TWITTER_ACCESS_TOKEN_SECRET }}
+          ANTHROPIC_API_KEY:           ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/sns_bot/tweet_auto.py
+
+      - name: Notify on failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port:    465
+          secure:         true
+          username:       ${{ secrets.GMAIL_USERNAME }}
+          password:       ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject:        "[輸出ラボ] 自動投稿エラー"
+          body:           "tweet_auto.py が失敗しました。GitHub Actions のログを確認してください。"
+          to:             ${{ secrets.GMAIL_USERNAME }}
+          from:           輸出ラボBot
