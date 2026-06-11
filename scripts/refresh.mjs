@@ -392,14 +392,16 @@ async function main() {
   // 既存DB・チェック済みIDをロード
   const CHECKED_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
   const now = Date.now();
-  const rawChecked = await kvGet('checked_ids') ?? [];
-  const validChecked = rawChecked
+  // KVが想定外の非配列値（破損・切り詰めJSON等）を返しても run 全体が落ちないようガード
+  const rawChecked = await kvGet('checked_ids');
+  const validChecked = (Array.isArray(rawChecked) ? rawChecked : [])
     .map(e => typeof e === 'string' ? { id: e, checkedAt: 0 } : e)
     .filter(e => now - e.checkedAt < CHECKED_TTL_MS);
   const checkedIds = new Set(validChecked.map(e => e.id));
   const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
 
-  const existingProducts = (await kvGet('profitable_products') ?? []).map(p => {
+  const rawProducts = await kvGet('profitable_products');
+  const existingProducts = (Array.isArray(rawProducts) ? rawProducts : []).map(p => {
     // 旧データの ebaySoldUrl が現行出品URLになっている場合は売れ済み検索URLに修正
     if (p.ebaySoldUrl && !p.ebaySoldUrl.includes('LH_Sold=1') && p.coreKeyword) {
       p.ebaySoldUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(p.coreKeyword)}&LH_Complete=1&LH_Sold=1`;
@@ -516,8 +518,9 @@ async function main() {
 
     for (const res of results) {
       allCheckedMap.set(res.id, { id: res.id, checkedAt: Date.now() });
-      if (res.type === 'profit') {
-        // 楽天itemCodeも既存IDに追加（同一商品の重複登録防止）
+      // 同一チャンク内で別のeBayタイトルが同じ楽天itemCodeに当たると、並列のexistingIds.hasが
+      // 両方すり抜ける。逐次ループ側で live check して重複pushを防ぐ。
+      if (res.type === 'profit' && !existingIds.has(res.rakutenId)) {
         existingIds.add(res.rakutenId);
         profitableProducts.push(res.product);
         // 登録順（新着が先頭）で保存。利益率ソートは将来の有料機能としてフロント側で実装

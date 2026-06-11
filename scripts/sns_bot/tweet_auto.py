@@ -333,6 +333,15 @@ def main():
         print("投稿文生成失敗 - スキップ")
         return
 
+    # 3回生成しても280超なら投稿せずスキップ（API 403でCI失敗するのを防ぐ）
+    if tw_len(tweet_text) > MAX_CHARS:
+        print(f"文字数オーバー({tw_len(tweet_text)}w) - スキップ")
+        send_alert_email(
+            "⚠️ 輸出ラボBot 文字数オーバー",
+            f"3回生成しても{MAX_CHARS}超({tw_len(tweet_text)}w)のため投稿をスキップしました。\n\n{tweet_text}"
+        )
+        return
+
     print(f"\n投稿内容 ({tw_len(tweet_text)}w):\n{tweet_text}\n")
 
     for attempt in range(1, 4):
