@@ -862,18 +862,141 @@ async function fetchRakutenPage(keyword, page) {
   } catch { return []; }
 }
 
+// ========== Phase 0: eBayで日本発送の売れ筋商品を取得 ==========
+const EBAY_JP_CATEGORIES = [
+  { id: '183454', name: 'ポケモンカード' },
+  { id: '261068', name: 'ガンプラ' },
+  { id: '19169',  name: 'おもちゃ' },
+  { id: '11450',  name: 'コスメ・美容' },
+  { id: '14339',  name: '腕時計' },
+  { id: '625',    name: 'カメラ・レンズ' },
+  { id: '64482',  name: 'トレカ全般' },
+  { id: '220',    name: 'おもちゃ・ゲーム' },
+];
+
+async function fetchEbayJapanSoldItems() {
+  const cacheKey = 'ebay_jp_sold_titles';
+  const cached = await kvGet(cacheKey);
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    console.log(`  [Phase0 cache] ${cached.length}件`);
+    return cached;
+  }
+
+  const allItems = [];
+  for (const cat of EBAY_JP_CATEGORIES) {
+    const params = new URLSearchParams({
+      'OPERATION-NAME': 'findCompletedItems',
+      'SERVICE-VERSION': '1.0.0',
+      'SECURITY-APPNAME': EBAY_APP_ID,
+      'RESPONSE-DATA-FORMAT': 'JSON',
+      'categoryId': cat.id,
+      'itemFilter(0).name': 'SoldItemsOnly',
+      'itemFilter(0).value': 'true',
+      'itemFilter(1).name': 'LocatedIn',
+      'itemFilter(1).value': 'JP',
+      'itemFilter(2).name': 'Condition',
+      'itemFilter(2).value': 'New',
+      'sortOrder': 'BestMatch',
+      'paginationInput.entriesPerPage': '100',
+    });
+    try {
+      const res = await fetch(
+        `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+      for (const item of items) {
+        const title = item?.title?.[0] ?? '';
+        const priceStr = item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__;
+        const currency = item?.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'];
+        const price = parseFloat(priceStr);
+        if (!title || isNaN(price) || price <= 0) continue;
+        let priceJpy = 0;
+        if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
+        else if (currency === 'GBP') priceJpy = Math.round(price * GBP_TO_JPY);
+        else if (currency === 'AUD') priceJpy = Math.round(price * AUD_TO_JPY);
+        else if (currency === 'JPY') priceJpy = Math.round(price);
+        if (priceJpy < 1000) continue;
+        allItems.push({ title, priceJpy, category: cat.name });
+      }
+      console.log(`  [Phase0] ${cat.name} → ${items.length}件`);
+      await sleep(300);
+    } catch (e) {
+      console.error(`  [Phase0 ERROR] ${cat.name}: ${e.message}`);
+    }
+  }
+
+  // 重複タイトルを除去してキャッシュ（6時間）
+  const unique = [...new Map(allItems.map(i => [i.title, i])).values()];
+  await kvSet(cacheKey, unique, 6 * 3600);
+  console.log(`  [Phase0] 合計 ${unique.length}件の売れ筋商品を取得`);
+  return unique;
+}
+
+// eBayタイトルから楽天検索キーワードを生成
+async function ebayTitleToRakutenKeyword(ebayTitle) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const cacheKey = `rakuten_kw:${ebayQueryHash(ebayTitle)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 60,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: `Convert this eBay listing title to a short Japanese Rakuten search keyword (max 4 words, Japanese only, no English).
+eBay title: "${ebayTitle}"
+Output the Japanese keyword only, nothing else.`
+        }]
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    haikuCallsToday++;
+    if (!res.ok) return null;
+    const data = await res.json();
+    const kw = data?.content?.[0]?.text?.trim() ?? '';
+    if (!kw || kw.length < 2) return null;
+    await kvSet(cacheKey, kw, 168 * 3600);
+    return kw;
+  } catch { return null; }
+}
+
 // ========== メイン処理 ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
   const startedAt = Date.now();
+
+  // Phase 0: eBayで日本発送の売れ筋商品を取得 → 楽天キーワードを動的生成
+  console.log('\n🌐 Phase 0: eBay日本発送の売れ筋商品を取得...');
+  const ebayJpItems = await fetchEbayJapanSoldItems();
+
+  // eBayタイトルを楽天キーワードに変換（並列5件）
+  const dynamicKeywords = new Set(SEARCH_KEYWORDS); // 既存キーワードも維持
+  const titleChunks = [];
+  for (let i = 0; i < Math.min(ebayJpItems.length, 200); i += 5) {
+    titleChunks.push(ebayJpItems.slice(i, i + 5));
+  }
+  for (const chunk of titleChunks) {
+    const kws = await Promise.all(chunk.map(item => ebayTitleToRakutenKeyword(item.title)));
+    kws.forEach(kw => { if (kw) dynamicKeywords.add(kw); });
+  }
+  console.log(`  動的キーワード追加: ${dynamicKeywords.size - SEARCH_KEYWORDS.length}件 → 合計 ${dynamicKeywords.size}件`);
 
   // Phase 1: 楽天商品取得（全キーワード × 5ページ）
   console.log('\n📦 Phase 1: 楽天商品取得...');
   const seen = new Set();
   const rakutenProducts = [];
 
-  // キーワードをシャッフルして毎回違う商品を取得
-  const shuffled = [...SEARCH_KEYWORDS].sort(() => Math.random() - 0.5);
+  // キーワードをシャッフルして毎回違う商品を取得（動的キーワード含む）
+  const shuffled = [...dynamicKeywords].sort(() => Math.random() - 0.5);
   for (const keyword of shuffled) {
     for (const page of [1, 2, 3, 4, 5]) {
       const items = await fetchRakutenPage(keyword, page);
