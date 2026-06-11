@@ -9,7 +9,8 @@ interface Status {
 export default function EbayConnect() {
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
-  const [flash, setFlash] = useState<"connected" | "error" | null>(null);
+  const [flash, setFlash] = useState<"connected" | "error" | "disconnected" | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     // コールバックからの ?ebay=connected / error を一度だけ表示
@@ -25,6 +26,19 @@ export default function EbayConnect() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/ebay/disconnect", { method: "POST" });
+      setStatus((s) => (s ? { ...s, connected: false } : s));
+      setFlash("disconnected");
+    } catch {
+      /* noop */
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   return (
     <div>
       {flash === "connected" && (
@@ -37,6 +51,11 @@ export default function EbayConnect() {
           ⚠️ 連携に失敗しました。もう一度お試しください
         </p>
       )}
+      {flash === "disconnected" && (
+        <p className="mb-3 text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          この端末のeBay連携を解除しました
+        </p>
+      )}
 
       {loading ? (
         <div className="h-11 w-40 bg-gray-100 rounded-xl animate-pulse" />
@@ -45,8 +64,8 @@ export default function EbayConnect() {
           eBay連携は現在準備中です（サーバー設定の反映待ち）。
         </p>
       ) : status.connected ? (
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700 mr-1">
             ✅ eBay連携済み
           </span>
           <a
@@ -55,6 +74,13 @@ export default function EbayConnect() {
           >
             再連携する
           </a>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="inline-flex items-center min-h-[44px] text-sm font-semibold text-red-600 border border-red-200 rounded-xl px-4 active:bg-red-50 disabled:opacity-50"
+          >
+            {disconnecting ? "解除中..." : "連携を解除"}
+          </button>
         </div>
       ) : (
         <a

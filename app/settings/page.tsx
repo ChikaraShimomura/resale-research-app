@@ -32,6 +32,9 @@ export default function SettingsPage() {
           <Suspense fallback={<div className="h-11 w-40 bg-gray-100 rounded-xl animate-pulse" />}>
             <EbayConnect />
           </Suspense>
+          <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+            ※ ログイン不要でお使いいただけます。連携情報はこの端末（ブラウザ）に紐づけて暗号化保存されます。共有端末では使用後に「連携を解除」してください。
+          </p>
         </section>
       </main>
 
