@@ -189,9 +189,6 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <p className="text-2xl font-black text-[#BF0000] leading-tight whitespace-nowrap">
                 {formatJpy(product.realProfit + pointAmount)}
               </p>
-              {pointAmount > 0 && (
-                <p className="text-[11px] text-gray-500">うちポイント {pointAmount.toLocaleString()}pt</p>
-              )}
             </div>
           </div>
 
