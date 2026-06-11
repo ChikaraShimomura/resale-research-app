@@ -278,26 +278,26 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
           </div>
         )}
 
-        {/* アクションボタン */}
+        {/* アクションボタン（全て高さ44pxで統一） */}
         <div className="space-y-2">
           <div className="flex gap-2">
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-r from-[#CC0033] to-[#E8003A] hover:from-[#AA0028] hover:to-[#CC0033] active:from-[#900022] text-white text-sm font-bold rounded-xl transition-all shadow-sm">
-              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#CC0033] font-black text-[9px]">R</span>
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 bg-gradient-to-r from-[#CC0033] to-[#E8003A] hover:from-[#AA0028] hover:to-[#CC0033] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
+              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#CC0033] font-black text-[9px] shrink-0">R</span>
               楽天で仕入れる
             </a>
             <button onClick={toggleFav}
               aria-label={isFav ? "お気に入りから削除" : "お気に入りに追加"}
               aria-pressed={isFav}
               className={cn(
-                "w-11 h-11 flex items-center justify-center rounded-xl border-2 transition-colors active:scale-95",
-                isFav ? "bg-red-50 border-[#CC0033] text-[#CC0033]" : "bg-gray-50 border-gray-200 text-gray-300"
+                "w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border-2 transition-colors active:scale-95",
+                isFav ? "bg-red-50 border-[#CC0033] text-[#CC0033]" : "bg-gray-50 border-gray-200 text-gray-400"
               )}>
               <Heart size={18} fill={isFav ? "currentColor" : "none"} />
             </button>
             <button onClick={shareOnX}
               aria-label="Xでシェア"
-              className="w-11 h-11 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100 active:scale-95">
+              className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100 active:scale-95">
               <Share2 size={18} />
             </button>
           </div>
