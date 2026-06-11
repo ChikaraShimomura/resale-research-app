@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import BottomNav from "../components/BottomNav";
 import EbayConnect from "../components/EbayConnect";
+import EbayListingReadiness from "../components/EbayListingReadiness";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -36,6 +37,8 @@ export default function SettingsPage() {
             ※ ログイン不要でお使いいただけます。連携情報はこの端末（ブラウザ）に紐づけて暗号化保存されます。共有端末では使用後に「連携を解除」してください。
           </p>
         </section>
+
+        <EbayListingReadiness />
       </main>
 
       <BottomNav />
