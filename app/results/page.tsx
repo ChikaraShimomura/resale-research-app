@@ -53,14 +53,14 @@ function ResultsContent() {
   const hotCount = sorted.filter(p => p.realProfitRate >= 30).length;
 
   return (
-    <div className="min-h-dvh bg-[#F5F5F5] pb-nav">
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
-      {/* 楽天風ヘッダー */}
-      <header className="bg-[#BF0000] sticky top-0 z-20"
+      {/* ヘッダー */}
+      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] sticky top-0 z-20 shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-        <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+        <div className="px-3 pt-2 pb-2 flex items-center gap-2">
           <Link href="/search"
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 text-lg font-bold">
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0 text-lg font-bold hover:bg-white/30 transition-colors">
             ‹
           </Link>
           <div className="flex-1">
@@ -68,7 +68,6 @@ function ResultsContent() {
           </div>
           <Link href="/favorites" className="text-white/80 shrink-0 text-xl" aria-label="お気に入り">❤️</Link>
         </div>
-        {/* 検索結果ラベル */}
         {keyword && (
           <div className="px-3 pb-1.5">
             <span className="text-white/80 text-xs">「{keyword}」の検索結果</span>
@@ -76,31 +75,31 @@ function ResultsContent() {
         )}
       </header>
 
-      {/* 件数・ソートバー（楽天の検索結果ページ風） */}
-      <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between sticky top-[calc(var(--header-h,88px))] z-10">
+      {/* 件数・ソートバー */}
+      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center justify-between sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
         <div>
           {loading ? (
-            <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
+            <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
           ) : (
             <p className="text-xs text-gray-600">
-              <span className="font-black text-[#BF0000] text-base">{sorted.length}</span>
+              <span className="font-black text-[#CC0033] text-base">{sorted.length}</span>
               <span className="ml-0.5">件</span>
               {hotCount > 0 && (
-                <span className="ml-2 text-[11px] text-[#FF6600] font-bold">🔥 {hotCount}件が利益30%超</span>
+                <span className="ml-2 text-[11px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
               )}
             </p>
           )}
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        {/* ソートボタン（楽天風タブ） */}
-        <div className="flex border border-gray-300 overflow-hidden text-xs font-semibold rounded">
+        {/* ソートボタン */}
+        <div className="flex border border-gray-200 overflow-hidden text-xs font-semibold rounded-xl shadow-sm">
           <button onClick={() => setSortOrder("desc")}
-            className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-[#BF0000] text-white" : "bg-white text-gray-500"}`}>
+            className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500"}`}>
             利益率↓
           </button>
           <button onClick={() => setSortOrder("asc")}
-            className={`px-3 py-1.5 border-l border-gray-300 transition-colors ${sortOrder === "asc" ? "bg-[#BF0000] text-white" : "bg-white text-gray-500"}`}>
+            className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500"}`}>
             利益率↑
           </button>
         </div>
@@ -108,22 +107,22 @@ function ResultsContent() {
 
       <main className="max-w-2xl mx-auto">
         {loading ? (
-          <div className="flex flex-col gap-[1px] bg-gray-200 mt-[1px]">
+          <div className="flex flex-col gap-3 p-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white p-3 animate-pulse">
+              <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
                 <div className="flex gap-3">
-                  <div className="w-[90px] h-[90px] bg-gray-100 shrink-0" />
+                  <div className="w-[88px] h-[88px] bg-gray-100 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2 pt-1">
-                    <div className="h-3 bg-gray-100 rounded w-3/4" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    <div className="h-5 bg-gray-100 rounded w-1/3" />
+                    <div className="h-3 bg-gray-100 rounded-full w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded-full w-1/2" />
+                    <div className="h-5 bg-gray-100 rounded-full w-1/3" />
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : sorted.length === 0 ? (
-          <div className="text-center py-16 bg-white m-3 border border-gray-200">
+          <div className="text-center py-16 bg-white m-3 rounded-2xl shadow-sm border border-gray-100">
             <p className="text-5xl mb-4">
               {allProducts.length === 0 ? "⏳" : "🔍"}
             </p>
@@ -134,12 +133,13 @@ function ResultsContent() {
               ? <p className="text-gray-400 text-xs"></p>
               : <p className="text-gray-400 text-xs">別のキーワードで検索してみてください</p>
             }
-            <Link href="/search" className="mt-5 inline-block text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2">
+            <Link href="/search"
+              className="mt-5 inline-block text-sm font-bold text-[#CC0033] border border-[#CC0033] px-5 py-2 rounded-full">
               ← ホームに戻る
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col gap-[1px] bg-gray-200 mt-[1px]">
+          <div className="flex flex-col gap-3 p-3">
             {sorted.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

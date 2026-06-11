@@ -46,7 +46,7 @@ function ProfitRateBadge({ rate }: { rate: number }) {
     ? "bg-gradient-to-r from-orange-500 to-amber-400"
     : "bg-gradient-to-r from-amber-500 to-yellow-400";
   return (
-    <span className={`inline-flex items-center text-[11px] font-black px-2.5 py-1 rounded-full text-white leading-none ${bg}`}>
+    <span className={`inline-flex items-center text-[13px] font-black px-2.5 py-1.5 rounded-full text-white leading-none ${bg}`}>
       利益率 {rate}%
     </span>
   );
@@ -180,20 +180,21 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] text-gray-400 mb-0.5">eBay平均落札</p>
-              <p className="text-lg font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
+              <p className="text-[11px] text-gray-500 mb-0.5">eBay平均落札</p>
+              <p className="text-base font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <p className="text-[10px] text-gray-400">{product.realCount}件</p>
+                  <p className="text-xs text-gray-500">{product.realCount}件</p>
                   <TrustBadge count={product.realCount} />
                   {product.avgDaysToSell != null && (
-                    <span className="text-[10px] text-gray-400">平均{product.avgDaysToSell}日</span>
+                    <span className="text-xs text-gray-500">平均{product.avgDaysToSell}日</span>
                   )}
                   {product.ebaySoldUrl && (
                     <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 font-bold hover:underline">
-                      実績 <ExternalLink size={9} />
+                      aria-label="eBayの直近の落札実績を見る"
+                      className="inline-flex items-center gap-0.5 text-[11px] text-blue-500 font-bold hover:underline py-1">
+                      実績 <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
@@ -205,12 +206,12 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             {/* 利益 */}
             <div className="text-right">
               <ProfitRateBadge rate={product.realProfitRate} />
-              <p className="text-[10px] text-gray-400 mt-1">実質利益（ポイント込み）</p>
-              <p className="text-xl font-black text-[#CC0033] leading-tight">
+              <p className="text-[11px] text-gray-500 mt-1">実質利益（ポイント込み）</p>
+              <p className="text-2xl font-black text-[#CC0033] leading-tight">
                 {formatJpy(product.realProfit + pointAmount)}
               </p>
               {pointAmount > 0 && (
-                <p className="text-[11px] text-gray-400">うちポイント {pointAmount.toLocaleString()}pt</p>
+                <p className="text-[11px] text-gray-500">うちポイント {pointAmount.toLocaleString()}pt</p>
               )}
             </div>
           </div>
@@ -222,7 +223,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span className="text-[11px] font-bold text-[#FF4466]">
                 楽天ポイント {pointAmount.toLocaleString()}pt 獲得
               </span>
-              <span className="text-[10px] text-gray-500 ml-auto">実質 {formatJpy(realCost)}</span>
+              <span className="text-[11px] text-gray-500 ml-auto">実質 {formatJpy(realCost)}</span>
             </div>
           )}
         </div>
@@ -230,7 +231,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         {/* 明細の展開ボタン */}
         <button
           onClick={() => setShowBreakdown(v => !v)}
-          className="w-full flex items-center justify-center gap-1 text-[11px] text-gray-400 py-1 mb-2 hover:text-gray-600 transition-colors"
+          aria-expanded={showBreakdown}
+          className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 py-2.5 mb-1 hover:text-gray-700 active:text-gray-800 transition-colors"
         >
           {showBreakdown ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           {showBreakdown ? "内訳を閉じる" : "利益の計算内訳を見る"}
@@ -283,15 +285,18 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               楽天で仕入れる
             </a>
             <button onClick={toggleFav}
+              aria-label={isFav ? "お気に入りから削除" : "お気に入りに追加"}
+              aria-pressed={isFav}
               className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-xl border-2 transition-colors",
+                "w-11 h-11 flex items-center justify-center rounded-xl border-2 transition-colors active:scale-95",
                 isFav ? "bg-red-50 border-[#CC0033] text-[#CC0033]" : "bg-gray-50 border-gray-200 text-gray-300"
               )}>
-              <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+              <Heart size={18} fill={isFav ? "currentColor" : "none"} />
             </button>
             <button onClick={shareOnX}
-              className="w-10 h-10 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100">
-              <Share2 size={16} />
+              aria-label="Xでシェア"
+              className="w-11 h-11 flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 text-gray-400 active:bg-gray-100 active:scale-95">
+              <Share2 size={18} />
             </button>
           </div>
           {!limitReached && (

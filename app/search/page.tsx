@@ -29,26 +29,26 @@ export default function SearchPage() {
   const hotCount = products.filter(p => p.realProfitRate >= 30).length;
 
   return (
-    <div className="min-h-dvh bg-[#F5F5F5] pb-nav">
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* 楽天風ヘッダー */}
-      <header className="bg-[#BF0000]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         {/* ロゴ行 */}
         <div className="px-3 pt-2 pb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* 楽天風ロゴ */}
             <div className="flex items-center gap-1">
               <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                <span className="text-[#BF0000] font-black text-sm leading-none">R</span>
+                <span className="text-[#CC0033] font-black text-sm leading-none">R</span>
               </div>
               <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/favorites" className="text-white/80 hover:text-white" aria-label="お気に入り">
+            <Link href="/favorites" className="w-11 h-11 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95" aria-label="お気に入り">
               <Heart16 />
             </Link>
-            <Link href="/guide" className="text-[11px] text-white/80 border border-white/40 px-2 py-0.5 rounded">ガイド</Link>
+            <Link href="/guide" className="inline-flex items-center min-h-[36px] text-[11px] text-white/80 border border-white/40 px-3 py-1.5 rounded active:bg-white/10">ガイド</Link>
           </div>
         </div>
         {/* 検索バー */}
@@ -60,9 +60,9 @@ export default function SearchPage() {
       <main className="max-w-2xl mx-auto">
 
         {/* ポイントキャンペーンバナー（楽天のSPUバナー風） */}
-        <div className="bg-gradient-to-r from-[#FF6600] to-[#FF8800] px-4 py-3 flex items-center gap-3">
+        <div className="bg-gradient-to-r from-[#FF4466] to-[#FF6688] px-4 py-3 flex items-center gap-3">
           <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0">
-            <span className="text-[#FF6600] font-black text-lg leading-none">R</span>
+            <span className="text-[#FF4466] font-black text-lg leading-none">R</span>
           </div>
           <div className="flex-1">
             <p className="text-white font-black text-sm">楽天ポイント × eBay転売で稼ぐ</p>
@@ -77,13 +77,13 @@ export default function SearchPage() {
         <div className="bg-white border-b border-gray-200">
           <div className="flex gap-0 overflow-x-auto scrollbar-hide">
             <Link href="/results?q="
-              className="shrink-0 px-4 py-2.5 text-xs font-bold text-[#BF0000] border-b-2 border-[#BF0000] bg-white whitespace-nowrap">
+              className="shrink-0 inline-flex items-center min-h-[44px] px-4 text-xs font-bold text-[#CC0033] border-b-2 border-[#CC0033] bg-white whitespace-nowrap">
               すべて
             </Link>
             {GENRES.map((genre) => (
               <Link key={genre.id}
                 href={`/results?q=${encodeURIComponent(genre.label)}`}
-                className="shrink-0 px-4 py-2.5 text-xs font-medium text-gray-500 border-b-2 border-transparent hover:text-[#BF0000] whitespace-nowrap">
+                className="shrink-0 inline-flex items-center min-h-[44px] px-4 text-xs font-medium text-gray-500 border-b-2 border-transparent hover:text-[#CC0033] active:text-[#CC0033] whitespace-nowrap">
                 {genre.emoji} {genre.label}
               </Link>
             ))}
@@ -97,16 +97,16 @@ export default function SearchPage() {
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
             ) : (
               <p className="text-xs text-gray-600">
-                <span className="font-black text-[#BF0000] text-base">{products.length}</span>
+                <span className="font-black text-[#CC0033] text-base">{products.length}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
-                  <span className="ml-2 text-[11px] text-[#FF6600] font-bold">🔥 {hotCount}件が利益30%超</span>
+                  <span className="ml-2 text-[13px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
                 )}
               </p>
             )}
           </div>
           {updatedLabel && (
-            <span className="text-[10px] text-gray-400">{updatedLabel}</span>
+            <span className="text-[11px] text-gray-500">{updatedLabel}</span>
           )}
         </div>
 
@@ -114,7 +114,7 @@ export default function SearchPage() {
           {loading ? (
             <div className="flex flex-col gap-2 p-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white border border-gray-200 p-3 animate-pulse">
+                <div key={i} className="bg-white border rounded-2xl border border-gray-100 p-4 shadow-sm animate-pulse">
                   <div className="flex gap-3">
                     <div className="w-[90px] h-[90px] bg-gray-100 shrink-0" />
                     <div className="flex-1 space-y-2 pt-1">
@@ -127,18 +127,18 @@ export default function SearchPage() {
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-16 bg-white m-3 border border-gray-200">
+            <div className="text-center py-16 bg-white m-3 rounded-2xl border border-gray-100 shadow-sm">
               <p className="text-5xl mb-4">⏳</p>
               <p className="text-gray-600 text-sm font-semibold mb-1">利益商品を探しています</p>
               <p className="text-gray-400 text-xs"></p>
               <div className="mt-4 flex justify-center gap-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-[#BF0000]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <div key={i} className="w-2 h-2 rounded-full bg-[#CC0033]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-[1px] bg-gray-200">
+            <div className="flex flex-col gap-3 p-3">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -147,7 +147,7 @@ export default function SearchPage() {
         </div>
 
         {!loading && products.length > 0 && (
-          <p className="px-3 py-4 text-[10px] text-gray-400 leading-relaxed text-center">
+          <p className="px-3 py-4 text-[11px] text-gray-500 leading-relaxed text-center">
             ※ eBay落札実績価格・楽天ポイント・eBay手数料(13.25%)・国際送料(¥2,500)をもとに計算しています。<br />
             実際の利益は状態・競合・送料などによって異なります。
           </p>

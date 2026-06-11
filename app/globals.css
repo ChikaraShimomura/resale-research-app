@@ -2,7 +2,15 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1a1a2e;
+  --primary: #CC0033;
+  --primary-dark: #AA0028;
+  --accent: #FF4466;
+  --surface: #F5F7FA;
+  /* スティッキーヘッダー高さ（safe-area込み）。結果一覧の件数/ソートバーのtopオフセットに使用 */
+  --header-h: calc(env(safe-area-inset-top, 0px) + 88px);
+  /* ボトムナビ高さ（py-2=16px + min-h-[52px]） */
+  --nav-h: 68px;
 }
 
 @theme inline {
@@ -15,10 +23,8 @@
 /* ライトモード固定（ダークモード無効化 - アプリの白基調デザインを維持） */
 
 html {
-  /* スクロールバーをなめらかに */
   scroll-behavior: smooth;
-  /* iOS Safariのバウンス時の背景色を白に */
-  background-color: #f9fafb;
+  background-color: #F5F7FA;
 }
 
 body {
@@ -63,9 +69,9 @@ textarea {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ページコンテンツのボトムナビ分パディング */
+/* ページコンテンツのボトムナビ分パディング（実ナビ高さ + safe-area） */
 .pb-nav {
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
 }
 
 /* 横スクロール時のスクロールバーを非表示（ジャンルタブなど） */

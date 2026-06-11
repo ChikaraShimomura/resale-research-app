@@ -19,16 +19,19 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
         <div className="flex-1 relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="商品名を入力"
+            aria-label="商品名で検索"
             className="w-full pl-9 pr-3 py-2.5 bg-white rounded-md text-sm focus:outline-none border-0 ring-0"
           />
         </div>
         <button
           type="submit"
-          className="px-5 py-2.5 bg-[#FF6600] hover:bg-[#E05A00] text-white rounded-md text-sm font-bold transition-colors shrink-0"
+          className="px-5 py-2.5 bg-[#FF6600] hover:bg-[#E05A00] active:bg-[#CC4D00] active:scale-[0.98] text-white rounded-md text-sm font-bold transition-all shrink-0"
         >
           検索
         </button>

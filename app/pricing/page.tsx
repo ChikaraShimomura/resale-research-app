@@ -34,12 +34,14 @@ const plans = [
 export default function PricingPage() {
   return (
     <div className="min-h-dvh bg-gray-50">
-      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+      <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between"
+        style={{ paddingTop: "calc(1rem + env(safe-area-inset-top, 0px))" }}>
         <Link href="/" className="font-bold text-xl text-indigo-600">輸出ラボ</Link>
-        <Link href="/search" className="text-sm text-gray-600 hover:text-gray-900">検索する</Link>
+        <Link href="/search" className="inline-flex items-center min-h-[44px] px-2 text-sm text-gray-600 hover:text-gray-900 active:text-gray-700">検索する</Link>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 py-16">
+      <main className="max-w-4xl mx-auto px-6 py-10 md:py-16"
+        style={{ paddingBottom: "calc(2.5rem + env(safe-area-inset-bottom, 0px))" }}>
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">料金プラン</h1>
           <p className="text-gray-500">まずは無料で試して、必要になったらアップグレード</p>
@@ -69,16 +71,25 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href={plan.href}
-                className={`block text-center py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  plan.highlight
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {plan.cta}
-              </Link>
+              {plan.href === "#" ? (
+                <span
+                  aria-disabled="true"
+                  className="flex items-center justify-center min-h-[44px] py-3 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+                >
+                  準備中（近日公開）
+                </span>
+              ) : (
+                <Link
+                  href={plan.href}
+                  className={`flex items-center justify-center min-h-[44px] py-3 rounded-lg text-sm font-medium transition-colors active:scale-[0.98] ${
+                    plan.highlight
+                      ? "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800"
+                      : "border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+              )}
             </div>
           ))}
         </div>

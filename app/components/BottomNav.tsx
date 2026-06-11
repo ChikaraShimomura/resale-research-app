@@ -76,12 +76,14 @@ export default function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
+            aria-label={item.label}
+            aria-current={isActive ? "page" : undefined}
             className={`flex flex-col items-center justify-center gap-0.5 py-2 px-2 flex-1 min-h-[52px] transition-colors ${
-              isActive ? "text-gray-900" : "text-gray-400"
+              isActive ? "text-[#CC0033]" : "text-gray-500"
             }`}
           >
             <item.Icon filled={isActive} />
-            <span className={`text-[10px] ${isActive ? "font-bold text-gray-900" : "font-normal"}`}>
+            <span className={`text-[11px] ${isActive ? "font-bold text-[#CC0033]" : "font-normal"}`}>
               {item.label}
             </span>
           </Link>

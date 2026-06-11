@@ -20,10 +20,10 @@ const SITE_URL = "https://www.yushutsu-fukugyo.com";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,         // iOS Safariのピンチズームを無効（入力フォームズーム防止）
-  userScalable: false,
+  // ピンチズームは有効のまま（WCAG 1.4.4）。入力フォームのフォーカスズームは
+  // globals.css の input{font-size:16px} で防いでいるため maximumScale 制限は不要。
   viewportFit: "cover",    // iPhone ノッチ・ホームバーにコンテンツを広げる
-  themeColor: "#BF0000",   // Safariのアドレスバー色 / Android PWAヘッダー色
+  themeColor: "#CC0033",   // Safariのアドレスバー色 / Android PWAヘッダー色
 };
 
 export const metadata: Metadata = {
