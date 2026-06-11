@@ -7,12 +7,14 @@ import { GENRES } from "../lib/genres";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
+import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
 
 export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
+  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
@@ -34,6 +36,7 @@ export default function SearchPage() {
     : null;
 
   const hotCount = products.filter(p => p.realProfitRate >= 30).length;
+  const sortedProducts = sortProducts(products, sortOrder);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -107,9 +110,9 @@ export default function SearchPage() {
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
         </div>
 
-        {/* セクションヘッダー（楽天風の「件数+ソート」行） */}
-        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* セクションヘッダー（件数 + 並び替えプルダウン） */}
+        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
+          <div className="min-w-0">
             {loading ? (
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
             ) : (
@@ -121,10 +124,11 @@ export default function SearchPage() {
                 )}
               </p>
             )}
+            {updatedLabel && (
+              <p className="text-[11px] text-gray-500 mt-0.5">{updatedLabel}</p>
+            )}
           </div>
-          {updatedLabel && (
-            <span className="text-[11px] text-gray-500">{updatedLabel}</span>
-          )}
+          <SortSelect value={sortOrder} onChange={setSortOrder} />
         </div>
 
         <div className="px-0">
@@ -156,7 +160,7 @@ export default function SearchPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3 p-3">
-              {products.map((product) => (
+              {sortedProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>

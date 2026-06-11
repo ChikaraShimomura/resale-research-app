@@ -7,6 +7,7 @@ import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
+import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -15,7 +16,7 @@ function ResultsContent() {
   const [allProducts, setAllProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   // "default" = 登録順（新着順）。利益率ソートは将来の有料機能
-  const [sortOrder, setSortOrder] = useState<"default" | "desc" | "asc">("default");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,15 +38,7 @@ function ResultsContent() {
     );
   }, [allProducts, keyword]);
 
-  const sorted = useMemo(() => {
-    // 登録順（API が返す新着順）をそのまま表示
-    if (sortOrder === "default") return filtered;
-    return [...filtered].sort((a, b) =>
-      sortOrder === "desc"
-        ? b.realProfitRate - a.realProfitRate
-        : a.realProfitRate - b.realProfitRate
-    );
-  }, [filtered, sortOrder]);
+  const sorted = useMemo(() => sortProducts(filtered, sortOrder), [filtered, sortOrder]);
 
   const displayLabel = keyword || "すべて";
   const updatedLabel = lastUpdated
@@ -94,25 +87,8 @@ function ResultsContent() {
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        {/* ソートボタン（登録順がデフォルト。利益率ソートは将来の有料機能） */}
-        <div className="flex border border-gray-200 overflow-hidden text-xs font-semibold rounded-xl shadow-sm">
-          <button onClick={() => setSortOrder("default")}
-            aria-pressed={sortOrder === "default"}
-            className={`inline-flex items-center min-h-[44px] px-3 transition-colors ${sortOrder === "default" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
-            登録順
-          </button>
-          {/* TODO: 課金導入時はここをペイウォールでゲートする（今は無料開放） */}
-          <button onClick={() => setSortOrder("desc")}
-            aria-pressed={sortOrder === "desc"}
-            className={`inline-flex items-center min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
-            利益率↓
-          </button>
-          <button onClick={() => setSortOrder("asc")}
-            aria-pressed={sortOrder === "asc"}
-            className={`inline-flex items-center min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
-            利益率↑
-          </button>
-        </div>
+        {/* 並び替えプルダウン（新着順がデフォルト。将来ここを課金ゲート可能） */}
+        <SortSelect value={sortOrder} onChange={setSortOrder} />
       </div>
 
       <main className="max-w-2xl mx-auto">
