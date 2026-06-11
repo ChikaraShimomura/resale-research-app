@@ -124,7 +124,7 @@ export default function GuidePage() {
             <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#CC0033]">- ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#CC0033]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>国際送料（目安）</span><span className="text-[#CC0033]">- ¥2,500</span></div>
+            <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
               <span>利益</span><span>= ¥X,XXX + XXXpt</span>
             </div>

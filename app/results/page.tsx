@@ -101,16 +101,16 @@ function ResultsContent() {
             className={`inline-flex items-center min-h-[44px] px-3 transition-colors ${sortOrder === "default" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
             登録順
           </button>
-          {/* TODO: 課金導入時はここをペイウォールでゲートする */}
+          {/* TODO: 課金導入時はここをペイウォールでゲートする（今は無料開放） */}
           <button onClick={() => setSortOrder("desc")}
             aria-pressed={sortOrder === "desc"}
-            className={`inline-flex items-center gap-0.5 min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
-            利益率↓<span className="text-[9px] opacity-70">🔒</span>
+            className={`inline-flex items-center min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
+            利益率↓
           </button>
           <button onClick={() => setSortOrder("asc")}
             aria-pressed={sortOrder === "asc"}
-            className={`inline-flex items-center gap-0.5 min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
-            利益率↑<span className="text-[9px] opacity-70">🔒</span>
+            className={`inline-flex items-center min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
+            利益率↑
           </button>
         </div>
       </div>

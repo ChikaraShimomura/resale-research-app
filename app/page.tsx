@@ -104,7 +104,7 @@ export default function LandingPage() {
             <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#CC0033]">- ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#CC0033]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>国際送料（目安）</span><span className="text-[#CC0033]">- ¥2,500</span></div>
+            <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
               <span>利益</span><span>= ¥X,XXX + XXXpt</span>
             </div>
@@ -125,7 +125,7 @@ export default function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-gray-100 px-4 py-6 text-center">
         <p className="text-xs text-gray-500">
-          ※ 利益はeBay平均落札価格・楽天ポイント・eBay手数料(13.25%)・国際送料(¥2,500)をもとに計算しています。<br />
+          ※ 利益はeBay平均落札価格・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
           実際の利益は状態・競合・為替等により異なります。
         </p>
       </footer>

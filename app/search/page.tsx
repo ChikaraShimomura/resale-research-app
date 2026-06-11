@@ -165,7 +165,7 @@ export default function SearchPage() {
 
         {!loading && products.length > 0 && (
           <p className="px-3 py-4 text-[11px] text-gray-500 leading-relaxed text-center">
-            ※ eBay落札実績価格・楽天ポイント・eBay手数料(13.25%)・国際送料(¥2,500)をもとに計算しています。<br />
+            ※ eBay落札実績価格・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
             実際の利益は状態・競合・送料などによって異なります。
           </p>
         )}

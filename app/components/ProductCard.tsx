@@ -8,7 +8,6 @@ import { ProfitProduct } from "../lib/profitFilter";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
-const SHIPPING_COST = 2500;
 
 function getListingLimit(avgDaysToSell?: number): number {
   if (avgDaysToSell === undefined || avgDaysToSell === null) return 30;
@@ -64,7 +63,7 @@ function TrustBadge({ count }: { count: number }) {
   );
   // 逆引きフローでは eBay で実際に売れた確定価格をベースにしているため肯定的に表示
   return (
-    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ eBay実売価格</span>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ eBay落札価格</span>
   );
 }
 
@@ -186,7 +185,6 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <p className="text-base font-black text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <p className="text-xs text-gray-500">{product.realCount}件</p>
                   <TrustBadge count={product.realCount} />
                   {product.avgDaysToSell != null && (
                     <span className="text-xs text-gray-500">平均{product.avgDaysToSell}日</span>
@@ -261,9 +259,9 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span>eBay手数料（13.25% + ¥47）</span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
-            <div className="flex justify-between text-[#CC0033]">
-              <span>国際送料（目安）</span>
-              <span>- {formatJpy(SHIPPING_COST)}</span>
+            <div className="flex justify-between text-gray-500">
+              <span>国際送料</span>
+              <span className="font-bold text-emerald-600">購入者負担（¥0）</span>
             </div>
             <div className="flex justify-between font-black text-[#CC0033] pt-1.5 border-t border-gray-200 text-[13px]">
               <span>実質利益合計</span>
