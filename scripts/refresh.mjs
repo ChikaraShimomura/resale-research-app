@@ -919,7 +919,9 @@ async function fetchEbayJapanSoldItems() {
         else if (currency === 'AUD') priceJpy = Math.round(price * AUD_TO_JPY);
         else if (currency === 'JPY') priceJpy = Math.round(price);
         if (priceJpy < 1000) continue;
-        allItems.push({ title, priceJpy, category: cat.name });
+        const imageUrl = item?.galleryURL?.[0] ?? '';
+        const itemUrl  = item?.viewItemURL?.[0] ?? '';
+        allItems.push({ title, priceJpy, category: cat.name, imageUrl, itemUrl });
       }
       console.log(`  [Phase0] ${cat.name} → ${items.length}件`);
       await sleep(300);
@@ -969,250 +971,165 @@ Output the Japanese keyword only, nothing else.`
   } catch { return null; }
 }
 
-// ========== メイン処理 ==========
+// ========== メイン処理 (逆引きフロー: eBay売れ済み → 楽天仕入れ) ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
   const startedAt = Date.now();
 
-  // Phase 0: eBayで日本発送の売れ筋商品を取得 → 楽天キーワードを動的生成
-  console.log('\n🌐 Phase 0: eBay日本発送の売れ筋商品を取得...');
+  // Phase 0: eBay日本発送の売れ済み商品を取得
+  console.log('\n🌐 Phase 0: eBay日本発送売れ済み商品を取得...');
   const ebayJpItems = await fetchEbayJapanSoldItems();
+  console.log(`  取得: ${ebayJpItems.length}件`);
 
-  // eBayタイトルを楽天キーワードに変換（並列5件）
-  const dynamicKeywords = new Set(SEARCH_KEYWORDS); // 既存キーワードも維持
-  const titleChunks = [];
-  for (let i = 0; i < Math.min(ebayJpItems.length, 200); i += 5) {
-    titleChunks.push(ebayJpItems.slice(i, i + 5));
-  }
-  for (const chunk of titleChunks) {
-    const kws = await Promise.all(chunk.map(item => ebayTitleToRakutenKeyword(item.title)));
-    kws.forEach(kw => { if (kw) dynamicKeywords.add(kw); });
-  }
-  console.log(`  動的キーワード追加: ${dynamicKeywords.size - SEARCH_KEYWORDS.length}件 → 合計 ${dynamicKeywords.size}件`);
-
-  // Phase 1: 楽天商品取得（全キーワード × 5ページ）
-  console.log('\n📦 Phase 1: 楽天商品取得...');
-  const seen = new Set();
-  const rakutenProducts = [];
-
-  // キーワードをシャッフルして毎回違う商品を取得（動的キーワード含む）
-  const shuffled = [...dynamicKeywords].sort(() => Math.random() - 0.5);
-  for (const keyword of shuffled) {
-    for (const page of [1, 2, 3, 4, 5]) {
-      const items = await fetchRakutenPage(keyword, page);
-      for (const raw of items) {
-        const it = raw.Item;
-        if (!it || it.itemPrice < 1000 || seen.has(it.itemCode)) continue;
-        if (EXCLUDE_PATTERN.test(it.itemName)) continue;
-        if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
-        seen.add(it.itemCode);
-        rakutenProducts.push(it);
-      }
-      await sleep(1100); // 楽天API: 1リクエスト/秒
-    }
-    console.log(`  [楽天] "${keyword.slice(0, 30)}" → 累計 ${rakutenProducts.length}件`);
+  if (ebayJpItems.length === 0) {
+    console.log('  ⚠️ eBay売れ筋商品が取得できませんでした。終了します。');
+    return;
   }
 
-  console.log(`\n✅ 楽天取得完了: ${rakutenProducts.length}件`);
-
-  // Phase 2: 事前フィルタ（レビュー数3件以上・スキップ除外後に最大800件を処理）
-  const filtered = rakutenProducts
-    .filter(it => it.reviewCount >= 1)
-    .sort((a, b) => b.reviewCount - a.reviewCount);
-
-  console.log(`\n🔍 Phase 2: eBay比較 (${filtered.length}件 → 上位からeBay確認)...`);
-
-  // 既存DB商品を取得（登録済みIDをスキップするため）
-  const existingProducts = await kvGet('profitable_products') ?? [];
-  const existingIds = new Set(existingProducts.map(p => p.id));
-  console.log(`  既存DB: ${existingProducts.length}件（IDスキップ対象）`);
-
-  // チェック済み（利益なし）商品IDを取得（90日以内のみ有効）
+  // 既存DB・チェック済みIDをロード
   const CHECKED_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
   const now90 = Date.now();
   const rawChecked = await kvGet('checked_ids') ?? [];
-  // 旧形式（文字列配列）との互換性を保ちつつ新形式（{id, checkedAt}）に対応
   const validChecked = rawChecked
-    .map(entry => typeof entry === 'string' ? { id: entry, checkedAt: 0 } : entry)
-    .filter(entry => now90 - entry.checkedAt < CHECKED_TTL_MS);
+    .map(e => typeof e === 'string' ? { id: e, checkedAt: 0 } : e)
+    .filter(e => now90 - e.checkedAt < CHECKED_TTL_MS);
   const checkedIds = new Set(validChecked.map(e => e.id));
-  console.log(`  チェック済み(利益なし): ${checkedIds.size}件（スキップ対象、90日以内）`);
-
-  // Phase 3: eBay比較（並列5件 + 画像マッチは利益確定後のみ）
-  const profitableProducts = [...existingProducts];
   const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
-  const MAX_PROCESS = 800;
-  const CONCURRENCY = 5; // 並列処理数
-  let processedCount = 0;
 
-  // 処理対象リストを作成（スキップ済みを除外）
-  const toProcess = [];
-  for (const it of filtered) {
-    if (toProcess.length >= MAX_PROCESS) break;
-    if (existingIds.has(it.itemCode)) continue;
-    if (checkedIds.has(it.itemCode)) continue;
-    if (EXCLUDE_PATTERN.test(it.itemName) || ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) {
-      allCheckedMap.set(it.itemCode, { id: it.itemCode, checkedAt: Date.now() });
-      checkedIds.add(it.itemCode);
-      continue;
-    }
-    toProcess.push(it);
-  }
-  console.log(`  処理対象: ${toProcess.length}件（並列${CONCURRENCY}件）`);
+  const existingProducts = await kvGet('profitable_products') ?? [];
+  const existingIds = new Set(existingProducts.map(p => p.id));
+  const profitableProducts = [...existingProducts];
 
-  // 1商品の処理（画像マッチなし版）→ 利益候補を返す
-  async function processItem(it) {
-    const rakutenImg = it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '';
-    let candidates = [];
-    let searchMethod = '';
-    let enQuery = '';
-    let rakutenQuantity = null;
+  console.log(`  既存DB: ${existingProducts.length}件 / チェック済み: ${checkedIds.size}件`);
 
-    // Haiku事前分類（商品種別・個数・型番・検索クエリ）
-    const classification = await classifyProduct(rakutenImg, it.itemName);
-    if (classification) {
-      enQuery = classification.searchQuery;
-      rakutenQuantity = classification.quantity;
-    }
+  // 未処理のeBayアイテムを絞り込み（タイトルのハッシュをIDとして使用）
+  const MAX_PROCESS = 400;
+  const CONCURRENCY = 5;
 
-    // JANコードまたは型番が必須 — どちらもない場合はスキップ
-    const jan = extractJan(it);
-    const modelNumber = classification?.modelNumber ?? null;
-    if (!jan && !modelNumber) return { type: 'skip', it };
+  const toProcess = ebayJpItems.filter(item => {
+    const id = String(ebayQueryHash(item.title));
+    return !checkedIds.has(id);
+  }).slice(0, MAX_PROCESS);
 
-    // ① JANコードでGTIN検索 → タイトル確定 → 落札実績検索
-    if (jan) {
-      const gtinCandidates = await fetchEbayByGtin(jan);
-      if (gtinCandidates.length > 0) {
-        const gtinTitle = gtinCandidates[0]?.title ?? '';
-        if (gtinTitle.length >= 5) {
-          candidates = await fetchEbayCandidates(gtinTitle);
-          enQuery = gtinTitle;
-          searchMethod = `GTIN→SOLD:"${gtinTitle.slice(0, 30)}"`;
-        } else {
-          candidates = gtinCandidates;
-          searchMethod = `GTIN:${jan}`;
-        }
+  console.log(`\n🔍 Phase 1→2: ${toProcess.length}件を処理 (並列${CONCURRENCY}件)...`);
+
+  // 1件のeBay商品を処理: キーワード変換 → 楽天検索 → 画像マッチ → 利益計算
+  async function processEbayItem(ebayItem) {
+    const itemId = String(ebayQueryHash(ebayItem.title));
+
+    // Haiku: eBayタイトル → 日本語楽天キーワード
+    const jpKeyword = await ebayTitleToRakutenKeyword(ebayItem.title);
+    if (!jpKeyword) return { type: 'skip', id: itemId };
+
+    // 楽天で検索（2ページ）
+    const rakutenItems = [];
+    for (const page of [1, 2]) {
+      const items = await fetchRakutenPage(jpKeyword, page);
+      for (const raw of items) {
+        const it = raw.Item;
+        if (!it || it.itemPrice < 1000) continue;
+        if (EXCLUDE_PATTERN.test(it.itemName)) continue;
+        if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
+        if (existingIds.has(it.itemCode)) continue;
+        rakutenItems.push(it);
       }
+      await sleep(1100);
     }
 
-    // ② JANなし or GTIN結果0 → 型番を含むHaikuクエリで検索
-    if (candidates.length === 0) {
-      if (!enQuery || enQuery.length < 5) return { type: 'skip', it };
-      candidates = await fetchEbayCandidates(enQuery);
-      searchMethod = `MODEL:"${enQuery.slice(0, 30)}"`;
-    }
+    if (rakutenItems.length === 0) return { type: 'skip', id: itemId };
 
-    if (candidates.length === 0) return { type: 'skip', it };
+    const ebayImg = ebayItem.imageUrl ?? '';
 
-    // 画像マッチなしで仮利益計算
-    const prices = candidates.map(c => c.price);
-    const result = calcRobustAverage(prices);
-    if (!result) return { type: 'skip', it };
+    // 楽天上位5件を画像マッチで確認
+    for (const rakutenItem of rakutenItems.slice(0, 5)) {
+      const rakutenImg = rakutenItem.mediumImageUrls?.[0]?.imageUrl
+        || rakutenItem.smallImageUrls?.[0]?.imageUrl || '';
+      if (!rakutenImg) continue;
 
-    const pointAmount = Math.floor(it.itemPrice * 10 / 100); // 楽天ポイント常時10%固定
-    const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
+      // eBay画像がある場合のみ画像比較（ない場合はキーワードマッチを信頼）
+      if (ebayImg) {
+        const matched = await isImageMatch(rakutenImg, ebayImg, null);
+        if (!matched) continue;
+      }
 
-    if (profit < 1 || profitRate > 300) return { type: 'skip', it };
+      // 利益計算
+      const pointAmount = Math.floor(rakutenItem.itemPrice * 10 / 100);
+      const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
+      if (profit < 1 || profitRate > 300) continue;
 
-    // 利益が出そうな場合のみ画像マッチで検証
-    let verified;
-    if (rakutenImg) {
-      const top5 = candidates.slice(0, 5);
-      const checks = await Promise.all(
-        top5.map(c => c.imageUrl ? isImageMatch(rakutenImg, c.imageUrl, rakutenQuantity) : Promise.resolve(false))
-      );
-      const passed = top5.filter((_, i) => checks[i]);
-      verified = passed.length >= 1 ? passed : [];
-    } else {
-      verified = candidates;
-    }
+      console.log(`  💰 ${profitRate}% | 楽天¥${rakutenItem.itemPrice.toLocaleString()} → eBay¥${ebayItem.priceJpy.toLocaleString()} | ${rakutenItem.itemName.slice(0, 35)}`);
 
-    if (verified.length === 0) return { type: 'skip', it };
-
-    // 画像マッチ通過後に再計算（verified のみで）
-    const verifiedPrices = verified.map(c => c.price);
-    const verifiedResult = calcRobustAverage(verifiedPrices);
-    if (!verifiedResult) return { type: 'skip', it };
-
-    const { profit: vProfit, profitRate: vProfitRate } = calcProfit(it.itemPrice, verifiedResult.avg, pointAmount);
-    if (vProfit < 1 || vProfitRate > 300) return { type: 'skip', it };
-
-    console.log(`  [${searchMethod}] 💰 ${vProfitRate}% 利益: ${it.itemName.slice(0, 35)}`);
-
-    return {
-      type: 'profit',
-      it,
-      product: {
-        id: it.itemCode,
-        title: it.itemName,
-        imageUrl: rakutenImg,
-        category: guessCategory(it.itemName),
-        source: {
-          site: 'rakuten',
-          siteName: '楽天',
-          price: it.itemPrice,
-          url: it.affiliateUrl || it.itemUrl,
-          pointRate: 10,
-          pointAmount,
+      return {
+        type: 'profit',
+        id: itemId,
+        product: {
+          id: rakutenItem.itemCode,
+          title: rakutenItem.itemName,
+          imageUrl: rakutenImg,
+          category: guessCategory(rakutenItem.itemName),
+          source: {
+            site: 'rakuten',
+            siteName: '楽天',
+            price: rakutenItem.itemPrice,
+            url: rakutenItem.affiliateUrl || rakutenItem.itemUrl,
+            pointRate: 10,
+            pointAmount,
+          },
+          isNew: rakutenItem.itemName.includes('新品') || rakutenItem.itemName.includes('未開封'),
+          market: 'EBAY_US',
+          coreKeyword: ebayItem.title,
+          ebaySoldUrl: ebayItem.itemUrl
+            || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebayItem.title)}&LH_Complete=1&LH_Sold=1`,
+          realAvgPrice: ebayItem.priceJpy,
+          realProfit: profit,
+          realProfitRate: profitRate,
+          realCount: 1,
+          avgDaysToSell: null,
         },
-        isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),
-        market: verified[0]?.market ?? 'EBAY_US',
-        coreKeyword: verified[0]?.title || enQuery || toEnglishQuery(it.itemName),
-        ebaySoldUrl: verified[0]?.itemUrl || (() => {
-          const soldQuery = enQuery || toEnglishQuery(it.itemName);
-          return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldQuery)}&LH_Complete=1&LH_Sold=1`;
-        })(),
-        realAvgPrice: verifiedResult.avg,
-        realProfit: vProfit,
-        realProfitRate: vProfitRate,
-        realCount: verifiedResult.count,
-        avgDaysToSell: await fetchAvgDaysToSell(enQuery || toEnglishQuery(it.itemName)),
-      },
-    };
+      };
+    }
+
+    return { type: 'skip', id: itemId };
   }
 
   // チャンク単位で並列処理
   for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
     const chunk = toProcess.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(chunk.map(it => processItem(it).catch(e => {
-      console.error(`  [ERROR] ${it.itemName.slice(0, 30)}: ${e.message}`);
-      return { type: 'skip', it };
-    })));
+    const results = await Promise.all(chunk.map(item =>
+      processEbayItem(item).catch(e => {
+        console.error(`  [ERROR] ${item.title.slice(0, 30)}: ${e.message}`);
+        return { type: 'skip', id: String(ebayQueryHash(item.title)) };
+      })
+    ));
 
     for (const res of results) {
-      allCheckedMap.set(res.it.itemCode, { id: res.it.itemCode, checkedAt: Date.now() });
-      processedCount++;
+      allCheckedMap.set(res.id, { id: res.id, checkedAt: Date.now() });
       if (res.type === 'profit') {
         profitableProducts.push(res.product);
         const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
         await kvSet('profitable_products', sorted, 480 * 3600);
         await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-        await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
       }
     }
 
-    // チャンクごとにchecked_ids保存
     await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
 
-    if (i % 50 === 0) {
+    if (i % 50 === 0 || i + CONCURRENCY >= toProcess.length) {
       console.log(`  進捗: ${Math.min(i + CONCURRENCY, toProcess.length)}/${toProcess.length}件（利益商品: ${profitableProducts.length - existingProducts.length}件）`);
     }
   }
 
-  // 利益率降順でソートしてKVに保存
+  // 最終保存
   profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
-
-  await kvSet('profitable_products', profitableProducts, 480 * 3600); // 480時間TTL
+  await kvSet('profitable_products', profitableProducts, 480 * 3600);
   await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+  await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
   await kvSet('refresh_stats', {
-    rakutenCount: rakutenProducts.length,
-    filteredCount: filtered.length,
+    ebayJpCount: ebayJpItems.length,
+    processedCount: toProcess.length,
     existingCount: existingProducts.length,
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
-    savedCount: profitableProducts.length,
-    ebayApiCalls: 'n/a (Finding API)',
     haikuCalls: haikuCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
@@ -1220,13 +1137,11 @@ async function main() {
 
   console.log(`
 ✨ 完了!
-  楽天取得: ${rakutenProducts.length}件
-  フィルタ後: ${filtered.length}件
-  既存DB引継ぎ: ${existingProducts.length}件
-  新規追加: ${profitableProducts.length - existingProducts.length}件
+  eBay売れ済み: ${ebayJpItems.length}件
+  処理: ${toProcess.length}件
+  新規利益商品: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  eBay Finding API使用（落札実績ベース）
-  Claude Haiku画像確認: ${haikuCallsToday}回
+  Claude Haiku: ${haikuCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }
