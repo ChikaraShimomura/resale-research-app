@@ -17,35 +17,19 @@ export function formatJpy(amount: number): string {
 }
 
 
-const EBAY_LISTING_BASE: Record<string, string> = {
-  EBAY_US: "https://www.ebay.com/sl/list",
-  EBAY_GB: "https://www.ebay.co.uk/sl/list",
-  EBAY_AU: "https://www.ebay.com.au/sl/list",
+// eBayの出品開始ページ（prelist/suggest）— title をプレフィルできる唯一の入口。
+// /sl/list はサインインに飛ばされる。q= や query= は無視されるため title= を使う。
+const EBAY_PRELIST_BASE: Record<string, string> = {
+  EBAY_US: "https://www.ebay.com/sl/prelist/suggest",
+  EBAY_GB: "https://www.ebay.co.uk/sl/prelist/suggest",
+  EBAY_AU: "https://www.ebay.com.au/sl/prelist/suggest",
 };
 
-// 市場別の為替レート・送料設定
-const MARKET_CONFIG: Record<string, { rate: number; shipping: number }> = {
-  EBAY_US: { rate: 155, shipping: 25   }, // USD
-  EBAY_GB: { rate: 197, shipping: 18   }, // GBP
-  EBAY_AU: { rate: 100, shipping: 30   }, // AUD
-};
-
-// タイトルから新品/中古を判定してeBay conditionId を返す
-function detectConditionId(title: string): string {
-  const t = title.toLowerCase();
-  if (/新品|未開封|未使用|sealed|brand new/.test(t)) return "1000"; // New
-  if (/中古|used|junk|難あり/.test(t)) return "3000";               // Used
-  return "1000"; // デフォルトは新品
-}
-
-export function toEbayListingUrl(
-  title: string,
-  market?: string,
-  ebayAvgJpy?: number,
-): string {
-  const m = market ?? "EBAY_US";
-  const config = MARKET_CONFIG[m] ?? MARKET_CONFIG.EBAY_US;
-  const base   = EBAY_LISTING_BASE[m] ?? EBAY_LISTING_BASE.EBAY_US;
+// eBayの「出品をはじめる」画面へタイトルをプレフィルして遷移するURLを生成。
+// eBayはURLでの価格・送料・コンディションのプレフィルを公式にサポートしていないため
+// （Sell APIが必要）、title パラメータのみを渡す。
+export function toEbayListingUrl(title: string, market?: string): string {
+  const base = EBAY_PRELIST_BASE[market ?? "EBAY_US"] ?? EBAY_PRELIST_BASE.EBAY_US;
 
   const cleaned = title
     .replace(/【[^】]*】/g, "")
@@ -53,22 +37,8 @@ export function toEbayListingUrl(
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
-  const q = encodeURIComponent(cleaned || title.slice(0, 80));
 
   const params = new URLSearchParams({ title: cleaned || title.slice(0, 80) });
-
-  // 出品価格（平均落札価格を現地通貨に変換）
-  if (ebayAvgJpy && ebayAvgJpy > 0) {
-    const price = Math.ceil(ebayAvgJpy / config.rate);
-    params.set("price", String(price));
-  }
-
-  // 送料（買い手負担・固定）
-  params.set("shipping", String(config.shipping));
-
-  // コンディション
-  params.set("conditionId", detectConditionId(title));
-
   return `${base}?${params.toString()}`;
 }
 

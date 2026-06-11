@@ -4,7 +4,7 @@ import { Product } from "../types";
 import { ProfitProduct } from "../lib/profitFilter";
 import { toEbayListingUrl } from "../lib/utils";
 import { generateEbayDescription } from "../lib/ebayDescription";
-import { Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 
 interface Props {
   product: ProfitProduct | Product;
@@ -15,62 +15,63 @@ function isProfitProduct(p: ProfitProduct | Product): p is ProfitProduct {
   return "realAvgPrice" in p;
 }
 
+// navigator.clipboard はHTTPS必須。失敗時は execCommand にフォールバック。
+function copyToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text: string) {
+  try {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  } catch {
+    /* noop */
+  }
+}
+
 export default function ListingHelper({ product, onCountChange }: Props) {
-  // idle → copying → done
-  const [state, setState] = useState<"idle" | "copying" | "done">("idle");
+  const [state, setState] = useState<"idle" | "done">("idle");
 
-  const ebayAvgPrice = isProfitProduct(product) ? product.realAvgPrice : undefined;
+  const market = "market" in product ? product.market : undefined;
+  const ebayUrl = toEbayListingUrl(product.coreKeyword || product.title, market);
 
-  const handleListingClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault(); // いったん止めてコピー処理を先にやる
-
-    setState("copying");
-
-    // 1. 説明文生成
-    const market = "market" in product ? product.market : undefined;
+  // ネイティブの target="_blank" に遷移を任せる（preventDefaultしない）。
+  // 副作用（コピー・カウント）はawaitせずに同期発火 → user-activationを保ち、
+  // ブラウザにポップアップブロックされずeBayタブが確実に開く。
+  const handleListingClick = () => {
     const description = generateEbayDescription({
       title: product.title,
       price: product.source.price,
-      ebayAvgPrice,
+      ebayAvgPrice: isProfitProduct(product) ? product.realAvgPrice : undefined,
       market,
     });
 
-    // 2. クリップボードへコピー
-    try {
-      await navigator.clipboard.writeText(description);
-    } catch {
-      // フォールバック
-      const el = document.createElement("textarea");
-      el.value = description;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    }
+    copyToClipboard(description);
 
-    // 3. 出品カウント記録
-    try {
-      const res = await fetch(`/api/listing-count/${product.id}`, { method: "POST" });
-      const data = await res.json();
-      onCountChange(data.count);
-    } catch {
-      // サイレント
-    }
+    fetch(`/api/listing-count/${product.id}`, { method: "POST", keepalive: true })
+      .then((r) => r.json())
+      .then((d) => onCountChange(d.count))
+      .catch(() => {});
 
-    // 4. 完了表示
     setState("done");
-
-    // 5. eBay出品ページを開く
-    const listingTitle = product.coreKeyword || product.title;
-    window.open(toEbayListingUrl(listingTitle, market, ebayAvgPrice), "_blank", "noopener,noreferrer");
-
-    // 3秒後にリセット
     setTimeout(() => setState("idle"), 3000);
   };
 
   return (
     <a
-      href={toEbayListingUrl(product.coreKeyword || product.title, "market" in product ? product.market : undefined, isProfitProduct(product) ? product.realAvgPrice : undefined)}
+      href={ebayUrl}
+      target="_blank"
+      rel="noopener noreferrer"
       onClick={handleListingClick}
       className={`
         flex items-center justify-center gap-1.5 w-full py-2.5
@@ -81,13 +82,8 @@ export default function ListingHelper({ product, onCountChange }: Props) {
         }
       `}
     >
-      {state === "copying" && <Loader2 size={14} className="animate-spin" />}
-      {state === "done"   && <Check size={14} />}
-      {state === "idle"   && <ExternalLink size={14} />}
-
-      {state === "copying" && "準備中..."}
-      {state === "done"    && "説明文をコピー済み！eBayが開きます"}
-      {state === "idle"    && "eBay簡単出品"}
+      {state === "done" ? <Check size={14} /> : <ExternalLink size={14} />}
+      {state === "done" ? "説明文コピー済み！eBayタブを開きました" : "eBay簡単出品"}
     </a>
   );
 }
