@@ -8,8 +8,8 @@
 import os
 import re
 import sys
-import io
 import json
+import time
 import random
 import smtplib
 import tweepy
@@ -18,6 +18,7 @@ import anthropic
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.mime.text import MIMEText
+from urllib.parse import quote
 import pytz
 
 JST = pytz.timezone('Asia/Tokyo')
@@ -103,25 +104,14 @@ def pick_product(products: list) -> dict | None:
     return random.choice(top)
 
 
-# ── 画像のダウンロード ────────────────────────────────────────
-def download_image(url: str) -> bytes | None:
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
-        resp.raise_for_status()
-        return resp.content
-    except Exception as e:
-        print(f"  画像DLエラー: {e}")
-        return None
-
-
-# ── Twitter メディアアップロード（v1.1） ──────────────────────
-def upload_media(api_v1: tweepy.API, image_bytes: bytes, filename: str = "image.jpg") -> str | None:
-    try:
-        media = api_v1.media_upload(filename=filename, file=io.BytesIO(image_bytes))
-        return str(media.media_id)
-    except Exception as e:
-        print(f"  メディアアップロードエラー: {e}")
-        return None
+# ── 商品ページURL（Xカード用） ────────────────────────────────
+# メディアを直接アップロードせず /product/{id} を投稿することで、
+# X が summary_large_image カードを描画する。
+#   → 画像が鮮明（og:image は高解像度）かつ画像クリックでサイトへ遷移する。
+def product_url(product: dict | None) -> str:
+    if product and product.get("id"):
+        return f"{SITE_URL}/product/{quote(str(product['id']), safe='')}"
+    return SITE_SEARCH_URL
 
 
 # ── RSS取得 ──────────────────────────────────────────────────
@@ -177,11 +167,17 @@ def generate_pattern_a(product: dict, ai_client: anthropic.Anthropic) -> str | N
 eBay平均落札価格: {avg_price:,}円
 利益率: {profit_rate}%
 
+【口調・トーン（重要）】
+このBotのもう一つの投稿パターンと口調を揃えること。タメ口で、煽り気味で、
+「〜だってさ」「〜じゃん」「〜だけで稼げるよ」のようなカジュアルで挑発的な語り口。
+お手本の雰囲気↓
+「○○が△△だってさ／そんなことしてるより、副業で稼げばいいじゃん／楽天で仕入れてeBayで売るだけで月10万稼げるよ」
+
 【投稿スタイル】
 - 冒頭は必ず「これ輸出したら稼げるってさ」で始める
-- 商品の具体的な利益率や金額を入れる
-- 「楽天で買ってeBayで売るだけ」的なシンプルさを強調
-- 読んだ人が「やってみたい」と思うような内容
+- 上の口調のまま、商品の具体的な利益率や金額を1つ入れる
+- 「楽天で買ってeBayで売るだけ」的なシンプルさ・手軽さを煽る
+- 読んだ人が「やってみたい」と思うように
 
 【絶対ルール】
 - URLもハッシュタグも絵文字も含めない
@@ -204,16 +200,15 @@ eBay平均落札価格: {avg_price:,}円
 
 
 # ── Pattern B: トレンド便乗ツイート生成 ──────────────────────
-def generate_pattern_b(news_items: list, ai_client: anthropic.Anthropic) -> str | None:
-    if not news_items:
+# news_item は呼び出し側でトレンドtop10からランダムに1件選んで渡す（毎回違う話題にするため）。
+def generate_pattern_b(news_item: str, ai_client: anthropic.Anthropic) -> str | None:
+    if not news_item:
         return None
 
-    news_text = "\n".join(f"・{n}" for n in news_items[:8])
+    prompt = f"""以下の芸能・有名人ニュースをもとに、Twitterへの投稿本文を生成してください。
 
-    prompt = f"""以下の芸能・有名人ニュースの中から1つ選んで、Twitterへの投稿本文を生成してください。
-
-【今日のニュース】
-{news_text}
+【今日の話題】
+{news_item}
 
 【投稿テンプレート（このまま使うこと）】
 〇〇が××だってさ
@@ -222,7 +217,7 @@ def generate_pattern_b(news_items: list, ai_client: anthropic.Anthropic) -> str 
 楽天で仕入れてeBayで売るだけで月10万稼げるよ
 
 【ルール】
-- 1行目はニュースをもとに「（有名人名）が（出来事）だってさ」の形式にする
+- 1行目は上の話題をもとに「（有名人名）が（出来事）だってさ」の形式にする
 - 2行目以降はテンプレートのまま使う（変えない）
 - URLもハッシュタグも絵文字も含めない
 - 本文のみ出力（前置き不要）
@@ -243,14 +238,13 @@ def generate_pattern_b(news_items: list, ai_client: anthropic.Anthropic) -> str 
 
 
 # ── ツイート組み立て ──────────────────────────────────────────
-def build_tweet_a(body: str) -> str:
-    footer = f"\n{SITE_SEARCH_URL}"
-    return body + footer
+# url は商品ページURL（Xカード化）。本文末尾に置くとXがカードを描画する。
+def build_tweet_a(body: str, url: str) -> str:
+    return body + f"\n{url}"
 
 
-def build_tweet_b(body: str) -> str:
-    footer = f"\n{SITE_SEARCH_URL}"
-    return body + footer
+def build_tweet_b(body: str, url: str) -> str:
+    return body + f"\n{url}"
 
 
 def trim_to_fit(text: str, limit: int = MAX_CHARS) -> str:
@@ -281,14 +275,7 @@ def main():
         access_token=os.environ["TWITTER_ACCESS_TOKEN"],
         access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
     )
-
-    auth = tweepy.OAuth1UserHandler(
-        os.environ["TWITTER_API_KEY"],
-        os.environ["TWITTER_API_SECRET"],
-        os.environ["TWITTER_ACCESS_TOKEN"],
-        os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
-    )
-    api_v1 = tweepy.API(auth)
+    # メディアアップロード(OAuth1/v1.1)は廃止。商品ページURLのXカードで画像を表示する。
 
     now = datetime.now(JST)
     is_pattern_a = (now.hour % 2 == 0)
@@ -301,8 +288,9 @@ def main():
     product  = pick_product(products)
     print(f"  商品: {product['title'][:30] if product else 'なし'}")
 
+    # 投稿する商品ページURL（Xカードでサムネを鮮明に＋画像クリックでサイトへ）
+    card_url = product_url(product)
     tweet_text = None
-    media_id   = None
 
     if is_pattern_a:
         if not product:
@@ -317,15 +305,9 @@ def main():
             print(f"  AI生成 {attempt}/3...")
             body = generate_pattern_a(product, ai_client)
             if body:
-                tweet_text = trim_to_fit(build_tweet_a(body))
+                tweet_text = trim_to_fit(build_tweet_a(body, card_url))
                 if tw_len(tweet_text) <= MAX_CHARS:
                     break
-
-        if product.get("imageUrl"):
-            img_bytes = download_image(product["imageUrl"])
-            if img_bytes:
-                media_id = upload_media(api_v1, img_bytes)
-                print(f"  画像アップロード: {'成功' if media_id else '失敗'}")
 
     else:
         news_items = fetch_celebrity_news()
@@ -335,19 +317,17 @@ def main():
             print("ニュースなし - スキップ")
             return
 
+        # トレンドtop10からランダムに1件選ぶ（毎回同じ話題にならないように）
+        chosen = random.choice(news_items[:10])
+        print(f"  選択トレンド: {chosen[:40]}")
+
         for attempt in range(1, 4):
             print(f"  AI生成 {attempt}/3...")
-            body = generate_pattern_b(news_items, ai_client)
+            body = generate_pattern_b(chosen, ai_client)
             if body:
-                tweet_text = trim_to_fit(build_tweet_b(body))
+                tweet_text = trim_to_fit(build_tweet_b(body, card_url))
                 if tw_len(tweet_text) <= MAX_CHARS:
                     break
-
-        if product and product.get("imageUrl"):
-            img_bytes = download_image(product["imageUrl"])
-            if img_bytes:
-                media_id = upload_media(api_v1, img_bytes)
-                print(f"  画像アップロード: {'成功' if media_id else '失敗'}")
 
     if not tweet_text:
         print("投稿文生成失敗 - スキップ")
@@ -355,13 +335,9 @@ def main():
 
     print(f"\n投稿内容 ({tw_len(tweet_text)}w):\n{tweet_text}\n")
 
-    import time
     for attempt in range(1, 4):
         try:
-            kwargs = {"text": tweet_text}
-            if media_id:
-                kwargs["media_ids"] = [media_id]
-            response = twitter_client.create_tweet(**kwargs)
+            response = twitter_client.create_tweet(text=tweet_text)
             print(f"ツイート成功: ID={response.data['id']}")
             break
         except tweepy.errors.TwitterServerError as e:
