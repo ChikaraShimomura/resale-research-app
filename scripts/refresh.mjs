@@ -577,9 +577,10 @@ async function classifyProduct(imageUrl, jpTitle) {
 Japanese title: ${jpTitle.slice(0, 100)}
 
 Answer in EXACTLY this format (no extra text):
-PRODUCT_TYPE: (e.g. "Pokemon booster pack single", "watch strap rubber 20mm", "Gundam MG 1/100 kit", "Shiseido eyebrow pencil cartridge")
+PRODUCT_TYPE: (e.g. "Pokemon booster pack", "Seiko watch", "Gundam MG kit", "LEGO set")
 QUANTITY: (e.g. "1", "10 pieces", "1 BOX 30 packs", "set of 2")
-SEARCH_QUERY: (best English eBay search query, max 8 words, no Japanese)`
+MODEL_NUMBER: (exact model/item number only, e.g. "SBDJ065", "10698", "RX-78-2 Ver.3.0", "BoosterBox SV8a" — write NONE if not identifiable)
+SEARCH_QUERY: (Brand + product name + MODEL_NUMBER only, max 6 words, no size/color/generic words like set/compatible/authentic, no Japanese)`
           },
           {
             type: 'image',
@@ -603,12 +604,14 @@ SEARCH_QUERY: (best English eBay search query, max 8 words, no Japanese)`
 
     const productType  = text.match(/PRODUCT_TYPE:\s*(.+)/i)?.[1]?.trim() ?? '';
     const quantity     = text.match(/QUANTITY:\s*(.+)/i)?.[1]?.trim() ?? '1';
+    const modelNumber  = text.match(/MODEL_NUMBER:\s*(.+)/i)?.[1]?.trim() ?? 'NONE';
     const searchQuery  = text.match(/SEARCH_QUERY:\s*(.+)/i)?.[1]?.trim() ?? '';
 
     if (!searchQuery || searchQuery.length < 3) return null;
 
-    const result = { productType, quantity, searchQuery };
-    console.log(`  [Haiku CLS] ${productType} | qty:${quantity} | query:"${searchQuery}"`);
+    const hasModel = modelNumber && modelNumber !== 'NONE' && modelNumber.length >= 2;
+    const result = { productType, quantity, modelNumber: hasModel ? modelNumber : null, searchQuery };
+    console.log(`  [Haiku CLS] ${productType} | model:${result.modelNumber ?? 'none'} | query:"${searchQuery}"`);
     await kvSet(cacheKey, result, 168 * 3600);
     return result;
   } catch { return null; }
@@ -937,15 +940,19 @@ async function main() {
     let enQuery = '';
     let rakutenQuantity = null;
 
-    // Haiku事前分類（商品種別・個数・検索クエリ）
+    // Haiku事前分類（商品種別・個数・型番・検索クエリ）
     const classification = await classifyProduct(rakutenImg, it.itemName);
     if (classification) {
       enQuery = classification.searchQuery;
       rakutenQuantity = classification.quantity;
     }
 
-    // JANコードでGTIN検索 → タイトル確定 → 落札実績検索
+    // JANコードまたは型番が必須 — どちらもない場合はスキップ
     const jan = extractJan(it);
+    const modelNumber = classification?.modelNumber ?? null;
+    if (!jan && !modelNumber) return { type: 'skip', it };
+
+    // ① JANコードでGTIN検索 → タイトル確定 → 落札実績検索
     if (jan) {
       const gtinCandidates = await fetchEbayByGtin(jan);
       if (gtinCandidates.length > 0) {
@@ -961,12 +968,11 @@ async function main() {
       }
     }
 
-    // JANなし or GTIN結果0 → Haiku/テキストクエリでフォールバック
+    // ② JANなし or GTIN結果0 → 型番を含むHaikuクエリで検索
     if (candidates.length === 0) {
-      if (!enQuery || enQuery.length < 5) enQuery = toEnglishQuery(it.itemName);
       if (!enQuery || enQuery.length < 5) return { type: 'skip', it };
       candidates = await fetchEbayCandidates(enQuery);
-      searchMethod = `TEXT:"${enQuery.slice(0, 30)}"`;
+      searchMethod = `MODEL:"${enQuery.slice(0, 30)}"`;
     }
 
     if (candidates.length === 0) return { type: 'skip', it };
