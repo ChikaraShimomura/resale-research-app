@@ -192,9 +192,9 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                   {ebaySoldUrl && (
                     <a href={ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      aria-label="eBayの直近の落札実績を見る"
+                      aria-label="eBayの直近の落札実績を確認する"
                       className="inline-flex items-center gap-0.5 text-[11px] text-blue-500 font-bold hover:underline py-1">
-                      実績 <ExternalLink size={10} />
+                      落札実績を確認する <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
