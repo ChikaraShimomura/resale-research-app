@@ -988,10 +988,10 @@ async function main() {
     const result = calcRobustAverage(prices);
     if (!result) return { type: 'skip', it };
 
-    const pointAmount = Math.floor(it.itemPrice * (it.pointRate ?? 1) / 100);
+    const pointAmount = Math.floor(it.itemPrice * 10 / 100); // 楽天ポイント常時10%固定
     const { profit, profitRate } = calcProfit(it.itemPrice, result.avg, pointAmount);
 
-    if (profit < 500 || profitRate < 10 || profitRate > 300) return { type: 'skip', it };
+    if (profit < 1 || profitRate > 300) return { type: 'skip', it };
 
     // 利益が出そうな場合のみ画像マッチで検証
     let verified;
@@ -1014,7 +1014,7 @@ async function main() {
     if (!verifiedResult) return { type: 'skip', it };
 
     const { profit: vProfit, profitRate: vProfitRate } = calcProfit(it.itemPrice, verifiedResult.avg, pointAmount);
-    if (vProfit < 500 || vProfitRate < 10 || vProfitRate > 300) return { type: 'skip', it };
+    if (vProfit < 1 || vProfitRate > 300) return { type: 'skip', it };
 
     console.log(`  [${searchMethod}] 💰 ${vProfitRate}% 利益: ${it.itemName.slice(0, 35)}`);
 
@@ -1031,7 +1031,7 @@ async function main() {
           siteName: '楽天',
           price: it.itemPrice,
           url: it.affiliateUrl || it.itemUrl,
-          pointRate: it.pointRate ?? 1,
+          pointRate: 10,
           pointAmount,
         },
         isNew: it.itemName.includes('新品') || it.itemName.includes('未開封'),

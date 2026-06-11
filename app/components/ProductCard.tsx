@@ -205,12 +205,12 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             {/* 利益 */}
             <div className="text-right">
               <ProfitRateBadge rate={product.realProfitRate} />
-              <p className="text-[10px] text-gray-400 mt-1">手数料後の利益</p>
+              <p className="text-[10px] text-gray-400 mt-1">実質利益（ポイント込み）</p>
               <p className="text-xl font-black text-[#CC0033] leading-tight">
-                {formatJpy(product.realProfit)}
+                {formatJpy(product.realProfit + pointAmount)}
               </p>
               {pointAmount > 0 && (
-                <p className="text-[11px] font-bold text-[#FF4466]">+ {pointAmount.toLocaleString()}pt</p>
+                <p className="text-[11px] text-gray-400">うちポイント {pointAmount.toLocaleString()}pt</p>
               )}
             </div>
           </div>
@@ -262,14 +262,15 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span>- {formatJpy(SHIPPING_COST)}</span>
             </div>
             <div className="flex justify-between font-black text-[#CC0033] pt-1.5 border-t border-gray-200 text-[13px]">
-              <span>利益合計</span>
-              <span>
-                {formatJpy(product.realProfit)}
-                {pointAmount > 0 && (
-                  <span className="text-[#FF4466] ml-1">+ {pointAmount.toLocaleString()}pt</span>
-                )}
-              </span>
+              <span>実質利益合計</span>
+              <span>{formatJpy(product.realProfit + pointAmount)}</span>
             </div>
+            {pointAmount > 0 && (
+              <div className="flex justify-between text-[10px] text-gray-400">
+                <span>内訳: 売却益 + ポイント{source.pointRate}%</span>
+                <span>{formatJpy(product.realProfit)} + {pointAmount.toLocaleString()}pt</span>
+              </div>
+            )}
           </div>
         )}
 
