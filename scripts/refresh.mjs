@@ -399,7 +399,13 @@ async function main() {
   const checkedIds = new Set(validChecked.map(e => e.id));
   const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
 
-  const existingProducts = await kvGet('profitable_products') ?? [];
+  const existingProducts = (await kvGet('profitable_products') ?? []).map(p => {
+    // 旧データの ebaySoldUrl が現行出品URLになっている場合は売れ済み検索URLに修正
+    if (p.ebaySoldUrl && !p.ebaySoldUrl.includes('LH_Sold=1') && p.coreKeyword) {
+      p.ebaySoldUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(p.coreKeyword)}&LH_Complete=1&LH_Sold=1`;
+    }
+    return p;
+  });
   const existingIds = new Set(existingProducts.map(p => p.id)); // 楽天itemCode
   const profitableProducts = [...existingProducts];
 
@@ -482,8 +488,7 @@ async function main() {
           isNew: rakutenItem.itemName.includes('新品') || rakutenItem.itemName.includes('未開封'),
           market: 'EBAY_US',
           coreKeyword: ebayItem.title,
-          ebaySoldUrl: ebayItem.itemUrl
-            || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebayItem.title)}&LH_Complete=1&LH_Sold=1`,
+          ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebayItem.title)}&LH_Complete=1&LH_Sold=1`,
           realAvgPrice: ebayItem.priceJpy,
           realProfit: profit,
           realProfitRate: profitRate,
