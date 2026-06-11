@@ -1,6 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenAffiliateUrl, safeHttpUrl } from "../lib/utils";
-import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
@@ -46,17 +46,17 @@ function ProfitRateBadge({ rate }: { rate: number }) {
 
 function TrustBadge({ count }: { count: number }) {
   if (count >= 15) return (
-    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-orange-500">🔥 信頼大</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500"><Flame size={12} />信頼大</span>
   );
   if (count >= 10) return (
-    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ 信頼中</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />信頼中</span>
   );
   if (count >= 5) return (
-    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-blue-500">🔵 信頼小</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500"><BadgeCheck size={12} />信頼小</span>
   );
   // 逆引きフローでは eBay で実際に売れた確定価格をベースにしているため肯定的に表示
   return (
-    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ eBay落札価格</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />eBay落札価格</span>
   );
 }
 
@@ -94,7 +94,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
           <span className="rotate-[-12deg] bg-[#BF0000] text-white text-2xl font-black px-6 py-1.5 rounded-lg tracking-[0.2em] shadow-lg">SOLD</span>
           <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-lg px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
-            ライバルが増えてきたので、この商品は一旦SOLDにしたよ🙏<br />
+            ライバルが増えてきたので、この商品は一旦SOLDにしたよ<br />
             他にも狙い目はいっぱいあるよ！早い者勝ちだよ。
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <img src={product.imageUrl} alt={product.title}
                 className="w-[88px] h-[88px] object-cover rounded-xl bg-gray-50 border border-gray-100" />
             ) : (
-              <div aria-hidden="true" className="w-[88px] h-[88px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-3xl">📦</div>
+              <div aria-hidden="true" className="w-[88px] h-[88px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-gray-300"><Package size={30} /></div>
             )}
             </a>
             {isHot && (

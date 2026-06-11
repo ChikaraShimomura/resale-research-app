@@ -11,6 +11,7 @@ import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
+import { Heart, Flame, PackageSearch, Search } from "lucide-react";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -74,7 +75,7 @@ function ResultsContent() {
           <div className="flex-1">
             <SearchForm defaultKeyword={keyword} />
           </div>
-          <Link href="/favorites" className="text-white/80 shrink-0 text-xl" aria-label="お気に入り">❤️</Link>
+          <Link href="/favorites" className="text-white/80 shrink-0 flex items-center" aria-label="お気に入り"><Heart size={20} /></Link>
         </div>
         {keyword && (
           <div className="px-3 pb-1.5">
@@ -93,7 +94,7 @@ function ResultsContent() {
               <span className="font-black text-[#BF0000] text-base">{sorted.length}</span>
               <span className="ml-0.5">件</span>
               {hotCount > 0 && (
-                <span className="ml-2 text-[11px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
+                <span className="ml-2 text-[11px] text-[#FF4466] font-bold inline-flex items-center gap-1"><Flame size={12} />{hotCount}件が利益30%超</span>
               )}
             </p>
           )}
@@ -121,9 +122,9 @@ function ResultsContent() {
           </div>
         ) : sorted.length === 0 ? (
           <div className="text-center py-16 bg-white m-3 rounded-2xl shadow-sm border border-gray-100">
-            <p className="text-5xl mb-4">
-              {allProducts.length === 0 ? "⏳" : "🔍"}
-            </p>
+            {allProducts.length === 0
+              ? <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
+              : <Search size={44} className="mx-auto mb-4 text-gray-300" />}
             <p className="text-gray-600 text-sm font-semibold mb-1">
               {allProducts.length === 0 ? "利益商品を探しています" : `「${displayLabel}」の商品が見つかりませんでした`}
             </p>

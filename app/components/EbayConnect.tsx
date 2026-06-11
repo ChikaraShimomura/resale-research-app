@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { BadgeCheck, AlertTriangle } from "lucide-react";
 
 interface Status {
   connected: boolean;
@@ -42,13 +43,13 @@ export default function EbayConnect() {
   return (
     <div>
       {flash === "connected" && (
-        <p className="mb-3 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-          ✅ eBayと連携しました
+        <p className="mb-3 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
+          <BadgeCheck size={16} /> eBayと連携しました
         </p>
       )}
       {flash === "error" && (
-        <p className="mb-3 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-          ⚠️ 連携に失敗しました。もう一度お試しください
+        <p className="mb-3 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
+          <AlertTriangle size={16} /> 連携に失敗しました。もう一度お試しください
         </p>
       )}
       {flash === "disconnected" && (
@@ -66,7 +67,7 @@ export default function EbayConnect() {
       ) : status.connected ? (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700 mr-1">
-            ✅ eBay連携済み
+            <BadgeCheck size={16} /> eBay連携済み
           </span>
           <a
             href="/api/ebay/connect"

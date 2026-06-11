@@ -10,6 +10,7 @@ import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
+import { Flame, PackageSearch } from "lucide-react";
 
 export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
@@ -114,7 +115,7 @@ export default function SearchPage() {
                 <span className="font-black text-[#BF0000] text-base">{products.length}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
-                  <span className="ml-2 text-[13px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
+                  <span className="ml-2 text-[13px] text-[#FF4466] font-bold inline-flex items-center gap-1"><Flame size={13} />{hotCount}件が利益30%超</span>
                 )}
               </p>
             )}
@@ -143,7 +144,7 @@ export default function SearchPage() {
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-16 bg-white m-3 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-5xl mb-4">⏳</p>
+              <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600 text-sm font-semibold mb-1">利益商品を探しています</p>
               <p className="text-gray-400 text-xs"></p>
               <div className="mt-4 flex justify-center gap-1">

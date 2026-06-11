@@ -4,6 +4,7 @@ import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
+import { Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export default async function ProductPage({
           <span className="text-white font-black text-base">輸出ラボ</span>
         </header>
         <main className="flex-1 flex flex-col items-center justify-center text-center p-6">
-          <p className="text-5xl mb-4">🔍</p>
+          <Search size={44} className="mx-auto mb-4 text-gray-300" />
           <p className="text-gray-600 text-sm font-semibold mb-1">この商品は現在掲載されていません</p>
           <p className="text-gray-400 text-xs mb-5">入れ替わった可能性があります</p>
           <Link href="/search"

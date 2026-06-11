@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, type LucideIcon } from "lucide-react";
 import BottomNav from "../components/BottomNav";
 
 type Step = {
   num: string;
-  icon: string;
+  Icon: LucideIcon;
   title: string;
   desc: string;
   tips: string[];
@@ -14,7 +14,7 @@ type Step = {
 const STEPS: Step[] = [
   {
     num: "1",
-    icon: "🛒",
+    Icon: ShoppingCart,
     title: "楽天で商品を仕入れる",
     desc: "このサイトで紹介している利益商品を楽天で購入します。ポイント還元率が高い日（0・5のつく日や楽天スーパーSALE）を狙うとさらにお得です。",
     tips: ["0のつく日・5のつく日はポイント最大5倍", "楽天スーパーSALEは年2回・最大44倍", "SPU（スーパーポイントアッププログラム）でポイント底上げ"],
@@ -22,7 +22,7 @@ const STEPS: Step[] = [
   },
   {
     num: "2",
-    icon: "🌐",
+    Icon: Globe,
     title: "eBayアカウントを作成する",
     desc: "eBay.comで無料のセラーアカウントを作成します。日本から海外へ発送する「国際発送」に対応した設定にしておきます。",
     tips: ["ebay.comでアカウント登録（無料）", "支払い受取はPayoneerまたは銀行口座", "最初は出品数に無料枠あり"],
@@ -30,7 +30,7 @@ const STEPS: Step[] = [
   },
   {
     num: "3",
-    icon: "📝",
+    Icon: PenLine,
     title: "eBayに出品する",
     desc: "商品カードの「eBay簡単出品」ボタンを押すと、タイトルが自動入力された出品ページが開きます。あとは説明文・価格・送料を設定するだけです。",
     tips: ["価格はeBay平均落札価格を参考に", "送料は¥2,500〜3,000が目安（EMS・ePacket）", "写真は実物を撮影して使用"],
@@ -38,7 +38,7 @@ const STEPS: Step[] = [
   },
   {
     num: "4",
-    icon: "📦",
+    Icon: Package,
     title: "売れたら発送する",
     desc: "落札後は日本郵便の国際郵便（EMS・ePacket）で発送します。「国際郵便マイページ」で送り状を作成でき、ラベル印刷も簡単です。",
     tips: ["国際郵便マイページで送り状を作成", "追跡番号をeBayに登録する", "発送後3〜14日で到着"],
@@ -46,7 +46,7 @@ const STEPS: Step[] = [
   },
   {
     num: "5",
-    icon: "💰",
+    Icon: Wallet,
     title: "利益を受け取る",
     desc: "落札者の受取確認後、売上がPayoneerや銀行口座に振り込まれます。楽天ポイントは次の仕入れにそのまま使えます。",
     tips: ["eBay手数料は落札価格の13.25%＋¥47", "Payoneerから日本の銀行へ振込", "楽天ポイントは1pt＝1円で使える"],
@@ -55,9 +55,9 @@ const STEPS: Step[] = [
 ];
 
 const FLOW = [
-  { icon: "🛒", label: "楽天で仕入れ", sub: "ポイント還元" },
-  { icon: "🌏", label: "eBayで販売", sub: "海外へ高値で" },
-  { icon: "💰", label: "利益を回収", sub: "売却益＋pt" },
+  { Icon: ShoppingCart, label: "楽天で仕入れ", sub: "ポイント還元" },
+  { Icon: Globe, label: "eBayで販売", sub: "海外へ高値で" },
+  { Icon: Wallet, label: "利益を回収", sub: "売却益＋pt" },
 ];
 
 const FAQS = [
@@ -103,7 +103,7 @@ export default function GuidePage() {
             {FLOW.map((f, i) => (
               <div key={i} className="flex items-center gap-1.5 flex-1">
                 <div className="flex-1 bg-white/15 rounded-xl px-1 py-2.5 text-center backdrop-blur-sm">
-                  <div className="text-xl leading-none mb-1">{f.icon}</div>
+                  <f.Icon size={20} strokeWidth={2} className="mx-auto mb-1.5 text-white" />
                   <div className="text-[11px] font-black leading-tight">{f.label}</div>
                   <div className="text-[9px] text-white/70 leading-tight mt-0.5">{f.sub}</div>
                 </div>
@@ -124,7 +124,7 @@ export default function GuidePage() {
                     {step.num}
                   </span>
                   <h3 className="font-black text-gray-800 text-[15px] flex items-center gap-1.5">
-                    <span aria-hidden="true">{step.icon}</span>{step.title}
+                    <step.Icon size={17} strokeWidth={2} className="text-gray-500 shrink-0" />{step.title}
                   </h3>
                 </div>
                 <div className="px-3.5 py-3">

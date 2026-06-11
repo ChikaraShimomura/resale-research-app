@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import BottomNav from "../components/BottomNav";
 import ProductCard from "../components/ProductCard";
+import { Heart } from "lucide-react";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 
@@ -63,7 +64,7 @@ export default function FavoritesPage() {
           </div>
         ) : favorites.length === 0 ? (
           <div className="text-center py-16 bg-white m-3 border border-gray-200">
-            <p className="text-5xl mb-4">❤️</p>
+            <Heart size={44} className="mx-auto mb-4 text-gray-300" />
             <p className="text-gray-600 text-sm font-semibold mb-1">お気に入りがまだありません</p>
             <p className="text-gray-400 text-xs mb-5">商品カードの ♡ ボタンで追加できます</p>
             <Link href="/search"

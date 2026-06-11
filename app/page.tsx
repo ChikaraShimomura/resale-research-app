@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Target } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -23,8 +24,8 @@ export default function LandingPage() {
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">
         <div className="max-w-2xl mx-auto px-4 py-8 text-center">
-          <p className="text-xs font-bold bg-white/20 inline-block px-3 py-1 rounded-full mb-3 backdrop-blur-sm">
-            🎯 楽天ポイント × eBay転売
+          <p className="text-xs font-bold bg-white/20 inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3 backdrop-blur-sm">
+            <Target size={13} /> 楽天ポイント × eBay転売
           </p>
           <h1 className="text-2xl font-black mb-2 leading-tight">
             楽天で買って<br />
