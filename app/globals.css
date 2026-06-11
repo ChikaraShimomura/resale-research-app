@@ -42,11 +42,13 @@ body {
 
 /* フォーム要素のiOS固有スタイルリセット */
 input, button, select, textarea {
-  /* iOSのデフォルトスタイル（角丸・影）を無効化 */
+  -webkit-tap-highlight-color: transparent;
+}
+/* iOSのデフォルトスタイル（角丸・影）を無効化。ただし checkbox/radio は
+   ネイティブ表示を残す（appearance:none だと見えなくなるため除外） */
+input:not([type="checkbox"]):not([type="radio"]), button, select, textarea {
   -webkit-appearance: none;
   appearance: none;
-  /* タップハイライト消去 */
-  -webkit-tap-highlight-color: transparent;
 }
 
 /* iOS Safariのフォーカス時ズームを防ぐ（16px以上に強制） */

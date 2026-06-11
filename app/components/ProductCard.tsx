@@ -82,24 +82,25 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
 
   return (
-    <div className="relative bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border border-gray-100">
+    <div className="relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border border-gray-100">
 
       {/* HOT グラデーションライン */}
       {isHot && !sold && (
         <div className="h-1 bg-gradient-to-r from-[#CC0033] via-[#FF4466] to-[#FF6B6B]" />
       )}
 
-      {/* SOLD: 商品情報をぼかして SOLD札 + 説明を重ねる */}
+      {/* SOLD: 商品情報をぼかして SOLD札 + 説明を重ねる（z-10=固定ヘッダーより下） */}
       {sold && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 text-center">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
           <span className="rotate-[-12deg] bg-[#CC0033] text-white text-2xl font-black px-6 py-1.5 rounded-lg tracking-[0.2em] shadow-lg">SOLD</span>
           <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-lg px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
-            ※eBay出品数が上限に達したため、ライバルを増やしすぎないようにSOLDします。
+            ライバルが増えてきたので、この商品は一旦SOLDにしたよ🙏<br />
+            他にも狙い目はいっぱいあるよ！早い者勝ちだよ。
           </p>
         </div>
       )}
 
-      <div className={cn("p-4", sold && "blur-[3px] pointer-events-none select-none")}>
+      <div className={cn("p-4", sold && "blur-[6px] pointer-events-none select-none")}>
         {/* 上段：画像 + 商品情報 */}
         <div className="flex gap-3 mb-3">
           {/* 画像 */}

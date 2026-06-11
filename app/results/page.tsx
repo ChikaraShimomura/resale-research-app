@@ -96,7 +96,7 @@ function ResultsContent() {
           <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
             <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
               className="w-4 h-4 accent-[#CC0033]" />
-            出品可能のみ
+            SOLDを除外
           </label>
           <SortSelect value={sortOrder} onChange={setSortOrder} />
         </div>

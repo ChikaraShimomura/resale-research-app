@@ -83,7 +83,7 @@ export default function SearchPage() {
               <span className="text-[#FF4466] font-black text-lg leading-none">R</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-black text-sm">楽天ポイント × eBay転売で稼ぐ</p>
+              <p className="text-white font-black text-sm">楽天×eBayで稼ぐ</p>
               <p className="text-white/80 text-xs">仕入れで最大20%ポイント還元 + 海外で高値売却</p>
             </div>
             <Link href="/guide" className="text-[11px] font-bold text-white bg-white/20 px-2.5 py-1.5 rounded shrink-0">
@@ -136,7 +136,7 @@ export default function SearchPage() {
             <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
               <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
                 className="w-4 h-4 accent-[#CC0033]" />
-              出品可能のみ
+              SOLDを除外
             </label>
             <SortSelect value={sortOrder} onChange={setSortOrder} />
           </div>

@@ -33,7 +33,7 @@ const DUMMY_TITLES = [
   "シャドウバース エボルヴ ブースター BOX",
 ];
 
-export function makeDummySold(seed: number): ProfitProduct {
+export function makeDummySold(seed: number, imageUrl = ""): ProfitProduct {
   const title = DUMMY_TITLES[seed % DUMMY_TITLES.length];
   const price = 3000 + ((seed * 977) % 9000);
   const rate = 45 + ((seed * 17) % 110);
@@ -41,7 +41,7 @@ export function makeDummySold(seed: number): ProfitProduct {
   return {
     id: `dummy-sold-${seed}`,
     title,
-    imageUrl: "",
+    imageUrl, // 実商品の画像を流用してリアルに見せる（ブラー表示）
     category: "その他",
     source: { site: "rakuten", siteName: "楽天", price, url: "#", pointRate: 10, pointAmount: Math.floor(price / 10) },
     isNew: true,
@@ -64,7 +64,11 @@ export function withSoldDummies(products: ProfitProduct[], target = 10): ProfitP
   if (soldCount >= target) return products;
 
   const need = target - soldCount;
-  const dummies = Array.from({ length: need }, (_, i) => makeDummySold(i));
+  // ダミー画像は実商品の画像を流用してバレにくくする（ブラー表示）
+  const realImages = products.map((p) => p.imageUrl).filter((u): u is string => !!u);
+  const dummies = Array.from({ length: need }, (_, i) =>
+    makeDummySold(i, realImages.length ? realImages[(i * 3 + 1) % realImages.length] : "")
+  );
 
   // 数件ごとにダミーを差し込んで点在させる
   const gap = Math.max(2, Math.floor(products.length / (need + 1)) || 2);
