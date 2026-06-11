@@ -54,16 +54,17 @@ function ProfitRateBadge({ rate }: { rate: number }) {
 
 function TrustBadge({ count }: { count: number }) {
   if (count >= 15) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-orange-500">🔥 信頼大</span>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-orange-500">🔥 信頼大</span>
   );
   if (count >= 10) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">✅ 信頼中</span>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ 信頼中</span>
   );
   if (count >= 5) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-500">🔵 信頼小</span>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-blue-500">🔵 信頼小</span>
   );
+  // 逆引きフローでは eBay で実際に売れた確定価格をベースにしているため肯定的に表示
   return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-400">⚠️ 参考</span>
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600">✅ eBay実売価格</span>
   );
 }
 
