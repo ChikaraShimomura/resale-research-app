@@ -5,17 +5,10 @@ import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
+import { isSold } from "../lib/sold";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
-
-function getListingLimit(avgDaysToSell?: number): number {
-  if (avgDaysToSell === undefined || avgDaysToSell === null) return 30;
-  if (avgDaysToSell < 10)  return 100;
-  if (avgDaysToSell < 20)  return 50;
-  if (avgDaysToSell < 30)  return 40;
-  return 30;
-}
 
 function useFavorite(productId: string) {
   const key = `fav_${productId}`;
@@ -76,8 +69,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const listingLimit = getListingLimit(product.avgDaysToSell);
-  const limitReached = listingCount >= listingLimit;
+  const sold = isSold(product, listingCount);
 
   const shareOnX = () => {
     const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay #輸出副業`;
@@ -90,32 +82,24 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
 
   return (
-    <div className={cn(
-      "relative bg-white rounded-2xl overflow-hidden transition-all",
-      "shadow-sm hover:shadow-md border border-gray-100",
-      (product.soldOut || limitReached) && "opacity-50"
-    )}>
+    <div className="relative bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border border-gray-100">
 
       {/* HOT グラデーションライン */}
-      {isHot && !product.soldOut && (
+      {isHot && !sold && (
         <div className="h-1 bg-gradient-to-r from-[#CC0033] via-[#FF4466] to-[#FF6B6B]" />
       )}
 
-      {product.soldOut && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <span className="rotate-[-20deg] border-4 border-red-400 text-red-400 text-2xl font-black px-4 py-1 rounded-xl tracking-widest opacity-80">SOLD</span>
-        </div>
-      )}
-      {limitReached && !product.soldOut && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/85 p-4 rounded-2xl">
-          <div className="bg-white rounded-xl px-4 py-3 text-center shadow-lg border border-gray-100">
-            <p className="text-sm font-bold text-gray-700">出品上限に達しました</p>
-            <p className="text-xs text-gray-400 mt-1">市場の乱立防止のため紹介終了</p>
-          </div>
+      {/* SOLD: 商品情報をぼかして SOLD札 + 説明を重ねる */}
+      {sold && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 text-center">
+          <span className="rotate-[-12deg] bg-[#CC0033] text-white text-2xl font-black px-6 py-1.5 rounded-lg tracking-[0.2em] shadow-lg">SOLD</span>
+          <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-lg px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
+            ※eBay出品数が上限に達したため、ライバルを増やしすぎないようにSOLDします。
+          </p>
         </div>
       )}
 
-      <div className="p-4">
+      <div className={cn("p-4", sold && "blur-[3px] pointer-events-none select-none")}>
         {/* 上段：画像 + 商品情報 */}
         <div className="flex gap-3 mb-3">
           {/* 画像 */}
@@ -279,7 +263,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#CC0033] font-black text-[9px] shrink-0">R</span>
               楽天で仕入れる
             </a>
-            {!limitReached && (
+            {!sold && (
               <ListingHelper product={product} onCountChange={setListingCount} />
             )}
           </div>

@@ -8,6 +8,7 @@ import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
+import { isSold, withSoldDummies } from "../lib/sold";
 
 export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
@@ -15,6 +16,7 @@ export default function SearchPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
   const [sortOrder, setSortOrder] = useState<SortOrder>("default");
+  const [hideSold, setHideSold] = useState(false);
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
@@ -36,7 +38,9 @@ export default function SearchPage() {
     : null;
 
   const hotCount = products.filter(p => p.realProfitRate >= 30).length;
-  const sortedProducts = sortProducts(products, sortOrder);
+  // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在
+  const baseList = hideSold ? products.filter(p => !isSold(p)) : withSoldDummies(products);
+  const sortedProducts = sortProducts(baseList, sortOrder);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -110,8 +114,8 @@ export default function SearchPage() {
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
         </div>
 
-        {/* セクションヘッダー（件数 + 並び替えプルダウン） */}
-        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
+        {/* セクションヘッダー（件数 + 出品可能のみ + 並び替え） */}
+        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
           <div className="min-w-0">
             {loading ? (
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
@@ -128,7 +132,14 @@ export default function SearchPage() {
               <p className="text-[11px] text-gray-500 mt-0.5">{updatedLabel}</p>
             )}
           </div>
-          <SortSelect value={sortOrder} onChange={setSortOrder} />
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
+              <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
+                className="w-4 h-4 accent-[#CC0033]" />
+              出品可能のみ
+            </label>
+            <SortSelect value={sortOrder} onChange={setSortOrder} />
+          </div>
         </div>
 
         <div className="px-0">

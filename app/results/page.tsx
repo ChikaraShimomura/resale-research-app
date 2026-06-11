@@ -8,6 +8,7 @@ import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
+import { isSold, withSoldDummies } from "../lib/sold";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -17,6 +18,7 @@ function ResultsContent() {
   const [loading, setLoading] = useState(true);
   // "default" = 登録順（新着順）。利益率ソートは将来の有料機能
   const [sortOrder, setSortOrder] = useState<SortOrder>("default");
+  const [hideSold, setHideSold] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +40,10 @@ function ResultsContent() {
     );
   }, [allProducts, keyword]);
 
-  const sorted = useMemo(() => sortProducts(filtered, sortOrder), [filtered, sortOrder]);
+  const sorted = useMemo(() => {
+    const base = hideSold ? filtered.filter((p) => !isSold(p)) : withSoldDummies(filtered);
+    return sortProducts(base, sortOrder);
+  }, [filtered, sortOrder, hideSold]);
 
   const displayLabel = keyword || "すべて";
   const updatedLabel = lastUpdated
@@ -70,9 +75,9 @@ function ResultsContent() {
         )}
       </header>
 
-      {/* 件数・ソートバー */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center justify-between sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
-        <div>
+      {/* 件数・出品可能のみ・ソートバー */}
+      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center justify-between gap-2 flex-wrap sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
+        <div className="min-w-0">
           {loading ? (
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
           ) : (
@@ -87,8 +92,14 @@ function ResultsContent() {
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        {/* 並び替えプルダウン（新着順がデフォルト。将来ここを課金ゲート可能） */}
-        <SortSelect value={sortOrder} onChange={setSortOrder} />
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
+              className="w-4 h-4 accent-[#CC0033]" />
+            出品可能のみ
+          </label>
+          <SortSelect value={sortOrder} onChange={setSortOrder} />
+        </div>
       </div>
 
       <main className="max-w-2xl mx-auto">
