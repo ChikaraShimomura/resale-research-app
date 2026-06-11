@@ -74,8 +74,8 @@ export default function ListingHelper({ product, onCountChange }: Props) {
       rel="noopener noreferrer"
       onClick={handleListingClick}
       className={`
-        flex items-center justify-center gap-1.5 w-full h-11 whitespace-nowrap
-        text-sm font-bold rounded-xl transition-all
+        flex-1 inline-flex items-center justify-center gap-1 h-11 whitespace-nowrap
+        text-[13px] font-bold rounded-xl transition-all
         ${state === "done"
           ? "bg-emerald-500 text-white"
           : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 active:scale-[0.99]"
@@ -83,7 +83,7 @@ export default function ListingHelper({ product, onCountChange }: Props) {
       `}
     >
       {state === "done" ? <Check size={14} /> : <ExternalLink size={14} />}
-      {state === "done" ? "コピー完了！eBayを開きます" : "eBay簡単出品"}
+      {state === "done" ? "コピー完了！" : "eBay簡単出品"}
     </a>
   );
 }
