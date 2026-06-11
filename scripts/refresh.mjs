@@ -22,6 +22,17 @@ const SHIPPING_COST_JPY   = 0; // 送料は購入者負担
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// ========== Haiku レート制限ゲート ==========
+// 実際のAPI呼び出し（キャッシュミス時のみ）を最低 HAIKU_MIN_INTERVAL_MS 間隔に直列化し、
+// 1分あたりの呼び出しを Tier1 の 50 RPM 以内（≈43回/分）に抑える。キャッシュヒットは通らない。
+const HAIKU_MIN_INTERVAL_MS = 1400;
+let _haikuQueue = Promise.resolve();
+function haikuGate() {
+  const wait = _haikuQueue;
+  _haikuQueue = wait.then(() => sleep(HAIKU_MIN_INTERVAL_MS));
+  return wait;
+}
+
 // ========== Upstash KV ==========
 async function kvGet(key) {
   try {
@@ -206,6 +217,7 @@ REASON: (one short sentence)`
       }]
     };
 
+    await haikuGate(); // レート制限内に収める（キャッシュミス時のみ到達）
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -348,6 +360,7 @@ async function ebayTitleToRakutenKeyword(ebayTitle) {
   if (cached) return cached;
 
   try {
+    await haikuGate(); // レート制限内に収める（キャッシュミス時のみ到達）
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -453,22 +466,23 @@ async function main() {
 
     const ebayImg = ebayItem.imageUrl ?? '';
 
-    // 楽天上位5件を画像マッチで確認
+    // 楽天上位5件: 先に利益計算（算術のみ・Haiku不要）→ 利益が出る候補だけ画像マッチ（Haiku）。
+    // eBay価格は確定済みなので利益判定にHaikuは不要。これで無駄な画像マッチ呼び出しを大幅削減。
     for (const rakutenItem of rakutenItems.slice(0, 5)) {
       const rakutenImg = rakutenItem.mediumImageUrls?.[0]?.imageUrl
         || rakutenItem.smallImageUrls?.[0]?.imageUrl || '';
-      if (!rakutenImg) continue;
+      if (!rakutenImg) continue; // 画像なしは商品表示にも使えないのでスキップ
 
-      // eBay画像がある場合のみ画像比較（ない場合はキーワードマッチを信頼）
+      // ① 利益計算（Haiku不要）。利益が出ないものはここでスキップ＝Haiku節約
+      const pointAmount = Math.floor(rakutenItem.itemPrice * 10 / 100);
+      const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
+      if (profit < 1 || profitRate > 300) continue;
+
+      // ② 利益が出る候補だけ画像マッチ（Haiku）で同一商品か検証
       if (ebayImg) {
         const matched = await isImageMatch(rakutenImg, ebayImg, null);
         if (!matched) continue;
       }
-
-      // 利益計算
-      const pointAmount = Math.floor(rakutenItem.itemPrice * 10 / 100);
-      const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
-      if (profit < 1 || profitRate > 300) continue;
 
       console.log(`  💰 ${profitRate}% | 楽天¥${rakutenItem.itemPrice.toLocaleString()} → eBay¥${ebayItem.priceJpy.toLocaleString()} | ${rakutenItem.itemName.slice(0, 35)}`);
 
