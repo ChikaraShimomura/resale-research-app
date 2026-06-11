@@ -1,20 +1,14 @@
 import { ProfitProduct } from "./profitFilter";
 
-// eBay簡単出品が押された回数の上限。これを超えると「SOLD（出品上限）」扱いにして
-// 市場の乱立（ライバル増えすぎ）を防ぐ。avgDaysToSell が短い（早く売れる）ほど上限を高く。
-export function getListingLimit(avgDaysToSell?: number | null): number {
-  if (avgDaysToSell == null) return 30;
-  if (avgDaysToSell < 10) return 100;
-  if (avgDaysToSell < 20) return 50;
-  if (avgDaysToSell < 30) return 40;
-  return 30;
-}
+// eBay簡単出品が押された回数の上限。一律この回数に達すると「SOLD（出品上限）」扱いにして、
+// 市場の乱立（ライバル増えすぎ）を防ぐ。
+export const LISTING_LIMIT = 20;
 
 // SOLD（出品上限到達 or ダミー）か判定
 export function isSold(p: ProfitProduct, liveCount?: number): boolean {
   if (p.soldOut) return true;
   const count = liveCount ?? p.listingCount ?? 0;
-  return count >= getListingLimit(p.avgDaysToSell);
+  return count >= LISTING_LIMIT;
 }
 
 // ── ダミーSOLD商品（カードはブラー表示されるため内容は概略でよい） ──
