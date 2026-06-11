@@ -7,6 +7,7 @@ const RAKUTEN_APP_ID      = process.env.RAKUTEN_APP_ID;
 const RAKUTEN_ACCESS_KEY  = process.env.RAKUTEN_ACCESS_KEY;
 const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID         = process.env.EBAY_APP_ID;
+const EBAY_CLIENT_SECRET  = process.env.EBAY_CLIENT_SECRET;
 const GEMINI_API_KEY      = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY   = process.env.ANTHROPIC_API_KEY;
 const KV_URL              = process.env.KV_REST_API_URL;
@@ -236,16 +237,42 @@ REASON: (one short sentence)`
   } catch { return true; }
 }
 
-// ========== Phase 0: eBay日本発送売れ済み商品を取得 ==========
-const EBAY_JP_CATEGORIES = [
-  { id: '183454', name: 'ポケモンカード' },
-  { id: '261068', name: 'ガンプラ' },
-  { id: '19169',  name: 'おもちゃ' },
-  { id: '11450',  name: 'コスメ・美容' },
-  { id: '14339',  name: '腕時計' },
-  { id: '625',    name: 'カメラ・レンズ' },
-  { id: '64482',  name: 'トレカ全般' },
-  { id: '220',    name: 'おもちゃ・ゲーム' },
+// ========== eBay OAuth トークン（Browse API用） ==========
+let ebayTokenCache = null;
+async function getEbayToken() {
+  if (!EBAY_APP_ID || !EBAY_CLIENT_SECRET) return null;
+  if (ebayTokenCache && Date.now() < ebayTokenCache.expiresAt) return ebayTokenCache.token;
+  const encoded = Buffer.from(`${EBAY_APP_ID}:${EBAY_CLIENT_SECRET}`).toString('base64');
+  try {
+    const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: { Authorization: `Basic ${encoded}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) { console.error(`  [OAuth] HTTP ${res.status}`); return null; }
+    const data = await res.json();
+    ebayTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+    return data.access_token;
+  } catch (e) { console.error(`  [OAuth] ${e.message}`); return null; }
+}
+
+// ========== Phase 0: eBay Browse API で日本出品の現行商品を取得 ==========
+// Browse APIはOAuth認証必須のため503ブロックを回避できる
+// soldItemsOnlyはBrowse APIでは非対応のため「現在出品中・日本発送」を取得
+const EBAY_JP_QUERIES = [
+  { q: 'pokemon card booster box japanese sealed',  name: 'ポケモンカード' },
+  { q: 'yu-gi-oh card booster box japanese sealed',  name: '遊戯王' },
+  { q: 'one piece card game booster box japanese',   name: 'ワンピースカード' },
+  { q: 'gunpla model kit bandai master grade',       name: 'ガンプラMG' },
+  { q: 'gunpla high grade bandai japan new',         name: 'ガンプラHG' },
+  { q: 'nendoroid figure good smile new sealed',     name: 'ねんどろいど' },
+  { q: 'lego set japan new sealed',                  name: 'LEGO' },
+  { q: 'seiko watch new japan',                      name: 'セイコー' },
+  { q: 'casio g-shock new japan',                    name: 'Gショック' },
+  { q: 'shiseido skincare japan new',                name: '資生堂' },
+  { q: 'tomica diecast car japan new',               name: 'トミカ' },
+  { q: 'amiibo nintendo new japan sealed',           name: 'アミーボ' },
 ];
 
 async function fetchEbayJapanSoldItems() {
@@ -256,49 +283,39 @@ async function fetchEbayJapanSoldItems() {
     return cached;
   }
 
-  const allItems = [];
-  for (const cat of EBAY_JP_CATEGORIES) {
-    const params = new URLSearchParams({
-      'OPERATION-NAME': 'findCompletedItems',
-      'SERVICE-VERSION': '1.0.0',
-      'SECURITY-APPNAME': EBAY_APP_ID,
-      'RESPONSE-DATA-FORMAT': 'JSON',
-      'categoryId': cat.id,
-      'itemFilter(0).name': 'SoldItemsOnly',
-      'itemFilter(0).value': 'true',
-      'itemFilter(1).name': 'LocatedIn',
-      'itemFilter(1).value': 'JP',
-      'sortOrder': 'EndTimeSoonest',
-      'paginationInput.entriesPerPage': '100',
-    });
-    // タイムアウト時に1回リトライ
-    let res;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        res = await fetch(
-          `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
-          { signal: AbortSignal.timeout(30000) }
-        );
-        break;
-      } catch {
-        if (attempt === 0) { await sleep(3000); continue; }
-        res = null;
-      }
-    }
+  const token = await getEbayToken();
+  if (!token) {
+    console.error('  [Phase0] OAuthトークン取得失敗');
+    return [];
+  }
 
+  const allItems = [];
+  for (const { q, name } of EBAY_JP_QUERIES) {
+    const params = new URLSearchParams({
+      q,
+      filter: 'itemLocationCountry:JP,conditions:{NEW|LIKE_NEW}',
+      sort: 'price',
+      limit: '100',
+      fieldgroups: 'COMPACT',
+    });
     try {
-      if (!res || !res.ok) { console.log(`  [Phase0] ${cat.name} → HTTP ${res?.status}`); continue; }
+      const res = await fetch(
+        `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+          },
+          signal: AbortSignal.timeout(15000),
+        }
+      );
+      if (!res.ok) { console.log(`  [Phase0] ${name} → HTTP ${res.status}`); continue; }
       const data = await res.json();
-      const ack = data?.findCompletedItemsResponse?.[0]?.ack?.[0] ?? '';
-      const totalEntries = data?.findCompletedItemsResponse?.[0]?.paginationOutput?.[0]?.totalEntries?.[0] ?? '?';
-      const errMsg = data?.findCompletedItemsResponse?.[0]?.errorMessage?.[0]?.error?.[0]?.message?.[0] ?? '';
-      if (ack !== 'Success') console.log(`  [Phase0] ${cat.name} ack=${ack} total=${totalEntries} err="${errMsg}"`);
-      const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
+      const items = data?.itemSummaries ?? [];
       for (const item of items) {
-        const title = item?.title?.[0] ?? '';
-        const priceStr = item?.sellingStatus?.[0]?.currentPrice?.[0]?.__value__;
-        const currency = item?.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'];
-        const price = parseFloat(priceStr);
+        const title = item?.title ?? '';
+        const price = parseFloat(item?.price?.value);
+        const currency = item?.price?.currency;
         if (!title || isNaN(price) || price <= 0) continue;
         let priceJpy = 0;
         if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
@@ -306,14 +323,14 @@ async function fetchEbayJapanSoldItems() {
         else if (currency === 'AUD') priceJpy = Math.round(price * AUD_TO_JPY);
         else if (currency === 'JPY') priceJpy = Math.round(price);
         if (priceJpy < 1000) continue;
-        const imageUrl = item?.galleryURL?.[0] ?? '';
-        const itemUrl  = item?.viewItemURL?.[0] ?? '';
-        allItems.push({ title, priceJpy, category: cat.name, imageUrl, itemUrl });
+        const imageUrl = item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '';
+        const itemUrl  = item?.itemWebUrl ?? '';
+        allItems.push({ title, priceJpy, category: name, imageUrl, itemUrl });
       }
-      console.log(`  [Phase0] ${cat.name} → ${items.length}件`);
+      console.log(`  [Phase0] ${name} → ${items.length}件`);
       await sleep(300);
     } catch (e) {
-      console.error(`  [Phase0 ERROR] ${cat.name}: ${e.message}`);
+      console.error(`  [Phase0 ERROR] ${name}: ${e.message}`);
     }
   }
 
