@@ -535,9 +535,15 @@ async function fetchEbayCandidates(enQuery) {
     return cached;
   }
 
-  // US落札実績のみで検索（UK/AUは価格基準が混在するため除外）
-  const candidates = await fetchEbaySoldForSite(enQuery, 0);
+  // US落札実績を取得、0件の場合のみUKにフォールバック
+  let candidates = await fetchEbaySoldForSite(enQuery, 0);
   console.log(`  [Sold US] ${enQuery.slice(0, 40)} → ${candidates.length}件`);
+
+  if (candidates.length === 0) {
+    const uk = await fetchEbaySoldForSite(enQuery, 3);
+    console.log(`  [Sold UK] ${enQuery.slice(0, 40)} → ${uk.length}件`);
+    candidates = uk;
+  }
 
   await kvSet(cacheKey, candidates, 48 * 3600);
   return candidates;
@@ -889,7 +895,7 @@ async function main() {
 
   // Phase 2: 事前フィルタ（レビュー数3件以上・スキップ除外後に最大800件を処理）
   const filtered = rakutenProducts
-    .filter(it => it.reviewCount >= 3)
+    .filter(it => it.reviewCount >= 1)
     .sort((a, b) => b.reviewCount - a.reviewCount);
 
   console.log(`\n🔍 Phase 2: eBay比較 (${filtered.length}件 → 上位からeBay確認)...`);
