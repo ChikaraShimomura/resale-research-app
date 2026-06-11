@@ -268,9 +268,7 @@ async function fetchEbayJapanSoldItems() {
       'itemFilter(0).value': 'true',
       'itemFilter(1).name': 'LocatedIn',
       'itemFilter(1).value': 'JP',
-      'itemFilter(2).name': 'Condition',
-      'itemFilter(2).value': 'New',
-      'sortOrder': 'BestMatch',
+      'sortOrder': 'EndTimeSoonest',
       'paginationInput.entriesPerPage': '100',
     });
     // タイムアウト時に1回リトライ
@@ -289,8 +287,12 @@ async function fetchEbayJapanSoldItems() {
     }
 
     try {
-      if (!res || !res.ok) continue;
+      if (!res || !res.ok) { console.log(`  [Phase0] ${cat.name} → HTTP ${res?.status}`); continue; }
       const data = await res.json();
+      const ack = data?.findCompletedItemsResponse?.[0]?.ack?.[0] ?? '';
+      const totalEntries = data?.findCompletedItemsResponse?.[0]?.paginationOutput?.[0]?.totalEntries?.[0] ?? '?';
+      const errMsg = data?.findCompletedItemsResponse?.[0]?.errorMessage?.[0]?.error?.[0]?.message?.[0] ?? '';
+      if (ack !== 'Success') console.log(`  [Phase0] ${cat.name} ack=${ack} total=${totalEntries} err="${errMsg}"`);
       const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
       for (const item of items) {
         const title = item?.title?.[0] ?? '';
