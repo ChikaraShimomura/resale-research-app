@@ -127,12 +127,12 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="flex gap-3 mb-3">
           {/* 画像 */}
           <div className="shrink-0 relative">
-            <a href={`/search?q=${encodeURIComponent(product.title.slice(0, 30))}`} className="block">
+            <a href={`/search?q=${encodeURIComponent(product.title.slice(0, 30))}`} className="block" aria-label="同名商品を再検索">
             {product.imageUrl ? (
               <img src={product.imageUrl} alt={product.title}
                 className="w-[88px] h-[88px] object-cover rounded-xl bg-gray-50 border border-gray-100" />
             ) : (
-              <div className="w-[88px] h-[88px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-3xl">📦</div>
+              <div aria-hidden="true" className="w-[88px] h-[88px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-3xl">📦</div>
             )}
             </a>
             {isHot && (
@@ -180,10 +180,10 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
 
         {/* eBay価格・利益エリア */}
         <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-1">
+            <div className="min-w-0">
               <p className="text-[11px] text-gray-500 mb-0.5">eBay平均落札</p>
-              <p className="text-base font-black text-blue-600">{formatJpy(product.realAvgPrice)}</p>
+              <p className="text-base font-black text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <p className="text-xs text-gray-500">{product.realCount}件</p>
@@ -203,13 +203,13 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               )}
             </div>
 
-            <div className="text-gray-300 text-xl mx-2">→</div>
+            <div aria-hidden="true" className="text-gray-300 text-xl mx-1 shrink-0">→</div>
 
             {/* 利益 */}
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <ProfitRateBadge rate={product.realProfitRate} />
               <p className="text-[11px] text-gray-500 mt-1">実質利益（ポイント込み）</p>
-              <p className="text-2xl font-black text-[#CC0033] leading-tight">
+              <p className="text-2xl font-black text-[#CC0033] leading-tight whitespace-nowrap">
                 {formatJpy(product.realProfit + pointAmount)}
               </p>
               {pointAmount > 0 && (

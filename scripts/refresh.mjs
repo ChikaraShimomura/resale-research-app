@@ -414,7 +414,7 @@ async function main() {
   const allCheckedMap = new Map(validChecked.map(e => [e.id, e]));
 
   const rawProducts = await kvGet('profitable_products');
-  const existingProducts = (Array.isArray(rawProducts) ? rawProducts : []).map(p => {
+  const loadedProducts = (Array.isArray(rawProducts) ? rawProducts : []).map(p => {
     // 旧データの ebaySoldUrl が現行出品URLになっている場合は売れ済み検索URLに修正
     if (p.ebaySoldUrl && !p.ebaySoldUrl.includes('LH_Sold=1') && p.coreKeyword) {
       p.ebaySoldUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(p.coreKeyword)}&LH_Complete=1&LH_Sold=1`;
@@ -423,7 +423,15 @@ async function main() {
     if (!p.addedAt) p.addedAt = '2020-01-01T00:00:00.000Z';
     return p;
   });
-  const existingIds = new Set(existingProducts.map(p => p.id)); // 楽天itemCode
+  // id重複を毎回自動で排除（過去のバグ由来の残存重複を定期クリーンアップ）。最初の出現を優先。
+  const existingIds = new Set(); // 楽天itemCode
+  const existingProducts = loadedProducts.filter(p => {
+    if (!p.id || existingIds.has(p.id)) return false;
+    existingIds.add(p.id);
+    return true;
+  });
+  const dupRemoved = loadedProducts.length - existingProducts.length;
+  if (dupRemoved > 0) console.log(`  🧹 重複DB自動クリーンアップ: ${dupRemoved}件除去`);
   const profitableProducts = [...existingProducts];
 
   console.log(`  既存DB: ${existingProducts.length}件 / チェック済み: ${checkedIds.size}件`);

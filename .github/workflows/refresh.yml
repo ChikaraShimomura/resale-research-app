@@ -32,3 +32,25 @@ jobs:
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
         run: node scripts/refresh.mjs
 
+      - name: エラー通知メール
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "❌ 輸出ラボ 商品取得(refresh)エラー"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <${{ secrets.GMAIL_USERNAME }}>"
+          body: |
+            商品取得バッチ(refresh.mjs)でエラーが発生しました。
+
+            ▼ エラーログを確認
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ─────────────────────────────
+            ワークフロー : ${{ github.workflow }}
+            トリガー     : ${{ github.event_name }}
+
