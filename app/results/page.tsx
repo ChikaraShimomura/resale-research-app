@@ -7,7 +7,8 @@ import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
-import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
+import { SortOrder, sortProducts } from "../components/SortSelect";
+import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 
@@ -82,8 +83,8 @@ function ResultsContent() {
         )}
       </header>
 
-      {/* 件数・出品可能のみ・ソートバー */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-center justify-between gap-2 flex-wrap sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
+      {/* 件数・ソート/SOLD除外バー */}
+      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-start justify-between gap-2 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
         <div className="min-w-0">
           {loading ? (
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
@@ -99,14 +100,7 @@ function ResultsContent() {
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
-            <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
-              className="w-4 h-4 accent-[#CC0033]" />
-            SOLDを除外
-          </label>
-          <SortSelect value={sortOrder} onChange={setSortOrder} />
-        </div>
+        <ListControls sortOrder={sortOrder} onSortChange={setSortOrder} hideSold={hideSold} onHideSoldChange={setHideSold} />
       </div>
 
       <main className="max-w-2xl mx-auto">

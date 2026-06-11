@@ -33,14 +33,14 @@ export default function SortSelect({
         value={value}
         onChange={(e) => onChange(e.target.value as SortOrder)}
         aria-label="並び替え"
-        className="appearance-none min-h-[40px] pl-3 pr-8 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 focus:outline-none focus:border-[#CC0033]"
+        className="appearance-none h-7 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-gray-700 focus:outline-none focus:border-[#CC0033]"
       >
         <option value="default">新着順</option>
         <option value="rate">利益率が高い順</option>
         <option value="profit">利益金額が高い順</option>
         <option value="rival">ライバルの少ない順</option>
       </select>
-      <span aria-hidden="true" className="pointer-events-none absolute right-2.5 text-gray-400 text-[10px]">▼</span>
+      <span aria-hidden="true" className="pointer-events-none absolute right-2 text-gray-400 text-[9px]">▼</span>
     </div>
   );
 }

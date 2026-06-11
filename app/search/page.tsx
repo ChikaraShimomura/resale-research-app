@@ -6,7 +6,8 @@ import BottomNav from "../components/BottomNav";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
-import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
+import { SortOrder, sortProducts } from "../components/SortSelect";
+import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 
@@ -103,8 +104,8 @@ export default function SearchPage() {
         )}
 
 
-        {/* セクションヘッダー（件数 + 出品可能のみ + 並び替え） */}
-        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+        {/* セクションヘッダー（件数 + 右に並び替え/SOLD除外を上下配置） */}
+        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-start justify-between gap-2">
           <div className="min-w-0">
             {loading ? (
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
@@ -121,14 +122,7 @@ export default function SearchPage() {
               <p className="text-[11px] text-gray-500 mt-0.5">{updatedLabel}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <label className="flex items-center gap-1 text-[11px] font-bold text-gray-600 cursor-pointer select-none">
-              <input type="checkbox" checked={hideSold} onChange={(e) => setHideSold(e.target.checked)}
-                className="w-4 h-4 accent-[#CC0033]" />
-              SOLDを除外
-            </label>
-            <SortSelect value={sortOrder} onChange={setSortOrder} />
-          </div>
+          <ListControls sortOrder={sortOrder} onSortChange={setSortOrder} hideSold={hideSold} onHideSoldChange={setHideSold} />
         </div>
 
         <div className="px-0">
