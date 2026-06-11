@@ -1,0 +1,41 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
+import BottomNav from "../components/BottomNav";
+import EbayConnect from "../components/EbayConnect";
+
+export const metadata: Metadata = {
+  title: "設定",
+  robots: { index: false },
+};
+
+export default function SettingsPage() {
+  return (
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
+      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
+          <Link href="/search" aria-label="検索に戻る"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
+            ‹
+          </Link>
+          <span className="text-white font-black text-base tracking-tight">設定</span>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto p-3 space-y-3">
+        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+          <h2 className="text-sm font-black text-gray-800 mb-1">eBay連携</h2>
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            eBayアカウントを連携すると、出品作業を自動化できます。連携してもeBayのパスワードは渡されません。
+          </p>
+          <Suspense fallback={<div className="h-11 w-40 bg-gray-100 rounded-xl animate-pulse" />}>
+            <EbayConnect />
+          </Suspense>
+        </section>
+      </main>
+
+      <BottomNav />
+    </div>
+  );
+}

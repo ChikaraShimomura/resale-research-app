@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function back(req: Request, status: "connected" | "error"): Response {
-  return Response.redirect(new URL(`/search?ebay=${status}`, req.url), 302);
+  return Response.redirect(new URL(`/settings?ebay=${status}`, req.url), 302);
 }
 
 export async function GET(req: Request) {
