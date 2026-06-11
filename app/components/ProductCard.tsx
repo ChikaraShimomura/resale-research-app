@@ -72,15 +72,9 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const sourceUrl = toRakutenAffiliateUrl(source.url);
   const ebaySoldUrl = safeHttpUrl(product.ebaySoldUrl);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
-  const [listingCount, setListingCount] = useState(0);
+  // 出品クリック回数は /api/products が付与済み（個別 fetch は不要）。クリック時に POST で更新。
+  const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
   const [showBreakdown, setShowBreakdown] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/listing-count/${product.id}`)
-      .then((r) => r.json())
-      .then((d) => setListingCount(d.count ?? 0))
-      .catch(() => {});
-  }, [product.id]);
 
   const listingLimit = getListingLimit(product.avgDaysToSell);
   const limitReached = listingCount >= listingLimit;

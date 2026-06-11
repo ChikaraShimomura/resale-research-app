@@ -13,6 +13,17 @@ export async function GET() {
     ]);
 
     if (profitable && profitable.length > 0) {
+      // 各商品の出品クリック回数（ライバル数の目安）を pipeline でまとめて付与。
+      // これでカード側の個別 fetch を省き、「ライバルの少ない順」ソートも可能に。
+      try {
+        const pipe = kvReadOnly.pipeline();
+        profitable.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
+        const counts = (await pipe.exec()) as number[];
+        profitable.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
+      } catch {
+        profitable.forEach((p) => { p.listingCount = 0; });
+      }
+
       return Response.json(
         { products: profitable, lastUpdated, stats },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）

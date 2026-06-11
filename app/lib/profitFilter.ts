@@ -6,4 +6,5 @@ export interface ProfitProduct extends Product {
   realProfitRate: number; // 利益率（%）
   realCount: number;     // 落札件数
   addedAt?: string;      // 初回登録時刻（ISO）。登録順ソート用
+  listingCount?: number; // eBay簡単出品が押された回数（ライバル数の目安）。/api/products が付与
 }

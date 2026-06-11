@@ -1,18 +1,22 @@
 "use client";
+import { ProfitProduct } from "../lib/profitFilter";
 
-export type SortOrder = "default" | "desc" | "asc";
+export type SortOrder = "default" | "rate" | "profit" | "rival";
+
+const profitAmount = (p: ProfitProduct) => p.realProfit + (p.source.pointAmount ?? 0);
 
 // 商品リストを並び替える共有ヘルパー。"default" は登録順（API順=新着先頭）をそのまま返す。
-export function sortProducts<T extends { realProfitRate: number }>(
-  products: T[],
-  order: SortOrder
-): T[] {
-  if (order === "default") return products;
-  return [...products].sort((a, b) =>
-    order === "desc"
-      ? b.realProfitRate - a.realProfitRate
-      : a.realProfitRate - b.realProfitRate
-  );
+export function sortProducts(products: ProfitProduct[], order: SortOrder): ProfitProduct[] {
+  switch (order) {
+    case "rate": // 利益率が高い順
+      return [...products].sort((a, b) => b.realProfitRate - a.realProfitRate);
+    case "profit": // 利益金額（実質利益＝利益＋ポイント）が高い順
+      return [...products].sort((a, b) => profitAmount(b) - profitAmount(a));
+    case "rival": // ライバルの少ない順（eBay簡単出品が押された回数の少ない順）
+      return [...products].sort((a, b) => (a.listingCount ?? 0) - (b.listingCount ?? 0));
+    default: // 新着順（登録順）
+      return products;
+  }
 }
 
 // モバイルではOSネイティブのピッカーが出るので <select> を採用。
@@ -24,7 +28,7 @@ export default function SortSelect({
   onChange: (v: SortOrder) => void;
 }) {
   return (
-    <div className="relative inline-flex items-center">
+    <div className="relative inline-flex items-center shrink-0">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as SortOrder)}
@@ -32,8 +36,9 @@ export default function SortSelect({
         className="appearance-none min-h-[40px] pl-3 pr-8 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 focus:outline-none focus:border-[#CC0033]"
       >
         <option value="default">新着順</option>
-        <option value="desc">利益率が高い順</option>
-        <option value="asc">利益率が低い順</option>
+        <option value="rate">利益率が高い順</option>
+        <option value="profit">利益金額が高い順</option>
+        <option value="rival">ライバルの少ない順</option>
       </select>
       <span aria-hidden="true" className="pointer-events-none absolute right-2.5 text-gray-400 text-[10px]">▼</span>
     </div>
