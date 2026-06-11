@@ -187,7 +187,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <TrustBadge count={product.realCount} />
                   {product.avgDaysToSell != null && (
-                    <span className="text-xs text-gray-500">平均{product.avgDaysToSell}日</span>
+                    <span className="text-xs text-gray-500">落札まで平均{product.avgDaysToSell}日</span>
                   )}
                   {ebaySoldUrl && (
                     <a href={ebaySoldUrl} target="_blank" rel="noopener noreferrer"

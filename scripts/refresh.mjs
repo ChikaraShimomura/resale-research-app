@@ -519,7 +519,7 @@ async function main() {
           realProfit: profit,
           realProfitRate: profitRate,
           realCount: 1,
-          avgDaysToSell: null,
+          avgDaysToSell: null, // eBay Finding API(落札データ)が廃止のため現状取得不可。Marketplace Insights API(要承認)が必要
           addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
         },
       };
