@@ -273,12 +273,23 @@ async function fetchEbayJapanSoldItems() {
       'sortOrder': 'BestMatch',
       'paginationInput.entriesPerPage': '100',
     });
+    // タイムアウト時に1回リトライ
+    let res;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await fetch(
+          `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
+          { signal: AbortSignal.timeout(30000) }
+        );
+        break;
+      } catch {
+        if (attempt === 0) { await sleep(3000); continue; }
+        res = null;
+      }
+    }
+
     try {
-      const res = await fetch(
-        `https://svcs.ebay.com/services/search/FindingService/v1?${params}`,
-        { signal: AbortSignal.timeout(10000) }
-      );
-      if (!res.ok) continue;
+      if (!res || !res.ok) continue;
       const data = await res.json();
       const items = data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item ?? [];
       for (const item of items) {
