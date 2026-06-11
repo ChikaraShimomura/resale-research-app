@@ -183,7 +183,7 @@ eBay平均落札価格: {avg_price:,}円
 - URLもハッシュタグも絵文字も含めない
 - 本文のみ出力（前置き不要）
 - Twitterウェイト100以内（日本語1文字=2、英数字=1）
-- 最大4行
+- 読みやすいように適度に改行する（2〜3行に分け、文の区切りで改行・1か所くらい空行を入れる）
 
 本文のみ出力してください。"""
 
@@ -240,11 +240,11 @@ def generate_pattern_b(news_item: str, ai_client: anthropic.Anthropic) -> str | 
 # ── ツイート組み立て ──────────────────────────────────────────
 # url は商品ページURL（Xカード化）。本文末尾に置くとXがカードを描画する。
 def build_tweet_a(body: str, url: str) -> str:
-    return body + f"\n{url}"
+    return body + f"\n\n{url}"
 
 
 def build_tweet_b(body: str, url: str) -> str:
-    return body + f"\n{url}"
+    return body + f"\n\n{url}"
 
 
 def trim_to_fit(text: str, limit: int = MAX_CHARS) -> str:

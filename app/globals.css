@@ -3,8 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #1a1a2e;
-  --primary: #CC0033;
-  --primary-dark: #AA0028;
+  --primary: #BF0000;
+  --primary-dark: #9E0000;
   --accent: #FF4466;
   --surface: #F5F7FA;
   /* スティッキーヘッダー高さ（safe-area込み）。結果一覧の件数/ソートバーのtopオフセットに使用 */

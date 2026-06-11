@@ -46,7 +46,7 @@ export default function Pagination({
           <button key={n} onClick={() => go(n)} aria-current={n === page ? "page" : undefined}
             className={`inline-flex items-center justify-center min-w-[40px] min-h-[40px] rounded-lg border text-xs font-bold ${
               n === page
-                ? "bg-[#CC0033] border-[#CC0033] text-white"
+                ? "bg-[#BF0000] border-[#BF0000] text-white"
                 : "bg-white border-gray-200 text-gray-600 active:bg-gray-50"
             }`}>
             {n}

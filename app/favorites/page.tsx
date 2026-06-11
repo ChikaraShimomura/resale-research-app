@@ -29,7 +29,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-[#CC0033]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-[#BF0000]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2">
           <Link href="/search" aria-label="検索に戻る"
             className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
@@ -42,7 +42,7 @@ export default function FavoritesPage() {
       <main className="max-w-2xl mx-auto">
         <div className="bg-white border-b border-gray-200 px-3 py-2">
           <p className="text-xs text-gray-600">
-            <span className="font-black text-[#CC0033] text-base">{loading ? "-" : favorites.length}</span>
+            <span className="font-black text-[#BF0000] text-base">{loading ? "-" : favorites.length}</span>
             <span className="ml-0.5">件</span>
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function FavoritesPage() {
             <p className="text-gray-600 text-sm font-semibold mb-1">お気に入りがまだありません</p>
             <p className="text-gray-400 text-xs mb-5">商品カードの ♡ ボタンで追加できます</p>
             <Link href="/search"
-              className="inline-flex items-center min-h-[44px] text-sm font-bold text-[#CC0033] border border-[#CC0033] rounded-lg px-5 py-3 active:bg-red-50">
+              className="inline-flex items-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-lg px-5 py-3 active:bg-red-50">
               商品を探す →
             </Link>
           </div>

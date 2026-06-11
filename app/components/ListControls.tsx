@@ -27,7 +27,7 @@ export default function ListControls({
         <span
           aria-hidden="true"
           className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center text-white text-[11px] leading-none transition-colors ${
-            hideSold ? "bg-[#CC0033] border-[#CC0033]" : "bg-white border-gray-400"
+            hideSold ? "bg-[#BF0000] border-[#BF0000]" : "bg-white border-gray-400"
           }`}
         >
           {hideSold ? "✓" : ""}

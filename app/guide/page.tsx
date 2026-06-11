@@ -7,7 +7,7 @@ const STEPS = [
     title: "楽天で商品を仕入れる",
     desc: "このサイトで紹介している利益商品を楽天で購入します。ポイント還元率が高い日（楽天スーパーSALEや0・5のつく日）を狙うとさらにお得です。",
     tips: ["0のつく日・5のつく日はポイント最大5倍", "楽天スーパーSALEは年2回・最大44倍", "SPU（スーパーポイントアッププログラム）でポイント底上げ"],
-    color: "bg-[#CC0033]",
+    color: "bg-[#BF0000]",
   },
   {
     num: "02",
@@ -66,7 +66,7 @@ export default function GuidePage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       {/* ヘッダー */}
-      <header className="bg-[#CC0033]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-[#BF0000]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2">
           <Link href="/search" aria-label="検索に戻る"
             className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
@@ -79,7 +79,7 @@ export default function GuidePage() {
       <main className="max-w-2xl mx-auto px-3 py-4">
 
         {/* イントロ */}
-        <div className="bg-gradient-to-r from-[#CC0033] to-[#E83820] rounded-lg p-4 mb-5 text-white">
+        <div className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] rounded-lg p-4 mb-5 text-white">
           <p className="font-black text-lg mb-1">楽天 × eBay 輸出転売</p>
           <p className="text-white/80 text-sm">楽天でポイントをもらいながら仕入れて、eBayで海外に高く売る副業の始め方を解説します。</p>
         </div>
@@ -87,7 +87,7 @@ export default function GuidePage() {
         {/* ステップ */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-[#CC0033] rounded-full" />
+            <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
             <h2 className="text-sm font-black text-gray-800">5ステップで始める</h2>
           </div>
           <div className="flex flex-col gap-3">
@@ -116,14 +116,14 @@ export default function GuidePage() {
         {/* 利益計算の説明 */}
         <div className="bg-white border border-gray-200 p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-[#CC0033] rounded-full" />
+            <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
             <h2 className="text-sm font-black text-gray-800">利益の計算方法</h2>
           </div>
           <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 space-y-1.5 font-mono">
             <div className="flex justify-between"><span>eBay平均落札価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
-            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#CC0033]">- ¥XX,XXX</span></div>
+            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
-            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#CC0033]">- ¥XXX</span></div>
+            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
               <span>利益</span><span>= ¥X,XXX + XXXpt</span>
@@ -134,13 +134,13 @@ export default function GuidePage() {
         {/* FAQ */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-[#CC0033] rounded-full" />
+            <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
             <h2 className="text-sm font-black text-gray-800">よくある質問</h2>
           </div>
           <div className="flex flex-col gap-2">
             {FAQS.map((faq, i) => (
               <details key={i} className="bg-white border border-gray-200 rounded-lg group">
-                <summary className="flex items-center justify-between gap-2 px-3 min-h-[44px] cursor-pointer list-none text-sm font-bold text-[#CC0033]">
+                <summary className="flex items-center justify-between gap-2 px-3 min-h-[44px] cursor-pointer list-none text-sm font-bold text-[#BF0000]">
                   <span>Q. {faq.q}</span>
                   <span aria-hidden="true" className="text-gray-400 text-xs shrink-0 transition-transform group-open:rotate-180">▼</span>
                 </summary>
@@ -153,7 +153,7 @@ export default function GuidePage() {
         {/* CTA */}
         <div className="text-center py-4">
           <Link href="/search"
-            className="inline-block bg-[#CC0033] text-white font-black px-8 py-3 text-sm">
+            className="inline-block bg-[#BF0000] text-white font-black px-8 py-3 text-sm">
             利益商品を探す →
           </Link>
         </div>

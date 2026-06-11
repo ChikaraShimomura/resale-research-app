@@ -64,7 +64,7 @@ function ResultsContent() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* ヘッダー */}
-      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] sticky top-0 z-20 shadow-sm"
+      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] sticky top-0 z-20 shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 pt-2 pb-2 flex items-center gap-2">
           <Link href="/search"
@@ -90,7 +90,7 @@ function ResultsContent() {
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
           ) : (
             <p className="text-xs text-gray-600">
-              <span className="font-black text-[#CC0033] text-base">{sorted.length}</span>
+              <span className="font-black text-[#BF0000] text-base">{sorted.length}</span>
               <span className="ml-0.5">件</span>
               {hotCount > 0 && (
                 <span className="ml-2 text-[11px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
@@ -132,7 +132,7 @@ function ResultsContent() {
               : <p className="text-gray-400 text-xs">別のキーワードで検索してみてください</p>
             }
             <Link href="/search"
-              className="mt-5 inline-block text-sm font-bold text-[#CC0033] border border-[#CC0033] px-5 py-2 rounded-full">
+              className="mt-5 inline-block text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2 rounded-full">
               ← ホームに戻る
             </Link>
           </div>

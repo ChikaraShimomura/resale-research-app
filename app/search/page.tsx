@@ -53,14 +53,14 @@ export default function SearchPage() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* 楽天風ヘッダー（スクロールしても固定） */}
-      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         {/* ロゴ行 */}
         <div className="px-3 pt-2 pb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* 楽天風ロゴ */}
             <div className="flex items-center gap-1">
               <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                <span className="text-[#CC0033] font-black text-sm leading-none">R</span>
+                <span className="text-[#BF0000] font-black text-sm leading-none">R</span>
               </div>
               <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
             </div>
@@ -83,21 +83,21 @@ export default function SearchPage() {
 
       <main className="max-w-2xl mx-auto">
 
-        {/* ポイントキャンペーンバナー（楽天のSPUバナー風・折りたたみ可） */}
+        {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (
-          <div className="bg-gradient-to-r from-[#FF4466] to-[#FF6688] px-4 py-3 flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0">
-              <span className="text-[#FF4466] font-black text-lg leading-none">R</span>
+          <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#BF0000] rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white font-black text-base leading-none">R</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-black text-sm">楽天×eBayで稼ぐ</p>
-              <p className="text-white/80 text-xs">仕入れで最大20%ポイント還元 + 海外で高値売却</p>
+              <p className="text-gray-900 font-black text-sm">楽天×eBayで稼ぐ</p>
+              <p className="text-gray-500 text-xs leading-snug">仕入れで最大20%ポイント還元 ＋ 海外で高値売却</p>
             </div>
-            <Link href="/guide" className="text-[11px] font-bold text-white bg-white/20 px-2.5 py-1.5 rounded shrink-0">
+            <Link href="/guide" className="text-[11px] font-bold text-[#BF0000] border border-[#BF0000] px-2.5 py-1.5 rounded shrink-0 active:bg-[#BF0000]/5">
               使い方 ›
             </Link>
             <button onClick={dismissBanner} aria-label="バナーを閉じる"
-              className="w-9 h-9 -mr-1.5 flex items-center justify-center text-white/80 hover:text-white active:scale-90 shrink-0 text-lg leading-none">
+              className="w-9 h-9 -mr-1.5 flex items-center justify-center text-gray-400 hover:text-gray-600 active:scale-90 shrink-0 text-lg leading-none">
               ×
             </button>
           </div>
@@ -111,7 +111,7 @@ export default function SearchPage() {
               <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
             ) : (
               <p className="text-xs text-gray-600">
-                <span className="font-black text-[#CC0033] text-base">{products.length}</span>
+                <span className="font-black text-[#BF0000] text-base">{products.length}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
                   <span className="ml-2 text-[13px] text-[#FF4466] font-bold">🔥 {hotCount}件が利益30%超</span>
@@ -148,7 +148,7 @@ export default function SearchPage() {
               <p className="text-gray-400 text-xs"></p>
               <div className="mt-4 flex justify-center gap-1">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-[#CC0033]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <div key={i} className="w-2 h-2 rounded-full bg-[#BF0000]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>

@@ -33,7 +33,7 @@ function PointBadge({ rate }: { rate: number }) {
 
 function ProfitRateBadge({ rate }: { rate: number }) {
   const bg = rate >= 50
-    ? "bg-gradient-to-r from-[#CC0033] to-[#FF4466]"
+    ? "bg-gradient-to-r from-[#BF0000] to-[#FF4466]"
     : rate >= 30
     ? "bg-gradient-to-r from-orange-500 to-amber-400"
     : "bg-gradient-to-r from-amber-500 to-yellow-400";
@@ -86,13 +86,13 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
 
       {/* HOT グラデーションライン */}
       {isHot && !sold && (
-        <div className="h-1 bg-gradient-to-r from-[#CC0033] via-[#FF4466] to-[#FF6B6B]" />
+        <div className="h-1 bg-gradient-to-r from-[#BF0000] via-[#FF4466] to-[#FF6B6B]" />
       )}
 
       {/* SOLD: 商品情報をぼかして SOLD札 + 説明を重ねる（z-10=固定ヘッダーより下） */}
       {sold && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
-          <span className="rotate-[-12deg] bg-[#CC0033] text-white text-2xl font-black px-6 py-1.5 rounded-lg tracking-[0.2em] shadow-lg">SOLD</span>
+          <span className="rotate-[-12deg] bg-[#BF0000] text-white text-2xl font-black px-6 py-1.5 rounded-lg tracking-[0.2em] shadow-lg">SOLD</span>
           <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-lg px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
             ライバルが増えてきたので、この商品は一旦SOLDにしたよ🙏<br />
             他にも狙い目はいっぱいあるよ！早い者勝ちだよ。
@@ -114,7 +114,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             )}
             </a>
             {isHot && (
-              <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black bg-gradient-to-r from-[#CC0033] to-[#FF4466] text-white px-1.5 py-0.5 rounded-full leading-none shadow-sm">
+              <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black bg-gradient-to-r from-[#BF0000] to-[#FF4466] text-white px-1.5 py-0.5 rounded-full leading-none shadow-sm">
                 急騰
               </span>
             )}
@@ -125,7 +125,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             {/* バッジ行 */}
             <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
               {product.isNew && (
-                <span className="text-[10px] font-bold border border-[#CC0033] text-[#CC0033] px-1.5 py-0.5 rounded-full leading-none">新品</span>
+                <span className="text-[10px] font-bold border border-[#BF0000] text-[#BF0000] px-1.5 py-0.5 rounded-full leading-none">新品</span>
               )}
               <PointBadge rate={source.pointRate ?? 1} />
             </div>
@@ -138,7 +138,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             {/* 楽天仕入れ価格 */}
             <div className="flex items-baseline gap-1">
               <span className="text-[10px] text-gray-400">仕入れ</span>
-              <span className="text-base font-black text-[#CC0033]">
+              <span className="text-base font-black text-[#BF0000]">
                 {formatJpy(source.price)}
               </span>
             </div>
@@ -186,7 +186,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
             <div className="text-right shrink-0">
               <ProfitRateBadge rate={product.realProfitRate} />
               <p className="text-[11px] text-gray-500 mt-1">実質利益（ポイント込み）</p>
-              <p className="text-2xl font-black text-[#CC0033] leading-tight whitespace-nowrap">
+              <p className="text-2xl font-black text-[#BF0000] leading-tight whitespace-nowrap">
                 {formatJpy(product.realProfit + pointAmount)}
               </p>
               {pointAmount > 0 && (
@@ -224,7 +224,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span>eBay平均落札価格</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
-            <div className="flex justify-between text-[#CC0033]">
+            <div className="flex justify-between text-[#BF0000]">
               <span>楽天仕入れ価格</span>
               <span>- {formatJpy(source.price)}</span>
             </div>
@@ -234,7 +234,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                 <span>+ {formatJpy(pointAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-[#CC0033]">
+            <div className="flex justify-between text-[#BF0000]">
               <span>eBay手数料（13.25% + ¥47）</span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
@@ -242,7 +242,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               <span>国際送料</span>
               <span className="font-bold text-emerald-600">購入者負担（¥0）</span>
             </div>
-            <div className="flex justify-between font-black text-[#CC0033] pt-1.5 border-t border-gray-200 text-[13px]">
+            <div className="flex justify-between font-black text-[#BF0000] pt-1.5 border-t border-gray-200 text-[13px]">
               <span>実質利益合計</span>
               <span>{formatJpy(product.realProfit + pointAmount)}</span>
             </div>
@@ -260,8 +260,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
           {/* 主要CTA — 楽天で仕入れる / eBay簡単出品 を横並び（flex-1で等幅） */}
           <div className="flex gap-2">
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="flex-1 inline-flex items-center justify-center gap-1 h-11 bg-gradient-to-r from-[#CC0033] to-[#E8003A] hover:from-[#AA0028] hover:to-[#CC0033] active:scale-[0.99] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
-              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#CC0033] font-black text-[9px] shrink-0">R</span>
+              className="flex-1 inline-flex items-center justify-center gap-1 h-11 bg-gradient-to-r from-[#BF0000] to-[#BF0000] hover:from-[#9E0000] hover:to-[#BF0000] active:scale-[0.99] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
+              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
               楽天で仕入れる
             </a>
             {!sold && (
@@ -276,7 +276,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
               aria-pressed={isFav}
               className={cn(
                 "flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl border-2 text-xs font-bold transition-colors active:scale-95",
-                isFav ? "bg-red-50 border-[#CC0033] text-[#CC0033]" : "bg-gray-50 border-gray-200 text-gray-500"
+                isFav ? "bg-red-50 border-[#BF0000] text-[#BF0000]" : "bg-gray-50 border-gray-200 text-gray-500"
               )}>
               <Heart size={15} fill={isFav ? "currentColor" : "none"} />
               {isFav ? "お気に入り済" : "お気に入り"}

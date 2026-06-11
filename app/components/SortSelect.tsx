@@ -33,7 +33,7 @@ export default function SortSelect({
         value={value}
         onChange={(e) => onChange(e.target.value as SortOrder)}
         aria-label="並び替え"
-        className="appearance-none h-7 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-gray-700 focus:outline-none focus:border-[#CC0033]"
+        className="appearance-none h-7 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-gray-700 focus:outline-none focus:border-[#BF0000]"
       >
         <option value="default">新着順</option>
         <option value="rate">利益率が高い順</option>

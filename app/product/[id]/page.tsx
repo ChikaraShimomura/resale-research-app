@@ -66,7 +66,7 @@ export default async function ProductPage({
   if (!product) {
     return (
       <div className="min-h-dvh bg-[#F5F7FA] pb-nav flex flex-col">
-        <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] px-3 py-3"
+        <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] px-3 py-3"
           style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))" }}>
           <span className="text-white font-black text-base">輸出ラボ</span>
         </header>
@@ -75,7 +75,7 @@ export default async function ProductPage({
           <p className="text-gray-600 text-sm font-semibold mb-1">この商品は現在掲載されていません</p>
           <p className="text-gray-400 text-xs mb-5">入れ替わった可能性があります</p>
           <Link href="/search"
-            className="inline-flex items-center min-h-[44px] text-sm font-bold text-white bg-[#CC0033] rounded-full px-6 active:bg-[#AA0028]">
+            className="inline-flex items-center min-h-[44px] text-sm font-bold text-white bg-[#BF0000] rounded-full px-6 active:bg-[#9E0000]">
             利益商品を見る →
           </Link>
         </main>
@@ -86,7 +86,7 @@ export default async function ProductPage({
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm"
+      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"
@@ -100,7 +100,7 @@ export default async function ProductPage({
       <main className="max-w-2xl mx-auto p-3">
         <ProductCard product={product} />
         <Link href="/search"
-          className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#CC0033] border border-[#CC0033] rounded-xl active:bg-red-50">
+          className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-xl active:bg-red-50">
           他の利益商品を見る →
         </Link>
       </main>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function SettingsPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm"
+      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"

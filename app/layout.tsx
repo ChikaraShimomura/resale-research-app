@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   // ピンチズームは有効のまま（WCAG 1.4.4）。入力フォームのフォーカスズームは
   // globals.css の input{font-size:16px} で防いでいるため maximumScale 制限は不要。
   viewportFit: "cover",    // iPhone ノッチ・ホームバーにコンテンツを広げる
-  themeColor: "#CC0033",   // Safariのアドレスバー色 / Android PWAヘッダー色
+  themeColor: "#BF0000",   // Safariのアドレスバー色 / Android PWAヘッダー色
 };
 
 export const metadata: Metadata = {
