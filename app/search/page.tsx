@@ -12,8 +12,10 @@ export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
 
   useEffect(() => {
+    setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     fetchProducts()
       .then(({ products, lastUpdated }) => {
         setProducts(products);
@@ -21,6 +23,11 @@ export default function SearchPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const dismissBanner = () => {
+    localStorage.setItem("spu_banner_dismissed", "1");
+    setBannerDismissed(true);
+  };
 
   const updatedLabel = lastUpdated
     ? `${new Date(lastUpdated).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 更新`
@@ -31,8 +38,8 @@ export default function SearchPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
-      {/* 楽天風ヘッダー */}
-      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      {/* 楽天風ヘッダー（スクロールしても固定） */}
+      <header className="bg-gradient-to-r from-[#CC0033] to-[#E8003A] shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         {/* ロゴ行 */}
         <div className="px-3 pt-2 pb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -62,22 +69,28 @@ export default function SearchPage() {
 
       <main className="max-w-2xl mx-auto">
 
-        {/* ポイントキャンペーンバナー（楽天のSPUバナー風） */}
-        <div className="bg-gradient-to-r from-[#FF4466] to-[#FF6688] px-4 py-3 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0">
-            <span className="text-[#FF4466] font-black text-lg leading-none">R</span>
+        {/* ポイントキャンペーンバナー（楽天のSPUバナー風・折りたたみ可） */}
+        {!bannerDismissed && (
+          <div className="bg-gradient-to-r from-[#FF4466] to-[#FF6688] px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0">
+              <span className="text-[#FF4466] font-black text-lg leading-none">R</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-black text-sm">楽天ポイント × eBay転売で稼ぐ</p>
+              <p className="text-white/80 text-xs">仕入れで最大20%ポイント還元 + 海外で高値売却</p>
+            </div>
+            <Link href="/guide" className="text-[11px] font-bold text-white bg-white/20 px-2.5 py-1.5 rounded shrink-0">
+              使い方 ›
+            </Link>
+            <button onClick={dismissBanner} aria-label="バナーを閉じる"
+              className="w-9 h-9 -mr-1.5 flex items-center justify-center text-white/80 hover:text-white active:scale-90 shrink-0 text-lg leading-none">
+              ×
+            </button>
           </div>
-          <div className="flex-1">
-            <p className="text-white font-black text-sm">楽天ポイント × eBay転売で稼ぐ</p>
-            <p className="text-white/80 text-xs">仕入れで最大20%ポイント還元 + 海外で高値売却</p>
-          </div>
-          <Link href="/guide" className="text-[11px] font-bold text-white bg-white/20 px-2.5 py-1.5 rounded shrink-0">
-            使い方 ›
-          </Link>
-        </div>
+        )}
 
-        {/* カテゴリタブ（楽天ショッピングのタブ風） */}
-        <div className="bg-white border-b border-gray-200">
+        {/* カテゴリタブ（楽天ショッピングのタブ風・右端フェードで横スクロールを示唆） */}
+        <div className="bg-white border-b border-gray-200 relative">
           <div className="flex gap-0 overflow-x-auto scrollbar-hide">
             <Link href="/results?q="
               className="shrink-0 inline-flex items-center min-h-[44px] px-4 text-xs font-bold text-[#CC0033] border-b-2 border-[#CC0033] bg-white whitespace-nowrap">
@@ -91,6 +104,7 @@ export default function SearchPage() {
               </Link>
             ))}
           </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
         </div>
 
         {/* セクションヘッダー（楽天風の「件数+ソート」行） */}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { kv } from "@vercel/kv";
+import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
@@ -15,7 +15,7 @@ function hiResImage(url: string): string {
 
 async function getProduct(id: string): Promise<ProfitProduct | null> {
   try {
-    const products = await kv.get<ProfitProduct[]>("profitable_products");
+    const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
     return products?.find((p) => p.id === id) ?? null;
   } catch {
     return null;

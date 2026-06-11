@@ -68,8 +68,8 @@ export default function GuidePage() {
       {/* ヘッダー */}
       <header className="bg-[#CC0033]" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2">
-          <Link href="/search"
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white text-lg font-bold shrink-0">
+          <Link href="/search" aria-label="検索に戻る"
+            className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
             ‹
           </Link>
           <h1 className="text-white font-black text-base">はじめてガイド</h1>
@@ -139,10 +139,13 @@ export default function GuidePage() {
           </div>
           <div className="flex flex-col gap-2">
             {FAQS.map((faq, i) => (
-              <div key={i} className="bg-white border border-gray-200 p-3">
-                <p className="text-sm font-bold text-[#CC0033] mb-1">Q. {faq.q}</p>
-                <p className="text-xs text-gray-600 leading-relaxed">A. {faq.a}</p>
-              </div>
+              <details key={i} className="bg-white border border-gray-200 rounded-lg group">
+                <summary className="flex items-center justify-between gap-2 px-3 min-h-[44px] cursor-pointer list-none text-sm font-bold text-[#CC0033]">
+                  <span>Q. {faq.q}</span>
+                  <span aria-hidden="true" className="text-gray-400 text-xs shrink-0 transition-transform group-open:rotate-180">▼</span>
+                </summary>
+                <p className="px-3 pb-3 text-[13px] text-gray-600 leading-relaxed">A. {faq.a}</p>
+              </details>
             ))}
           </div>
         </div>

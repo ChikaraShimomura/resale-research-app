@@ -1,15 +1,15 @@
-import { kv } from "@vercel/kv";
+import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 
-// KVを読むだけ。計算・外部API呼び出しは一切しない。
+// KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const [profitable, lastUpdated, stats] = await Promise.all([
-      kv.get<ProfitProduct[]>("profitable_products"),
-      kv.get<string>("last_updated"),
-      kv.get<Record<string, unknown>>("refresh_stats"),
+      kvReadOnly.get<ProfitProduct[]>("profitable_products"),
+      kvReadOnly.get<string>("last_updated"),
+      kvReadOnly.get<Record<string, unknown>>("refresh_stats"),
     ]);
 
     if (profitable && profitable.length > 0) {
