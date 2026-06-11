@@ -5,4 +5,5 @@ export interface ProfitProduct extends Product {
   realProfit: number;    // 利益額
   realProfitRate: number; // 利益率（%）
   realCount: number;     // 落札件数
+  addedAt?: string;      // 初回登録時刻（ISO）。登録順ソート用
 }

@@ -404,6 +404,8 @@ async function main() {
     if (p.ebaySoldUrl && !p.ebaySoldUrl.includes('LH_Sold=1') && p.coreKeyword) {
       p.ebaySoldUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(p.coreKeyword)}&LH_Complete=1&LH_Sold=1`;
     }
+    // addedAt 未設定の旧データは固定の過去時刻で補完（既存の並び順を保ったまま新着の下に来る）
+    if (!p.addedAt) p.addedAt = '2020-01-01T00:00:00.000Z';
     return p;
   });
   const existingIds = new Set(existingProducts.map(p => p.id)); // 楽天itemCode
@@ -494,6 +496,7 @@ async function main() {
           realProfitRate: profitRate,
           realCount: 1,
           avgDaysToSell: null,
+          addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
         },
       };
     }
@@ -517,7 +520,8 @@ async function main() {
         // 楽天itemCodeも既存IDに追加（同一商品の重複登録防止）
         existingIds.add(res.rakutenId);
         profitableProducts.push(res.product);
-        const sorted = [...profitableProducts].sort((a, b) => b.realProfitRate - a.realProfitRate);
+        // 登録順（新着が先頭）で保存。利益率ソートは将来の有料機能としてフロント側で実装
+        const sorted = [...profitableProducts].sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
         await kvSet('profitable_products', sorted, 480 * 3600);
         await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
       }
@@ -530,8 +534,8 @@ async function main() {
     }
   }
 
-  // 最終保存
-  profitableProducts.sort((a, b) => b.realProfitRate - a.realProfitRate);
+  // 最終保存（登録順・新着が先頭。利益率ソートは将来の有料機能）
+  profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);
   await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
   await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));

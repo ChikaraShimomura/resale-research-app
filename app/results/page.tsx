@@ -14,7 +14,8 @@ function ResultsContent() {
 
   const [allProducts, setAllProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  // "default" = 登録順（新着順）。利益率ソートは将来の有料機能
+  const [sortOrder, setSortOrder] = useState<"default" | "desc" | "asc">("default");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,14 +37,15 @@ function ResultsContent() {
     );
   }, [allProducts, keyword]);
 
-  const sorted = useMemo(() =>
-    [...filtered].sort((a, b) =>
+  const sorted = useMemo(() => {
+    // 登録順（API が返す新着順）をそのまま表示
+    if (sortOrder === "default") return filtered;
+    return [...filtered].sort((a, b) =>
       sortOrder === "desc"
         ? b.realProfitRate - a.realProfitRate
         : a.realProfitRate - b.realProfitRate
-    ),
-    [filtered, sortOrder]
-  );
+    );
+  }, [filtered, sortOrder]);
 
   const displayLabel = keyword || "すべて";
   const updatedLabel = lastUpdated
@@ -92,15 +94,23 @@ function ResultsContent() {
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        {/* ソートボタン */}
+        {/* ソートボタン（登録順がデフォルト。利益率ソートは将来の有料機能） */}
         <div className="flex border border-gray-200 overflow-hidden text-xs font-semibold rounded-xl shadow-sm">
+          <button onClick={() => setSortOrder("default")}
+            aria-pressed={sortOrder === "default"}
+            className={`inline-flex items-center min-h-[44px] px-3 transition-colors ${sortOrder === "default" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
+            登録順
+          </button>
+          {/* TODO: 課金導入時はここをペイウォールでゲートする */}
           <button onClick={() => setSortOrder("desc")}
-            className={`px-3 py-1.5 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500"}`}>
-            利益率↓
+            aria-pressed={sortOrder === "desc"}
+            className={`inline-flex items-center gap-0.5 min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "desc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
+            利益率↓<span className="text-[9px] opacity-70">🔒</span>
           </button>
           <button onClick={() => setSortOrder("asc")}
-            className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500"}`}>
-            利益率↑
+            aria-pressed={sortOrder === "asc"}
+            className={`inline-flex items-center gap-0.5 min-h-[44px] px-3 border-l border-gray-200 transition-colors ${sortOrder === "asc" ? "bg-[#CC0033] text-white" : "bg-white text-gray-500 active:bg-gray-50"}`}>
+            利益率↑<span className="text-[9px] opacity-70">🔒</span>
           </button>
         </div>
       </div>
