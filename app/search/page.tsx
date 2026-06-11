@@ -3,12 +3,12 @@ import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
-import { GENRES } from "../lib/genres";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
 import { isSold, withSoldDummies } from "../lib/sold";
+import Pagination, { PAGE_SIZE } from "../components/Pagination";
 
 export default function SearchPage() {
   const [products, setProducts] = useState<ProfitProduct[]>([]);
@@ -41,6 +41,12 @@ export default function SearchPage() {
   // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在
   const baseList = hideSold ? products.filter(p => !isSold(p)) : withSoldDummies(products);
   const sortedProducts = sortProducts(baseList, sortOrder);
+
+  // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [sortOrder, hideSold]);
+  const pageCount = Math.ceil(sortedProducts.length / PAGE_SIZE);
+  const pageItems = sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -96,23 +102,6 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* カテゴリタブ（楽天ショッピングのタブ風・右端フェードで横スクロールを示唆） */}
-        <div className="bg-white border-b border-gray-200 relative">
-          <div className="flex gap-0 overflow-x-auto scrollbar-hide">
-            <Link href="/results?q="
-              className="shrink-0 inline-flex items-center min-h-[44px] px-4 text-xs font-bold text-[#CC0033] border-b-2 border-[#CC0033] bg-white whitespace-nowrap">
-              すべて
-            </Link>
-            {GENRES.map((genre) => (
-              <Link key={genre.id}
-                href={`/results?q=${encodeURIComponent(genre.label)}`}
-                className="shrink-0 inline-flex items-center min-h-[44px] px-4 text-xs font-medium text-gray-500 border-b-2 border-transparent hover:text-[#CC0033] active:text-[#CC0033] whitespace-nowrap">
-                {genre.emoji} {genre.label}
-              </Link>
-            ))}
-          </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent" />
-        </div>
 
         {/* セクションヘッダー（件数 + 出品可能のみ + 並び替え） */}
         <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
@@ -170,11 +159,14 @@ export default function SearchPage() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 p-3">
-              {sortedProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="flex flex-col gap-3 p-3">
+                {pageItems.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+            </>
           )}
         </div>
 

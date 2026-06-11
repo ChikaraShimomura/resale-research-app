@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { GENRES } from "./lib/genres";
 
 export default function LandingPage() {
   return (
@@ -69,25 +68,6 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* カテゴリ */}
-      <section className="max-w-2xl mx-auto px-4 py-5">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-1 h-5 bg-gradient-to-b from-[#CC0033] to-[#FF4466] rounded-full" />
-          <h2 className="text-sm font-black text-gray-800">カテゴリから探す</h2>
-        </div>
-        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-          {GENRES.slice(0, 8).map((genre) => (
-            <Link
-              key={genre.id}
-              href={`/results?q=${encodeURIComponent(genre.label)}`}
-              className="flex flex-col items-center justify-center gap-1 px-1 py-3 min-h-[72px] rounded-2xl bg-white border border-gray-100 shadow-sm text-center hover:border-[#CC0033]/30 hover:bg-red-50 transition-all active:scale-95"
-            >
-              <span className="text-2xl" aria-hidden="true">{genre.emoji}</span>
-              <span className="text-xs font-bold text-gray-700">{genre.label}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {/* 利益計算の説明 */}
       <section className="max-w-2xl mx-auto px-4 pb-5">

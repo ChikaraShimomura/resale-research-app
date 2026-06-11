@@ -9,6 +9,7 @@ import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 import SortSelect, { SortOrder, sortProducts } from "../components/SortSelect";
 import { isSold, withSoldDummies } from "../lib/sold";
+import Pagination, { PAGE_SIZE } from "../components/Pagination";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -44,6 +45,12 @@ function ResultsContent() {
     const base = hideSold ? filtered.filter((p) => !isSold(p)) : withSoldDummies(filtered);
     return sortProducts(base, sortOrder);
   }, [filtered, sortOrder, hideSold]);
+
+  // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [sortOrder, hideSold, keyword]);
+  const pageCount = Math.ceil(sorted.length / PAGE_SIZE);
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const displayLabel = keyword || "すべて";
   const updatedLabel = lastUpdated
@@ -136,11 +143,14 @@ function ResultsContent() {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 p-3">
-            {sorted.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-3 p-3">
+              {pageItems.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+            <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+          </>
         )}
 
         {!loading && sorted.length > 0 && (
