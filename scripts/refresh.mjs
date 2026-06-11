@@ -535,18 +535,17 @@ async function fetchEbayCandidates(enQuery) {
     return cached;
   }
 
-  // US落札実績を取得、0件の場合のみUKにフォールバック
-  let candidates = await fetchEbaySoldForSite(enQuery, 0);
-  console.log(`  [Sold US] ${enQuery.slice(0, 40)} → ${candidates.length}件`);
+  // US・UK・AU を並列取得し、件数が最も多い市場を採用
+  const [us, uk, au] = await Promise.all([
+    fetchEbaySoldForSite(enQuery, 0),
+    fetchEbaySoldForSite(enQuery, 3),
+    fetchEbaySoldForSite(enQuery, 15),
+  ]);
+  console.log(`  [Sold US]${us.length} UK:${uk.length} AU:${au.length} "${enQuery.slice(0, 30)}"`);
 
-  if (candidates.length === 0) {
-    const uk = await fetchEbaySoldForSite(enQuery, 3);
-    console.log(`  [Sold UK] ${enQuery.slice(0, 40)} → ${uk.length}件`);
-    candidates = uk;
-  }
-
-  await kvSet(cacheKey, candidates, 48 * 3600);
-  return candidates;
+  const best = [us, uk, au].reduce((a, b) => b.length > a.length ? b : a, []);
+  await kvSet(cacheKey, best, 48 * 3600);
+  return best;
 }
 
 // ========== ③-A Claude Haiku事前分類 ==========
