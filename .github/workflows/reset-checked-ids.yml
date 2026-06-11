@@ -1,0 +1,17 @@
+name: Reset checked_ids
+on:
+  workflow_dispatch:
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear checked_ids
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          curl -s -X POST "$KV_REST_API_URL/pipeline" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '[["SET","checked_ids","[]"]]'
+          echo "checked_ids cleared."
