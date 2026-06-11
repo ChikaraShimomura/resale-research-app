@@ -1,5 +1,5 @@
 "use client";
-import { formatJpy, cn, toRakutenAffiliateUrl } from "../lib/utils";
+import { formatJpy, cn, toRakutenAffiliateUrl, safeHttpUrl } from "../lib/utils";
 import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
@@ -71,6 +71,7 @@ function TrustBadge({ count }: { count: number }) {
 export default function ProductCard({ product }: { product: ProfitProduct }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
+  const ebaySoldUrl = safeHttpUrl(product.ebaySoldUrl);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
   const [listingCount, setListingCount] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -190,8 +191,8 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                   {product.avgDaysToSell != null && (
                     <span className="text-xs text-gray-500">平均{product.avgDaysToSell}日</span>
                   )}
-                  {product.ebaySoldUrl && (
-                    <a href={product.ebaySoldUrl} target="_blank" rel="noopener noreferrer"
+                  {ebaySoldUrl && (
+                    <a href={ebaySoldUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                       aria-label="eBayの直近の落札実績を見る"
                       className="inline-flex items-center gap-0.5 text-[11px] text-blue-500 font-bold hover:underline py-1">

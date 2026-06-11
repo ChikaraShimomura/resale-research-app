@@ -15,19 +15,20 @@ export async function GET() {
     if (profitable && profitable.length > 0) {
       return Response.json(
         { products: profitable, lastUpdated, stats },
-        { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=3600" } }
+        // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）
+        { headers: { "Cache-Control": "private, no-store" } }
       );
     }
 
     // KVにデータがない場合は空を返す
     return Response.json(
       { products: [], lastUpdated: null },
-      { headers: { "Cache-Control": "public, max-age=60" } }
+      { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch {
     return Response.json(
       { products: [], lastUpdated: null },
-      { headers: { "Cache-Control": "public, max-age=60" } }
+      { headers: { "Cache-Control": "private, no-store" } }
     );
   }
 }

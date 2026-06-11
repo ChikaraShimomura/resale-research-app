@@ -3,8 +3,22 @@ import { twMerge } from "tailwind-merge";
 
 const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
 
+// http/https のURLのみ許可。javascript:/data: 等のスキームは空文字を返す（DOM-XSS対策）。
+// スクレイピング由来の値が href/src に入るため全ての外部リンクをこれでゲートする。
+export function safeHttpUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
 export function toRakutenAffiliateUrl(productUrl: string): string {
-  const encoded = encodeURIComponent(productUrl);
+  const safe = safeHttpUrl(productUrl);
+  if (!safe) return "";
+  const encoded = encodeURIComponent(safe);
   return `https://hb.afl.rakuten.co.jp/hgc/${RAKUTEN_AFFILIATE_ID}/?pc=${encoded}&link_type=text`;
 }
 
