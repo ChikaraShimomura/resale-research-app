@@ -8,6 +8,7 @@ import EbayLocationSetup from "./EbayLocationSetup";
 
 interface Readiness {
   connected?: boolean;
+  sellerRegistered?: boolean | null;
   fulfillmentPolicies?: number;
   paymentPolicies?: number;
   returnPolicies?: number;
@@ -47,6 +48,7 @@ export default function EbayListingSetup() {
 
   const dones = [
     !!r?.connected,
+    r?.sellerRegistered === true,
     (r?.fulfillmentPolicies ?? 0) > 0 && (r?.paymentPolicies ?? 0) > 0 && (r?.returnPolicies ?? 0) > 0,
     (r?.locations ?? 0) > 0,
   ];
@@ -64,6 +66,36 @@ export default function EbayListingSetup() {
 
   const steps = [
     { title: "eBayと連携する", body: <EbayConnect /> },
+    {
+      title: "セラー登録（売上の受け取り）",
+      body: (
+        <div>
+          <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+            eBayで「出品できるセラー」になるための登録です。本人確認とPayoneer（売上の受け取り）の設定を含みます。
+            <b className="text-gray-600">この手続きはeBayのページで行います（アプリ内では完了できません）。</b>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="https://www.ebay.com/sl/sell"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 h-11 px-5 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
+            >
+              eBayでセラー登録する
+            </a>
+            <button
+              onClick={refresh}
+              className="inline-flex items-center h-11 px-4 text-sm font-bold text-gray-600 border border-gray-300 rounded-xl active:bg-gray-50"
+            >
+              完了を確認
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+            登録が終わったら「完了を確認」を押すと、チェックが付きます（eBay側の反映に少し時間がかかる場合があります）。
+          </p>
+        </div>
+      ),
+    },
     { title: "ビジネスポリシーを作成", body: <EbayPolicySetup onDone={refresh} /> },
     { title: "発送元を登録", body: <EbayLocationSetup onDone={refresh} /> },
   ];
@@ -71,7 +103,7 @@ export default function EbayListingSetup() {
   if (loading) {
     return (
       <div className="space-y-2">
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} className="h-14 bg-white rounded-2xl border border-gray-100 animate-pulse" />
         ))}
       </div>
@@ -82,7 +114,7 @@ export default function EbayListingSetup() {
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-sm font-black text-gray-800">写真だけ出品の準備</h2>
-        <span className="text-[11px] font-bold text-gray-400">{doneCount}/3 完了</span>
+        <span className="text-[11px] font-bold text-gray-400">{doneCount}/{dones.length} 完了</span>
       </div>
 
       {allDone && (

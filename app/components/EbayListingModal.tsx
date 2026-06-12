@@ -63,7 +63,7 @@ export default function EbayListingModal({
         .then((r) => r.json())
         .catch(() => ({}));
       if (!alive) return;
-      if (!rd.connected || !rd.ready) {
+      if (!rd.connected || !rd.ready || rd.sellerRegistered === false) {
         setPhase("setup");
         return;
       }
@@ -169,7 +169,7 @@ export default function EbayListingModal({
               <AlertTriangle size={36} className="mx-auto mb-3 text-amber-400" />
               <p className="text-sm font-bold text-gray-800 mb-1">出品の準備が未完了です</p>
               <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-                eBay連携・ビジネスポリシー・発送元の登録が必要です。<br />設定画面で順番に進めてください。
+                eBayのセラー登録・連携・ポリシー・発送元のいずれかが未完了です。<br />設定画面で順番に進めてください。
               </p>
               <button
                 onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
