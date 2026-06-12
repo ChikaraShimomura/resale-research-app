@@ -312,8 +312,11 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   // 4) 公開
   const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
-  steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.error });
-  if (!pub.ok) return { ok: false, sku, offerId, steps, error: pub.error };
+  const friendly = !pub.ok && /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "")
+    ? "eBayの「セラー登録（売上の受け取り設定）」がまだ完了していません。eBayにログインして、出品（Seller Hub）からセラー登録・本人確認・Payoneerでの受け取り設定を完了してから、もう一度お試しください。"
+    : pub.error;
+  steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.ok ? undefined : friendly });
+  if (!pub.ok) return { ok: false, sku, offerId, steps, error: friendly };
 
   return { ok: true, sku, offerId, listingId, steps };
 }
