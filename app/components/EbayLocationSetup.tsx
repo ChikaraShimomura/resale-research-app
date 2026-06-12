@@ -8,6 +8,7 @@ export default function EbayLocationSetup() {
   const [zip, setZip] = useState("");
   const [banchi, setBanchi] = useState("");
   const [building, setBuilding] = useState("");
+  const [room, setRoom] = useState("");
   const [ja, setJa] = useState<AddrJa | null>(null);
   const [en, setEn] = useState<AddrEn | null>(null);
   const [lookupMsg, setLookupMsg] = useState("");
@@ -67,7 +68,7 @@ export default function EbayLocationSetup() {
           stateOrProvince: en.stateOrProvince,
           city: en.city,
           addressLine1: `${en.town} ${banchi.trim()}`.trim(),
-          addressLine2: building.trim(),
+          addressLine2: `${building.trim()} ${room.trim()}`.trim(),
         }),
       }).then((x) => x.json());
       if (r.ok) {
@@ -123,20 +124,31 @@ export default function EbayLocationSetup() {
         </div>
 
         <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">建物・部屋番号（任意）</label>
+          <label className="block text-[11px] text-gray-500 mb-0.5">建物名（任意）</label>
           <input
             type="text"
             value={building}
             onChange={(e) => setBuilding(e.target.value)}
-            placeholder="#1001"
+            placeholder="〇〇マンション"
+            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-0.5">部屋番号（任意）</label>
+          <input
+            type="text"
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            placeholder="1001"
             className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
           />
         </div>
       </div>
 
-      {en && (banchi || building) && (
+      {en && (banchi || building || room) && (
         <p className="mt-2 text-[11px] text-gray-400 leading-snug">
-          eBay登録（英字）: {[`${en.town} ${banchi}`.trim(), building, en.city, en.stateOrProvince, zip, "Japan"].filter(Boolean).join(", ")}
+          eBay登録（英字）: {[`${en.town} ${banchi}`.trim(), [building, room].filter(Boolean).join(" "), en.city, en.stateOrProvince, zip, "Japan"].filter(Boolean).join(", ")}
         </p>
       )}
 

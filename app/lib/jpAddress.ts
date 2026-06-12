@@ -77,15 +77,31 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-// zipcloud の prefcode / kana から英字の住所パーツを返す
+// 市区町村のローマ字化。末尾の行政区分（区/市/町/村）をハイフン付きの読みに整える。
+// 漢字(kanji)で末尾種別を判定し、ローマ字(kana由来)の語尾を置換する。
+export function romanizeCity(kanji: string, kana: string): string {
+  const base = cap(katakanaToRomaji(kana));
+  const last = (kanji || "").slice(-1);
+  if (last === "区" && /ku$/i.test(base)) return base.slice(0, -2) + "-ku";
+  if (last === "市" && /shi$/i.test(base)) return base.slice(0, -3) + "-shi";
+  if (last === "村" && /mura$/i.test(base)) return base.slice(0, -4) + "-mura";
+  if (last === "町") {
+    if (/machi$/i.test(base)) return base.slice(0, -5) + "-machi";
+    if (/cho$/i.test(base)) return base.slice(0, -3) + "-cho";
+  }
+  return base;
+}
+
+// zipcloud の prefcode / 漢字 / kana から英字の住所パーツを返す
 export function romanizeAddress(opts: {
   prefcode?: string;
+  cityKanji?: string;
   cityKana?: string;
   townKana?: string;
 }): { stateOrProvince: string; city: string; town: string } {
   return {
     stateOrProvince: PREF_BY_CODE[opts.prefcode ?? ""] ?? "",
-    city: cap(katakanaToRomaji(opts.cityKana ?? "")),
+    city: romanizeCity(opts.cityKanji ?? "", opts.cityKana ?? ""),
     town: cap(katakanaToRomaji(opts.townKana ?? "")),
   };
 }

@@ -27,7 +27,12 @@ export async function GET(req: Request) {
     if (!r) {
       return Response.json({ ok: false, error: "該当する住所が見つかりませんでした。" }, { status: 404 });
     }
-    const en = romanizeAddress({ prefcode: r.prefcode, cityKana: r.kana2, townKana: r.kana3 });
+    const en = romanizeAddress({
+      prefcode: r.prefcode,
+      cityKanji: r.address2,
+      cityKana: r.kana2,
+      townKana: r.kana3,
+    });
     return Response.json(
       {
         ok: true,
