@@ -8,7 +8,6 @@ import EbayLocationSetup from "./EbayLocationSetup";
 
 interface Readiness {
   connected?: boolean;
-  sellerRegistered?: boolean | null;
   fulfillmentPolicies?: number;
   paymentPolicies?: number;
   returnPolicies?: number;

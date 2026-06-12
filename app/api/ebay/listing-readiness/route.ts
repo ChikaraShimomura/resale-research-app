@@ -5,7 +5,6 @@ import {
   countPaymentPolicies,
   countReturnPolicies,
   countInventoryLocations,
-  getSellerRegistered,
 } from "../../../lib/ebay/sellApi";
 
 // 「写真だけ出品」の準備状況チェック（読み取り専用）。
@@ -23,12 +22,11 @@ export async function GET(req: Request) {
   const token = await getValidAccessToken(conn);
   if (!token) return Response.json({ connected: false });
 
-  const [fulfillment, payment, ret, locations, sellerRegistered] = await Promise.all([
+  const [fulfillment, payment, ret, locations] = await Promise.all([
     countFulfillmentPolicies(token, marketplace),
     countPaymentPolicies(token, marketplace),
     countReturnPolicies(token, marketplace),
     countInventoryLocations(token),
-    getSellerRegistered(token),
   ]);
 
   const ready = fulfillment > 0 && payment > 0 && ret > 0 && locations > 0;
@@ -41,7 +39,6 @@ export async function GET(req: Request) {
       paymentPolicies: payment,
       returnPolicies: ret,
       locations,
-      sellerRegistered, // true/false/null
       ready,
     },
     { headers: { "Cache-Control": "private, no-store" } }

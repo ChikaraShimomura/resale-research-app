@@ -482,7 +482,9 @@ async function main() {
       if (!rakutenImg) continue; // 画像なしは商品表示にも使えないのでスキップ
 
       // ① 利益計算（Haiku不要）。利益が出ないものはここでスキップ＝Haiku節約
-      const pointAmount = Math.floor(rakutenItem.itemPrice * 10 / 100);
+      // ポイントは楽天APIの実際の倍率を使う（base 1倍=1%）。1箇所で算出し表示・利益計算で共有。
+      const pointRate = rakutenItem.pointRate ?? 1;
+      const pointAmount = Math.floor(rakutenItem.itemPrice * pointRate / 100);
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
       if (profit < 1 || profitRate > 300) continue;
 
@@ -508,7 +510,7 @@ async function main() {
             siteName: '楽天',
             price: rakutenItem.itemPrice,
             url: rakutenItem.affiliateUrl || rakutenItem.itemUrl,
-            pointRate: 10,
+            pointRate,
             pointAmount,
           },
           isNew: rakutenItem.itemName.includes('新品') || rakutenItem.itemName.includes('未開封'),

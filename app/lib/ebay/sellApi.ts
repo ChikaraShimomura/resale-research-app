@@ -54,17 +54,6 @@ export async function countReturnPolicies(token: string, marketplace: string): P
   return r.data?.returnPolicies?.length ?? 0;
 }
 
-// セラー登録（本人確認＋支払い受け取り）の完了状況。Account API の getPrivileges。
-// true=登録済 / false=未登録 / null=判定不能（API失敗・スコープ不足など）。
-export async function getSellerRegistered(token: string): Promise<boolean | null> {
-  const r = await ebayGet<{ sellerRegistrationCompleted?: boolean }>(
-    token,
-    `/sell/account/v1/privilege`
-  );
-  if (!r.ok || !r.data) return null;
-  return r.data.sellerRegistrationCompleted ?? null;
-}
-
 // 在庫ロケーション（Inventory API で出品する際の merchantLocationKey の元）。
 export async function countInventoryLocations(token: string): Promise<number> {
   const r = await ebayGet<{ locations?: unknown[]; total?: number }>(

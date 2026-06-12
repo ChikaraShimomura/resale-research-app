@@ -31,17 +31,6 @@ export function formatJpy(amount: number): string {
 }
 
 
-// eBayの出品開始ページ（prelist/suggest）— title をプレフィルできる唯一の入口。
-// /sl/list はサインインに飛ばされる。q= や query= は無視されるため title= を使う。
-const EBAY_PRELIST_BASE: Record<string, string> = {
-  EBAY_US: "https://www.ebay.com/sl/prelist/suggest",
-  EBAY_GB: "https://www.ebay.co.uk/sl/prelist/suggest",
-  EBAY_AU: "https://www.ebay.com.au/sl/prelist/suggest",
-};
-
-// eBayの「出品をはじめる」画面へタイトルをプレフィルして遷移するURLを生成。
-// eBayはURLでの価格・送料・コンディションのプレフィルを公式にサポートしていないため
-// （Sell APIが必要）、title パラメータのみを渡す。
 // eBay相場の検索URL。eBayタイトルは長く特定的すぎて、そのまま検索すると
 // 0件→無関係な「関連商品」が表示される。ブランド+商品名の主要数語に絞り、
 // さらに「表示中のeBay金額(_udlo=最低価格フロア)」未満の出品は出さないようにする。
@@ -80,20 +69,6 @@ export function toEbayMarketUrl(keyword: string, avgPriceJpy?: number, market?: 
     const floor = Math.round(avgPriceJpy / (EBAY_FX_RATE[mk] ?? 155));
     if (floor > 0) params.set("_udlo", String(floor));
   }
-  return `${base}?${params.toString()}`;
-}
-
-export function toEbayListingUrl(title: string, market?: string): string {
-  const base = EBAY_PRELIST_BASE[market ?? "EBAY_US"] ?? EBAY_PRELIST_BASE.EBAY_US;
-
-  const cleaned = title
-    .replace(/【[^】]*】/g, "")
-    .replace(/[^\x00-\x7F\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-
-  const params = new URLSearchParams({ title: cleaned || title.slice(0, 80) });
   return `${base}?${params.toString()}`;
 }
 
