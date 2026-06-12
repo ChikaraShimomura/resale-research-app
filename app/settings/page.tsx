@@ -2,13 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
+import ResetListingCounts from "../components/ResetListingCounts";
 
 export const metadata: Metadata = {
   title: "設定",
   robots: { index: false },
 };
 
-export default function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const showReset = sp.reset === "1"; // /settings?reset=1 のときだけ表示
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
@@ -34,6 +41,8 @@ export default function SettingsPage() {
         </section>
 
         <EbayListingSetup />
+
+        {showReset && <ResetListingCounts />}
 
         <div className="pt-1 text-center">
           <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#BF0000]">プライバシーポリシー</Link>

@@ -17,6 +17,8 @@ async function ebayGet<T>(token: string, path: string): Promise<EbayGetResult<T>
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
+        // Inventory API は Accept-Language を見るため付与（listing.ts と挙動を統一）
+        "Accept-Language": "en-US",
       },
       signal: AbortSignal.timeout(15000),
     });

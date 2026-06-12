@@ -39,7 +39,8 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Payload;
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   if (!body.categoryId) return Response.json({ ok: false, error: "カテゴリが未指定です。" }, { status: 400 });
-  if (!body.priceUsd || Number(body.priceUsd) <= 0) {
+  const price = Number(body.priceUsd);
+  if (!body.priceUsd || !Number.isFinite(price) || price < 0.01) {
     return Response.json({ ok: false, error: "価格(USD)を入力してください。" }, { status: 400 });
   }
 
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     title,
     description,
     imageUrl: product.imageUrl,
-    priceUsd: Number(body.priceUsd).toFixed(2),
+    priceUsd: price.toFixed(2),
     condition: body.condition || "NEW",
     categoryId: body.categoryId,
     aspects,
