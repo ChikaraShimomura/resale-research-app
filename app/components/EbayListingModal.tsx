@@ -443,6 +443,14 @@ export default function EbayListingModal({
                   </p>
                 )}
               </div>
+              <a
+                href="/guide/ebay-seller"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 block text-center text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
+              >
+                📖 登録のやり方を画像つきでくわしく見る
+              </a>
               <EbaySellerGuide />
               <div className="text-center mt-3">
                 <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
