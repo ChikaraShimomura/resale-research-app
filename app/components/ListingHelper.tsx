@@ -28,12 +28,27 @@ export default function ListingHelper({ product, unlocked = true, autoOpen = fal
     if (autoOpen) setOpen(true);
   }, [autoOpen]);
 
-  // 出品成功 → ボタンを「出品済み」に。出品者数の計上はサーバー(publish)側で行う（下書き含む）。
+  // 出品済みは端末に記録されている。再訪時もボタンを非アクティブにする。
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(`listed_${product.id}`) === "1") setListed(true);
+    } catch {
+      /* noop */
+    }
+  }, [product.id]);
+
+  // 出品成功 → 端末に「出品済み」を記録し、ボタンを非アクティブに。出品者数の計上はサーバー側。
   const handleListed = () => {
+    try {
+      localStorage.setItem(`listed_${product.id}`, "1");
+    } catch {
+      /* noop */
+    }
     setListed(true);
   };
 
   const onClick = () => {
+    if (listed) return; // 出品済みは非アクティブ
     if (!unlocked) {
       setHint(true);
       setTimeout(() => setHint(false), 2600);
@@ -49,20 +64,21 @@ export default function ListingHelper({ product, unlocked = true, autoOpen = fal
         <button
           type="button"
           onClick={onClick}
-          aria-disabled={!unlocked}
+          aria-disabled={!unlocked || listed}
+          disabled={listed}
           className={`
             w-full inline-flex items-center justify-center gap-1 h-11 whitespace-nowrap
             text-[13px] font-bold rounded-xl transition-all
-            ${!unlocked
+            ${listed
+              ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-default"
+              : !unlocked
               ? "bg-gray-100 text-gray-400 border border-gray-200"
-              : listed
-              ? "bg-emerald-500 text-white"
               : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 active:scale-[0.99]"
             }
           `}
         >
-          {!unlocked ? <Lock size={13} /> : listed ? <Check size={14} /> : <ExternalLink size={14} />}
-          {listed ? "出品済み！" : "eBay簡単出品"}
+          {listed ? <Check size={14} /> : !unlocked ? <Lock size={13} /> : <ExternalLink size={14} />}
+          {listed ? "出品済み" : "eBay簡単出品"}
         </button>
 
         {/* ロック時のヒント（数秒で消える吹き出し） */}

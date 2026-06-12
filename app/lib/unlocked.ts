@@ -6,7 +6,11 @@ export function readUnlockedIds(): Set<string> {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith("rkt_") && localStorage.getItem(k) === "1") ids.add(k.slice(4));
+      if (k && k.startsWith("rkt_") && localStorage.getItem(k) === "1") {
+        const id = k.slice(4);
+        // 出品が完了した商品は先頭固定の対象外（ソートで上に来続けて鬱陶しくならないように）
+        if (localStorage.getItem(`listed_${id}`) !== "1") ids.add(id);
+      }
     }
   } catch {
     /* noop */

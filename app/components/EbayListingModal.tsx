@@ -65,6 +65,8 @@ export default function EbayListingModal({
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
+  const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
+  const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
 
   useEffect(() => {
     let alive = true;
@@ -117,10 +119,9 @@ export default function EbayListingModal({
     };
   }, []);
 
-  const publish = async () => {
-    setPhase("publishing");
-    setMsg("");
-    const res: PublishResult = await fetch("/api/ebay/list/publish", {
+  // 準備済みの内容で出品APIを叩く（publish と「登録完了」で共有）。
+  const postPublish = (): Promise<PublishResult> =>
+    fetch("/api/ebay/list/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -136,17 +137,38 @@ export default function EbayListingModal({
     })
       .then((r) => r.json())
       .catch(() => ({ ok: false, error: "通信に失敗しました。" }));
+
+  const finishOk = (res: PublishResult) => {
     setResult(res);
+    track("ebay_list_published", { product_id: product.id });
+    setPhase("done");
+    onListed?.();
+  };
+
+  const publish = async () => {
+    setPhase("publishing");
+    setMsg("");
+    const res = await postPublish();
     if (res.ok) {
-      track("ebay_list_published", { product_id: product.id });
-      setPhase("done");
-      onListed?.();
-    } else if (res.needsSellerRegistration) {
-      setPhase("draftsaved");
-    } else {
+      finishOk(res);
+      return;
+    }
+    setResult(res);
+    if (res.needsSellerRegistration) setPhase("draftsaved");
+    else {
       setMsg(res.error || "出品に失敗しました。");
       setPhase("error");
     }
+  };
+
+  // 「登録完了」：準備済みの内容で再出品。成功で公開、失敗なら赤字メッセージ。
+  const confirmRegistered = async () => {
+    setConfirming(true);
+    setConfirmErr(false);
+    const res = await postPublish();
+    setConfirming(false);
+    if (res.ok) finishOk(res);
+    else setConfirmErr(true);
   };
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
@@ -390,14 +412,36 @@ export default function EbayListingModal({
                 <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed text-left">
                   ※ 登録前の出品は、eBayの「下書き」一覧には<b>表示されません</b>（eBayの仕様）。登録後にこのアプリから公開すると「出品中」に出ます。探さなくて大丈夫です。
                 </p>
-                <a
-                  href="https://www.ebay.com/sl/sell"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 別ウィンドウでeBay登録を開く（アプリは開いたまま→戻って「登録完了」を押せる）
+                    const w = window.open(
+                      "https://www.ebay.com/sl/sell",
+                      "ebaySellerRegister",
+                      "width=920,height=840"
+                    );
+                    if (w) w.opener = null; // 逆タブナビング対策
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
                 >
                   eBayでセラー登録する
-                </a>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmRegistered}
+                  disabled={confirming}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
+                >
+                  {confirming ? "確認中..." : "登録完了"}
+                </button>
+
+                {confirmErr && (
+                  <p className="mt-2 text-[11px] text-[#BF0000]">
+                    ※登録が完了していませんでした。時間をおいて再度試してください。
+                  </p>
+                )}
               </div>
               <EbaySellerGuide />
               <div className="text-center mt-3">
