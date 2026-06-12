@@ -55,6 +55,8 @@ async function ebayFetch(
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
+        // Inventory API は Accept-Language を要求する（未指定だと #25709 Invalid value）
+        "Accept-Language": "en-US",
         // 書き込み(ペイロードあり)のみ Content-Language が必須
         ...(body ? { "Content-Type": "application/json", "Content-Language": "en-US" } : {}),
       },
