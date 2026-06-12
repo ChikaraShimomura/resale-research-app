@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { headers } from "next/headers";
 import "./globals.css";
+import AddToHome from "./components/AddToHome";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
 
@@ -51,6 +52,15 @@ export const metadata: Metadata = {
   verification: {
     google: "GGgOF1LGPqzP6qIa95QjVH1iaMw0HuFZUMZALrg5Lck",
   },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "輸出ラボ",
+    statusBarStyle: "default",
+  },
   robots: {
     index: true,
     follow: true,
@@ -78,7 +88,10 @@ export default async function RootLayout({
         gtag('js', new Date());
         gtag('config', '${GA_ID}');
       `}</Script>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <AddToHome />
+      </body>
     </html>
   );
 }
