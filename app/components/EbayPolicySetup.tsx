@@ -14,8 +14,12 @@ const SIZE_FIELDS = [
   { key: "large", label: "大きい荷物の送料（USD）", placeholder: "45" },
 ] as const;
 
+// 送料の既定値（国際発送・一律・USD）。ユーザー入力は任意で、最初からこの値が入る。
+const DEFAULTS: Record<string, string> = { handlingDays: "3", small: "12", medium: "25", large: "45" };
+
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
-  const [vals, setVals] = useState<Record<string, string>>({ handlingDays: "3" });
+  const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
+  const [showEdit, setShowEdit] = useState(false); // 送料を自分で変える（任意）
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
   const [msg, setMsg] = useState("");
@@ -53,36 +57,56 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
 
   return (
     <div>
-      <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        支払い・返品（返品不可）・配送ポリシーをeBayに自動登録します。送料はサイズ別の一律料金（国際発送・USD）です。
+      <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+        送料の設定です（<b className="text-gray-700">変更は任意</b>）。一般的な送料はすでに入っているので、
+        特に変更がなければ、そのまま下のボタンを押すだけでOK（このデフォルト値で登録されます）。
+        支払い・返品（返品不可）もまとめて自動登録します。
       </p>
 
-      <div className="space-y-2">
-        <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">発送までの日数（handling time）</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={vals.handlingDays ?? ""}
-            onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
-            placeholder="3"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-        </div>
-        {SIZE_FIELDS.map((f) => (
-          <div key={f.key}>
-            <label className="block text-[11px] text-gray-500 mb-0.5">{f.label}</label>
+      {/* 既定の送料サマリー（国際発送・一律・USD） */}
+      <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 text-[12px] text-gray-600 space-y-1">
+        <div className="flex justify-between"><span>小さい荷物</span><span className="font-bold text-gray-800">${vals.small}</span></div>
+        <div className="flex justify-between"><span>中くらいの荷物</span><span className="font-bold text-gray-800">${vals.medium}</span></div>
+        <div className="flex justify-between"><span>大きい荷物</span><span className="font-bold text-gray-800">${vals.large}</span></div>
+        <div className="flex justify-between text-gray-400"><span>発送までの日数</span><span>{vals.handlingDays}日</span></div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowEdit((v) => !v)}
+        className="mt-2 text-[11px] text-gray-500 underline underline-offset-2 active:text-gray-700"
+      >
+        {showEdit ? "編集を閉じる" : "送料を自分で変える（任意）"}
+      </button>
+
+      {showEdit && (
+        <div className="space-y-2 mt-2">
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-0.5">発送までの日数（handling time）</label>
             <input
               type="text"
-              inputMode="decimal"
-              value={vals[f.key] ?? ""}
-              onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
-              placeholder={f.placeholder}
+              inputMode="numeric"
+              value={vals.handlingDays ?? ""}
+              onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
+              placeholder="3"
               className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
             />
           </div>
-        ))}
-      </div>
+          {SIZE_FIELDS.map((f) => (
+            <div key={f.key}>
+              <label className="block text-[11px] text-gray-500 mb-0.5">{f.label}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={vals[f.key] ?? ""}
+                onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
+                placeholder={f.placeholder}
+                className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <p className="mt-2 text-[11px] text-gray-400">返品ポリシー：返品不可（No returns）で作成します。</p>
 
@@ -91,7 +115,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         disabled={state === "saving"}
         className="mt-3 w-full h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000] disabled:opacity-50"
       >
-        {state === "saving" ? "作成中..." : "ビジネスポリシーを作成"}
+        {state === "saving" ? "登録中..." : "この送料で登録する"}
       </button>
 
       {steps.length > 0 && (

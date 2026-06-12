@@ -64,7 +64,7 @@ export default function EbayListingSetup() {
 
   const steps = [
     { title: "eBayと連携する", body: <EbayConnect /> },
-    { title: "ビジネスポリシーを作成", body: <EbayPolicySetup onDone={refresh} /> },
+    { title: "送料を登録（おすすめ設定でOK）", body: <EbayPolicySetup onDone={refresh} /> },
     { title: "発送元を登録", body: <EbayLocationSetup onDone={refresh} /> },
   ];
 
