@@ -81,13 +81,13 @@ export default function EbayListingSetup() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-black text-gray-800">写真だけ出品の準備</h2>
+        <h2 className="text-sm font-black text-gray-800">eBay自動出品の準備</h2>
         <span className="text-[11px] font-bold text-gray-400">{doneCount}/{dones.length} 完了</span>
       </div>
 
       {allDone && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-[13px] font-bold text-emerald-700 flex items-center gap-1.5">
-          <BadgeCheck size={16} /> 準備完了！「写真だけ出品」が使えます。
+          <BadgeCheck size={16} /> 準備完了！「eBay自動出品」が使えます。
         </div>
       )}
 

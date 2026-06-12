@@ -9,6 +9,7 @@ import { ProfitProduct } from "../lib/profitFilter";
 import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
+import { readUnlockedIds, pinUnlockedFirst } from "../lib/unlocked";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
@@ -19,9 +20,12 @@ export default function SearchPage() {
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
   const [sortOrder, setSortOrder] = useState<SortOrder>("default");
   const [hideSold, setHideSold] = useState(false);
+  // 「楽天で仕入れる」を押した（=eBay簡単出品アクティブ）商品ID。先頭固定に使う。
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
+    setUnlockedIds(readUnlockedIds());
     fetchProducts()
       .then(({ products, lastUpdated }) => {
         setProducts(products);
@@ -42,7 +46,8 @@ export default function SearchPage() {
   const hotCount = products.filter(p => p.realProfitRate >= 30).length;
   // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在
   const baseList = hideSold ? products.filter(p => !isSold(p)) : withSoldDummies(products);
-  const sortedProducts = sortProducts(baseList, sortOrder);
+  // 「楽天で仕入れる」を押した商品（eBay簡単出品アクティブ）を先頭に固定
+  const sortedProducts = pinUnlockedFirst(sortProducts(baseList, sortOrder), unlockedIds);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
   const [page, setPage] = useState(1);

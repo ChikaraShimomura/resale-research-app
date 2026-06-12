@@ -11,6 +11,7 @@ import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
+import { readUnlockedIds, pinUnlockedFirst } from "../lib/unlocked";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
 
@@ -26,6 +27,8 @@ function ResultsContent() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   // 自分がeBayで売れた商品ID（端末単位）。最下部化/非表示に使う。
   const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
+  // 「楽天で仕入れる」を押した（=eBay簡単出品アクティブ）商品ID。先頭固定に使う。
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -42,6 +45,11 @@ function ResultsContent() {
     fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
   }, []);
 
+  // アクティブ（仕入れ中）商品IDを localStorage から取得（先頭固定用）
+  useEffect(() => {
+    setUnlockedIds(readUnlockedIds());
+  }, []);
+
   const filtered = useMemo(() => {
     const q = keyword.toLowerCase().trim();
     if (!q) return allProducts;
@@ -54,13 +62,20 @@ function ResultsContent() {
   const sorted = useMemo(() => {
     const base = hideSold ? filtered.filter((p) => !isSold(p)) : withSoldDummies(filtered);
     const arr = sortProducts(base, sortOrder);
-    if (soldIds.size === 0) return arr;
     // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
-    if (hideSold) return arr.filter((p) => !soldIds.has(p.id));
-    const live = arr.filter((p) => !soldIds.has(p.id));
-    const sold = arr.filter((p) => soldIds.has(p.id));
-    return [...live, ...sold];
-  }, [filtered, sortOrder, hideSold, soldIds]);
+    let ordered: ProfitProduct[];
+    if (soldIds.size === 0) {
+      ordered = arr;
+    } else if (hideSold) {
+      ordered = arr.filter((p) => !soldIds.has(p.id));
+    } else {
+      const live = arr.filter((p) => !soldIds.has(p.id));
+      const sold = arr.filter((p) => soldIds.has(p.id));
+      ordered = [...live, ...sold];
+    }
+    // 「楽天で仕入れる」を押した商品（eBay簡単出品アクティブ）を先頭に固定
+    return pinUnlockedFirst(ordered, unlockedIds, soldIds);
+  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds]);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);
