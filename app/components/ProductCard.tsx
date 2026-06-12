@@ -1,5 +1,5 @@
 "use client";
-import { formatJpy, cn, toRakutenAffiliateUrl, toEbaySoldSearchUrl } from "../lib/utils";
+import { formatJpy, cn, toRakutenAffiliateUrl, toEbayMarketUrl } from "../lib/utils";
 import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
@@ -63,8 +63,9 @@ function TrustBadge({ count }: { count: number }) {
 export default function ProductCard({ product }: { product: ProfitProduct }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
-  // eBayタイトル全文は特定的すぎて落札検索が0件→無関係品になる。主要語に絞って関連実績を出す。
-  const ebaySoldUrl = toEbaySoldSearchUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
+  // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
+  // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
+  const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, product.realAvgPrice, (product as { market?: string }).market);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
   // 出品クリック回数は /api/products が付与済み（個別 fetch は不要）。クリック時に POST で更新。
   const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
@@ -169,12 +170,12 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
                   {product.avgDaysToSell != null && (
                     <span className="text-xs text-gray-500">落札まで平均{product.avgDaysToSell}日</span>
                   )}
-                  {ebaySoldUrl && (
-                    <a href={ebaySoldUrl} target="_blank" rel="noopener noreferrer"
+                  {ebayMarketUrl && (
+                    <a href={ebayMarketUrl} target="_blank" rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      aria-label="eBayの直近の落札実績を確認する"
+                      aria-label="eBayでこの価格以上の出品を確認する"
                       className="inline-flex items-center gap-0.5 text-[11px] text-blue-500 font-bold hover:underline py-1">
-                      落札実績を確認する <ExternalLink size={10} />
+                      eBayで相場を確認する <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
