@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import BottomNav from "../components/BottomNav";
 import EbayConnect from "../components/EbayConnect";
 import EbayListingReadiness from "../components/EbayListingReadiness";
+import EbayLocationSetup from "../components/EbayLocationSetup";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -39,6 +40,7 @@ export default function SettingsPage() {
         </section>
 
         <EbayListingReadiness />
+        <EbayLocationSetup />
 
         <div className="pt-1 text-center">
           <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#BF0000]">プライバシーポリシー</Link>

@@ -60,3 +60,67 @@ export async function countInventoryLocations(token: string): Promise<number> {
   );
   return r.data?.locations?.length ?? r.data?.total ?? 0;
 }
+
+// ── 書き込み系（下書き作成の土台） ──
+interface EbayWriteResult {
+  ok: boolean;
+  status: number;
+  error?: string;
+}
+
+async function ebayWrite(
+  token: string,
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown
+): Promise<EbayWriteResult> {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Content-Language": "en-US",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) return { ok: true, status: res.status };
+    let error = `HTTP ${res.status}`;
+    try {
+      const j = (await res.json()) as { errors?: { message?: string }[] };
+      if (j?.errors?.[0]?.message) error = j.errors[0].message;
+    } catch {
+      /* noop */
+    }
+    return { ok: false, status: res.status, error };
+  } catch (e) {
+    return { ok: false, status: 0, error: (e as Error).message };
+  }
+}
+
+// 発送元（在庫ロケーション）。固定キーで作成し、出品オファーの merchantLocationKey に使う。
+export const SHIP_FROM_LOCATION_KEY = "jp-ship-from";
+
+export interface ShipFromAddress {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  stateOrProvince: string;
+  postalCode: string;
+  country: string; // 2文字コード（例: "JP"）
+}
+
+// 既存を削除してから作成（住所更新に対応・冪等）。初回はDELETEが404でも問題なし。
+export async function upsertInventoryLocation(
+  token: string,
+  addr: ShipFromAddress
+): Promise<EbayWriteResult> {
+  await ebayWrite(token, "DELETE", `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`);
+  return ebayWrite(token, "POST", `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`, {
+    location: { address: { ...addr } },
+    name: "Japan ship-from",
+    merchantLocationStatus: "ENABLED",
+    locationTypes: ["WAREHOUSE"],
+  });
+}
