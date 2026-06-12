@@ -7,6 +7,8 @@ import BottomNav from "../../components/BottomNav";
 import { isSold } from "../../lib/sold";
 import { Search, Flame } from "lucide-react";
 import JsonLd from "../../components/JsonLd";
+import ShippingHelper from "../../components/ShippingHelper";
+import { shippingHelp } from "../../lib/shipping";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +151,7 @@ export default async function ProductPage({
 
       <main className="max-w-2xl mx-auto p-3">
         <ProductCard product={product} />
+        <ShippingHelper help={shippingHelp(product)} />
         <Link href="/search"
           className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-xl active:bg-red-50">
           他の利益商品を見る →
