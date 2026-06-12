@@ -71,6 +71,16 @@ export default function ProductCard({ product, ebaySold = false }: { product: Pr
   const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
+  // 「楽天で仕入れる」を押した端末だけ「eBay簡単出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
+  const [rakutenClicked, setRakutenClicked] = useState(false);
+  useEffect(() => {
+    try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
+  }, [product.id]);
+  const markRakutenClicked = () => {
+    try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
+    setRakutenClicked(true);
+  };
+
   const sold = isSold(product, listingCount);
 
   const shareOnX = () => {
@@ -268,13 +278,13 @@ export default function ProductCard({ product, ebaySold = false }: { product: Pr
         <div className="space-y-2">
           {/* 主要CTA — 楽天で仕入れる / eBay簡単出品 を横並び（flex-1で等幅） */}
           <div className="flex gap-2">
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" onClick={markRakutenClicked}
               className="flex-1 inline-flex items-center justify-center gap-1 h-11 bg-gradient-to-r from-[#BF0000] to-[#BF0000] hover:from-[#9E0000] hover:to-[#BF0000] active:scale-[0.99] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
               <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
               楽天で仕入れる
             </a>
             {!sold && (
-              <ListingHelper product={product} onCountChange={setListingCount} />
+              <ListingHelper product={product} onCountChange={setListingCount} unlocked={rakutenClicked} />
             )}
           </div>
 
