@@ -3,11 +3,13 @@ import crypto from "node:crypto";
 // eBay Marketplace Account Deletion/Closure 通知エンドポイント。
 // GET: eBayの検証チャレンジに応答（SHA-256(challengeCode + verificationToken + endpointURL) を返す）。
 // POST: ユーザー削除通知を受信して 200 を返す。
-// 必要env: EBAY_VERIFICATION_TOKEN（eBay開発者ポータルに入れる値と完全一致させること）
+// 検証トークンは既定値を持たせ、Vercel env なしでも動作する（eBayの削除通知の検証トークンは
+// 機微度が低く、漏れても悪用余地がないため埋め込み可）。env で上書きも可。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN ?? "";
+const VERIFICATION_TOKEN =
+  process.env.EBAY_VERIFICATION_TOKEN ?? "omeJkFS4ud1Ma-H_AYKp7kpo1k_R_7YEMOFfbgriCJo";
 // eBayポータルに登録するエンドポイントURLと「完全一致」させる必要がある（ハッシュの材料になるため）。
 const ENDPOINT_URL =
   process.env.EBAY_DELETION_ENDPOINT ?? "https://www.yushutsu-fukugyo.com/api/ebay/account-deletion";
