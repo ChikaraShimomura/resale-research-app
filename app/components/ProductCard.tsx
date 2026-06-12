@@ -60,7 +60,7 @@ function TrustBadge({ count }: { count: number }) {
   );
 }
 
-export default function ProductCard({ product }: { product: ProfitProduct }) {
+export default function ProductCard({ product, ebaySold = false }: { product: ProfitProduct; ebaySold?: boolean }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
@@ -84,10 +84,20 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
 
   return (
-    <div className="relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border border-gray-100">
+    <div className={cn(
+      "relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border",
+      ebaySold ? "border-emerald-200" : "border-gray-100"
+    )}>
+
+      {/* eBayで売却済み：仕入れ→発送を促す帯（最下部に沈むカードの目印） */}
+      {ebaySold && (
+        <div className="bg-emerald-50 border-b border-emerald-100 px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
+          <BadgeCheck size={13} /> eBayで売却済み — 楽天で仕入れて発送しよう
+        </div>
+      )}
 
       {/* HOT グラデーションライン */}
-      {isHot && !sold && (
+      {isHot && !sold && !ebaySold && (
         <div className="h-1 bg-gradient-to-r from-[#BF0000] via-[#FF4466] to-[#FF6B6B]" />
       )}
 

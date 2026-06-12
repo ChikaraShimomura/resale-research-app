@@ -10,6 +10,7 @@ import { ProfitProduct } from "../lib/profitFilter";
 import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
+import { fetchSoldIds } from "../lib/ebaySold";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
 
@@ -23,6 +24,8 @@ function ResultsContent() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("default");
   const [hideSold, setHideSold] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  // 自分がeBayで売れた商品ID（端末単位）。最下部化/非表示に使う。
+  const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -32,6 +35,11 @@ function ResultsContent() {
         setLastUpdated(lastUpdated);
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  // eBayで売れた商品を取得（連携済みのみ。未連携なら空セット）
+  useEffect(() => {
+    fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
   }, []);
 
   const filtered = useMemo(() => {
@@ -45,8 +53,14 @@ function ResultsContent() {
 
   const sorted = useMemo(() => {
     const base = hideSold ? filtered.filter((p) => !isSold(p)) : withSoldDummies(filtered);
-    return sortProducts(base, sortOrder);
-  }, [filtered, sortOrder, hideSold]);
+    const arr = sortProducts(base, sortOrder);
+    if (soldIds.size === 0) return arr;
+    // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
+    if (hideSold) return arr.filter((p) => !soldIds.has(p.id));
+    const live = arr.filter((p) => !soldIds.has(p.id));
+    const sold = arr.filter((p) => soldIds.has(p.id));
+    return [...live, ...sold];
+  }, [filtered, sortOrder, hideSold, soldIds]);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);
@@ -141,7 +155,7 @@ function ResultsContent() {
           <>
             <div className="flex flex-col gap-3 p-3">
               {pageItems.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} ebaySold={soldIds.has(product.id)} />
               ))}
             </div>
             <Pagination page={page} pageCount={pageCount} onChange={setPage} />

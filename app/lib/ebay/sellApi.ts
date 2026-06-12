@@ -61,6 +61,62 @@ export async function countInventoryLocations(token: string): Promise<number> {
   return r.data?.locations?.length ?? r.data?.total ?? 0;
 }
 
+// ── 売却の自動検知（Fulfillment API getOrders） ──
+// アプリ経由でeBay出品した商品は SKU が "rr-{商品ID}" になっている。
+// 自分の売れた注文を読み、その SKU から商品IDを取り出して「売れた商品」を特定する。
+// 必要スコープ: sell.fulfillment（未付与＝旧トークンなら needsReconnect を立てる）。
+
+// アプリが出品時に付ける SKU の接頭辞。create-draft と sold-sync で共有する。
+export const APP_SKU_PREFIX = "rr-";
+
+export function productIdFromSku(sku: string | undefined): string | null {
+  if (!sku) return null;
+  return sku.startsWith(APP_SKU_PREFIX) ? sku.slice(APP_SKU_PREFIX.length) : null;
+}
+
+interface OrdersResponse {
+  orders?: {
+    lineItems?: { sku?: string }[];
+  }[];
+}
+
+export interface SoldSyncResult {
+  ok: boolean;
+  needsReconnect: boolean; // sell.fulfillment 未付与（再連携が必要）
+  ids: string[]; // 売れたアプリ商品の id（重複排除済み）
+}
+
+// 直近の売れた注文を取得し、アプリ出品(SKU=rr-*)の商品IDだけを返す。
+export async function getSoldProductIds(token: string): Promise<SoldSyncResult> {
+  // creationdate フィルタで直近のみ。limit=200/ページを最大数ページ辿る。
+  const ids = new Set<string>();
+  let offset = 0;
+  for (let pageReq = 0; pageReq < 5; pageReq++) {
+    const r = await ebayGet<OrdersResponse>(
+      token,
+      `/sell/fulfillment/v1/order?limit=200&offset=${offset}`
+    );
+    // 401/403 はスコープ未付与（旧トークン）→ 再連携が必要
+    if (r.status === 401 || r.status === 403) {
+      return { ok: false, needsReconnect: true, ids: [] };
+    }
+    if (!r.ok || !r.data) {
+      // 1ページ目で失敗ならエラー、途中失敗ならそこまでの結果を返す
+      return { ok: ids.size > 0, needsReconnect: false, ids: [...ids] };
+    }
+    const orders = r.data.orders ?? [];
+    for (const o of orders) {
+      for (const li of o.lineItems ?? []) {
+        const pid = productIdFromSku(li.sku);
+        if (pid) ids.add(pid);
+      }
+    }
+    if (orders.length < 200) break; // 最終ページ
+    offset += 200;
+  }
+  return { ok: true, needsReconnect: false, ids: [...ids] };
+}
+
 // ── 書き込み系（下書き作成の土台） ──
 interface EbayWriteResult {
   ok: boolean;

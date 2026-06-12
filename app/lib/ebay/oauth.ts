@@ -14,9 +14,12 @@ const BASE =
 
 // 基本スコープ（承認不要）。createItemDraft 用の sell.item.draft は
 // eBay の Limited Release 承認が下りたら下に追加する。
+// sell.fulfillment は「自分が売れた注文(getOrders)」の読み取りに必要（売却の自動検知用）。
+// ※ buy.marketplace.insights は Limited Release のため承認が下りるまで絶対に足さないこと。
 export const EBAY_SCOPES = [
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
 ].join(" ");
 
 export function ebayConfigured(): boolean {
