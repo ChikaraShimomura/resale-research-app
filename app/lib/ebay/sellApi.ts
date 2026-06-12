@@ -61,35 +61,39 @@ export async function countInventoryLocations(token: string): Promise<number> {
   return r.data?.locations?.length ?? r.data?.total ?? 0;
 }
 
-// ── 売却の自動検知（Fulfillment API getOrders） ──
-// アプリ経由でeBay出品した商品は SKU が "rr-{商品ID}" になっている。
-// 自分の売れた注文を読み、その SKU から商品IDを取り出して「売れた商品」を特定する。
-// 必要スコープ: sell.fulfillment（未付与＝旧トークンなら needsReconnect を立てる）。
-
-// アプリが出品時に付ける SKU の接頭辞。create-draft と sold-sync で共有する。
+// ── アプリ出品の SKU（売却検知の鍵） ──
+// アプリ経由でeBay出品した商品は SKU を "rr-{サニタイズ済み商品ID}" にする。
+// 楽天 itemCode は "shop:code" のようにコロンを含み eBay SKU(英数字+ハイフン+_/50字)で弾かれるため、
+// SKUはサニタイズし、SKU→商品ID の対応表を別途KVに保存して逆引きする（route側で実施）。
 export const APP_SKU_PREFIX = "rr-";
 
-export function productIdFromSku(sku: string | undefined): string | null {
-  if (!sku) return null;
-  return sku.startsWith(APP_SKU_PREFIX) ? sku.slice(APP_SKU_PREFIX.length) : null;
+export function isAppSku(sku?: string): boolean {
+  return !!sku && sku.startsWith(APP_SKU_PREFIX);
 }
 
+// 商品ID → eBay SKU。英数字・ハイフン・アンダースコア以外をハイフンに置換し50字以内に丸める。
+export function skuForProduct(productId: string): string {
+  const safe = productId.replace(/[^A-Za-z0-9_-]/g, "-");
+  return (APP_SKU_PREFIX + safe).slice(0, 50);
+}
+
+// ── 売却の自動検知（Fulfillment API getOrders） ──
+// 自分の売れた注文を読み、アプリ出品(SKU=rr-*)の SKU だけを返す。商品IDへの変換は対応表で route 側が行う。
+// 必要スコープ: sell.fulfillment（未付与＝旧トークンなら needsReconnect を立てる）。
 interface OrdersResponse {
   orders?: {
     lineItems?: { sku?: string }[];
   }[];
 }
 
-export interface SoldSyncResult {
+export interface SoldSkusResult {
   ok: boolean;
   needsReconnect: boolean; // sell.fulfillment 未付与（再連携が必要）
-  ids: string[]; // 売れたアプリ商品の id（重複排除済み）
+  skus: string[]; // 売れた注文のうち rr-* の SKU（重複排除済み）
 }
 
-// 直近の売れた注文を取得し、アプリ出品(SKU=rr-*)の商品IDだけを返す。
-export async function getSoldProductIds(token: string): Promise<SoldSyncResult> {
-  // creationdate フィルタで直近のみ。limit=200/ページを最大数ページ辿る。
-  const ids = new Set<string>();
+export async function getSoldSkus(token: string): Promise<SoldSkusResult> {
+  const skus = new Set<string>();
   let offset = 0;
   for (let pageReq = 0; pageReq < 5; pageReq++) {
     const r = await ebayGet<OrdersResponse>(
@@ -98,23 +102,21 @@ export async function getSoldProductIds(token: string): Promise<SoldSyncResult> 
     );
     // 401/403 はスコープ未付与（旧トークン）→ 再連携が必要
     if (r.status === 401 || r.status === 403) {
-      return { ok: false, needsReconnect: true, ids: [] };
+      return { ok: false, needsReconnect: true, skus: [] };
     }
     if (!r.ok || !r.data) {
-      // 1ページ目で失敗ならエラー、途中失敗ならそこまでの結果を返す
-      return { ok: ids.size > 0, needsReconnect: false, ids: [...ids] };
+      return { ok: skus.size > 0, needsReconnect: false, skus: [...skus] };
     }
     const orders = r.data.orders ?? [];
     for (const o of orders) {
       for (const li of o.lineItems ?? []) {
-        const pid = productIdFromSku(li.sku);
-        if (pid) ids.add(pid);
+        if (isAppSku(li.sku)) skus.add(li.sku as string);
       }
     }
     if (orders.length < 200) break; // 最終ページ
     offset += 200;
   }
-  return { ok: true, needsReconnect: false, ids: [...ids] };
+  return { ok: true, needsReconnect: false, skus: [...skus] };
 }
 
 // ── 書き込み系（下書き作成の土台） ──

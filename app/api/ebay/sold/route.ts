@@ -1,11 +1,12 @@
 import { kv } from "@vercel/kv";
 import { cookies } from "next/headers";
 import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
-import { getSoldProductIds } from "../../../lib/ebay/sellApi";
+import { getSoldSkus } from "../../../lib/ebay/sellApi";
+import { SKU_MAP_KEY } from "../../../lib/ebay/listing";
 
 // 「自分がeBayで売れた商品」の自動検知。
-// アプリ経由でeBay出品した商品は SKU="rr-{商品ID}"。getOrders から売れた注文を読み、
-// その商品IDを端末(アクター)単位で KV のセットに蓄積する。表示側はこのセットで非表示/最下部化する。
+// アプリ出品は SKU="rr-{サニタイズ済み商品ID}"。getOrders から売れた注文の SKU を読み、
+// 出品時に保存した対応表(SKU→商品ID)で逆引きして、商品IDを端末(アクター)単位の KV セットに蓄積する。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -46,15 +47,26 @@ export async function POST() {
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ids: [], connected: false });
 
-  const res = await getSoldProductIds(token);
+  const res = await getSoldSkus(token);
   if (res.needsReconnect) {
     return Response.json({ ids: await storedIds(actor), connected: true, needsReconnect: true });
   }
 
-  if (res.ids.length > 0) {
+  // 売れた SKU → 商品ID（出品時に保存した対応表で逆引き）
+  let productIds: string[] = [];
+  if (res.skus.length > 0) {
+    try {
+      const map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
+      productIds = res.skus.map((s) => map[s]).filter((v): v is string => !!v);
+    } catch {
+      /* noop */
+    }
+  }
+
+  if (productIds.length > 0) {
     try {
       // sadd は member を1つ以上要求するため先頭を別引数で渡す（length>0 を確認済み）
-      await kv.sadd(SOLD_KEY(actor), res.ids[0], ...res.ids.slice(1));
+      await kv.sadd(SOLD_KEY(actor), productIds[0], ...productIds.slice(1));
       await kv.expire(SOLD_KEY(actor), TTL_SECONDS);
     } catch {
       /* noop */

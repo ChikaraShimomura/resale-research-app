@@ -82,11 +82,30 @@ export function exchangeCode(code: string): Promise<EbayTokenResponse | null> {
 }
 
 export function refreshAccessToken(refreshToken: string): Promise<EbayTokenResponse | null> {
+  // scope は省略する。明示すると「同意済みより広いスコープ」を要求した形になり、
+  // スコープ追加(sell.fulfillment)より前に連携した既存トークンの更新が invalid_scope で壊れる。
+  // 省略すれば eBay は元の同意スコープでトークンを返す（新規連携は連携時に新スコープを同意済み）。
   return tokenRequest(
     new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      scope: EBAY_SCOPES,
     })
   );
+}
+
+// アプリトークン（client_credentials）。Taxonomy API（カテゴリ/Item Specifics）など
+// ユーザー同意不要の公開APIに使う。メモリにキャッシュ（有効期限まで再利用）。
+let appTokenCache: { token: string; exp: number } | null = null;
+
+export async function getAppAccessToken(): Promise<string | null> {
+  if (appTokenCache && Date.now() < appTokenCache.exp) return appTokenCache.token;
+  const r = await tokenRequest(
+    new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "https://api.ebay.com/oauth/api_scope",
+    })
+  );
+  if (!r?.access_token) return null;
+  appTokenCache = { token: r.access_token, exp: Date.now() + (r.expires_in - 60) * 1000 };
+  return r.access_token;
 }

@@ -1,0 +1,288 @@
+// eBay 出品（楽天画像を使った完全自動公開）のサーバー専用ロジック。
+// 在庫アイテム(PUT) → オファー(POST/PUT) → 公開(publishOffer) を行う。
+// カテゴリ/必須Item Specifics は Taxonomy API で取得（アプリトークン使用）。
+import { skuForProduct } from "./sellApi";
+
+const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
+const API = ENV === "sandbox" ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
+
+export const MARKETPLACE = "EBAY_US";
+export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
+export const USD_JPY = 155; // realAvgPrice の換算に使った固定レート（refresh.mjs と一致）
+
+// SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
+export const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
+
+// ── 低レベル fetch（詳細エラー抽出つき） ──
+interface EbayError {
+  errorId?: number;
+  message?: string;
+  longMessage?: string;
+  parameters?: { name?: string; value?: string }[];
+}
+interface EbayBody {
+  errors?: EbayError[];
+  [k: string]: unknown;
+}
+interface EbayResult {
+  ok: boolean;
+  status: number;
+  data: EbayBody | null;
+  error?: string;
+}
+
+function extractError(data: EbayBody | null, status: number): string {
+  const e0 = data?.errors?.[0];
+  if (!e0) return `HTTP ${status}`;
+  const params = (e0.parameters ?? [])
+    .map((p) => `${p.name ?? ""}=${p.value ?? ""}`)
+    .filter((s) => s !== "=")
+    .join(", ");
+  return [e0.longMessage || e0.message, params && `(${params})`, e0.errorId && `#${e0.errorId}`]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function ebayFetch(
+  token: string,
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown
+): Promise<EbayResult> {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        // 書き込み(ペイロードあり)のみ Content-Language が必須
+        ...(body ? { "Content-Type": "application/json", "Content-Language": "en-US" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(20000),
+    });
+    const text = await res.text();
+    let data: EbayBody | null = null;
+    if (text) {
+      try {
+        data = JSON.parse(text) as EbayBody;
+      } catch {
+        data = null;
+      }
+    }
+    if (res.ok || res.status === 201 || res.status === 204) {
+      return { ok: true, status: res.status, data };
+    }
+    return { ok: false, status: res.status, data, error: extractError(data, res.status) };
+  } catch (e) {
+    return { ok: false, status: 0, data: null, error: (e as Error).message };
+  }
+}
+
+// ── カテゴリ / 必須Item Specifics（Taxonomy。アプリトークンで呼ぶ） ──
+export interface CategorySuggestion {
+  categoryTreeId: string;
+  categoryId?: string;
+  categoryName?: string;
+}
+
+export async function getCategorySuggestion(
+  appToken: string,
+  query: string
+): Promise<CategorySuggestion | null> {
+  const tree = await ebayFetch(
+    appToken,
+    "GET",
+    `/commerce/taxonomy/v1/get_default_category_tree_id?marketplace_id=${MARKETPLACE}`
+  );
+  const treeId = (tree.data as { categoryTreeId?: string } | null)?.categoryTreeId;
+  if (!treeId) return null;
+  const sug = await ebayFetch(
+    appToken,
+    "GET",
+    `/commerce/taxonomy/v1/category_tree/${treeId}/get_category_suggestions?q=${encodeURIComponent(
+      query.slice(0, 80)
+    )}`
+  );
+  const first = (
+    sug.data as { categorySuggestions?: { category?: { categoryId?: string; categoryName?: string } }[] } | null
+  )?.categorySuggestions?.[0]?.category;
+  return { categoryTreeId: treeId, categoryId: first?.categoryId, categoryName: first?.categoryName };
+}
+
+export interface RequiredAspect {
+  name: string;
+  values: string[]; // 選択肢（あれば）
+  free: boolean; // 自由入力可か
+}
+
+interface AspectDef {
+  localizedAspectName?: string;
+  aspectConstraint?: { aspectRequired?: boolean; aspectMode?: string };
+  aspectValues?: { localizedValue?: string }[];
+}
+
+export async function getRequiredAspects(
+  appToken: string,
+  treeId: string,
+  categoryId: string
+): Promise<RequiredAspect[]> {
+  const r = await ebayFetch(
+    appToken,
+    "GET",
+    `/commerce/taxonomy/v1/category_tree/${treeId}/get_item_aspects_for_category?category_id=${categoryId}`
+  );
+  const aspects = (r.data as { aspects?: AspectDef[] } | null)?.aspects ?? [];
+  return aspects
+    .filter((a) => a.aspectConstraint?.aspectRequired)
+    .map((a) => ({
+      name: a.localizedAspectName ?? "",
+      values: (a.aspectValues ?? []).map((v) => v.localizedValue ?? "").filter(Boolean).slice(0, 30),
+      free: a.aspectConstraint?.aspectMode !== "SELECTION_ONLY",
+    }))
+    .filter((a) => a.name);
+}
+
+// ── ビジネスポリシーID ──
+export interface PolicyIds {
+  fulfillmentPolicyId?: string;
+  paymentPolicyId?: string;
+  returnPolicyId?: string;
+}
+
+export async function getBusinessPolicyIds(token: string): Promise<PolicyIds> {
+  const [f, p, r] = await Promise.all([
+    ebayFetch(token, "GET", `/sell/account/v1/fulfillment_policy?marketplace_id=${MARKETPLACE}`),
+    ebayFetch(token, "GET", `/sell/account/v1/payment_policy?marketplace_id=${MARKETPLACE}`),
+    ebayFetch(token, "GET", `/sell/account/v1/return_policy?marketplace_id=${MARKETPLACE}`),
+  ]);
+  return {
+    fulfillmentPolicyId: (f.data as { fulfillmentPolicies?: { fulfillmentPolicyId?: string }[] } | null)
+      ?.fulfillmentPolicies?.[0]?.fulfillmentPolicyId,
+    paymentPolicyId: (p.data as { paymentPolicies?: { paymentPolicyId?: string }[] } | null)
+      ?.paymentPolicies?.[0]?.paymentPolicyId,
+    returnPolicyId: (r.data as { returnPolicies?: { returnPolicyId?: string }[] } | null)
+      ?.returnPolicies?.[0]?.returnPolicyId,
+  };
+}
+
+// ── 出品（作成→公開） ──
+export interface PublishInput {
+  productId: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  priceUsd: string; // 例 "24.99"
+  condition: string; // "NEW" など
+  categoryId: string;
+  aspects: Record<string, string[]>; // { Brand: ["Unbranded"], ... }
+}
+
+export interface StepResult {
+  step: string;
+  ok: boolean;
+  error?: string;
+}
+
+export interface PublishResult {
+  ok: boolean;
+  sku: string;
+  offerId?: string;
+  listingId?: string;
+  steps: StepResult[];
+  error?: string;
+}
+
+async function findOfferId(token: string, sku: string): Promise<string | null> {
+  const r = await ebayFetch(
+    token,
+    "GET",
+    `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${MARKETPLACE}`
+  );
+  return (r.data as { offers?: { offerId?: string }[] } | null)?.offers?.[0]?.offerId ?? null;
+}
+
+async function upsertOffer(
+  token: string,
+  sku: string,
+  body: Record<string, unknown>,
+  steps: StepResult[]
+): Promise<string | null> {
+  const create = await ebayFetch(token, "POST", `/sell/inventory/v1/offer`, body);
+  if (create.ok) {
+    steps.push({ step: "オファー作成", ok: true });
+    return (create.data as { offerId?: string } | null)?.offerId ?? (await findOfferId(token, sku));
+  }
+  // 既に存在 → 既存offerを更新
+  if (/already|exist|duplicate|25002/i.test(create.error ?? "")) {
+    const existing = await findOfferId(token, sku);
+    if (existing) {
+      const upd = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${existing}`, body);
+      steps.push({ step: "オファー更新", ok: upd.ok, error: upd.error });
+      return upd.ok ? existing : null;
+    }
+  }
+  steps.push({ step: "オファー作成", ok: false, error: create.error });
+  return null;
+}
+
+export async function createAndPublish(token: string, input: PublishInput): Promise<PublishResult> {
+  const sku = skuForProduct(input.productId);
+  const steps: StepResult[] = [];
+
+  // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
+  const itemBody = {
+    availability: { shipToLocationAvailability: { quantity: 1 } },
+    condition: input.condition,
+    product: {
+      title: input.title.slice(0, 80),
+      description: (input.description || input.title).slice(0, 4000),
+      imageUrls: input.imageUrl ? [input.imageUrl] : [],
+      aspects: input.aspects,
+    },
+  };
+  const item = await ebayFetch(
+    token,
+    "PUT",
+    `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`,
+    itemBody
+  );
+  steps.push({ step: "商品情報を登録", ok: item.ok, error: item.error });
+  if (!item.ok) return { ok: false, sku, steps, error: item.error };
+
+  // 2) ポリシーID
+  const pol = await getBusinessPolicyIds(token);
+  if (!pol.fulfillmentPolicyId || !pol.paymentPolicyId || !pol.returnPolicyId) {
+    steps.push({ step: "ポリシー確認", ok: false, error: "ビジネスポリシーが見つかりません" });
+    return { ok: false, sku, steps, error: "ビジネスポリシーが未設定です。設定を完了してください。" };
+  }
+
+  // 3) オファー（作成 or 更新）
+  const offerBody: Record<string, unknown> = {
+    sku,
+    marketplaceId: MARKETPLACE,
+    format: "FIXED_PRICE",
+    availableQuantity: 1,
+    categoryId: input.categoryId,
+    listingDescription: (input.description || input.title).slice(0, 4000),
+    pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },
+    listingPolicies: {
+      fulfillmentPolicyId: pol.fulfillmentPolicyId,
+      paymentPolicyId: pol.paymentPolicyId,
+      returnPolicyId: pol.returnPolicyId,
+    },
+    merchantLocationKey: SHIP_LOCATION_KEY,
+  };
+  const offerId = await upsertOffer(token, sku, offerBody, steps);
+  if (!offerId) {
+    return { ok: false, sku, steps, error: steps[steps.length - 1]?.error || "オファー作成に失敗しました" };
+  }
+
+  // 4) 公開
+  const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
+  const listingId = (pub.data as { listingId?: string } | null)?.listingId;
+  steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.error });
+  if (!pub.ok) return { ok: false, sku, offerId, steps, error: pub.error };
+
+  return { ok: true, sku, offerId, listingId, steps };
+}
