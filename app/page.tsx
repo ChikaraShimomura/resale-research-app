@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Target } from "lucide-react";
+import GrowthDashboard from "./components/GrowthDashboard";
 
 export default function LandingPage() {
   return (
@@ -20,6 +21,9 @@ export default function LandingPage() {
           </Link>
         </div>
       </header>
+
+      {/* 育てるダッシュボード（出品実績のある人だけ表示） */}
+      <GrowthDashboard />
 
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">

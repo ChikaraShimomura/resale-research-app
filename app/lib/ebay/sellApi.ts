@@ -84,18 +84,26 @@ export function skuForProduct(productId: string): string {
 // 必要スコープ: sell.fulfillment（未付与＝旧トークンなら needsReconnect を立てる）。
 interface OrdersResponse {
   orders?: {
-    lineItems?: { sku?: string }[];
+    creationDate?: string;
+    lineItems?: { sku?: string; lineItemCost?: { value?: string } }[];
   }[];
 }
 
-export interface SoldSkusResult {
+export interface SoldItem {
+  sku: string; // rr-* の SKU
+  soldUsd: number; // 売値(USD)
+  soldAt: string; // 注文日(ISO)
+}
+export interface SoldItemsResult {
   ok: boolean;
   needsReconnect: boolean; // sell.fulfillment 未付与（再連携が必要）
-  skus: string[]; // 売れた注文のうち rr-* の SKU（重複排除済み）
+  items: SoldItem[];
 }
 
-export async function getSoldSkus(token: string): Promise<SoldSkusResult> {
-  const skus = new Set<string>();
+// 売れた注文のうちアプリ出品(SKU=rr-*)の品を、売値・注文日つきで返す（同一SKUは1回）。
+export async function getSoldItems(token: string): Promise<SoldItemsResult> {
+  const items: SoldItem[] = [];
+  const seen = new Set<string>();
   let offset = 0;
   for (let pageReq = 0; pageReq < 5; pageReq++) {
     const r = await ebayGet<OrdersResponse>(
@@ -104,21 +112,28 @@ export async function getSoldSkus(token: string): Promise<SoldSkusResult> {
     );
     // 401/403 はスコープ未付与（旧トークン）→ 再連携が必要
     if (r.status === 401 || r.status === 403) {
-      return { ok: false, needsReconnect: true, skus: [] };
+      return { ok: false, needsReconnect: true, items: [] };
     }
     if (!r.ok || !r.data) {
-      return { ok: skus.size > 0, needsReconnect: false, skus: [...skus] };
+      return { ok: items.length > 0, needsReconnect: false, items };
     }
     const orders = r.data.orders ?? [];
     for (const o of orders) {
       for (const li of o.lineItems ?? []) {
-        if (isAppSku(li.sku)) skus.add(li.sku as string);
+        if (isAppSku(li.sku) && !seen.has(li.sku as string)) {
+          seen.add(li.sku as string);
+          items.push({
+            sku: li.sku as string,
+            soldUsd: Number(li.lineItemCost?.value ?? 0) || 0,
+            soldAt: o.creationDate ?? "",
+          });
+        }
       }
     }
     if (orders.length < 200) break; // 最終ページ
     offset += 200;
   }
-  return { ok: true, needsReconnect: false, skus: [...skus] };
+  return { ok: true, needsReconnect: false, items };
 }
 
 // ── 書き込み系（下書き作成の土台） ──

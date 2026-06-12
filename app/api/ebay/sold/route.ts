@@ -1,8 +1,9 @@
 import { kv } from "@vercel/kv";
 import { cookies } from "next/headers";
 import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
-import { getSoldSkus } from "../../../lib/ebay/sellApi";
+import { getSoldItems } from "../../../lib/ebay/sellApi";
 import { SKU_MAP_KEY } from "../../../lib/ebay/listing";
+import { recordSold } from "../../../lib/ebay/stats";
 
 // 「自分がeBayで売れた商品」の自動検知。
 // アプリ出品は SKU="rr-{サニタイズ済み商品ID}"。getOrders から売れた注文の SKU を読み、
@@ -47,17 +48,22 @@ export async function POST() {
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ids: [], connected: false });
 
-  const res = await getSoldSkus(token);
+  const res = await getSoldItems(token);
   if (res.needsReconnect) {
     return Response.json({ ids: await storedIds(actor), connected: true, needsReconnect: true });
   }
 
-  // 売れた SKU → 商品ID（出品時に保存した対応表で逆引き）
-  let productIds: string[] = [];
-  if (res.skus.length > 0) {
+  // 売れた SKU → 商品ID（出品時に保存した対応表で逆引き）。あわせて売値を記録（ダッシュボード用）。
+  const productIds: string[] = [];
+  if (res.items.length > 0) {
     try {
       const map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
-      productIds = res.skus.map((s) => map[s]).filter((v): v is string => !!v);
+      for (const it of res.items) {
+        const pid = map[it.sku];
+        if (!pid) continue;
+        productIds.push(pid);
+        await recordSold(actor, pid, it.soldUsd, it.soldAt);
+      }
     } catch {
       /* noop */
     }

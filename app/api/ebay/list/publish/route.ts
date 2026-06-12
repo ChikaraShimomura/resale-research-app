@@ -5,6 +5,7 @@ import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY } from "../../../../lib/ebay/listing";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
+import { recordListed } from "../../../../lib/ebay/stats";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
     fulfillmentPolicyId: body.fulfillmentPolicyId,
   });
 
-  // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）
+  // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）＋取引を記録（育てるダッシュボード用）
   if (result.ok) {
     try {
       await kv.hset(SKU_MAP_KEY(actor), { [skuForProduct(product.id)]: product.id });
@@ -78,6 +79,12 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
+    await recordListed(actor, product.id, {
+      purchase: product.source.price,
+      points: product.source.pointAmount ?? 0,
+      title: product.title,
+      listedAt: new Date().toISOString(),
+    });
   }
 
   return Response.json(result);
