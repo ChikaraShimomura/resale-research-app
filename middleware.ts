@@ -25,6 +25,17 @@ function buildCsp(nonce: string): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // メンテナンスモード: 環境変数 MAINTENANCE_MODE=1 のとき、全ページを /sorry に切替。
+  // 通常時は env 参照のみで実質ノーコスト。APIと /sorry 自身は除外。
+  // 切替は Vercel の環境変数（MAINTENANCE_MODE=1/0）＋再デプロイで行う。
+  if (
+    process.env.MAINTENANCE_MODE === "1" &&
+    !pathname.startsWith("/api/") &&
+    pathname !== "/sorry"
+  ) {
+    return NextResponse.rewrite(new URL("/sorry", req.url));
+  }
+
   // API への状態変更リクエストは同一オリジン必須（CSRF / 外部からの spam 対策）。
   // 将来追加する全 /api ミューテーションがこのデフォルトを継承する。
   const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
