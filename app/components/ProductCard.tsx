@@ -68,8 +68,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
   const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, product.realAvgPrice, (product as { market?: string }).market);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
-  // 出品クリック回数は /api/products が付与済み（個別 fetch は不要）。クリック時に POST で更新。
-  const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
+  // 出品者数(下書き含む)は /api/products が付与済み。SOLD判定に使う。計上はサーバー側。
+  const listingCount = product.listingCount ?? 0;
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   // 「楽天で仕入れる」を押した端末だけ「eBay簡単出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
@@ -83,7 +83,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
   };
 
-  const sold = isSold(product, listingCount);
+  // 「楽天で仕入れる」を押した端末(=仕入れ中)には SOLD を出さない。仕入れ途中で他人の出品が増えて
+  // SOLD化すると、買ったのに出品導線が消えてかわいそうなため、本人にはそのまま表示する。
+  const sold = isSold(product, listingCount) && !rakutenClicked;
 
   const shareOnX = () => {
     const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay #輸出副業`;
@@ -286,7 +288,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               楽天で仕入れる
             </a>
             {!sold && (
-              <ListingHelper product={product} onCountChange={setListingCount} unlocked={rakutenClicked} autoOpen={autoOpenListing} />
+              <ListingHelper product={product} unlocked={rakutenClicked} autoOpen={autoOpenListing} />
             )}
           </div>
 

@@ -8,7 +8,6 @@ import { track } from "../lib/analytics";
 
 interface Props {
   product: ProfitProduct | Product;
-  onCountChange: (count: number) => void;
   // 「楽天で仕入れる」を押した端末だけ解放する。false の間はロック表示。
   unlocked?: boolean;
   // 設定完了→出品画面へ戻ってきた等で、最初から開く。
@@ -19,7 +18,7 @@ function isProfitProduct(p: ProfitProduct | Product): p is ProfitProduct {
   return "realAvgPrice" in p;
 }
 
-export default function ListingHelper({ product, onCountChange, unlocked = true, autoOpen = false }: Props) {
+export default function ListingHelper({ product, unlocked = true, autoOpen = false }: Props) {
   const [open, setOpen] = useState(false);
   const [listed, setListed] = useState(false);
   const [hint, setHint] = useState(false);
@@ -29,13 +28,9 @@ export default function ListingHelper({ product, onCountChange, unlocked = true,
     if (autoOpen) setOpen(true);
   }, [autoOpen]);
 
-  // 出品成功 → ライバル数(出品カウント)を加算し、ボタンを「出品済み」に。
+  // 出品成功 → ボタンを「出品済み」に。出品者数の計上はサーバー(publish)側で行う（下書き含む）。
   const handleListed = () => {
     setListed(true);
-    fetch(`/api/listing-count/${product.id}`, { method: "POST", keepalive: true })
-      .then((r) => r.json())
-      .then((d) => onCountChange(d.count))
-      .catch(() => {});
   };
 
   const onClick = () => {

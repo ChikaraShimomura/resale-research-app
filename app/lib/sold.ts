@@ -1,14 +1,14 @@
 import { ProfitProduct } from "./profitFilter";
 
-// eBay簡単出品が押された回数の上限。一律この回数に達すると「SOLD（出品上限）」扱いにして、
-// 市場の乱立（ライバル増えすぎ）を防ぐ。
-export const LISTING_LIMIT = 20;
+// アプリから出品された数（下書き含む・異なる出品者の数）の上限。これを「超えたら」SOLD扱いにして、
+// 市場の乱立（ライバル増えすぎ）を防ぐ。押された数ではなく、実際に出品/下書きされた数で数える。
+export const LISTING_LIMIT = 10;
 
-// SOLD（出品上限到達 or ダミー）か判定
+// SOLD（出品が乱立 or ダミー）か判定。10件を“超えたら”SOLD。
 export function isSold(p: ProfitProduct, liveCount?: number): boolean {
   if (p.soldOut) return true;
   const count = liveCount ?? p.listingCount ?? 0;
-  return count >= LISTING_LIMIT;
+  return count > LISTING_LIMIT;
 }
 
 // ── ダミーSOLD商品（カードはブラー表示されるため内容は概略でよい） ──

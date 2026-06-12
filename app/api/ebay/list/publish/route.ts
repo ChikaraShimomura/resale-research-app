@@ -71,6 +71,17 @@ export async function POST(req: Request) {
     fulfillmentPolicyId: body.fulfillmentPolicyId,
   });
 
+  // 出品（下書き含む＝オファー作成）できたら、出品者数を計上（SOLD判定の元・乱立防止）。
+  // 1端末は何度出しても +0（SADDで冪等）。押下数ではなく実出品数で数える。
+  if (result.offerId) {
+    try {
+      await kv.sadd(`listing_actors:${product.id}`, actor);
+      await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
+    } catch {
+      /* noop */
+    }
+  }
+
   // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）＋取引を記録（育てるダッシュボード用）
   if (result.ok) {
     try {
