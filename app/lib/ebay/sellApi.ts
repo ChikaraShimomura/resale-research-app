@@ -147,7 +147,15 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
       signal: AbortSignal.timeout(15000),
     });
     const data = (await res.json().catch(() => null)) as
-      | { errors?: { message?: string }[]; [k: string]: unknown }
+      | {
+          errors?: {
+            errorId?: number;
+            message?: string;
+            longMessage?: string;
+            parameters?: { name?: string; value?: string }[];
+          }[];
+          [k: string]: unknown;
+        }
       | null;
     if (res.ok || res.status === 201 || res.status === 204) {
       const id =
@@ -157,7 +165,20 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
         undefined;
       return { ok: true, status: res.status, id };
     }
-    const error = data?.errors?.[0]?.message ?? `HTTP ${res.status}`;
+    // eBayの詳細エラー（longMessage + 該当フィールド + errorId）を組み立てる
+    const e0 = data?.errors?.[0];
+    let error: string;
+    if (e0) {
+      const params = (e0.parameters ?? [])
+        .map((p) => `${p.name ?? ""}=${p.value ?? ""}`)
+        .filter((s) => s !== "=")
+        .join(", ");
+      error = [e0.longMessage || e0.message, params && `(${params})`, e0.errorId && `#${e0.errorId}`]
+        .filter(Boolean)
+        .join(" ");
+    } else {
+      error = `HTTP ${res.status}`;
+    }
     return { ok: false, status: res.status, error };
   } catch (e) {
     return { ok: false, status: 0, error: (e as Error).message };
