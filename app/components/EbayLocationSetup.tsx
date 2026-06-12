@@ -95,7 +95,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           inputMode="numeric"
           value={zip}
           onChange={(e) => onZip(e.target.value)}
-          placeholder="130-0012"
+          placeholder="100-0005"
           className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
         />
         {lookupMsg && <p className="text-[11px] text-gray-400 mt-1">{lookupMsg}</p>}

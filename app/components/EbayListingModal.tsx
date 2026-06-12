@@ -6,7 +6,7 @@ import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
 import { track } from "../lib/analytics";
 import EbaySellerGuide from "./EbaySellerGuide";
-import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings } from "lucide-react";
+import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -41,9 +41,10 @@ interface PublishResult {
   error?: string;
   steps?: { step: string; ok: boolean; error?: string }[];
   needsSellerRegistration?: boolean;
+  pendingVerification?: boolean;
 }
 
-type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "error";
+type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "pending" | "error";
 
 export default function EbayListingModal({
   product,
@@ -155,6 +156,7 @@ export default function EbayListingModal({
     }
     setResult(res);
     if (res.needsSellerRegistration) setPhase("draftsaved");
+    else if (res.pendingVerification) setPhase("pending");
     else {
       setMsg(res.error || "出品に失敗しました。");
       setPhase("error");
@@ -453,6 +455,45 @@ export default function EbayListingModal({
               </a>
               <EbaySellerGuide />
               <div className="text-center mt-3">
+                <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
+              </div>
+            </div>
+          )}
+
+          {phase === "pending" && (
+            <div className="py-5 text-center">
+              <Clock size={40} className="mx-auto mb-3 text-amber-500" />
+              <p className="text-sm font-black text-gray-800 mb-1">アカウントの最終確認待ちです</p>
+              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                登録ありがとうございます！いまeBayが<b className="text-gray-700">本人確認</b>をしています。
+                <br />
+                <b>確認メール</b>が届いたら出品できます（早ければ数分、長いと数日）。
+              </p>
+              <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
+                メールが届いたら、下のボタンを押すと<b>そのまま出品</b>されます。
+              </p>
+              <button
+                type="button"
+                onClick={confirmRegistered}
+                disabled={confirming}
+                className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
+              >
+                {confirming ? "確認中..." : "確認できた・出品する"}
+              </button>
+              {confirmErr && (
+                <p className="mt-2 text-[11px] text-[#BF0000]">
+                  ※まだ確認が取れていません。確認メールが届いてから、もう一度お試しください。
+                </p>
+              )}
+              <a
+                href="/guide/ebay-seller"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 block text-center text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
+              >
+                📖 登録のやり方を画像つきで見る
+              </a>
+              <div className="mt-3">
                 <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
               </div>
             </div>

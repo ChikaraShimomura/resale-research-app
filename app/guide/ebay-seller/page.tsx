@@ -194,8 +194,8 @@ export default function EbaySellerGuidePage() {
         <StepCard n={5} title="種別は「個人（Individual）」＋氏名はローマ字で">
           <Screen>
             <Field label="アカウント種別" value="個人 / Individual" ok />
-            <Field label="名 / First name" value="CHIKARA" />
-            <Field label="姓 / Last name" value="SHIMOMURA" />
+            <Field label="名 / First name" value="TARO" />
+            <Field label="姓 / Last name" value="YAMADA" />
           </Screen>
           <Warn>氏名は<b>身分証と完全一致</b>のローマ字に（eBayの表示名と同じに揃える）。</Warn>
         </StepCard>
@@ -210,14 +210,14 @@ export default function EbaySellerGuidePage() {
 
           <div className="space-y-3">
             <Screen>
-              <Field label="番地（Street）" value="1-12-4 Taihei  ▼候補から選ぶ" ok />
+              <Field label="番地（Street）" value="1-2-3 Marunouchi  ▼候補から選ぶ" ok />
               <p className="text-[11px] text-[#BF0000] font-bold">
                 ※ ただ打つだけはNG。<b>候補をクリック</b>、または<b>「Enter address manually（手動入力）」</b>を押して確定！
               </p>
-              <Field label="都市名 / City（必須）" value="Sumida-ku" ok />
+              <Field label="都市名 / City（必須）" value="Chiyoda-ku" ok />
               <Field label="都道府県 / State" value="Tokyo" />
-              <Field label="郵便番号" value="130-0012" />
-              <Field label="携帯番号（+81）" value="7089425662" ok />
+              <Field label="郵便番号" value="100-0005" />
+              <Field label="携帯番号（+81）" value="9012345678" ok />
               <p className="text-[11px] text-[#BF0000] font-bold">※ 電話は<b>先頭の0を取る</b>（090… → 90…）</p>
               <Field label="認証コード" value="SMSの6桁を最新で入力" />
             </Screen>
@@ -237,7 +237,7 @@ export default function EbaySellerGuidePage() {
         {/* STEP 7 */}
         <StepCard n={7} title="本人確認書類のアップロード＋銀行口座の登録">
           <p className="text-[13px] text-gray-600 leading-relaxed">
-            画面の案内に沿って、<b>身分証をスマホで撮ってアップロード</b>。受け取り用の<b>銀行口座</b>も登録します。
+            画面の案内に沿って、<b>本人確認</b>（免許証やマイナンバーの<b>番号入力</b>、環境によっては書類の撮影アップロード）と、受け取り用の<b>銀行口座</b>を登録します。
           </p>
           <Warn>身分証・口座の<b>名義と住所</b>も、eBay／Payoneerと<b>同じローマ字表記</b>に揃えると一発で通ります。</Warn>
         </StepCard>

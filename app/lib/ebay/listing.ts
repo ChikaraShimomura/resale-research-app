@@ -223,6 +223,7 @@ export interface PublishResult {
   steps: StepResult[];
   error?: string;
   needsSellerRegistration?: boolean; // 下書きは保存済み・セラー登録だけ未完で公開できなかった
+  pendingVerification?: boolean; // 登録済みだが本人確認(KYC)の完了待ちで公開できない
 }
 
 async function findOfferId(token: string, sku: string): Promise<string | null> {
@@ -313,11 +314,34 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   // 4) 公開
   const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
-  // セラー登録待ちでの失敗＝下書き(在庫+オファー)は保存済み。明るく案内するためフラグで返す。
-  const needsReg = !pub.ok && /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "");
-  const friendly = needsReg ? "セラー登録（売上の受け取り設定）がまだ完了していません。" : pub.error;
+  // 公開できない時、下書き(在庫+オファー)は保存済み。状態別にやさしく案内する。
+  // ① Payoneerの本人確認(KYC)待ち＝登録済みだが審査中。eBayの長い定型HTMLはそのまま出さない。
+  const pendingVerify =
+    !pub.ok &&
+    /SRM_ROW_Payoneer|will contact you to verify|Payoneer will contact|verify your status|confirm your account is ready/i.test(
+      pub.error ?? ""
+    );
+  // ② セラー登録そのものが未完
+  const needsReg =
+    !pub.ok &&
+    !pendingVerify &&
+    /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "");
+  const friendly = pendingVerify
+    ? "アカウントの最終確認（本人確認）の完了待ちです。確認が取れると数日以内にメールが届きます。"
+    : needsReg
+    ? "セラー登録（売上の受け取り設定）がまだ完了していません。"
+    : pub.error;
   steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.ok ? undefined : friendly });
-  if (!pub.ok) return { ok: false, sku, offerId, steps, error: friendly, needsSellerRegistration: needsReg };
+  if (!pub.ok)
+    return {
+      ok: false,
+      sku,
+      offerId,
+      steps,
+      error: friendly,
+      needsSellerRegistration: needsReg,
+      pendingVerification: pendingVerify,
+    };
 
   return { ok: true, sku, offerId, listingId, steps };
 }
