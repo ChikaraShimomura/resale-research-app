@@ -4,6 +4,7 @@ import { Product } from "../types";
 import { ProfitProduct } from "../lib/profitFilter";
 import { Check, ExternalLink, Lock } from "lucide-react";
 import EbayListingModal from "./EbayListingModal";
+import { track } from "../lib/analytics";
 
 interface Props {
   product: ProfitProduct | Product;
@@ -43,6 +44,7 @@ export default function ListingHelper({ product, onCountChange, unlocked = true,
       setTimeout(() => setHint(false), 2600);
       return;
     }
+    track("ebay_list_open", { product_id: product.id });
     setOpen(true);
   };
 

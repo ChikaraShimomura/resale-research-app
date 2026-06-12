@@ -6,6 +6,7 @@ import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { isSold } from "../lib/sold";
+import { track } from "../lib/analytics";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
@@ -79,6 +80,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const markRakutenClicked = () => {
     try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
     setRakutenClicked(true);
+    track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
   };
 
   const sold = isSold(product, listingCount);

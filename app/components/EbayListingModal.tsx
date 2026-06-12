@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
+import { track } from "../lib/analytics";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
@@ -126,6 +127,7 @@ export default function EbayListingModal({
       .catch(() => ({ ok: false, error: "通信に失敗しました。" }));
     setResult(res);
     if (res.ok) {
+      track("ebay_list_published", { product_id: product.id });
       setPhase("done");
       onListed?.();
     } else {
