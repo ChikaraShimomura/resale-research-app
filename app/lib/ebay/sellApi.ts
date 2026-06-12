@@ -200,8 +200,9 @@ export async function optInSellingPolicyManagement(token: string): Promise<EbayP
     programType: "SELLING_POLICY_MANAGEMENT",
   });
   if (r.ok) return r;
-  // 既に有効化済みのエラーは成功とみなす
-  if (/already|opted/i.test(r.error ?? "")) return { ok: true, status: r.status };
+  // 既に有効化済み（その旨のエラー / programType入力エラー #25804）は成功とみなす。
+  // 支払い・返品ポリシーが作成できる時点でビジネスポリシーは有効。
+  if (/already|opted|25804|programType/i.test(r.error ?? "")) return { ok: true, status: r.status };
   return r;
 }
 
@@ -244,6 +245,19 @@ export async function createFlatIntlFulfillmentPolicy(
     handlingTime: { value: handlingDays, unit: "DAY" },
     shippingOptions: [
       {
+        // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
+        optionType: "DOMESTIC",
+        costType: "FLAT_RATE",
+        shippingServices: [
+          {
+            sortOrder: 1,
+            shippingServiceCode: "USPSPriority",
+            shippingCost: { value: shippingCostUsd, currency: "USD" },
+          },
+        ],
+      },
+      {
+        // それ以外の国向け（国際）
         optionType: "INTERNATIONAL",
         costType: "FLAT_RATE",
         shippingServices: [
