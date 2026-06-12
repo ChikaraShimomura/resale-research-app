@@ -369,12 +369,15 @@ export default function EbayListingModal({
             <div className="py-4">
               <div className="text-center">
                 <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
-                <p className="text-sm font-black text-gray-800 mb-1">下書きをeBayに保存しました！</p>
+                <p className="text-sm font-black text-gray-800 mb-1">出品内容は準備できました！あと1ステップ</p>
                 <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                  あとは<b className="text-gray-700">セラー登録（売上の受け取り設定）</b>を済ませれば公開できます。
+                  公開には、<b className="text-gray-700">初回だけ必要なeBayのセラー登録（売上の受け取り設定）</b>が必要です。
                 </p>
-                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
-                  セラー登録が必要なのは<b>初めて出品するときの1回だけ</b>。<br />登録できたら、もう一度「出品する」を押すだけで公開できます。
+                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-3 leading-relaxed">
+                  登録は<b>初めての1回だけ</b>。終わったら、もう一度「出品する」を押せば<b>公開</b>されます。
+                </p>
+                <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed text-left">
+                  ※ 登録前の出品は、eBayの「下書き」一覧には<b>表示されません</b>（eBayの仕様）。登録後にこのアプリから公開すると「出品中」に出ます。探さなくて大丈夫です。
                 </p>
                 <a
                   href="https://www.ebay.com/sl/sell"
