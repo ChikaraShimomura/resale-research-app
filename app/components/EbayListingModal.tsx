@@ -23,9 +23,9 @@ interface PrepareData {
 
 // 送料ポリシー名を日本語ラベルに
 function shippingLabel(name: string): string {
-  if (/small/i.test(name)) return "小さい荷物";
-  if (/medium/i.test(name)) return "中くらいの荷物";
-  if (/large/i.test(name)) return "大きい荷物";
+  if (/small/i.test(name)) return "小サイズ送料";
+  if (/medium/i.test(name)) return "中サイズの送料";
+  if (/large/i.test(name)) return "大サイズの送料";
   return name;
 }
 interface PublishResult {
@@ -88,7 +88,9 @@ export default function EbayListingModal({
       setDescription(p.description);
       setPriceUsd(p.priceUsd);
       setCondition(p.condition);
-      setShippingId(p.shipping?.[0]?.fulfillmentPolicyId ?? "");
+      // デフォルトは中サイズの送料（無ければ先頭）
+      const midShip = p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0];
+      setShippingId(midShip?.fulfillmentPolicyId ?? "");
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);
@@ -272,7 +274,7 @@ export default function EbayListingModal({
                   >
                     {data.shipping.map((s) => (
                       <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
-                        {shippingLabel(s.name)}（送料 ${s.costUsd}）
+                        {shippingLabel(s.name)}（${s.costUsd}）
                       </option>
                     ))}
                   </select>
