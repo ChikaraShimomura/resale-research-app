@@ -84,15 +84,31 @@ export default function EbayConnect() {
           </button>
         </div>
       ) : (
-        <a
-          href="/api/ebay/connect"
-          className="inline-flex items-center justify-center gap-2 min-h-[44px] text-sm font-bold text-white bg-[#0064D2] rounded-xl px-5 active:bg-[#0053AE]"
-        >
-          <span className="inline-flex w-5 h-5 bg-white rounded-full items-center justify-center text-[#0064D2] font-black text-[10px]">
-            e
-          </span>
-          eBayアカウントと連携する
-        </a>
+        <div className="space-y-2.5">
+          <a
+            href="/api/ebay/connect"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] text-sm font-bold text-white bg-[#0064D2] rounded-xl px-5 active:bg-[#0053AE]"
+          >
+            <span className="inline-flex w-5 h-5 bg-white rounded-full items-center justify-center text-[#0064D2] font-black text-[10px]">
+              e
+            </span>
+            eBayアカウントと連携する
+          </a>
+          <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5">
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              eBayアカウントをお持ちでない方は、先に
+              <a
+                href="https://signup.ebay.com/pa/crte"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#0064D2] font-bold underline mx-0.5"
+              >
+                eBayアカウントを作成
+              </a>
+              してから「連携する」を押してください（作成はeBayのページで行います）。
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
