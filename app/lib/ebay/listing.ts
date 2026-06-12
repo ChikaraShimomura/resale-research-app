@@ -222,6 +222,7 @@ export interface PublishResult {
   listingId?: string;
   steps: StepResult[];
   error?: string;
+  needsSellerRegistration?: boolean; // 下書きは保存済み・セラー登録だけ未完で公開できなかった
 }
 
 async function findOfferId(token: string, sku: string): Promise<string | null> {
@@ -312,11 +313,11 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   // 4) 公開
   const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
-  const friendly = !pub.ok && /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "")
-    ? "eBayの「セラー登録（売上の受け取り設定）」がまだ完了していません。eBayにログインして、出品（Seller Hub）からセラー登録・本人確認・Payoneerでの受け取り設定を完了してから、もう一度お試しください。"
-    : pub.error;
+  // セラー登録待ちでの失敗＝下書き(在庫+オファー)は保存済み。明るく案内するためフラグで返す。
+  const needsReg = !pub.ok && /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "");
+  const friendly = needsReg ? "セラー登録（売上の受け取り設定）がまだ完了していません。" : pub.error;
   steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.ok ? undefined : friendly });
-  if (!pub.ok) return { ok: false, sku, offerId, steps, error: friendly };
+  if (!pub.ok) return { ok: false, sku, offerId, steps, error: friendly, needsSellerRegistration: needsReg };
 
   return { ok: true, sku, offerId, listingId, steps };
 }

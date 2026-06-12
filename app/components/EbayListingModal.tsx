@@ -32,9 +32,10 @@ interface PublishResult {
   listingId?: string;
   error?: string;
   steps?: { step: string; ok: boolean; error?: string }[];
+  needsSellerRegistration?: boolean;
 }
 
-type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "error";
+type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "error";
 
 export default function EbayListingModal({
   product,
@@ -130,6 +131,8 @@ export default function EbayListingModal({
       track("ebay_list_published", { product_id: product.id });
       setPhase("done");
       onListed?.();
+    } else if (res.needsSellerRegistration) {
+      setPhase("draftsaved");
     } else {
       setMsg(res.error || "出品に失敗しました。");
       setPhase("error");
@@ -357,6 +360,28 @@ export default function EbayListingModal({
               )}
               <div>
                 <button onClick={onClose} className="mt-2 text-sm font-bold text-gray-500">閉じる</button>
+              </div>
+            </div>
+          )}
+
+          {phase === "draftsaved" && (
+            <div className="py-6 text-center">
+              <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
+              <p className="text-sm font-black text-gray-800 mb-1">下書きをeBayに保存しました！</p>
+              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                あとは<b className="text-gray-700">セラー登録（売上の受け取り設定）</b>を済ませれば、この商品を公開できます。
+              </p>
+              <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
+                セラー登録が必要なのは<b>初めて出品するときの1回だけ</b>。<br />次からは「出品する」を押すだけで出品できます。
+              </p>
+              <button
+                onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
+                className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+              >
+                <Settings size={16} /> セラー登録へ進む
+              </button>
+              <div>
+                <button onClick={onClose} className="mt-3 text-sm font-bold text-gray-500">あとで</button>
               </div>
             </div>
           )}
