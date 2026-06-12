@@ -29,7 +29,7 @@ export default function EbayLocationSetup() {
   const lookup = async (digits: string) => {
     setLookupMsg("住所を検索中...");
     try {
-      const r = await fetch(`/api/postal-lookup?zip=${digits}`).then((x) => x.json());
+      const r = await fetch(`/api/postal-lookup?zip=${digits}`, { cache: "no-store" }).then((x) => x.json());
       if (r.ok) {
         setJa(r.ja);
         setEn(r.en);

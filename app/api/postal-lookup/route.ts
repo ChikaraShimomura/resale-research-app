@@ -39,7 +39,7 @@ export async function GET(req: Request) {
         ja: { prefecture: r.address1 ?? "", city: r.address2 ?? "", town: r.address3 ?? "" },
         en, // { stateOrProvince, city, town }
       },
-      { headers: { "Cache-Control": "public, max-age=86400" } }
+      { headers: { "Cache-Control": "no-store" } }
     );
   } catch {
     return Response.json({ ok: false, error: "住所検索に失敗しました。" }, { status: 502 });
