@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import BottomNav from "../components/BottomNav";
 import EbayConnect from "../components/EbayConnect";
 import EbayListingReadiness from "../components/EbayListingReadiness";
+import EbayPolicySetup from "../components/EbayPolicySetup";
 import EbayLocationSetup from "../components/EbayLocationSetup";
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ export default function SettingsPage() {
         </section>
 
         <EbayListingReadiness />
+        <EbayPolicySetup />
         <EbayLocationSetup />
 
         <div className="pt-1 text-center">

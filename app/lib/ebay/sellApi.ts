@@ -124,3 +124,104 @@ export async function upsertInventoryLocation(
     locationTypes: ["WAREHOUSE"],
   });
 }
+
+// ── ビジネスポリシーの作成（JSONレスポンスとid/errorを返す） ──
+interface EbayPostResult {
+  ok: boolean;
+  status: number;
+  id?: string;
+  error?: string;
+}
+
+async function ebayPost(token: string, path: string, body: unknown): Promise<EbayPostResult> {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Content-Language": "en-US",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = (await res.json().catch(() => null)) as
+      | { errors?: { message?: string }[]; [k: string]: unknown }
+      | null;
+    if (res.ok || res.status === 201 || res.status === 204) {
+      const id =
+        (data?.paymentPolicyId as string) ??
+        (data?.returnPolicyId as string) ??
+        (data?.fulfillmentPolicyId as string) ??
+        undefined;
+      return { ok: true, status: res.status, id };
+    }
+    const error = data?.errors?.[0]?.message ?? `HTTP ${res.status}`;
+    return { ok: false, status: res.status, error };
+  } catch (e) {
+    return { ok: false, status: 0, error: (e as Error).message };
+  }
+}
+
+const CATEGORY_TYPES = [{ name: "ALL_EXCLUDING_MOTORS_VEHICLES" }];
+
+// Business Policies の有効化。すでに有効なら eBay はエラーを返すが、その場合も成功扱いにする。
+export async function optInSellingPolicyManagement(token: string): Promise<EbayPostResult> {
+  const r = await ebayPost(token, "/sell/account/v1/program/opt_in", {
+    programType: "SELLING_POLICY_MANAGEMENT",
+  });
+  if (r.ok) return r;
+  // 既に有効化済みのエラーは成功とみなす
+  if (/already|opted/i.test(r.error ?? "")) return { ok: true, status: r.status };
+  return r;
+}
+
+export async function createPaymentPolicy(token: string, marketplace: string): Promise<EbayPostResult> {
+  return ebayPost(token, "/sell/account/v1/payment_policy", {
+    name: "Default payment",
+    marketplaceId: marketplace,
+    categoryTypes: CATEGORY_TYPES,
+    immediatePay: true,
+  });
+}
+
+// 返品不可ポリシー
+export async function createNoReturnPolicy(token: string, marketplace: string): Promise<EbayPostResult> {
+  return ebayPost(token, "/sell/account/v1/return_policy", {
+    name: "No returns",
+    marketplaceId: marketplace,
+    categoryTypes: CATEGORY_TYPES,
+    returnsAccepted: false,
+  });
+}
+
+// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。
+export async function createFlatIntlFulfillmentPolicy(
+  token: string,
+  marketplace: string,
+  name: string,
+  shippingCostUsd: string,
+  handlingDays: number
+): Promise<EbayPostResult> {
+  return ebayPost(token, "/sell/account/v1/fulfillment_policy", {
+    name,
+    marketplaceId: marketplace,
+    categoryTypes: CATEGORY_TYPES,
+    handlingTime: { value: handlingDays, unit: "DAY" },
+    shippingOptions: [
+      {
+        optionType: "INTERNATIONAL",
+        costType: "FLAT_RATE",
+        shippingServices: [
+          {
+            sortOrder: 1,
+            shippingServiceCode: "OtherInternationalShipping",
+            shippingCost: { value: shippingCostUsd, currency: "USD" },
+            shipToLocations: { regionIncluded: [{ regionName: "Worldwide" }] },
+          },
+        ],
+      },
+    ],
+  });
+}
