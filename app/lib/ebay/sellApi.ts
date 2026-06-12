@@ -187,6 +187,13 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
 
 const CATEGORY_TYPES = [{ name: "ALL_EXCLUDING_MOTORS_VEHICLES" }];
 
+// 同名ポリシーが既に存在するエラーは成功扱い（再実行で誤って失敗表示しないため）
+function okIfExists(r: EbayPostResult): EbayPostResult {
+  if (r.ok) return r;
+  if (/already|exist|duplicate/i.test(r.error ?? "")) return { ok: true, status: r.status };
+  return r;
+}
+
 // Business Policies の有効化。すでに有効なら eBay はエラーを返すが、その場合も成功扱いにする。
 export async function optInSellingPolicyManagement(token: string): Promise<EbayPostResult> {
   const r = await ebayPost(token, "/sell/account/v1/program/opt_in", {
@@ -199,22 +206,26 @@ export async function optInSellingPolicyManagement(token: string): Promise<EbayP
 }
 
 export async function createPaymentPolicy(token: string, marketplace: string): Promise<EbayPostResult> {
-  return ebayPost(token, "/sell/account/v1/payment_policy", {
-    name: "Default payment",
-    marketplaceId: marketplace,
-    categoryTypes: CATEGORY_TYPES,
-    immediatePay: true,
-  });
+  return okIfExists(
+    await ebayPost(token, "/sell/account/v1/payment_policy", {
+      name: "Default payment",
+      marketplaceId: marketplace,
+      categoryTypes: CATEGORY_TYPES,
+      immediatePay: true,
+    })
+  );
 }
 
 // 返品不可ポリシー
 export async function createNoReturnPolicy(token: string, marketplace: string): Promise<EbayPostResult> {
-  return ebayPost(token, "/sell/account/v1/return_policy", {
-    name: "No returns",
-    marketplaceId: marketplace,
-    categoryTypes: CATEGORY_TYPES,
-    returnsAccepted: false,
-  });
+  return okIfExists(
+    await ebayPost(token, "/sell/account/v1/return_policy", {
+      name: "No returns",
+      marketplaceId: marketplace,
+      categoryTypes: CATEGORY_TYPES,
+      returnsAccepted: false,
+    })
+  );
 }
 
 // サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。
@@ -225,7 +236,8 @@ export async function createFlatIntlFulfillmentPolicy(
   shippingCostUsd: string,
   handlingDays: number
 ): Promise<EbayPostResult> {
-  return ebayPost(token, "/sell/account/v1/fulfillment_policy", {
+  return okIfExists(
+    await ebayPost(token, "/sell/account/v1/fulfillment_policy", {
     name,
     marketplaceId: marketplace,
     categoryTypes: CATEGORY_TYPES,
@@ -244,5 +256,6 @@ export async function createFlatIntlFulfillmentPolicy(
         ],
       },
     ],
-  });
+    })
+  );
 }
