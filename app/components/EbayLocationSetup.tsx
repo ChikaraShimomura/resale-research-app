@@ -6,9 +6,7 @@ interface AddrEn { stateOrProvince: string; city: string; town: string }
 
 export default function EbayLocationSetup() {
   const [zip, setZip] = useState("");
-  const [banchi, setBanchi] = useState("");
-  const [building, setBuilding] = useState("");
-  const [room, setRoom] = useState("");
+  const [addr, setAddr] = useState(""); // 番地・建物名・部屋番号（まとめて）
   const [ja, setJa] = useState<AddrJa | null>(null);
   const [en, setEn] = useState<AddrEn | null>(null);
   const [lookupMsg, setLookupMsg] = useState("");
@@ -52,7 +50,7 @@ export default function EbayLocationSetup() {
       setMsg("先に郵便番号で住所を検索してください。");
       return;
     }
-    if (!banchi.trim()) {
+    if (!addr.trim()) {
       setState("error");
       setMsg("番地を入力してください。");
       return;
@@ -67,8 +65,7 @@ export default function EbayLocationSetup() {
           postalCode: zip,
           stateOrProvince: en.stateOrProvince,
           city: en.city,
-          addressLine1: `${en.town} ${banchi.trim()}`.trim(),
-          addressLine2: `${building.trim()} ${room.trim()}`.trim(),
+          addressLine1: `${en.town} ${addr.trim()}`.trim(),
         }),
       }).then((x) => x.json());
       if (r.ok) {
@@ -91,66 +88,41 @@ export default function EbayLocationSetup() {
         郵便番号を入れると住所を自動入力します。日本語のままでOK（eBayには自動で英字変換して登録します）。
       </p>
 
-      <div className="space-y-2">
-        <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">郵便番号<span className="text-[#BF0000]"> *</span></label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={zip}
-            onChange={(e) => onZip(e.target.value)}
-            placeholder="130-0012"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-          {lookupMsg && <p className="text-[11px] text-gray-400 mt-1">{lookupMsg}</p>}
-        </div>
-
-        {ja && (
-          <div className="bg-[#F5F7FA] rounded-xl px-3 py-2 text-[13px] text-gray-700">
+      <div>
+        <label className="block text-[11px] text-gray-500 mb-0.5">郵便番号<span className="text-[#BF0000]"> *</span></label>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={zip}
+          onChange={(e) => onZip(e.target.value)}
+          placeholder="130-0012"
+          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+        />
+        {lookupMsg && <p className="text-[11px] text-gray-400 mt-1">{lookupMsg}</p>}
+        {ja && en && (
+          <div className="bg-[#F5F7FA] rounded-xl px-3 py-2 mt-1.5">
             <span className="text-[10px] text-gray-400 block mb-0.5">自動入力された住所</span>
-            {ja.prefecture} {ja.city} {ja.town}
+            <span className="text-[13px] text-gray-800 font-medium">{ja.prefecture} {ja.city} {ja.town}</span>
+            <span className="text-[10px] text-gray-400 block mt-1">
+              eBay登録（英字）: {[en.town, en.city, en.stateOrProvince].filter(Boolean).join(", ")}
+            </span>
           </div>
         )}
-
-        <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">番地（丁目・番地・号）<span className="text-[#BF0000]"> *</span></label>
-          <input
-            type="text"
-            value={banchi}
-            onChange={(e) => setBanchi(e.target.value)}
-            placeholder="1-12-4"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">建物名（任意）</label>
-          <input
-            type="text"
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            placeholder="〇〇マンション"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] text-gray-500 mb-0.5">部屋番号（任意）</label>
-          <input
-            type="text"
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
-            placeholder="1001"
-            className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-        </div>
       </div>
 
-      {en && (banchi || building || room) && (
-        <p className="mt-2 text-[11px] text-gray-400 leading-snug">
-          eBay登録（英字）: {[`${en.town} ${banchi}`.trim(), [building, room].filter(Boolean).join(" "), en.city, en.stateOrProvince, zip, "Japan"].filter(Boolean).join(", ")}
+      <div className="mt-2">
+        <label className="block text-[11px] text-gray-500 mb-0.5">番地・建物名・部屋番号<span className="text-[#BF0000]"> *</span></label>
+        <input
+          type="text"
+          value={addr}
+          onChange={(e) => setAddr(e.target.value)}
+          placeholder="1-12-4 〇〇マンション 1001"
+          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+        />
+        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+          番地は数字でOK。建物名は英字がおすすめ（日本語のままだとそのまま登録されます）。
         </p>
-      )}
+      </div>
 
       <button
         onClick={submit}
