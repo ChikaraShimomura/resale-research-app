@@ -65,6 +65,41 @@ async function kvSetPermanent(key, value) {
   } catch (e) { console.error('kvSetPermanent error:', e.message); }
 }
 
+// ハッシュ全取得（{field: value} で返す）。SOLDライフサイクルの sold_since 読み出しに使う。
+async function kvHgetall(key) {
+  try {
+    const res = await fetch(`${KV_URL}/hgetall/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    });
+    const data = await res.json();
+    const arr = data.result;
+    if (!Array.isArray(arr)) return {};
+    const obj = {};
+    for (let i = 0; i < arr.length; i += 2) obj[arr[i]] = arr[i + 1];
+    return obj;
+  } catch { return {}; }
+}
+
+async function kvDel(key) {
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['DEL', key]]),
+    });
+  } catch (e) { console.error('kvDel error:', e.message); }
+}
+
+async function kvHdel(key, field) {
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['HDEL', key, field]]),
+    });
+  } catch (e) { console.error('kvHdel error:', e.message); }
+}
+
 // ========== 除外パターン ==========
 const EXCLUDE_PATTERN = /オリパ|ばら売り|パック売り|BOXくじ|ボックスくじ|くじ引き|ガチャ|オリジナルパック|アソート売り|\d+パック\s*(売り|のみ|セット)/i;
 const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ローダー|カードスリーブ|スリーブ\d+枚|デッキケース|カードファイル|バインダー|カードバインダー|BOX保管|保管用|保護ケース|スタンド|ディスプレイケース|展示ケース/i;
@@ -424,14 +459,43 @@ async function main() {
     return p;
   });
   // id重複を毎回自動で排除（過去のバグ由来の残存重複を定期クリーンアップ）。最初の出現を優先。
-  const existingIds = new Set(); // 楽天itemCode
-  const existingProducts = loadedProducts.filter(p => {
-    if (!p.id || existingIds.has(p.id)) return false;
-    existingIds.add(p.id);
+  const seenIds = new Set(); // 楽天itemCode
+  let dedupedProducts = loadedProducts.filter(p => {
+    if (!p.id || seenIds.has(p.id)) return false;
+    seenIds.add(p.id);
     return true;
   });
-  const dupRemoved = loadedProducts.length - existingProducts.length;
+  const dupRemoved = loadedProducts.length - dedupedProducts.length;
   if (dupRemoved > 0) console.log(`  🧹 重複DB自動クリーンアップ: ${dupRemoved}件除去`);
+
+  // ── SOLDライフサイクル: SOLD化(出品者10超)から30日経った商品はDBから削除し、再検知に回す ──
+  // 同時に出品者カウント(listing_actors)をリセットし、eBayハッシュをchecked_idsから外して
+  // 再処理対象に戻す。→ 再び新しい利益商品として検知・掲載される。
+  const SOLD_HOLD_MS = 30 * 24 * 60 * 60 * 1000;
+  const soldSince = await kvHgetall('sold_since');
+  const agedOut = new Set(
+    Object.entries(soldSince)
+      .filter(([, since]) => now - Number(since) > SOLD_HOLD_MS)
+      .map(([id]) => id)
+  );
+  if (agedOut.size > 0) {
+    for (const p of dedupedProducts) {
+      if (agedOut.has(p.id) && p.coreKeyword) {
+        const h = String(ebayQueryHash(p.coreKeyword));
+        allCheckedMap.delete(h); // 保存される checked_ids から外す
+        checkedIds.delete(h);    // 今回の処理対象に戻す
+      }
+    }
+    for (const id of agedOut) {
+      await kvDel(`listing_actors:${id}`); // 出品者カウントをリセット
+      await kvHdel('sold_since', id);
+    }
+    dedupedProducts = dedupedProducts.filter(p => !agedOut.has(p.id));
+    console.log(`  ♻️ SOLD 30日経過: ${agedOut.size}件をDBから削除→再検知へ`);
+  }
+
+  const existingIds = new Set(dedupedProducts.map(p => p.id)); // 楽天itemCode
+  const existingProducts = dedupedProducts;
   const profitableProducts = [...existingProducts];
 
   console.log(`  既存DB: ${existingProducts.length}件 / チェック済み: ${checkedIds.size}件`);

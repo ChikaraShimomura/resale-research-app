@@ -77,6 +77,13 @@ export async function POST(req: Request) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, actor);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
+      // 出品者数が上限(10)を超えてSOLD化した瞬間を記録。30日後に refresh が
+      // DBから削除＋カウントリセットし、再び新しい利益商品として検知できるようにする。
+      if ((await kv.scard(`listing_actors:${product.id}`)) > 10) {
+        if ((await kv.hget("sold_since", product.id)) == null) {
+          await kv.hset("sold_since", { [product.id]: Date.now() });
+        }
+      }
     } catch {
       /* noop */
     }
