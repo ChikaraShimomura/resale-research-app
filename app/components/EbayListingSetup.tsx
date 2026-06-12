@@ -5,6 +5,7 @@ import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
 import EbayPolicySetup from "./EbayPolicySetup";
 import EbayLocationSetup from "./EbayLocationSetup";
+import EbaySellerGuide from "./EbaySellerGuide";
 
 interface Readiness {
   connected?: boolean;
@@ -93,6 +94,7 @@ export default function EbayListingSetup() {
           <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
             登録が終わったら「完了を確認」を押すと、チェックが付きます（eBay側の反映に少し時間がかかる場合があります）。
           </p>
+          <EbaySellerGuide />
         </div>
       ),
     },
