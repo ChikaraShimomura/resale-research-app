@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, type LucideIcon } from "lucide-react";
 import BottomNav from "../components/BottomNav";
+import JsonLd from "../components/JsonLd";
 
 type Step = {
   num: string;
@@ -68,6 +69,17 @@ const FAQS = [
   { q: "楽天ポイントはどう活用しますか？", a: "次の仕入れにそのまま使えます。1pt＝1円として楽天市場で利用できます。" },
 ];
 
+// FAQ構造化データ（検索結果でのリッチ表示用）
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-3">
@@ -80,6 +92,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function GuidePage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
+      <JsonLd data={FAQ_LD} />
       {/* ヘッダー */}
       <header className="bg-[#BF0000] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">

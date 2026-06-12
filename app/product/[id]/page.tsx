@@ -6,6 +6,7 @@ import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
 import { isSold } from "../../lib/sold";
 import { Search, Flame } from "lucide-react";
+import JsonLd from "../../components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -116,8 +117,25 @@ export default async function ProductPage({
     );
   }
 
+  const productLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    ...(product.imageUrl ? { image: [hiResImage(product.imageUrl)] } : {}),
+    description: `楽天¥${product.source.price.toLocaleString()} → eBay相場¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`,
+    category: product.category,
+    offers: {
+      "@type": "Offer",
+      price: product.source.price,
+      priceCurrency: "JPY",
+      availability: "https://schema.org/InStock",
+      url: `https://www.yushutsu-fukugyo.com/product/${id}`,
+    },
+  };
+
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
+      <JsonLd data={productLd} />
       <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">

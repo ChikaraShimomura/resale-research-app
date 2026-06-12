@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import AddToHome from "./components/AddToHome";
 import ConsentBanner from "./components/ConsentBanner";
+import JsonLd from "./components/JsonLd";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
 
@@ -19,6 +20,37 @@ const geistMono = Geist_Mono({
 });
 
 const SITE_URL = "https://www.yushutsu-fukugyo.com";
+
+// サイト共通の構造化データ（運営者 + サイト + サイト内検索）
+const SITE_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "輸出ラボ",
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.svg`,
+      description: "楽天で仕入れてeBayで売る、輸出転売の利益商品リサーチツール。",
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: "輸出ラボ",
+      inLanguage: "ja",
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/results?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -91,6 +123,7 @@ export default async function RootLayout({
         gtag('config', '${GA_ID}');
       `}</Script>
       <body className="min-h-full flex flex-col">
+        <JsonLd data={SITE_LD} />
         {children}
         <AddToHome />
         <ConsentBanner />
