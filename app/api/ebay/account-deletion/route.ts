@@ -10,23 +10,27 @@ export const dynamic = "force-dynamic";
 
 const VERIFICATION_TOKEN =
   process.env.EBAY_VERIFICATION_TOKEN ?? "omeJkFS4ud1Ma-H_AYKp7kpo1k_R_7YEMOFfbgriCJo";
-// eBayポータルに登録するエンドポイントURLと「完全一致」させる必要がある（ハッシュの材料になるため）。
-const ENDPOINT_URL =
-  process.env.EBAY_DELETION_ENDPOINT ?? "https://www.yushutsu-fukugyo.com/api/ebay/account-deletion";
+
+// ハッシュに使う endpoint 文字列は「eBayが実際に呼んだURL（クエリ除く）」を採用する。
+// こうするとポータルに登録したURLと必ず一致し、URL表記揺れによる検証失敗を防げる。
+function resolveEndpoint(req: Request): string {
+  if (process.env.EBAY_DELETION_ENDPOINT) return process.env.EBAY_DELETION_ENDPOINT;
+  const url = new URL(req.url);
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host;
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  return `${proto}://${host}${url.pathname}`;
+}
 
 export async function GET(req: Request) {
   const challengeCode = new URL(req.url).searchParams.get("challenge_code");
   if (!challengeCode) {
     return new Response("missing challenge_code", { status: 400 });
   }
-  if (!VERIFICATION_TOKEN) {
-    return new Response("verification token not configured", { status: 500 });
-  }
   // SHA-256( challengeCode + verificationToken + endpoint ) の16進ダイジェスト
   const hash = crypto.createHash("sha256");
   hash.update(challengeCode);
   hash.update(VERIFICATION_TOKEN);
-  hash.update(ENDPOINT_URL);
+  hash.update(resolveEndpoint(req));
   const challengeResponse = hash.digest("hex");
 
   return Response.json({ challengeResponse }, { status: 200 });
