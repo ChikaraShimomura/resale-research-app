@@ -104,7 +104,7 @@ export default function LandingPage() {
           className="inline-block bg-gradient-to-r from-[#BF0000] to-[#BF0000] hover:from-[#9E0000] hover:to-[#BF0000] text-white font-black px-8 py-3 text-sm transition-all shadow-md rounded-full">
           すべての利益商品を見る →
         </Link>
-        <p className="mt-3 text-sm text-gray-500">現在 195件以上の利益商品を掲載中 · 2時間ごと更新</p>
+        <p className="mt-3 text-sm text-gray-500">現在 195件以上の利益商品を掲載中</p>
       </section>
 
       {/* フッター */}
