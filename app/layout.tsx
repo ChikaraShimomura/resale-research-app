@@ -4,6 +4,7 @@ import Script from "next/script";
 import { headers } from "next/headers";
 import "./globals.css";
 import AddToHome from "./components/AddToHome";
+import ConsentBanner from "./components/ConsentBanner";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
 
@@ -85,12 +86,14 @@ export default async function RootLayout({
       <Script id="ga4" strategy="afterInteractive" nonce={nonce}>{`
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
+        gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
         gtag('js', new Date());
         gtag('config', '${GA_ID}');
       `}</Script>
       <body className="min-h-full flex flex-col">
         {children}
         <AddToHome />
+        <ConsentBanner />
       </body>
     </html>
   );

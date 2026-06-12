@@ -17,6 +17,7 @@ type InstallEvent = Event & { prompt: () => void; userChoice: Promise<unknown> }
 export default function AddToHome() {
   const [env, setEnv] = useState<Env | null>(null);
   const [dismissed, setDismissed] = useState(true);
+  const [consentPending, setConsentPending] = useState(true); // Cookie同意が未決の間は出さない（バナー重複回避）
   const [deferred, setDeferred] = useState<InstallEvent | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -32,6 +33,7 @@ export default function AddToHome() {
 
     setEnv({ isIOS, isAndroid, inApp, standalone });
     setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+    setConsentPending(localStorage.getItem("cookie_consent_v1") === null);
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -41,7 +43,7 @@ export default function AddToHome() {
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
-  if (!env || dismissed || env.standalone) return null;
+  if (!env || dismissed || env.standalone || consentPending) return null;
   // PC等（モバイルでもアプリ内でもない）には出さない
   if (!env.isIOS && !env.isAndroid && !env.inApp) return null;
 
