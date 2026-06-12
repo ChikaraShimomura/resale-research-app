@@ -28,6 +28,13 @@ function shippingLabel(name: string): string {
   if (/large/i.test(name)) return "大サイズの送料";
   return name;
 }
+// 各サイズの目安（荷姿のイメージ）。プルダウンに併記する。
+function shippingHint(name: string): string {
+  if (/small/i.test(name)) return "封筒サイズ";
+  if (/medium/i.test(name)) return "小さい段ボール";
+  if (/large/i.test(name)) return "大きい段ボール";
+  return "";
+}
 interface PublishResult {
   ok: boolean;
   listingId?: string;
@@ -274,7 +281,7 @@ export default function EbayListingModal({
                   >
                     {data.shipping.map((s) => (
                       <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
-                        {shippingLabel(s.name)}（${s.costUsd}）
+                        {shippingLabel(s.name)}（{shippingHint(s.name)}・${s.costUsd}）
                       </option>
                     ))}
                   </select>
@@ -375,8 +382,10 @@ export default function EbayListingModal({
                 <p className="text-xs text-gray-500 mb-3 leading-relaxed">
                   公開には、<b className="text-gray-700">初回だけ必要なeBayのセラー登録（売上の受け取り設定）</b>が必要です。
                 </p>
-                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-3 leading-relaxed">
-                  登録は<b>初めての1回だけ</b>。終わったら、もう一度「出品する」を押せば<b>公開</b>されます。
+                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-3 mb-3 leading-relaxed text-center">
+                  <b className="text-[15px]">！！初回だけ！！</b>
+                  <br />
+                  セラー登録をする必要があります。
                 </p>
                 <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed text-left">
                   ※ 登録前の出品は、eBayの「下書き」一覧には<b>表示されません</b>（eBayの仕様）。登録後にこのアプリから公開すると「出品中」に出ます。探さなくて大丈夫です。
