@@ -4,7 +4,7 @@ import { useState } from "react";
 interface AddrJa { prefecture: string; city: string; town: string }
 interface AddrEn { stateOrProvince: string; city: string; town: string }
 
-export default function EbayLocationSetup() {
+export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   const [zip, setZip] = useState("");
   const [addr, setAddr] = useState(""); // 番地・建物名・部屋番号（まとめて）
   const [ja, setJa] = useState<AddrJa | null>(null);
@@ -70,7 +70,8 @@ export default function EbayLocationSetup() {
       }).then((x) => x.json());
       if (r.ok) {
         setState("done");
-        setMsg("発送元を登録しました。出品準備チェックを再読み込みしてください。");
+        setMsg("発送元を登録しました。");
+        setTimeout(() => onDone?.(), 1200);
       } else {
         setState("error");
         setMsg(r.error || "登録に失敗しました。");
@@ -82,8 +83,7 @@ export default function EbayLocationSetup() {
   };
 
   return (
-    <section className="mt-3 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-      <h3 className="text-sm font-black text-gray-800 mb-1">発送元の登録（在庫ロケーション）</h3>
+    <div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
         郵便番号を入れると住所を自動入力します。日本語のままでOK（eBayには自動で英字変換して登録します）。
       </p>
@@ -136,6 +136,6 @@ export default function EbayLocationSetup() {
           {msg}
         </p>
       )}
-    </section>
+    </div>
   );
 }

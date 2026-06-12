@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
 import BottomNav from "../components/BottomNav";
-import EbayConnect from "../components/EbayConnect";
-import EbayListingReadiness from "../components/EbayListingReadiness";
-import EbayPolicySetup from "../components/EbayPolicySetup";
-import EbayLocationSetup from "../components/EbayLocationSetup";
+import EbayListingSetup from "../components/EbayListingSetup";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -28,21 +24,16 @@ export default function SettingsPage() {
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
         <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-black text-gray-800 mb-1">eBay連携</h2>
-          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-            eBayアカウントを連携すると、出品作業を自動化できます。連携してもeBayのパスワードは渡されません。
+          <h2 className="text-sm font-black text-gray-800 mb-1">eBay出品の準備</h2>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            下のSTEPを上から順に進めるだけで、eBay出品の準備が完了します。ログイン不要・eBayのパスワードは渡されません。
           </p>
-          <Suspense fallback={<div className="h-11 w-40 bg-gray-100 rounded-xl animate-pulse" />}>
-            <EbayConnect />
-          </Suspense>
-          <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
-            ※ ログイン不要でお使いいただけます。連携情報はこの端末（ブラウザ）に紐づけて暗号化保存されます。共有端末では使用後に「連携を解除」してください。
+          <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+            ※ 連携情報はこの端末（ブラウザ）に紐づけて暗号化保存されます。共有端末では使用後にSTEP1の「連携を解除」をしてください。
           </p>
         </section>
 
-        <EbayListingReadiness />
-        <EbayPolicySetup />
-        <EbayLocationSetup />
+        <EbayListingSetup />
 
         <div className="pt-1 text-center">
           <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#BF0000]">プライバシーポリシー</Link>

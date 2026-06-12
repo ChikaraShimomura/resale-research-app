@@ -14,7 +14,7 @@ const SIZE_FIELDS = [
   { key: "large", label: "大きい荷物の送料（USD）", placeholder: "45" },
 ] as const;
 
-export default function EbayPolicySetup() {
+export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ handlingDays: "3" });
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
@@ -39,7 +39,8 @@ export default function EbayPolicySetup() {
       if (Array.isArray(j.steps)) setSteps(j.steps);
       if (j.ok) {
         setState("done");
-        setMsg("ビジネスポリシーを作成しました。出品準備チェックを再読み込みしてください。");
+        setMsg("ビジネスポリシーを作成しました。");
+        setTimeout(() => onDone?.(), 1200);
       } else {
         setState("error");
         setMsg(j.error || "一部のポリシー作成に失敗しました。下の結果を確認してください。");
@@ -51,10 +52,9 @@ export default function EbayPolicySetup() {
   };
 
   return (
-    <section className="mt-3 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-      <h3 className="text-sm font-black text-gray-800 mb-1">ビジネスポリシーの自動作成</h3>
+    <div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        支払い・返品（返品不可）・配送ポリシーをeBayに自動登録します。eBay連携後にどうぞ。送料はサイズ別の一律料金（国際発送・USD）です。
+        支払い・返品（返品不可）・配送ポリシーをeBayに自動登録します。送料はサイズ別の一律料金（国際発送・USD）です。
       </p>
 
       <div className="space-y-2">
@@ -117,6 +117,6 @@ export default function EbayPolicySetup() {
           {msg}
         </p>
       )}
-    </section>
+    </div>
   );
 }
