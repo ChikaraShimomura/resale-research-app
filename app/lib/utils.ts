@@ -42,6 +42,36 @@ const EBAY_PRELIST_BASE: Record<string, string> = {
 // eBayの「出品をはじめる」画面へタイトルをプレフィルして遷移するURLを生成。
 // eBayはURLでの価格・送料・コンディションのプレフィルを公式にサポートしていないため
 // （Sell APIが必要）、title パラメータのみを渡す。
+// eBay落札実績の検索URL。eBayタイトルは長く特定的すぎて、そのまま落札検索すると
+// 0件→無関係な「関連商品」が表示される。ブランド+商品名の主要数語に絞り、
+// 関連する落札実績がちゃんと出る検索にする。
+const EBAY_SEARCH_BASE: Record<string, string> = {
+  EBAY_US: "https://www.ebay.com/sch/i.html",
+  EBAY_GB: "https://www.ebay.co.uk/sch/i.html",
+  EBAY_AU: "https://www.ebay.com.au/sch/i.html",
+};
+
+// 検索を絞りすぎる「状態・発送・宣伝」系のノイズ語。商品名(figure/box/card等)は残す。
+const EBAY_SOLD_FILLER =
+  /\b(new|sealed|unopened|opened|mint|nib|misb|bnib|preowned|pre-owned|used|official|authentic|genuine|japan|japanese|jp|import|imported|version|ver|limited|edition|exclusive|free|shipping|fast|tracking|rare|htf|lot|with|for|from|the|and|of|in|brand|preorder|pre-order)\b/gi;
+
+export function toEbaySoldSearchUrl(keyword: string, market?: string): string {
+  const base = EBAY_SEARCH_BASE[market ?? "EBAY_US"] ?? EBAY_SEARCH_BASE.EBAY_US;
+  const words = (keyword || "")
+    .replace(/【[^】]*】/g, " ")
+    .replace(/[^\x00-\x7F]/g, " ")           // 日本語など非ASCIIを除去
+    .replace(/[^A-Za-z0-9#./\s-]/g, " ")     // 残った記号を空白に
+    .replace(EBAY_SOLD_FILLER, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 6);                            // 主要6語に絞って広めに当てる
+  const q = words.join(" ") || (keyword || "").slice(0, 40);
+  const params = new URLSearchParams({ _nkw: q, LH_Complete: "1", LH_Sold: "1" });
+  return `${base}?${params.toString()}`;
+}
+
 export function toEbayListingUrl(title: string, market?: string): string {
   const base = EBAY_PRELIST_BASE[market ?? "EBAY_US"] ?? EBAY_PRELIST_BASE.EBAY_US;
 

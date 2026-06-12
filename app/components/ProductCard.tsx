@@ -1,5 +1,5 @@
 "use client";
-import { formatJpy, cn, toRakutenAffiliateUrl, safeHttpUrl } from "../lib/utils";
+import { formatJpy, cn, toRakutenAffiliateUrl, toEbaySoldSearchUrl } from "../lib/utils";
 import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
 import Link from "next/link";
 import ListingHelper from "./ListingHelper";
@@ -63,7 +63,8 @@ function TrustBadge({ count }: { count: number }) {
 export default function ProductCard({ product }: { product: ProfitProduct }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
-  const ebaySoldUrl = safeHttpUrl(product.ebaySoldUrl);
+  // eBayタイトル全文は特定的すぎて落札検索が0件→無関係品になる。主要語に絞って関連実績を出す。
+  const ebaySoldUrl = toEbaySoldSearchUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
   const { isFav, toggle: toggleFav } = useFavorite(product.id);
   // 出品クリック回数は /api/products が付与済み（個別 fetch は不要）。クリック時に POST で更新。
   const [listingCount, setListingCount] = useState(product.listingCount ?? 0);
