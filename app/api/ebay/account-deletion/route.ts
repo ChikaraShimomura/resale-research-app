@@ -1,0 +1,43 @@
+import crypto from "node:crypto";
+
+// eBay Marketplace Account Deletion/Closure 通知エンドポイント。
+// GET: eBayの検証チャレンジに応答（SHA-256(challengeCode + verificationToken + endpointURL) を返す）。
+// POST: ユーザー削除通知を受信して 200 を返す。
+// 必要env: EBAY_VERIFICATION_TOKEN（eBay開発者ポータルに入れる値と完全一致させること）
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN ?? "";
+// eBayポータルに登録するエンドポイントURLと「完全一致」させる必要がある（ハッシュの材料になるため）。
+const ENDPOINT_URL =
+  process.env.EBAY_DELETION_ENDPOINT ?? "https://www.yushutsu-fukugyo.com/api/ebay/account-deletion";
+
+export async function GET(req: Request) {
+  const challengeCode = new URL(req.url).searchParams.get("challenge_code");
+  if (!challengeCode) {
+    return new Response("missing challenge_code", { status: 400 });
+  }
+  if (!VERIFICATION_TOKEN) {
+    return new Response("verification token not configured", { status: 500 });
+  }
+  // SHA-256( challengeCode + verificationToken + endpoint ) の16進ダイジェスト
+  const hash = crypto.createHash("sha256");
+  hash.update(challengeCode);
+  hash.update(VERIFICATION_TOKEN);
+  hash.update(ENDPOINT_URL);
+  const challengeResponse = hash.digest("hex");
+
+  return Response.json({ challengeResponse }, { status: 200 });
+}
+
+export async function POST(req: Request) {
+  // 実際のアカウント削除/閉鎖通知。受信を確認したら速やかに 200 を返す（eBay要件）。
+  // 本アプリはeBayユーザーID単位の個人データを保持しておらず、eBay連携トークンは
+  // 端末(rr_did)単位の暗号化保管・ユーザー解除可。該当する保持データは無いため確認応答のみ。
+  try {
+    await req.json().catch(() => null);
+  } catch {
+    /* noop */
+  }
+  return new Response(null, { status: 200 });
+}

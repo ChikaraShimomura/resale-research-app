@@ -28,7 +28,10 @@ export function middleware(req: NextRequest) {
   // API への状態変更リクエストは同一オリジン必須（CSRF / 外部からの spam 対策）。
   // 将来追加する全 /api ミューテーションがこのデフォルトを継承する。
   const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
-  if (pathname.startsWith("/api/") && isMutation) {
+  // eBayのアカウント削除通知(webhook)は外部サーバーからのPOSTなので同一オリジン検査から除外。
+  // （検証トークンで正当性を確認するため、ここでのCSRF検査は不要）
+  const isExternalWebhook = pathname === "/api/ebay/account-deletion";
+  if (pathname.startsWith("/api/") && isMutation && !isExternalWebhook) {
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
     let ok = false;
