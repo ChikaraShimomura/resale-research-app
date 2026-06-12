@@ -263,7 +263,7 @@ export async function createFlatIntlFulfillmentPolicy(
         shippingServices: [
           {
             sortOrder: 1,
-            shippingServiceCode: "OtherInternationalShipping",
+            shippingServiceCode: "USPSPriorityMailInternational",
             shippingCost: { value: shippingCostUsd, currency: "USD" },
             shipToLocations: { regionIncluded: [{ regionName: "Worldwide" }] },
           },
