@@ -344,6 +344,12 @@ export default function EbaySellerGuidePage() {
             セラー登録は完了！アプリの<b>「eBay簡単出品」→「確認できた・出品する」</b>を押すと、
             そのまま<b>公開（出品）</b>されます🎈 これ以降は<b>1タップ</b>で出品できます。
           </p>
+          <Link
+            href="/guide/payoneer-withdraw"
+            className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
+          >
+            💴 売れたら → 売上の受け取り（Payoneer出金）の方法はこちら
+          </Link>
         </div>
 
         {/* つまずき集 */}
