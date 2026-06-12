@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Product } from "../types";
 import { ProfitProduct } from "../lib/profitFilter";
 import { Check, ExternalLink, Lock } from "lucide-react";
@@ -10,16 +10,23 @@ interface Props {
   onCountChange: (count: number) => void;
   // 「楽天で仕入れる」を押した端末だけ解放する。false の間はロック表示。
   unlocked?: boolean;
+  // 設定完了→出品画面へ戻ってきた等で、最初から開く。
+  autoOpen?: boolean;
 }
 
 function isProfitProduct(p: ProfitProduct | Product): p is ProfitProduct {
   return "realAvgPrice" in p;
 }
 
-export default function ListingHelper({ product, onCountChange, unlocked = true }: Props) {
+export default function ListingHelper({ product, onCountChange, unlocked = true, autoOpen = false }: Props) {
   const [open, setOpen] = useState(false);
   const [listed, setListed] = useState(false);
   const [hint, setHint] = useState(false);
+
+  // 設定完了から戻ってきた場合は、ゲートに関係なく出品画面を開く。
+  useEffect(() => {
+    if (autoOpen) setOpen(true);
+  }, [autoOpen]);
 
   // 出品成功 → ライバル数(出品カウント)を加算し、ボタンを「出品済み」に。
   const handleListed = () => {

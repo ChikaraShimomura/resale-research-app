@@ -76,10 +76,14 @@ export async function generateMetadata({
 
 export default async function ProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const autoListing = sp.list === "1"; // 設定完了→出品画面へ戻ってきたら自動で開く
   const product = await getProduct(id);
 
   if (!product) {
@@ -150,7 +154,7 @@ export default async function ProductPage({
       </header>
 
       <main className="max-w-2xl mx-auto p-3">
-        <ProductCard product={product} />
+        <ProductCard product={product} autoOpenListing={autoListing} />
         <ShippingHelper help={shippingHelp(product)} />
         <Link href="/search"
           className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-xl active:bg-red-50">

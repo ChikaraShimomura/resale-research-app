@@ -7,12 +7,24 @@ import { formatJpy } from "../lib/utils";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
+interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
 interface PrepareData {
-  product: { id: string; title: string; imageUrl: string; rakutenPrice: number; ebayAvgJpy: number };
+  product: { id: string; jaTitle: string; imageUrl: string; rakutenPrice: number; ebayAvgJpy: number };
+  title: string;
+  description: string;
   priceUsd: string;
   condition: string;
   category: { categoryId?: string; categoryName?: string; categoryTreeId: string } | null;
   requiredAspects: RequiredAspect[];
+  shipping: ShippingChoice[];
+}
+
+// 送料ポリシー名を日本語ラベルに
+function shippingLabel(name: string): string {
+  if (/small/i.test(name)) return "小さい荷物";
+  if (/medium/i.test(name)) return "中くらいの荷物";
+  if (/large/i.test(name)) return "大きい荷物";
+  return name;
 }
 interface PublishResult {
   ok: boolean;
@@ -35,9 +47,11 @@ export default function EbayListingModal({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
   const [data, setData] = useState<PrepareData | null>(null);
-  const [title, setTitle] = useState(product.title);
+  const [title, setTitle] = useState(product.coreKeyword || product.title);
+  const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
   const [condition, setCondition] = useState("NEW");
+  const [shippingId, setShippingId] = useState("");
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -67,9 +81,11 @@ export default function EbayListingModal({
         return;
       }
       setData(p);
-      setTitle(p.product.title);
+      setTitle(p.title);
+      setDescription(p.description);
       setPriceUsd(p.priceUsd);
       setCondition(p.condition);
+      setShippingId(p.shipping?.[0]?.fulfillmentPolicyId ?? "");
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);
@@ -98,10 +114,12 @@ export default function EbayListingModal({
       body: JSON.stringify({
         productId: product.id,
         title,
+        description,
         priceUsd,
         condition,
         categoryId: data?.category?.categoryId,
         aspects,
+        fulfillmentPolicyId: shippingId,
       }),
     })
       .then((r) => r.json())
@@ -154,7 +172,7 @@ export default function EbayListingModal({
                 eBay連携・ビジネスポリシー・発送元の登録が必要です。<br />設定画面で順番に進めてください。
               </p>
               <button
-                onClick={() => router.push("/settings")}
+                onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
                 className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
               >
                 <Settings size={16} /> 設定へ進む
@@ -184,16 +202,27 @@ export default function EbayListingModal({
                 </div>
               </div>
 
-              {/* タイトル */}
+              {/* タイトル（英語・編集可） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">タイトル</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">タイトル（英語）</label>
                 <textarea
                   value={title}
                   onChange={(e) => setTitle(e.target.value.slice(0, 80))}
                   rows={2}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000] resize-none"
                 />
-                <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　英語の方が売れやすいです</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　自動で英語タイトルを入れています（編集OK）</p>
+              </div>
+
+              {/* 説明文（英語・編集可） */}
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-0.5">説明文（英語）</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000] resize-none leading-relaxed"
+                />
               </div>
 
               {/* 状態 */}
@@ -224,6 +253,29 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
+              </div>
+
+              {/* 送料サイズ */}
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）</label>
+                {data.shipping.length > 0 ? (
+                  <select
+                    value={shippingId}
+                    onChange={(e) => setShippingId(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                  >
+                    {data.shipping.map((s) => (
+                      <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
+                        {shippingLabel(s.name)}（送料 ${s.costUsd}）
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-[12px] text-[#BF0000] bg-red-50 rounded-xl px-3 py-2">
+                    配送ポリシーが見つかりません。設定で「発送設定」を完了してください。
+                  </p>
+                )}
+                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担（国際発送・一律）です</p>
               </div>
 
               {/* カテゴリ */}

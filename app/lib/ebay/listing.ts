@@ -166,6 +166,34 @@ export async function getBusinessPolicyIds(token: string): Promise<PolicyIds> {
   };
 }
 
+// 配送ポリシー一覧（名前＋一律送料USD）。出品画面で送料サイズを選ばせる用。
+export interface ShippingChoice {
+  fulfillmentPolicyId: string;
+  name: string; // "Shipping Small" など
+  costUsd: string; // 一律送料(USD)
+}
+
+interface FulfillmentPolicyRaw {
+  fulfillmentPolicyId?: string;
+  name?: string;
+  shippingOptions?: { shippingServices?: { shippingCost?: { value?: string } }[] }[];
+}
+
+export async function listFulfillmentPolicies(token: string): Promise<ShippingChoice[]> {
+  const r = await ebayFetch(token, "GET", `/sell/account/v1/fulfillment_policy?marketplace_id=${MARKETPLACE}`);
+  const pols = (r.data as { fulfillmentPolicies?: FulfillmentPolicyRaw[] } | null)?.fulfillmentPolicies ?? [];
+  return pols
+    .map((p) => {
+      const costUsd =
+        (p.shippingOptions ?? [])
+          .flatMap((o) => o.shippingServices ?? [])
+          .map((s) => s.shippingCost?.value)
+          .find((v): v is string => !!v) ?? "";
+      return { fulfillmentPolicyId: p.fulfillmentPolicyId ?? "", name: p.name ?? "", costUsd };
+    })
+    .filter((p) => p.fulfillmentPolicyId);
+}
+
 // ── 出品（作成→公開） ──
 export interface PublishInput {
   productId: string;
@@ -176,6 +204,7 @@ export interface PublishInput {
   condition: string; // "NEW" など
   categoryId: string;
   aspects: Record<string, string[]>; // { Brand: ["Unbranded"], ... }
+  fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
 }
 
 export interface StepResult {
@@ -267,7 +296,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     listingDescription: (input.description || input.title).slice(0, 4000),
     pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },
     listingPolicies: {
-      fulfillmentPolicyId: pol.fulfillmentPolicyId,
+      fulfillmentPolicyId: input.fulfillmentPolicyId || pol.fulfillmentPolicyId,
       paymentPolicyId: pol.paymentPolicyId,
       returnPolicyId: pol.returnPolicyId,
     },

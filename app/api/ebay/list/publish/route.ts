@@ -13,10 +13,12 @@ export const dynamic = "force-dynamic";
 interface Payload {
   productId?: string;
   title?: string;
+  description?: string;
   priceUsd?: string;
   condition?: string;
   categoryId?: string;
   aspects?: Record<string, string>; // { Brand: "Unbranded", ... }
+  fulfillmentPolicyId?: string; // 選んだ送料サイズ
 }
 
 async function getProduct(id: string): Promise<ProfitProduct | null> {
@@ -44,14 +46,16 @@ export async function POST(req: Request) {
   const product = await getProduct(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
-  const title = (body.title || product.title).slice(0, 80);
+  const title = (body.title || product.coreKeyword || product.title).slice(0, 80);
   // 必須項目（空値は送らない）。値は配列で渡す。
   const aspects: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(body.aspects ?? {})) {
     if (v && v.trim()) aspects[k] = [v.trim()];
   }
 
-  const description = `${title}\n\nBrand new item shipped directly from Japan with tracking. Carefully packaged. Please check the photo.`;
+  const description =
+    (body.description && body.description.trim()) ||
+    `${title}\n\nShipped directly from Japan with tracking. Carefully packaged. Please check the photo.`;
 
   const result = await createAndPublish(token, {
     productId: product.id,
@@ -59,9 +63,10 @@ export async function POST(req: Request) {
     description,
     imageUrl: product.imageUrl,
     priceUsd: Number(body.priceUsd).toFixed(2),
-    condition: body.condition || (product.isNew === false ? "USED_EXCELLENT" : "NEW"),
+    condition: body.condition || "NEW",
     categoryId: body.categoryId,
     aspects,
+    fulfillmentPolicyId: body.fulfillmentPolicyId,
   });
 
   // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）

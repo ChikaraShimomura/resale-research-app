@@ -60,7 +60,7 @@ function TrustBadge({ count }: { count: number }) {
   );
 }
 
-export default function ProductCard({ product, ebaySold = false }: { product: ProfitProduct; ebaySold?: boolean }) {
+export default function ProductCard({ product, ebaySold = false, autoOpenListing = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
@@ -284,7 +284,7 @@ export default function ProductCard({ product, ebaySold = false }: { product: Pr
               楽天で仕入れる
             </a>
             {!sold && (
-              <ListingHelper product={product} onCountChange={setListingCount} unlocked={rakutenClicked} />
+              <ListingHelper product={product} onCountChange={setListingCount} unlocked={rakutenClicked} autoOpen={autoOpenListing} />
             )}
           </div>
 

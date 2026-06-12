@@ -6,6 +6,7 @@ import { getAppAccessToken } from "../../../../lib/ebay/oauth";
 import {
   getCategorySuggestion,
   getRequiredAspects,
+  listFulfillmentPolicies,
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
@@ -31,6 +32,21 @@ function defaultAspect(a: RequiredAspect): string {
   return "";
 }
 
+// 状態の自動判定：大半は新品。楽天タイトルに「中古」等があるときだけ中古に。
+function detectCondition(jaTitle: string): string {
+  if (/中古|ユーズド|used|ジャンク/i.test(jaTitle)) {
+    if (/非常に良い|美品|ほぼ新品|新品同様|like ?new/i.test(jaTitle)) return "USED_EXCELLENT";
+    return "USED_GOOD";
+  }
+  return "NEW";
+}
+
+// 英語の説明文（編集可）。タイトルは英語(coreKeyword)を使う。
+function buildDescription(enTitle: string, condition: string): string {
+  const cond = condition === "NEW" ? "Brand new and unused." : "Pre-owned, in good condition.";
+  return `${enTitle}\n\n${cond} Shipped directly from Japan with tracking. Carefully packaged. Please check the photo. Feel free to message me with any questions before purchase.`;
+}
+
 export async function POST(req: Request) {
   const actor = (await cookies()).get("rr_did")?.value;
   if (!actor) return Response.json({ ok: false, connected: false });
@@ -45,10 +61,18 @@ export async function POST(req: Request) {
 
   const priceUsd = Math.max(1, Math.round((product.realAvgPrice / USD_JPY) * 100) / 100).toFixed(2);
 
+  // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
+  const enTitle = (product.coreKeyword || product.title).slice(0, 80);
+  const condition = detectCondition(product.title);
+  const description = buildDescription(enTitle, condition);
+
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
-  const query = product.coreKeyword || product.title;
+  // 送料サイズ（配送ポリシー）一覧も取得。
   const taxoToken = (await getAppAccessToken()) || token;
-  const cat = await getCategorySuggestion(taxoToken, query);
+  const [cat, shipping] = await Promise.all([
+    getCategorySuggestion(taxoToken, enTitle),
+    listFulfillmentPolicies(token),
+  ]);
 
   let requiredAspects: { name: string; values: string[]; free: boolean; value: string }[] = [];
   if (cat?.categoryId) {
@@ -61,17 +85,20 @@ export async function POST(req: Request) {
       ok: true,
       product: {
         id: product.id,
-        title: product.title,
+        jaTitle: product.title,
         imageUrl: product.imageUrl,
         rakutenPrice: product.source.price,
         ebayAvgJpy: product.realAvgPrice,
       },
+      title: enTitle,
+      description,
       priceUsd,
-      condition: product.isNew === false ? "USED_EXCELLENT" : "NEW",
+      condition,
       category: cat
         ? { categoryId: cat.categoryId, categoryName: cat.categoryName, categoryTreeId: cat.categoryTreeId }
         : null,
       requiredAspects,
+      shipping,
     },
     { headers: { "Cache-Control": "private, no-store" } }
   );

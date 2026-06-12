@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
 import EbayPolicySetup from "./EbayPolicySetup";
@@ -14,10 +15,20 @@ interface Readiness {
 }
 
 export default function EbayListingSetup() {
+  const router = useRouter();
   const [r, setR] = useState<Readiness | null>(null);
   const [loading, setLoading] = useState(true);
   // null = STEP自動開閉、数値 = そのSTEPを手動で開く、-1 = すべて閉じる
   const [override, setOverride] = useState<number | null>(null);
+  // 「eBay簡単出品」から来た場合、商品IDが ?list= に入っている。全完了したら出品画面へ戻す。
+  const [listId, setListId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setListId(new URLSearchParams(window.location.search).get("list"));
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   const refresh = useCallback(() => {
     fetch("/api/ebay/listing-readiness", { cache: "no-store" })
@@ -43,6 +54,13 @@ export default function EbayListingSetup() {
   const allDone = doneCount === dones.length;
   const firstIncomplete = dones.findIndex((d) => !d); // 全完了なら -1
   const openIdx = override ?? firstIncomplete;
+
+  // 全STEP完了かつ「eBay簡単出品」から来た場合、その商品の出品画面へ自動で戻す。
+  useEffect(() => {
+    if (!loading && allDone && listId) {
+      router.push(`/product/${encodeURIComponent(listId)}?list=1`);
+    }
+  }, [loading, allDone, listId, router]);
 
   const steps = [
     { title: "eBayと連携する", body: <EbayConnect /> },
