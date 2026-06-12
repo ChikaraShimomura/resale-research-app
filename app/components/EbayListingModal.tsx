@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
 import { track } from "../lib/analytics";
+import EbaySellerGuide from "./EbaySellerGuide";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
@@ -65,7 +66,7 @@ export default function EbayListingModal({
         .then((r) => r.json())
         .catch(() => ({}));
       if (!alive) return;
-      if (!rd.connected || !rd.ready || rd.sellerRegistered === false) {
+      if (!rd.connected || !rd.ready) {
         setPhase("setup");
         return;
       }
@@ -365,23 +366,28 @@ export default function EbayListingModal({
           )}
 
           {phase === "draftsaved" && (
-            <div className="py-6 text-center">
-              <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
-              <p className="text-sm font-black text-gray-800 mb-1">下書きをeBayに保存しました！</p>
-              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                あとは<b className="text-gray-700">セラー登録（売上の受け取り設定）</b>を済ませれば、この商品を公開できます。
-              </p>
-              <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
-                セラー登録が必要なのは<b>初めて出品するときの1回だけ</b>。<br />次からは「出品する」を押すだけで出品できます。
-              </p>
-              <button
-                onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
-                className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
-              >
-                <Settings size={16} /> セラー登録へ進む
-              </button>
-              <div>
-                <button onClick={onClose} className="mt-3 text-sm font-bold text-gray-500">あとで</button>
+            <div className="py-4">
+              <div className="text-center">
+                <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
+                <p className="text-sm font-black text-gray-800 mb-1">下書きをeBayに保存しました！</p>
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                  あとは<b className="text-gray-700">セラー登録（売上の受け取り設定）</b>を済ませれば公開できます。
+                </p>
+                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
+                  セラー登録が必要なのは<b>初めて出品するときの1回だけ</b>。<br />登録できたら、もう一度「出品する」を押すだけで公開できます。
+                </p>
+                <a
+                  href="https://www.ebay.com/sl/sell"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
+                >
+                  eBayでセラー登録する
+                </a>
+              </div>
+              <EbaySellerGuide />
+              <div className="text-center mt-3">
+                <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
               </div>
             </div>
           )}
