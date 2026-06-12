@@ -132,7 +132,7 @@ function getCategoryPitch(category: Category): { en: string; jp: string } {
 export interface DescriptionOptions {
   title: string;
   price: number;          // 楽天仕入れ価格（参考用・表示しない）
-  ebayAvgPrice?: number;  // eBay平均落札価格
+  ebayAvgPrice?: number;  // eBay相場価格
   imageUrl?: string;
   market?: string;        // EBAY_US / EBAY_GB / EBAY_AU
 }

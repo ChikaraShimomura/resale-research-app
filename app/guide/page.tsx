@@ -33,7 +33,7 @@ const STEPS: Step[] = [
     Icon: PenLine,
     title: "eBayに出品する",
     desc: "商品カードの「eBay簡単出品」ボタンを押すと、タイトルが自動入力された出品ページが開きます。あとは説明文・価格・送料を設定するだけです。",
-    tips: ["価格はeBay平均落札価格を参考に", "送料は¥2,500〜3,000が目安（EMS・ePacket）", "写真は実物を撮影して使用"],
+    tips: ["価格はeBay相場価格を参考に", "送料は¥2,500〜3,000が目安（EMS・ePacket）", "写真は実物を撮影して使用"],
     link: { label: "商品を探して出品する", href: "/search" },
   },
   {
@@ -161,7 +161,7 @@ export default function GuidePage() {
           <SectionTitle>利益の計算方法</SectionTitle>
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
-              <div className="flex justify-between"><span>eBay平均落札価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
+              <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>

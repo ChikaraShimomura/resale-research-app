@@ -6,7 +6,7 @@ const plans = [
     name: "無料",
     price: "¥0",
     period: "",
-    features: ["1日10件まで検索", "平均落札価格のみ表示", "基本的な利益計算"],
+    features: ["1日10件まで検索", "相場価格のみ表示", "基本的な利益計算"],
     cta: "無料で始める",
     href: "/search",
     highlight: false,

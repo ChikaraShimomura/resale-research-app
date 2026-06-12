@@ -54,9 +54,9 @@ function TrustBadge({ count }: { count: number }) {
   if (count >= 5) return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500"><BadgeCheck size={12} />信頼小</span>
   );
-  // 逆引きフローでは eBay で実際に売れた確定価格をベースにしているため肯定的に表示
+  // eBay の現在の出品価格（日本セラー・新品）をベースにしているため肯定的に表示
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />eBay落札価格</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />eBay相場価格</span>
   );
 }
 
@@ -162,7 +162,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3">
           <div className="flex items-center justify-between gap-1">
             <div className="min-w-0">
-              <p className="text-[11px] text-gray-500 mb-0.5">eBay平均落札</p>
+              <p className="text-[11px] text-gray-500 mb-0.5">eBay相場</p>
               <p className="text-base font-black text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -220,7 +220,7 @@ export default function ProductCard({ product }: { product: ProfitProduct }) {
         {showBreakdown && (
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3 text-[12px] text-gray-600 space-y-1.5">
             <div className="flex justify-between">
-              <span>eBay平均落札価格</span>
+              <span>eBay相場価格</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#BF0000]">

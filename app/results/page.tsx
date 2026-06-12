@@ -150,7 +150,7 @@ function ResultsContent() {
 
         {!loading && sorted.length > 0 && (
           <p className="px-3 py-4 text-[10px] text-gray-400 leading-relaxed text-center">
-            ※ eBay落札実績価格をもとに計算しています。実際の利益は状態・競合・送料などによって異なります。
+            ※ eBay相場価格（現在の出品ベース）をもとに計算しています。実際の利益は状態・競合・送料などによって異なります。
           </p>
         )}
       </main>

@@ -164,7 +164,7 @@ def generate_pattern_a(product: dict, ai_client: anthropic.Anthropic) -> str | N
 
 商品名: {title}
 楽天仕入れ価格: {src_price:,}円
-eBay平均落札価格: {avg_price:,}円
+eBay相場価格: {avg_price:,}円
 利益率: {profit_rate}%
 
 【口調・トーン（重要）】
