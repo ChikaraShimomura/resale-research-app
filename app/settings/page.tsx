@@ -39,6 +39,10 @@ export default function SettingsPage() {
         </section>
 
         <EbayListingReadiness />
+
+        <div className="pt-1 text-center">
+          <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#BF0000]">プライバシーポリシー</Link>
+        </div>
       </main>
 
       <BottomNav />

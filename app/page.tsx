@@ -109,6 +109,12 @@ export default function LandingPage() {
           ※ 利益はeBay相場価格（現在の出品ベース）・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
           実際の利益は状態・競合・為替等により異なります。
         </p>
+        <div className="mt-4 flex items-center justify-center gap-4 text-xs">
+          <Link href="/guide" className="text-gray-500 hover:text-[#BF0000]">ガイド</Link>
+          <span aria-hidden="true" className="text-gray-300">·</span>
+          <Link href="/privacy" className="text-gray-500 hover:text-[#BF0000]">プライバシーポリシー</Link>
+        </div>
+        <p className="mt-3 text-[10px] text-gray-400">輸出ラボは eBay・楽天とは独立した非公式サービスです。</p>
       </footer>
     </div>
   );
