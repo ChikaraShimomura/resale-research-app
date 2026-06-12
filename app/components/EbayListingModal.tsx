@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
@@ -79,6 +80,15 @@ export default function EbayListingModal({
     };
   }, [product.id]);
 
+  // 背景のスクロールを止める（モーダル表示中）
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const publish = async () => {
     setPhase("publishing");
     setMsg("");
@@ -108,12 +118,12 @@ export default function EbayListingModal({
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
 
-  return (
+  const overlay = (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="eBay出品"
-      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-[100] bg-black/50 flex items-end sm:items-center justify-center"
       onClick={onClose}
     >
       <div
@@ -326,4 +336,7 @@ export default function EbayListingModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(overlay, document.body);
 }
