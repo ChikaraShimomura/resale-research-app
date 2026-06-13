@@ -240,7 +240,7 @@ export default function EbaySellerGuidePage() {
             <p>③ <b>eBayに戻って完了→出品</b>（STEP14〜18）</p>
           </div>
           <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
-            途中で<b>メールが2回</b>届きます（Payoneerから1回・eBay/Payoneerから1回）。そのリンクも本ガイドで案内します。
+            途中で<b>Payoneerからメールが2回</b>届きます（①アカウント有効化／②本人確認(KYC)完了＝出品解禁）。そのリンクも本ガイドで案内します。
           </p>
         </div>
 
@@ -551,23 +551,23 @@ export default function EbaySellerGuidePage() {
         </StepCard>
 
         {/* STEP 17 — 準備OKメール */}
-        <StepCard n={17} title="メール: 「アカウントの準備ができました」のお知らせが届く（＝出品解禁）">
+        <StepCard n={17} title="メール: Payoneerから「本人確認（KYC）完了」のお知らせが届く（＝出品解禁）">
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
             <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-blue-800 leading-relaxed">
-              eBay／Payoneerが<b>本人確認（KYC）を審査</b>します。<b>早ければ数分、長いと数日</b>。
-              完了すると<b>下のような内容のメール</b>が届きます。
+              <b>Payoneer</b>が<b>本人確認（KYC）を審査</b>します（eBayではなく<b>Payoneer側</b>の手続きです）。<b>早ければ数分、長いと数日</b>。
+              完了すると<b>Payoneerから下のような内容のメール</b>が届きます。
             </p>
           </div>
           <MailCard
-            from={<EbayLogo />}
-            subject="（例）出品できる状態になりました"
-            body="本人確認の審査が終わり、アカウントの準備が整ったことをお知らせする内容のメールです。これが出品解禁の合図です。"
-            link="出品を始める / Start selling"
+            from={<PayoneerLogo />}
+            subject="（例）本人確認が完了しました／アカウントが有効になりました"
+            body="Payoneerでの本人確認（KYC）の審査が終わり、アカウントが使える状態になったことをお知らせする内容のメールです。これが出品解禁の合図です。"
+            link="アカウントを確認する / Get started"
           />
           <Warn>
-            ⚠️ <b>件名は環境によって変わります</b>（「準備ができました」「出品できます」など）。
-            差出人が<b>eBay／Payoneer</b>で、<b>「準備OK・出品できる状態」</b>を知らせる内容ならそれが合図。
+            ⚠️ <b>件名は環境によって変わります</b>（「確認が完了」「アカウントが有効に」など）。
+            差出人が<b>Payoneer</b>で、<b>本人確認の完了・アカウントが使える状態</b>を知らせる内容ならそれが合図です。
             この<b>メールが届くまで</b>は、アプリで出品しようとすると次のように待ち表示になります（正常）。
           </Warn>
           <Tip>「アカウントの最終確認待ち」と出ても<b>エラーではありません</b>。メールを待ってからもう一度どうぞ。</Tip>
@@ -608,7 +608,7 @@ export default function EbaySellerGuidePage() {
           <ul className="space-y-2 text-[12px] text-gray-700 leading-relaxed">
             <li>🔴 <b>「次へ」が押せない</b>（STEP9）→ 住所を<b>候補/手動入力で確定</b>＋<b>City（都市名）</b>を入力＋電話の<b>先頭0を取る</b>。この3つでほぼ解決。</li>
             <li>🔴 <b>「出品できませんでした」と長いエラー</b> → 実は<b>本人確認(KYC)の審査待ち</b>（STEP17）。<b>準備OKメール後</b>に再出品すればOK（故障ではありません）。</li>
-            <li>🔴 <b>承認メールが来たのに出品できない</b> → それは<b>Payoneerの承認メール（STEP13）</b>。<b>出品解禁はeBayの準備OKメール（STEP17）</b>のほう。別物です。</li>
+            <li>🔴 <b>承認メールが来たのに出品できない</b> → それは早い方の<b>アカウント有効化メール（STEP13）</b>かも。出品解禁は<b>本人確認(KYC)完了メール（STEP17）</b>のほう。どちらもPayoneerからですが別物です。</li>
             <li>🔴 <b>審査で止まる</b> → 名前・住所を<b>身分証と完全一致</b>のローマ字に揃え直す。</li>
             <li>🔴 <b>メールが見つからない</b> → <b>迷惑メールフォルダ</b>を確認。差出人（eBay / Payoneer）で検索すると早い。</li>
           </ul>
