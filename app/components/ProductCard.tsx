@@ -6,7 +6,7 @@ import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { isSold } from "../lib/sold";
-import { track } from "../lib/analytics";
+import { track, logEvent } from "../lib/analytics";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
@@ -81,6 +81,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
+    logEvent("rakuten_buy");
   };
 
   // 「楽天で仕入れる」を押した端末(=仕入れ中)には SOLD を出さない。仕入れ途中で他人の出品が増えて
@@ -131,13 +132,20 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="flex gap-3.5 mb-4">
           {/* 画像 */}
           <div className="shrink-0 relative">
-            <a href={`/search?q=${encodeURIComponent(product.title.slice(0, 30))}`} className="block" aria-label="同名商品を再検索">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.title}
-                className="w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border border-gray-100" />
-            ) : (
-              <div aria-hidden="true" className="w-[92px] h-[92px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-gray-300"><Package size={30} /></div>
-            )}
+            {/* 画像タップ＝楽天で商品を見る（アフィリ付き・新規タブ）。
+                ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けず、eBay簡単出品は解放しない。 */}
+            <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+              onClick={() => logEvent("product_view")}
+              className="block relative" aria-label="楽天市場でこの商品を見る">
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt={product.title}
+                  className="w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border border-gray-100" />
+              ) : (
+                <div aria-hidden="true" className="w-[92px] h-[92px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-gray-300"><Package size={30} /></div>
+              )}
+              <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
+                楽天で見る
+              </span>
             </a>
             {isHot && (
               <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black bg-[#BF0000] text-white px-1.5 py-0.5 rounded-full leading-none shadow-sm">

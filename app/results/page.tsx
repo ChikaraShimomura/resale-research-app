@@ -12,6 +12,7 @@ import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
 import { readUnlockedIds, pinUnlockedFirst } from "../lib/unlocked";
+import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
 
@@ -49,6 +50,7 @@ function ResultsContent() {
   useEffect(() => {
     setUnlockedIds(readUnlockedIds());
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
+    logEvent("results_view"); // 一覧閲覧（ファネル計測）
   }, []);
 
   const filtered = useMemo(() => {

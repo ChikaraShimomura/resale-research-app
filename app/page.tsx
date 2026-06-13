@@ -3,10 +3,12 @@ import { Target } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
 import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
+import TrackView from "./components/TrackView";
 
 export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
+      <TrackView event="visit" />
 
       {/* ヘッダー */}
       <header className="bg-[#BF0000] px-4 py-3 shadow-sm">
