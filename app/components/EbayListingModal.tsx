@@ -74,6 +74,7 @@ export default function EbayListingModal({
   const [priceUsd, setPriceUsd] = useState("");
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
+  const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -154,6 +155,7 @@ export default function EbayListingModal({
         categoryId: data?.category?.categoryId,
         aspects,
         fulfillmentPolicyId: shippingId,
+        handlingDays,
       }),
     })
       .then((r) => r.json())
@@ -334,6 +336,25 @@ export default function EbayListingModal({
                   </p>
                 )}
                 <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担（国際発送・一律）です</p>
+              </div>
+
+              {/* 発送までの日数（handling time） */}
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-0.5 flex items-center gap-1">
+                  <Clock size={12} className="text-gray-400" />発送までの日数（落札後に発送するまで）
+                </label>
+                <select
+                  value={handlingDays}
+                  onChange={(e) => setHandlingDays(Number(e.target.value))}
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                >
+                  {[1, 2, 3, 5, 7, 10, 14, 20, 30].map((d) => (
+                    <option key={d} value={d}>
+                      {d}日以内に発送{d === 7 ? "（おすすめ）" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-400 mt-0.5">買い手に表示される発送の目安です。初めは余裕をもって7日がおすすめ。</p>
               </div>
 
               {/* カテゴリ */}

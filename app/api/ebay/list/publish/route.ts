@@ -20,6 +20,7 @@ interface Payload {
   categoryId?: string;
   aspects?: Record<string, string>; // { Brand: "Unbranded", ... }
   fulfillmentPolicyId?: string; // 選んだ送料サイズ
+  handlingDays?: number; // 発送までの日数（落札後）
 }
 
 async function getProduct(id: string): Promise<ProfitProduct | null> {
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
     categoryId: body.categoryId,
     aspects,
     fulfillmentPolicyId: body.fulfillmentPolicyId,
+    handlingDays: Number(body.handlingDays) > 0 ? Number(body.handlingDays) : undefined,
   });
 
   // 出品（下書き含む＝オファー作成）できたら、出品者数を計上（SOLD判定の元・乱立防止）。

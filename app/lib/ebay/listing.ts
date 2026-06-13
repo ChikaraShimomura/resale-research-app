@@ -207,6 +207,7 @@ export interface PublishInput {
   categoryId: string;
   aspects: Record<string, string[]>; // { Brand: ["Unbranded"], ... }
   fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
+  handlingDays?: number; // 発送までの日数（落札後）。未指定ならポリシーの既定値のまま。
 }
 
 export interface StepResult {
@@ -259,6 +260,23 @@ async function upsertOffer(
   return null;
 }
 
+// 選んだ配送ポリシーの「発送までの日数(handlingTime)」だけ更新する（GET→差し替え→PUT）。
+// 送料・送り先など他項目は取得値を保持。ベストエフォート（失敗しても公開は続行）。
+async function setPolicyHandlingTime(
+  token: string,
+  policyId: string,
+  days: number
+): Promise<{ ok: boolean; error?: string }> {
+  const cur = await ebayFetch(token, "GET", `/sell/account/v1/fulfillment_policy/${policyId}`);
+  if (!cur.ok || !cur.data) return { ok: false, error: cur.error || "配送ポリシーを取得できませんでした" };
+  const rest: Record<string, unknown> = { ...cur.data };
+  delete rest.fulfillmentPolicyId; // IDはURLで指定するためボディからは除く
+  delete rest.warnings;
+  const body = { ...rest, handlingTime: { value: days, unit: "DAY" } };
+  const put = await ebayFetch(token, "PUT", `/sell/account/v1/fulfillment_policy/${policyId}`, body);
+  return { ok: put.ok, error: put.error };
+}
+
 export async function createAndPublish(token: string, input: PublishInput): Promise<PublishResult> {
   const sku = skuForProduct(input.productId);
   const steps: StepResult[] = [];
@@ -289,6 +307,15 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     steps.push({ step: "ポリシー確認", ok: false, error: "ビジネスポリシーが見つかりません" });
     return { ok: false, sku, steps, error: "ビジネスポリシーが未設定です。設定を完了してください。" };
   }
+  const usedFulfillmentId = input.fulfillmentPolicyId || pol.fulfillmentPolicyId;
+
+  // 2.5) 発送までの日数（任意）。eBayは handling time を配送ポリシーに持たせる仕様のため、
+  //      選んだ配送ポリシーの handlingTime だけ更新する。失敗しても公開は続行（ベストエフォート）。
+  if (input.handlingDays) {
+    const days = Math.min(30, Math.max(1, Math.floor(input.handlingDays)));
+    const upd = await setPolicyHandlingTime(token, usedFulfillmentId, days);
+    steps.push({ step: `発送までの日数を${days}日に設定`, ok: upd.ok, error: upd.ok ? undefined : upd.error });
+  }
 
   // 3) オファー（作成 or 更新）
   const offerBody: Record<string, unknown> = {
@@ -300,7 +327,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     listingDescription: (input.description || input.title).slice(0, 4000),
     pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },
     listingPolicies: {
-      fulfillmentPolicyId: input.fulfillmentPolicyId || pol.fulfillmentPolicyId,
+      fulfillmentPolicyId: usedFulfillmentId,
       paymentPolicyId: pol.paymentPolicyId,
       returnPolicyId: pol.returnPolicyId,
     },

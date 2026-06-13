@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad request" }, { status: 400 });
   }
 
-  const handlingDays = Number(body.handlingDays) > 0 ? Math.floor(Number(body.handlingDays)) : 3;
+  const handlingDays = Number(body.handlingDays) > 0 ? Math.floor(Number(body.handlingDays)) : 7;
   const sizes = [
     { key: "Small", value: body.small },
     { key: "Medium", value: body.medium },

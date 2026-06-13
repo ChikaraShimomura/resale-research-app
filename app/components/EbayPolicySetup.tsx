@@ -15,7 +15,7 @@ const SIZE_FIELDS = [
 ] as const;
 
 // 送料の既定値（USD）。送り先の国に関わらず同じ料金で、サイズで料金が変わる。ユーザー入力は任意で、最初からこの値が入る。
-const DEFAULTS: Record<string, string> = { handlingDays: "3", small: "12", medium: "25", large: "45" };
+const DEFAULTS: Record<string, string> = { handlingDays: "7", small: "12", medium: "25", large: "45" };
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
@@ -33,7 +33,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          handlingDays: Number(vals.handlingDays) || 3,
+          handlingDays: Number(vals.handlingDays) || 7,
           small: vals.small,
           medium: vals.medium,
           large: vals.large,
@@ -93,7 +93,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
               inputMode="numeric"
               value={vals.handlingDays ?? ""}
               onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
-              placeholder="3"
+              placeholder="7"
               className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
             />
           </div>
