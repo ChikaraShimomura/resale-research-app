@@ -55,10 +55,10 @@ function BookIcon({ filled }: { filled: boolean }) {
 }
 
 const NAV_ITEMS = [
-  { href: "/search",     Icon: HomeIcon,   label: "ホーム" },
-  { href: "/results?q=", Icon: SearchIcon, label: "検索", matchPath: "/results" },
-  { href: "/favorites",  Icon: HeartIcon,  label: "お気に入り" },
-  { href: "/guide",      Icon: BookIcon,   label: "ガイド" },
+  { href: "/",          Icon: HomeIcon,   label: "ホーム",     match: ["/"] },
+  { href: "/search",    Icon: SearchIcon, label: "さがす",     match: ["/search", "/results"] },
+  { href: "/favorites", Icon: HeartIcon,  label: "お気に入り", match: ["/favorites"] },
+  { href: "/guide",     Icon: BookIcon,   label: "ガイド",     match: ["/guide"] },
 ] as const;
 
 export default function BottomNav() {
@@ -71,7 +71,7 @@ export default function BottomNav() {
     >
       {NAV_ITEMS.map((item) => {
         const isActive =
-          ("matchPath" in item ? pathname.startsWith(item.matchPath) : pathname === item.href);
+          item.href === "/" ? pathname === "/" : item.match.some((p) => pathname.startsWith(p));
         return (
           <Link
             key={item.href}

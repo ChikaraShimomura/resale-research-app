@@ -2,10 +2,11 @@ import Link from "next/link";
 import { Target } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
 import OnboardingChecklist from "./components/OnboardingChecklist";
+import BottomNav from "./components/BottomNav";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-dvh bg-[#F5F7FA]">
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* ヘッダー */}
       <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] px-3 py-2.5 shadow-sm">
@@ -124,6 +125,8 @@ export default function LandingPage() {
         </div>
         <p className="mt-3 text-[10px] text-gray-400">輸出ラボは eBay・楽天とは独立した非公式サービスです。</p>
       </footer>
+
+      <BottomNav />
     </div>
   );
 }

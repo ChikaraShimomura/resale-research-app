@@ -25,16 +25,16 @@ const STEPS: Step[] = [
     num: "2",
     Icon: Globe,
     title: "eBayアカウントを作成する",
-    desc: "eBay.comで無料のセラーアカウントを作成します。日本から海外へ発送する「国際発送」に対応した設定にしておきます。",
-    tips: ["ebay.comでアカウント登録（無料）", "支払い受取はPayoneerまたは銀行口座", "最初は出品数に無料枠あり"],
-    link: { label: "eBay.comで無料登録", href: "https://www.ebay.com/", external: true },
+    desc: "eBayで売上を受け取るためのセラー登録（初回だけ）。Payoneer連携と本人確認まで、画像つきガイドの通りに進めればOKです。",
+    tips: ["登録は初回の1回だけ", "売上の受け取りはPayoneer（本人確認あり）", "迷わないよう画像つきガイドを用意"],
+    link: { label: "登録のやり方（画像つき）を見る", href: "/guide/ebay-seller" },
   },
   {
     num: "3",
     Icon: PenLine,
     title: "eBayに出品する",
-    desc: "商品カードの「eBay簡単出品」ボタンを押すと、タイトルが自動入力された出品ページが開きます。あとは説明文・価格・送料を設定するだけです。",
-    tips: ["価格はeBay相場価格を参考に", "送料は¥2,500〜3,000が目安（EMS・ePacket）", "写真は実物を撮影して使用"],
+    desc: "まず商品カードの「楽天で仕入れる」を押すと「eBay簡単出品」が解放されます。あとはボタンを押すだけ。タイトル・価格・カテゴリは自動で入り、楽天の画像で出品できます。",
+    tips: ["「楽天で仕入れる」を押すと出品が解放", "タイトル・価格・送料は自動入力", "気になる商品は後でeBayで自分の写真に差し替えも可"],
     link: { label: "商品を探して出品する", href: "/search" },
   },
   {
@@ -51,7 +51,7 @@ const STEPS: Step[] = [
     title: "利益を受け取る",
     desc: "落札者の受取確認後、売上がPayoneerや銀行口座に振り込まれます。楽天ポイントは次の仕入れにそのまま使えます。",
     tips: ["eBay手数料は落札価格の13.25%＋¥47", "Payoneerから日本の銀行へ振込", "楽天ポイントは1pt＝1円で使える"],
-    link: { label: "Payoneer（受取サービス）", href: "https://www.payoneer.com/ja/", external: true },
+    link: { label: "売上の受け取り方（出金ガイド）", href: "/guide/payoneer-withdraw" },
   },
 ];
 
