@@ -1,14 +1,15 @@
 import { ProfitProduct } from "./profitFilter";
 
-// アプリから出品された数（下書き含む・異なる出品者の数）の上限。これを「超えたら」SOLD扱いにして、
+// アプリから出品された数（下書き含む・異なる出品者の数）の飽和しきい値。これ「以上」でSOLD扱いにして、
 // 市場の乱立（ライバル増えすぎ）を防ぐ。押された数ではなく、実際に出品/下書きされた数で数える。
-export const LISTING_LIMIT = 10;
+// 数字の二重管理を避けるため、publish route 側もこの定数を import して判定を一致させる。
+export const SOLD_THRESHOLD = 15;
 
-// SOLD（出品が乱立 or ダミー）か判定。10件を“超えたら”SOLD。
+// SOLD（出品が乱立 or ダミー）か判定。出品者数が15以上でSOLD。
 export function isSold(p: ProfitProduct, liveCount?: number): boolean {
   if (p.soldOut) return true;
   const count = liveCount ?? p.listingCount ?? 0;
-  return count > LISTING_LIMIT;
+  return count >= SOLD_THRESHOLD;
 }
 
 // ── ダミーSOLD商品（カードはブラー表示されるため内容は概略でよい） ──

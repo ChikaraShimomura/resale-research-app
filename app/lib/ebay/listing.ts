@@ -208,6 +208,7 @@ export interface PublishInput {
   aspects: Record<string, string[]>; // { Brand: ["Unbranded"], ... }
   fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
   handlingDays?: number; // 発送までの日数（落札後）。未指定ならポリシーの既定値のまま。
+  quantity?: number; // 出品個数（在庫数）。1〜30。未指定なら1。
 }
 
 export interface StepResult {
@@ -281,9 +282,12 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   const sku = skuForProduct(input.productId);
   const steps: StepResult[] = [];
 
+  // 出品個数（在庫数）。1〜30にクランプ。未指定/不正なら1。
+  const qty = Math.min(30, Math.max(1, Math.floor(input.quantity || 1)));
+
   // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
   const itemBody = {
-    availability: { shipToLocationAvailability: { quantity: 1 } },
+    availability: { shipToLocationAvailability: { quantity: qty } },
     condition: input.condition,
     product: {
       title: input.title.slice(0, 80),
@@ -322,7 +326,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     sku,
     marketplaceId: MARKETPLACE,
     format: "FIXED_PRICE",
-    availableQuantity: 1,
+    availableQuantity: qty,
     categoryId: input.categoryId,
     listingDescription: (input.description || input.title).slice(0, 4000),
     pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },

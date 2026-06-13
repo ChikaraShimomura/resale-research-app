@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
-import { track } from "../lib/analytics";
+import { track, logEvent } from "../lib/analytics";
 import EbaySellerGuide from "./EbaySellerGuide";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
@@ -75,6 +75,7 @@ export default function EbayListingModal({
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
+  const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -85,6 +86,7 @@ export default function EbayListingModal({
 
   useEffect(() => {
     let alive = true;
+    logEvent("listing_open"); // モーダルを開いた（出品着手）を1回記録
     (async () => {
       const rd = await fetch("/api/ebay/listing-readiness", { cache: "no-store" })
         .then((r) => r.json())
@@ -156,6 +158,7 @@ export default function EbayListingModal({
         aspects,
         fulfillmentPolicyId: shippingId,
         handlingDays,
+        quantity,
       }),
     })
       .then((r) => r.json())
@@ -164,6 +167,7 @@ export default function EbayListingModal({
   const finishOk = (res: PublishResult) => {
     setResult(res);
     track("ebay_list_published", { product_id: product.id });
+    logEvent("listed"); // 出品成功（ファネル計測）
     setPhase("done");
     onListed?.();
   };
@@ -313,6 +317,21 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
+              </div>
+
+              {/* 出品する個数（在庫数） */}
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-0.5">出品する個数（在庫数）</label>
+                <select
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                >
+                  {[...Array(30)].map((_, i) => (
+                    <option key={i + 1} value={i + 1}>{i + 1}個</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-400 mt-0.5">在庫数。1個だけならそのままでOK（最大30）</p>
               </div>
 
               {/* 送料サイズ */}

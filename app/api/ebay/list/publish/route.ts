@@ -6,6 +6,7 @@ import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY } from "../../../../lib/ebay/listing";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { recordListed } from "../../../../lib/ebay/stats";
+import { SOLD_THRESHOLD } from "../../../../lib/sold";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ interface Payload {
   aspects?: Record<string, string>; // { Brand: "Unbranded", ... }
   fulfillmentPolicyId?: string; // 選んだ送料サイズ
   handlingDays?: number; // 発送までの日数（落札後）
+  quantity?: number; // 出品個数（在庫数）。1〜30
 }
 
 async function getProduct(id: string): Promise<ProfitProduct | null> {
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
     aspects,
     fulfillmentPolicyId: body.fulfillmentPolicyId,
     handlingDays: Number(body.handlingDays) > 0 ? Number(body.handlingDays) : undefined,
+    quantity: Number(body.quantity) > 0 ? Number(body.quantity) : 1,
   });
 
   // 出品（下書き含む＝オファー作成）できたら、出品者数を計上（SOLD判定の元・乱立防止）。
@@ -79,9 +82,9 @@ export async function POST(req: Request) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, actor);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
-      // 出品者数が上限(10)を超えてSOLD化した瞬間を記録。30日後に refresh が
+      // 出品者数が飽和しきい値(SOLD_THRESHOLD)に達してSOLD化した瞬間を記録。30日後に refresh が
       // DBから削除＋カウントリセットし、再び新しい利益商品として検知できるようにする。
-      if ((await kv.scard(`listing_actors:${product.id}`)) > 10) {
+      if ((await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD) {
         if ((await kv.hget("sold_since", product.id)) == null) {
           await kv.hset("sold_since", { [product.id]: Date.now() });
         }
