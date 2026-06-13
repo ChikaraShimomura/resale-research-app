@@ -26,8 +26,10 @@ export async function recordListed(
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
-    const merged: Deal = { ...(existing ?? {}), ...d };
-    await kv.hset(DEALS_KEY(actor), { [productId]: merged });
+    // 既に記録済み（再出品・下書き再公開）は金額・listedAt・売却情報を維持し、上書きしない
+    if (!existing) {
+      await kv.hset(DEALS_KEY(actor), { [productId]: { ...d } });
+    }
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
   } catch {
     /* noop */

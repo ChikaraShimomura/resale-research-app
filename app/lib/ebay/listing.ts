@@ -325,7 +325,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   const needsReg =
     !pub.ok &&
     !pendingVerify &&
-    /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|25002/i.test(pub.error ?? "");
+    /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|register to sell/i.test(pub.error ?? "");
   const friendly = pendingVerify
     ? "アカウントの最終確認（本人確認）の完了待ちです。確認が取れると数日以内にメールが届きます。"
     : needsReg

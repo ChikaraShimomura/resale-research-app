@@ -87,9 +87,16 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
+    // 下書き/本人確認待ちでも「出品着手」を記録（育てるダッシュボード・オンボーディング判定用）
+    await recordListed(actor, product.id, {
+      purchase: product.source.price,
+      points: product.source.pointAmount ?? 0,
+      title: product.title,
+      listedAt: new Date().toISOString(),
+    });
   }
 
-  // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）＋取引を記録（育てるダッシュボード用）
+  // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）
   if (result.ok) {
     try {
       await kv.hset(SKU_MAP_KEY(actor), { [skuForProduct(product.id)]: product.id });
@@ -97,12 +104,6 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
-    await recordListed(actor, product.id, {
-      purchase: product.source.price,
-      points: product.source.pointAmount ?? 0,
-      title: product.title,
-      listedAt: new Date().toISOString(),
-    });
   }
 
   return Response.json(result);
