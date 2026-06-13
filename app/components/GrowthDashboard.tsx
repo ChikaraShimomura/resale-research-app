@@ -19,9 +19,9 @@ const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[#F5F7FA] rounded-xl px-2 py-2 text-center">
-      <p className="text-[10px] text-gray-400">{label}</p>
-      <p className="text-[13px] font-black text-gray-800">{value}</p>
+    <div className="bg-[#F5F7FA] rounded-xl px-2 py-3 text-center">
+      <p className="text-[11px] text-gray-400">{label}</p>
+      <p className="mt-0.5 text-sm font-black text-gray-800">{value}</p>
     </div>
   );
 }
@@ -55,11 +55,11 @@ export default function GrowthDashboard() {
   if (stats.soldCount === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
-          <span className="text-2xl" aria-hidden="true">{stats.rank.icon}</span>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <span className="text-3xl" aria-hidden="true">{stats.rank.icon}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-black text-gray-800">{stats.rank.name}</p>
-            <p className="text-[11px] text-gray-500">出品中。売れると利益と称号が育ちます🌱</p>
+            <p className="text-sm font-black text-gray-800">{stats.rank.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">出品中。売れると利益と称号が育ちます🌱</p>
           </div>
         </div>
       </div>
@@ -73,40 +73,43 @@ export default function GrowthDashboard() {
   return (
     <div className="max-w-2xl mx-auto px-4 pt-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3">
           <span className="text-3xl" aria-hidden="true">{stats.rank.icon}</span>
           <div className="flex-1 min-w-0">
             <p className="text-[11px] text-gray-400">あなたの称号</p>
             <p className="text-base font-black text-gray-800">{stats.rank.name}</p>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-[11px] text-gray-400">累計利益</p>
-            <p className="text-lg font-black text-[#BF0000]">{yen(stats.totalProfit)}</p>
-          </div>
+        </div>
+
+        <div className="mt-4 bg-[#F5F7FA] rounded-xl p-4 text-center">
+          <p className="text-[11px] text-gray-400">累計利益</p>
+          <p className="mt-1 text-3xl font-black text-[#BF0000] tracking-tight">{yen(stats.totalProfit)}</p>
         </div>
 
         {stats.nextRank && (
-          <div className="mb-3">
+          <div className="mt-4">
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#BF0000] to-[#FF4466]" style={{ width: `${pct}%` }} />
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">
+            <p className="text-[11px] text-gray-500 mt-1.5">
               次の称号「{stats.nextRank.icon} {stats.nextRank.name}」まで あと {yen(stats.toNext)}
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <Stat label="売れた数" value={`${stats.soldCount}件`} />
           <Stat label="売上合計" value={yen(stats.totalSales)} />
           <Stat label="仕入れ合計" value={yen(stats.totalPurchase)} />
         </div>
 
-        <div className="mt-2 bg-[#FFF0F4] rounded-xl px-3 py-2 flex items-center gap-2">
+        <div className="mt-3 bg-[#FFF0F4] rounded-xl px-3 py-2.5 flex items-center gap-2">
           <span className="inline-flex w-4 h-4 bg-[#FF4466] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
-          <span className="text-[12px] font-bold text-[#FF4466]">基本ポイント {stats.totalPoints.toLocaleString()}pt</span>
-          <span className="text-[10px] text-gray-400 ml-auto">※キャンペーン抜き。実はもっと得してます</span>
+          <span className="text-xs font-bold text-[#FF4466]">基本ポイント {stats.totalPoints.toLocaleString()}pt</span>
         </div>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">
+          基本ポイントのみ集計。0と5のつく日などを使えば実際はもっと多くもらえています
+        </p>
       </div>
     </div>
   );

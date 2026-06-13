@@ -116,12 +116,12 @@ function ResultsContent() {
       </header>
 
       {/* 件数・ソート/SOLD除外バー */}
-      <div className="bg-white border-b border-gray-100 px-3 py-2 flex items-start justify-between gap-2 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-start justify-between gap-3 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
         <div className="min-w-0">
           {loading ? (
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
           ) : (
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-500">
               <span className="font-black text-[#BF0000] text-base">{sorted.length}</span>
               <span className="ml-0.5">件</span>
               {hotCount > 0 && (
@@ -139,7 +139,7 @@ function ResultsContent() {
         {loading ? (
           <div className="flex flex-col gap-3 p-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl p-4 animate-pulse shadow-sm">
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse shadow-sm">
                 <div className="flex gap-3">
                   <div className="w-[88px] h-[88px] bg-gray-100 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2 pt-1">
@@ -180,7 +180,7 @@ function ResultsContent() {
         )}
 
         {!loading && sorted.length > 0 && (
-          <p className="px-3 py-4 text-[10px] text-gray-400 leading-relaxed text-center">
+          <p className="px-4 py-5 text-[10px] text-gray-400 leading-relaxed text-center">
             ※ eBay相場価格（現在の出品ベース）をもとに計算しています。実際の利益は状態・競合・送料などによって異なります。
           </p>
         )}

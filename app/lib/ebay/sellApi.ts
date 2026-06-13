@@ -97,10 +97,13 @@ export interface SoldItem {
 export interface SoldItemsResult {
   ok: boolean;
   needsReconnect: boolean; // sell.fulfillment 未付与（再連携が必要）
+  partial: boolean; // ページネーション途中でeBayエラー＝全件読めていない（次回も同期が必要）
   items: SoldItem[];
 }
 
 // 売れた注文のうちアプリ出品(SKU=rr-*)の品を、売値・注文日つきで返す（同一SKUは1回）。
+// 全ページを読み切れたときだけ partial:false。途中でeBayエラーになった場合は、
+// それまでに拾えた items は返しつつ partial:true を立て、呼び出し側で「同期未完了」として扱わせる。
 export async function getSoldItems(token: string): Promise<SoldItemsResult> {
   const items: SoldItem[] = [];
   const seen = new Set<string>();
@@ -112,10 +115,12 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
     );
     // 401/403 はスコープ未付与（旧トークン）→ 再連携が必要
     if (r.status === 401 || r.status === 403) {
-      return { ok: false, needsReconnect: true, items: [] };
+      return { ok: false, needsReconnect: true, partial: true, items: [] };
     }
     if (!r.ok || !r.data) {
-      return { ok: items.length > 0, needsReconnect: false, items };
+      // ページ途中での失敗：拾えた分は返すが「全件読めていない(partial)」を立てる。
+      // ok は誤って成功扱いしないよう false（同期ゲートを進めない）。
+      return { ok: false, needsReconnect: false, partial: true, items };
     }
     const orders = r.data.orders ?? [];
     for (const o of orders) {
@@ -133,7 +138,7 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
     if (orders.length < 200) break; // 最終ページ
     offset += 200;
   }
-  return { ok: true, needsReconnect: false, items };
+  return { ok: true, needsReconnect: false, partial: false, items };
 }
 
 // ── 書き込み系（下書き作成の土台） ──

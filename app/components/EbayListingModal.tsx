@@ -35,6 +35,17 @@ function shippingHint(name: string): string {
   if (/large/i.test(name)) return "大きい段ボール";
   return "";
 }
+// 必須項目（Item Specifics）の代表名を日本語ラベルに。未知の名前は原語のまま。
+function aspectLabel(name: string): string {
+  const map: Record<string, string> = {
+    brand: "ブランド",
+    type: "種類",
+    character: "キャラクター",
+    color: "色",
+    mpn: "型番（不明なら空欄でOK）",
+  };
+  return map[name.trim().toLowerCase()] ?? name;
+}
 interface PublishResult {
   ok: boolean;
   listingId?: string;
@@ -68,6 +79,8 @@ export default function EbayListingModal({
   const [msg, setMsg] = useState("");
   const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
   const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
+  const [ordered, setOrdered] = useState(false); // 先に楽天で注文した（無在庫抑止のチェック）
+  const [cooldown, setCooldown] = useState(0); // 「登録完了」失敗後のクールダウン秒数
 
   useEffect(() => {
     let alive = true;
@@ -120,6 +133,13 @@ export default function EbayListingModal({
     };
   }, []);
 
+  // 「登録完了」失敗後のクールダウン（連打防止・メール到着待ちを促す）
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   // 準備済みの内容で出品APIを叩く（publish と「登録完了」で共有）。
   const postPublish = (): Promise<PublishResult> =>
     fetch("/api/ebay/list/publish", {
@@ -170,7 +190,10 @@ export default function EbayListingModal({
     const res = await postPublish();
     setConfirming(false);
     if (res.ok) finishOk(res);
-    else setConfirmErr(true);
+    else {
+      setConfirmErr(true);
+      setCooldown(40); // 失敗後は数十秒待ってから再試行（メール到着前の連打を抑止）
+    }
   };
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
@@ -204,15 +227,16 @@ export default function EbayListingModal({
           )}
 
           {phase === "setup" && (
-            <div className="py-6 text-center">
-              <AlertTriangle size={36} className="mx-auto mb-3 text-amber-400" />
-              <p className="text-sm font-bold text-gray-800 mb-1">出品の準備が未完了です</p>
-              <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-                eBayのセラー登録・連携・ポリシー・発送元のいずれかが未完了です。<br />設定画面で順番に進めてください。
+            <div className="py-8 text-center">
+              <AlertTriangle size={36} className="mx-auto mb-4 text-amber-400" />
+              <p className="text-base font-black text-gray-800 mb-2">出品の準備がもう少しです</p>
+              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                eBayに出品する準備（連携・送料・発送元）が、まだ残っています。<br />
+                設定画面で順に進めれば、数分で完了します。
               </p>
               <button
                 onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
-                className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+                className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
               >
                 <Settings size={16} /> 設定へ進む
               </button>
@@ -220,12 +244,7 @@ export default function EbayListingModal({
           )}
 
           {phase === "form" && data && (
-            <div className="space-y-3.5">
-              {/* 在庫を持っているかの確認 */}
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
-                先に楽天で<b>注文して</b>から出品してね（無在庫はトラブルよ）
-              </p>
-
+            <div className="space-y-4">
               {/* 商品画像（楽天） */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">商品画像（楽天の画像を使用）</label>
@@ -333,11 +352,12 @@ export default function EbayListingModal({
 
               {/* 必須Item Specifics */}
               {data.requiredAspects.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-[11px] text-gray-500">必須の商品情報</label>
+                <div className="space-y-2.5">
+                  <label className="block text-[11px] text-gray-500">商品の詳細</label>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">分かる範囲でOK・空欄でも多くは出品できます。</p>
                   {data.requiredAspects.map((a) => (
                     <div key={a.name}>
-                      <span className="block text-[10px] text-gray-400 mb-0.5">{a.name}</span>
+                      <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}</span>
                       {!a.free && a.values.length > 0 ? (
                         <select
                           value={aspects[a.name] ?? ""}
@@ -362,10 +382,24 @@ export default function EbayListingModal({
                 </div>
               )}
 
+              {/* 無在庫の抑止：先に楽天で注文したことを必須チェック */}
+              <label className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ordered}
+                  onChange={(e) => setOrdered(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-[#BF0000] shrink-0"
+                />
+                <span className="text-[12px] text-amber-800 leading-relaxed">
+                  先に楽天で<b>注文しました</b>（手元に在庫があります）。<br />
+                  <span className="text-[11px] text-amber-700">無在庫での出品はトラブルのもと。注文してからチェックしてね。</span>
+                </span>
+              </label>
+
               {/* 出品ボタン */}
               <button
                 onClick={publish}
-                disabled={!canPublish}
+                disabled={!canPublish || !ordered}
                 className="w-full h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] disabled:opacity-40"
               >
                 この内容でeBayに出品する
@@ -378,11 +412,11 @@ export default function EbayListingModal({
           )}
 
           {phase === "done" && (
-            <div className="py-6 text-center">
-              <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
-              <p className="text-sm font-black text-gray-800 mb-1">eBayに出品しました！</p>
-              <p className="text-xs text-gray-500 mb-3">売れたら自動で検知して、この一覧の下の方に移動します。</p>
-              <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 text-left">
+            <div className="py-8 text-center">
+              <BadgeCheck size={44} className="mx-auto mb-3 text-emerald-500" />
+              <p className="text-base font-black text-gray-800 mb-1.5">eBayに出品しました！</p>
+              <p className="text-xs text-gray-500 mb-4 leading-relaxed">売れたら自動で検知して、この一覧の下の方に移動します。</p>
+              <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-emerald-800 leading-relaxed">
                   <b>売れたら</b>：① 日本郵便で発送 → ② 売上はPayoneerに入る → 銀行へ出金
                 </p>
@@ -424,8 +458,8 @@ export default function EbayListingModal({
                   <br />
                   セラー登録をする必要があります。
                 </p>
-                <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4 leading-relaxed text-left">
-                  ※ 登録前の出品は、eBayの「下書き」一覧には<b>表示されません</b>（eBayの仕様）。登録後にこのアプリから公開すると「出品中」に出ます。探さなくて大丈夫です。
+                <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 mb-4 leading-relaxed text-left">
+                  <b className="text-gray-700">eBayの「下書き」を探さなくて大丈夫。</b> 登録前の出品はそこに出ない仕様です。登録後にこのアプリから公開すれば「出品中」に並びます。
                 </p>
                 <button
                   type="button"
@@ -446,15 +480,15 @@ export default function EbayListingModal({
                 <button
                   type="button"
                   onClick={confirmRegistered}
-                  disabled={confirming}
+                  disabled={confirming || cooldown > 0}
                   className="mt-2 w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
                 >
-                  {confirming ? "確認中..." : "登録完了"}
+                  {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "登録完了"}
                 </button>
 
                 {confirmErr && (
-                  <p className="mt-2 text-[11px] text-[#BF0000]">
-                    ※登録が完了していませんでした。時間をおいて再度試してください。
+                  <p className="mt-2 text-[11px] text-[#BF0000] leading-relaxed">
+                    まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
                   </p>
                 )}
               </div>
@@ -488,14 +522,14 @@ export default function EbayListingModal({
               <button
                 type="button"
                 onClick={confirmRegistered}
-                disabled={confirming}
+                disabled={confirming || cooldown > 0}
                 className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
               >
-                {confirming ? "確認中..." : "確認できた・出品する"}
+                {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "確認できた・出品する"}
               </button>
               {confirmErr && (
-                <p className="mt-2 text-[11px] text-[#BF0000]">
-                  ※まだ確認が取れていません。確認メールが届いてから、もう一度お試しください。
+                <p className="mt-2 text-[11px] text-[#BF0000] leading-relaxed">
+                  まだ確認が取れていません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
                 </p>
               )}
               <a

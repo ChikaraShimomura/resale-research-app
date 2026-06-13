@@ -54,6 +54,7 @@ export async function POST() {
   }
 
   // 売れた SKU → 商品ID（出品時に保存した対応表で逆引き）。あわせて売値を記録（ダッシュボード用）。
+  // partial（途中でeBayエラー）でも、拾えた分は取りこぼさず保存する。
   const productIds: string[] = [];
   if (res.items.length > 0) {
     try {
@@ -78,5 +79,12 @@ export async function POST() {
       /* noop */
     }
   }
-  return Response.json({ ids: await storedIds(actor), connected: true, needsReconnect: false, synced: true });
+  // partial の時は全件を読み切れていない＝同期未完了。synced:false を返し、
+  // クライアント側の30分ゲートを進めず次回も同期させる（売却の取りこぼし防止）。
+  return Response.json({
+    ids: await storedIds(actor),
+    connected: true,
+    needsReconnect: false,
+    synced: !res.partial,
+  });
 }

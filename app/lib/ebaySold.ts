@@ -25,8 +25,10 @@ export async function fetchSoldIds(): Promise<SoldState> {
       method: doSync ? "POST" : "GET",
       cache: "no-store",
     });
-    const j = (await res.json()) as { ids?: string[]; needsReconnect?: boolean };
-    if (doSync) {
+    const j = (await res.json()) as { ids?: string[]; needsReconnect?: boolean; synced?: boolean };
+    // ゲートは「完全同期に成功した(synced:true)」ときだけ進める。
+    // 途中でeBayエラー(partial)＝synced:false の場合はゲートを据え置き、次回も同期して取りこぼしを拾う。
+    if (doSync && j.synced) {
       try {
         localStorage.setItem(SYNC_GATE_KEY, String(Date.now()));
       } catch {

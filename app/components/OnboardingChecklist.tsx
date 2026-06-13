@@ -85,8 +85,8 @@ export default function OnboardingChecklist() {
   return (
     <div className="max-w-2xl mx-auto px-4 pt-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <h2 className="text-[13px] font-black text-gray-800">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-black text-gray-800">
             はじめてガイド <span className="text-gray-400 font-bold">{doneCount}/{steps.length}</span>
           </h2>
           <button onClick={dismiss} aria-label="閉じる" className="text-gray-300 active:text-gray-500">
@@ -94,18 +94,18 @@ export default function OnboardingChecklist() {
           </button>
         </div>
 
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
           <div
             className="h-full bg-gradient-to-r from-[#BF0000] to-[#FF4466] transition-all"
             style={{ width: `${(doneCount / steps.length) * 100}%` }}
           />
         </div>
 
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {steps.map((s, i) => (
             <li
               key={s.key}
-              className={`flex items-center gap-2.5 rounded-xl px-2 py-1.5 ${i === firstIncomplete ? "bg-[#FFF0F4]" : ""}`}
+              className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${i === firstIncomplete ? "bg-[#FFF0F4]" : ""}`}
             >
               {s.done ? (
                 <Check size={16} className="text-emerald-500 shrink-0" />
@@ -118,7 +118,7 @@ export default function OnboardingChecklist() {
               {!s.done && i === firstIncomplete && s.cta && (
                 <Link
                   href={s.cta.href}
-                  className="inline-flex items-center gap-0.5 text-[12px] font-bold text-[#BF0000] active:opacity-70"
+                  className="inline-flex items-center gap-0.5 rounded-full bg-[#BF0000] px-3 py-1.5 text-xs font-bold text-white active:opacity-80"
                 >
                   {s.cta.text}
                   <ChevronRight size={14} />

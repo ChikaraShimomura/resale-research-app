@@ -64,13 +64,13 @@ export default function EbayListingSetup() {
 
   const steps = [
     { title: "eBayと連携する", body: <EbayConnect /> },
-    { title: "送料を登録（おすすめ設定でOK）", body: <EbayPolicySetup onDone={refresh} /> },
+    { title: "送料・支払い・返品を設定（おすすめのままでOK）", body: <EbayPolicySetup onDone={refresh} /> },
     { title: "発送元を登録", body: <EbayLocationSetup onDone={refresh} /> },
   ];
 
   if (loading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-14 bg-white rounded-2xl border border-gray-100 animate-pulse" />
         ))}
@@ -79,14 +79,14 @@ export default function EbayListingSetup() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-sm font-black text-gray-800">eBay自動出品の準備</h2>
         <span className="text-[11px] font-bold text-gray-400">{doneCount}/{dones.length} 完了</span>
       </div>
 
       {allDone && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-[13px] font-bold text-emerald-700 flex items-center gap-1.5">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-[13px] font-bold text-emerald-700 flex items-center gap-2">
           <BadgeCheck size={16} /> 準備完了！「eBay自動出品」が使えます。
         </div>
       )}

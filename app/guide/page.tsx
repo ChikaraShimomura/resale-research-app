@@ -18,7 +18,7 @@ const STEPS: Step[] = [
     Icon: ShoppingCart,
     title: "楽天で商品を仕入れる",
     desc: "このサイトで紹介している利益商品を楽天で購入します。ポイント還元率が高い日（0・5のつく日や楽天スーパーSALE）を狙うとさらにお得です。",
-    tips: ["0のつく日・5のつく日はポイント最大5倍", "楽天スーパーSALEは年2回・最大44倍", "SPU（スーパーポイントアッププログラム）でポイント底上げ"],
+    tips: ["0のつく日・5のつく日はポイント最大5倍", "楽天スーパーSALEは年2回・最大44倍", "対象サービスを使うほどポイント倍率が上がる楽天の仕組み（SPU）でさらに底上げ"],
     link: { label: "利益商品を見る", href: "/search" },
   },
   {
@@ -107,15 +107,15 @@ export default function GuidePage() {
       <main className="max-w-2xl mx-auto px-3 py-4">
 
         {/* イントロ + フロー図 */}
-        <div className="bg-gradient-to-br from-[#BF0000] to-[#9E0000] rounded-2xl p-4 mb-5 text-white shadow-sm">
-          <p className="font-black text-lg mb-1">楽天 × eBay 輸出転売</p>
-          <p className="text-white/85 text-[13px] leading-relaxed mb-4">
+        <div className="bg-gradient-to-br from-[#BF0000] to-[#9E0000] rounded-2xl p-5 mb-6 text-white shadow-sm">
+          <p className="font-black text-xl mb-1.5">楽天 × eBay 輸出転売</p>
+          <p className="text-white/85 text-[13px] leading-relaxed mb-5">
             楽天でポイントをもらいながら仕入れて、eBayで海外に高く売る副業の始め方を、初めての方向けに解説します。
           </p>
-          <div className="flex items-stretch gap-1.5">
+          <div className="flex items-stretch gap-2">
             {FLOW.map((f, i) => (
-              <div key={i} className="flex items-center gap-1.5 flex-1">
-                <div className="flex-1 bg-white/15 rounded-xl px-1 py-2.5 text-center backdrop-blur-sm">
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div className="flex-1 bg-white/15 rounded-xl px-1 py-3 text-center backdrop-blur-sm">
                   <f.Icon size={20} strokeWidth={2} className="mx-auto mb-1.5 text-white" />
                   <div className="text-[11px] font-black leading-tight">{f.label}</div>
                   <div className="text-[9px] text-white/70 leading-tight mt-0.5">{f.sub}</div>
@@ -129,10 +129,10 @@ export default function GuidePage() {
         {/* ステップ */}
         <div className="mb-6">
           <SectionTitle>5ステップで始める</SectionTitle>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3.5">
             {STEPS.map((step) => (
               <div key={step.num} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-3.5 py-3 border-b border-gray-50">
+                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
                   <span className="w-8 h-8 rounded-full bg-[#BF0000] text-white font-black flex items-center justify-center text-sm shrink-0">
                     {step.num}
                   </span>
@@ -140,9 +140,9 @@ export default function GuidePage() {
                     <step.Icon size={17} strokeWidth={2} className="text-gray-500 shrink-0" />{step.title}
                   </h3>
                 </div>
-                <div className="px-3.5 py-3">
-                  <p className="text-[13px] text-gray-600 leading-relaxed mb-3">{step.desc}</p>
-                  <ul className="space-y-1.5 mb-3">
+                <div className="px-4 py-4">
+                  <p className="text-[13px] text-gray-600 leading-relaxed mb-3.5">{step.desc}</p>
+                  <ul className="space-y-2 mb-4">
                     {step.tips.map((tip, i) => (
                       <li key={i} className="flex items-start gap-2 text-[13px] text-gray-600 leading-snug">
                         <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#BF0000]/10 text-[#BF0000] text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
@@ -153,12 +153,12 @@ export default function GuidePage() {
                   {step.link && (
                     step.link.external ? (
                       <a href={step.link.href} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-lg px-3 py-2 active:bg-[#BF0000]/10 transition-colors">
+                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-xl px-3.5 py-2 active:bg-[#BF0000]/10 transition-colors">
                         {step.link.label} <ExternalLink size={13} />
                       </a>
                     ) : (
                       <Link href={step.link.href}
-                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-lg px-3 py-2 active:bg-[#BF0000]/10 transition-colors">
+                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-xl px-3.5 py-2 active:bg-[#BF0000]/10 transition-colors">
                         {step.link.label} →
                       </Link>
                     )
@@ -193,11 +193,11 @@ export default function GuidePage() {
           <div className="flex flex-col gap-2">
             {FAQS.map((faq, i) => (
               <details key={i} className="bg-white border border-gray-100 rounded-2xl shadow-sm group">
-                <summary className="flex items-center justify-between gap-2 px-3.5 min-h-[48px] cursor-pointer list-none text-[14px] font-bold text-gray-800">
+                <summary className="flex items-center justify-between gap-2 px-4 min-h-[52px] cursor-pointer list-none text-[14px] font-bold text-gray-800">
                   <span><span className="text-[#BF0000]">Q.</span> {faq.q}</span>
                   <span aria-hidden="true" className="text-gray-400 text-xs shrink-0 transition-transform group-open:rotate-180">▼</span>
                 </summary>
-                <p className="px-3.5 pb-3.5 text-[13px] text-gray-600 leading-relaxed">A. {faq.a}</p>
+                <p className="px-4 pb-4 text-[13px] text-gray-600 leading-relaxed">A. {faq.a}</p>
               </details>
             ))}
           </div>

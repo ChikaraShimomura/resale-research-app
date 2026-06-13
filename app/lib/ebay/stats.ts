@@ -36,7 +36,9 @@ export async function recordListed(
   }
 }
 
-// 売却検知時：売値を記録（出品記録がある＆未記録のときだけ）。
+// 売却検知時：売値を記録（未記録のときだけ）。
+// 出品記録(existing)が無くても売却は取りこぼさず記録する：仕入れ・ポイント等は無し(0)の
+// 最小Dealをupsertする。既存があれば売却情報だけ足し、既に売却記録済みなら何もしない。
 export async function recordSold(
   actor: string,
   productId: string,
@@ -45,8 +47,9 @@ export async function recordSold(
 ): Promise<void> {
   try {
     const existing = await kv.hget<Deal>(DEALS_KEY(actor), productId);
-    if (!existing || existing.soldUsd != null) return;
-    await kv.hset(DEALS_KEY(actor), { [productId]: { ...existing, soldUsd, soldAt } });
+    if (existing?.soldUsd != null) return; // 既に売却記録済み
+    const base: Deal = existing ?? { purchase: 0, points: 0, title: "", listedAt: soldAt };
+    await kv.hset(DEALS_KEY(actor), { [productId]: { ...base, soldUsd, soldAt } });
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
   } catch {
     /* noop */

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- 背景グラデ -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#CC0033"/>
+      <stop offset="100%" style="stop-color:#880022"/>
+    </linearGradient>
+    <!-- 地球アークのグラデ -->
+    <linearGradient id="globe-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.25"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.05"/>
+    </linearGradient>
+    <!-- 矢印グラデ -->
+    <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFD700"/>
+      <stop offset="100%" style="stop-color:#FFA500"/>
+    </linearGradient>
+    <clipPath id="circle-clip">
+      <circle cx="200" cy="200" r="200"/>
+    </clipPath>
+  </defs>
+
+  <!-- 背景円 -->
+  <circle cx="200" cy="200" r="200" fill="url(#bg)"/>
+
+  <!-- 背景の装飾的な円弧（地球儀風） -->
+  <g clip-path="url(#circle-clip)" opacity="0.3">
+    <ellipse cx="200" cy="200" rx="190" ry="190" fill="none" stroke="white" stroke-width="1.5"/>
+    <ellipse cx="200" cy="200" rx="130" ry="190" fill="none" stroke="white" stroke-width="1"/>
+    <ellipse cx="200" cy="200" rx="60" ry="190" fill="none" stroke="white" stroke-width="1"/>
+    <line x1="10" y1="200" x2="390" y2="200" stroke="white" stroke-width="1"/>
+    <line x1="10" y1="130" x2="390" y2="130" stroke="white" stroke-width="0.8"/>
+    <line x1="10" y1="270" x2="390" y2="270" stroke="white" stroke-width="0.8"/>
+  </g>
+
+  <!-- 日本→世界の輸出を表す矢印（下部装飾） -->
+  <!-- 日本のシルエット的な点 -->
+  <circle cx="152" cy="215" r="9" fill="white" opacity="0.9"/>
+  <!-- 矢印ライン -->
+  <line x1="165" y1="215" x2="225" y2="215" stroke="url(#arrow-grad)" stroke-width="4" stroke-linecap="round"/>
+  <!-- 矢印ヘッド -->
+  <polygon points="220,207 235,215 220,223" fill="url(#arrow-grad)"/>
+  <!-- 世界（小さな地球） -->
+  <circle cx="248" cy="215" r="13" fill="none" stroke="url(#arrow-grad)" stroke-width="3"/>
+  <line x1="235" y1="215" x2="261" y2="215" stroke="url(#arrow-grad)" stroke-width="1.5"/>
+  <ellipse cx="248" cy="215" rx="6" ry="13" fill="none" stroke="url(#arrow-grad)" stroke-width="1.5"/>
+
+  <!-- メインテキスト「輸出」-->
+  <text x="200" y="172"
+    font-family="'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif"
+    font-size="96"
+    font-weight="900"
+    text-anchor="middle"
+    fill="white"
+    letter-spacing="-2">輸出</text>
+
+  <!-- サブテキスト「ラボ」-->
+  <text x="200" y="205"
+    font-family="'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif"
+    font-size="38"
+    font-weight="700"
+    text-anchor="middle"
+    fill="white"
+    opacity="0.85"
+    letter-spacing="8">ラ ボ</text>
+
+  <!-- 下部キャッチ（小さく） -->
+  <text x="200" y="280"
+    font-family="'Helvetica Neue', Arial, sans-serif"
+    font-size="16"
+    font-weight="600"
+    text-anchor="middle"
+    fill="white"
+    opacity="0.65"
+    letter-spacing="2">Rakuten × eBay</text>
+</svg>

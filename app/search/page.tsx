@@ -80,7 +80,7 @@ export default function SearchPage() {
             <Link href="/settings" className="w-11 h-11 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95" aria-label="設定">
               <Gear16 />
             </Link>
-            <Link href="/guide" className="inline-flex items-center min-h-[36px] text-[11px] text-white/80 border border-white/40 px-3 py-1.5 rounded active:bg-white/10">ガイド</Link>
+            <Link href="/guide" className="inline-flex items-center min-h-[36px] text-[11px] text-white/90 border border-white/40 px-3.5 py-1.5 rounded-full active:bg-white/10">ガイド</Link>
           </div>
         </div>
         {/* 検索バー */}
@@ -93,7 +93,7 @@ export default function SearchPage() {
 
         {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (
-          <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-3">
+          <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
             <div className="w-9 h-9 bg-[#BF0000] rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-black text-base leading-none">R</span>
             </div>
@@ -101,7 +101,7 @@ export default function SearchPage() {
               <p className="text-gray-900 font-black text-sm">楽天×eBayで稼ぐ</p>
               <p className="text-gray-500 text-xs leading-snug">仕入れで最大20%ポイント還元 ＋ 海外で高値売却</p>
             </div>
-            <Link href="/guide" className="text-[11px] font-bold text-[#BF0000] border border-[#BF0000] px-2.5 py-1.5 rounded shrink-0 active:bg-[#BF0000]/5">
+            <Link href="/guide" className="text-[11px] font-bold text-[#BF0000] border border-[#BF0000] px-3 py-1.5 rounded-full shrink-0 active:bg-[#BF0000]/5">
               使い方 ›
             </Link>
             <button onClick={dismissBanner} aria-label="バナーを閉じる"
@@ -113,12 +113,12 @@ export default function SearchPage() {
 
 
         {/* セクションヘッダー（件数 + 右に並び替え/SOLD除外を上下配置） */}
-        <div className="bg-white px-3 py-2 border-b border-gray-100 flex items-start justify-between gap-2">
+        <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {loading ? (
-              <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
+              <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
             ) : (
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-gray-500">
                 <span className="font-black text-[#BF0000] text-base">{products.length}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
@@ -127,7 +127,7 @@ export default function SearchPage() {
               </p>
             )}
             {updatedLabel && (
-              <p className="text-[11px] text-gray-500 mt-0.5">{updatedLabel}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{updatedLabel}</p>
             )}
           </div>
           <ListControls sortOrder={sortOrder} onSortChange={setSortOrder} hideSold={hideSold} onHideSoldChange={setHideSold} />
@@ -135,15 +135,15 @@ export default function SearchPage() {
 
         <div className="px-0">
           {loading ? (
-            <div className="flex flex-col gap-2 p-3">
+            <div className="flex flex-col gap-3 p-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white border rounded-2xl border border-gray-100 p-4 shadow-sm animate-pulse">
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm animate-pulse">
                   <div className="flex gap-3">
-                    <div className="w-[90px] h-[90px] bg-gray-100 shrink-0" />
+                    <div className="w-[90px] h-[90px] bg-gray-100 rounded-xl shrink-0" />
                     <div className="flex-1 space-y-2 pt-1">
-                      <div className="h-3 bg-gray-100 rounded w-3/4" />
-                      <div className="h-3 bg-gray-100 rounded w-1/2" />
-                      <div className="h-5 bg-gray-100 rounded w-1/3" />
+                      <div className="h-3 bg-gray-100 rounded-full w-3/4" />
+                      <div className="h-3 bg-gray-100 rounded-full w-1/2" />
+                      <div className="h-5 bg-gray-100 rounded-full w-1/3" />
                     </div>
                   </div>
                 </div>
@@ -179,7 +179,7 @@ export default function SearchPage() {
         </div>
 
         {!loading && products.length > 0 && (
-          <p className="px-3 py-4 text-[11px] text-gray-500 leading-relaxed text-center">
+          <p className="px-4 py-5 text-[11px] text-gray-400 leading-relaxed text-center">
             ※ eBay相場価格・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
             実際の利益は状態・競合・送料などによって異なります。
           </p>
