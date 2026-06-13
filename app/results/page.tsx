@@ -82,7 +82,8 @@ function ResultsContent() {
   const [page, setPage] = useState(1);
   useEffect(() => { setPage(1); }, [sortOrder, hideSold, keyword]);
   const pageCount = Math.ceil(sorted.length / PAGE_SIZE);
-  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
+  const pageItems = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const displayLabel = keyword || "すべて";
   const updatedLabel = lastUpdated
@@ -174,7 +175,7 @@ function ResultsContent() {
                 <ProductCard key={product.id} product={product} ebaySold={soldIds.has(product.id)} />
               ))}
             </div>
-            <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+            <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
           </>
         )}
 

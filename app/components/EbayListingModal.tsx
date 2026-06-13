@@ -381,7 +381,20 @@ export default function EbayListingModal({
             <div className="py-6 text-center">
               <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
               <p className="text-sm font-black text-gray-800 mb-1">eBayに出品しました！</p>
-              <p className="text-xs text-gray-500 mb-5">売れたら自動で検知して、この一覧の下の方に移動します。</p>
+              <p className="text-xs text-gray-500 mb-3">売れたら自動で検知して、この一覧の下の方に移動します。</p>
+              <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 text-left">
+                <p className="text-[12px] text-emerald-800 leading-relaxed">
+                  <b>売れたら</b>：① 日本郵便で発送 → ② 売上はPayoneerに入る → 銀行へ出金
+                </p>
+                <a
+                  href="/guide/payoneer-withdraw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
+                >
+                  💴 売上の受け取り方を見る
+                </a>
+              </div>
               {result?.listingId && (
                 <a
                   href={`https://www.ebay.com/itm/${result.listingId}`}

@@ -54,7 +54,8 @@ export default function SearchPage() {
   const [page, setPage] = useState(1);
   useEffect(() => { setPage(1); }, [sortOrder, hideSold]);
   const pageCount = Math.ceil(sortedProducts.length / PAGE_SIZE);
-  const pageItems = sortedProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
+  const pageItems = sortedProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -166,7 +167,7 @@ export default function SearchPage() {
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
-              <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+              <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
             </>
           )}
         </div>

@@ -1,11 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: string }) {
   const router = useRouter();
   const [keyword, setKeyword] = useState(defaultKeyword);
+  // 2回目以降の検索でURLのキーワード変化に追従させる（初期化のみだと同期されないバグ対策）
+  useEffect(() => {
+    setKeyword(defaultKeyword);
+  }, [defaultKeyword]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

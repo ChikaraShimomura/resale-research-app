@@ -186,7 +186,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3">
           <div className="flex items-center justify-between gap-1">
             <div className="min-w-0">
-              <p className="text-[11px] text-gray-500 mb-0.5">eBay相場</p>
+              <p className="text-[11px] text-gray-500 mb-0.5">eBayの想定売値</p>
               <p className="text-base font-black text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</p>
               {product.realCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -244,7 +244,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         {showBreakdown && (
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5 mb-3 text-[12px] text-gray-600 space-y-1.5">
             <div className="flex justify-between">
-              <span>eBay相場価格</span>
+              <span>eBayの想定売値（相場ベース）</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#BF0000]">

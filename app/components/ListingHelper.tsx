@@ -78,7 +78,7 @@ export default function ListingHelper({ product, unlocked = true, autoOpen = fal
           `}
         >
           {listed ? <Check size={14} /> : !unlocked ? <Lock size={13} /> : <ExternalLink size={14} />}
-          {listed ? "出品済み" : "eBay簡単出品"}
+          {listed ? "出品済み" : !unlocked ? "先に楽天で仕入れ" : "eBay簡単出品"}
         </button>
 
         {/* ロック時のヒント（数秒で消える吹き出し） */}
