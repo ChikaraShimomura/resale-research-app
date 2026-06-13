@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { Copy, Check } from "lucide-react";
-import { normalizeBanchi, formatZip } from "../lib/jpAddress";
+import { romanizeFreeAddress, hasKanji, formatZip } from "../lib/jpAddress";
 
 interface AddrJa { prefecture: string; city: string; town: string }
 interface AddrEn { stateOrProvince: string; city: string; town: string }
@@ -40,8 +40,7 @@ function OutRow({
 
 export default function AddressConverter() {
   const [zip, setZip] = useState("");
-  const [banchi, setBanchi] = useState("");
-  const [building, setBuilding] = useState("");
+  const [addr, setAddr] = useState("");
   const [ja, setJa] = useState<AddrJa | null>(null);
   const [en, setEn] = useState<AddrEn | null>(null);
   const [townCandidates, setTownCandidates] = useState<TownCandidate[]>([]);
@@ -93,16 +92,15 @@ export default function AddressConverter() {
   const townEn = selTown ? selTown.en : en?.town ?? "";
   const townJa = selTown ? selTown.ja : ja?.town ?? "";
 
-  // 英語の出力パーツ
-  const banchiNorm = normalizeBanchi(banchi);
-  const line1 = en ? [banchiNorm, townEn].filter(Boolean).join(" ") : "";
-  const line2 = building.trim();
+  // 英語の出力パーツ。現住所（自由入力）をローマ字化し、番地→町名の順で line1 を組む。
+  const addrRoman = romanizeFreeAddress(addr);
+  const line1 = en ? [addrRoman, townEn].filter(Boolean).join(" ") : "";
   const city = en?.city ?? "";
   const stateProvince = en?.stateOrProvince ?? "";
   const zipFmt = formatZip(zip);
   const country = "Japan";
-  const buildingHasJa = /[ぁ-んァ-ヶ一-龯]/.test(building);
-  const fullBlock = en ? [line1, line2, city, stateProvince, zipFmt, country].filter(Boolean).join("\n") : "";
+  const addrHasKanji = hasKanji(addrRoman);
+  const fullBlock = en ? [line1, city, stateProvince, zipFmt, country].filter(Boolean).join("\n") : "";
 
   const copy = async (key: string, text: string) => {
     if (!text) return;
@@ -190,39 +188,24 @@ export default function AddressConverter() {
           )}
         </div>
 
-        {/* 番地 */}
+        {/* 現住所（番地・建物名・部屋番号） */}
         <div>
           <label className="block text-[11px] font-bold text-gray-600 mb-1">
-            ② 番地（丁目・番・号）<span className="text-[#BF0000]">*</span>
+            ② 現住所（番地・建物名・部屋番号）<span className="text-[#BF0000]">*</span>
           </label>
           <input
             type="text"
-            value={banchi}
-            onChange={(e) => setBanchi(e.target.value)}
-            placeholder="例: 1-2-3"
+            value={addr}
+            onChange={(e) => setAddr(e.target.value)}
+            placeholder="例: 1-2-3 ○○マンション101"
             className="w-full h-11 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
           />
           <p className="text-[10px] text-gray-400 mt-1 leading-snug">
-            「1丁目2番3号」は <b>1-2-3</b> と入れればOK（数字とハイフンで）。
+            日本語のままでOK。数字とカタカナは自動で英語に変換します。郵便番号で自動表示される町名より後ろ（番地・建物）を入れてください。
           </p>
-        </div>
-
-        {/* 建物名・部屋番号 */}
-        <div>
-          <label className="block text-[11px] font-bold text-gray-600 mb-1">③ 建物名・部屋番号（任意）</label>
-          <input
-            type="text"
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            placeholder="例: 101 / Sunny Heights 101"
-            className="w-full h-11 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
-          />
-          <p className="text-[10px] text-gray-400 mt-1 leading-snug">
-            建物名は<b>ローマ字</b>で（自動変換できません）。部屋番号だけでもOK。
-          </p>
-          {buildingHasJa && (
+          {addrHasKanji && (
             <p className="text-[10px] text-[#BF0000] font-bold mt-1 leading-snug">
-              ⚠️ 建物名に日本語が含まれています。ローマ字に直してください（Payoneer等は英数字のみ）。
+              ⚠️ 建物名などに漢字が残っています。ローマ字に直してください（例: 丸の内ビル → Marunouchi Bldg）。
             </p>
           )}
         </div>
@@ -235,7 +218,7 @@ export default function AddressConverter() {
               <button
                 type="button"
                 onClick={() => copy("all", fullBlock)}
-                disabled={!banchiNorm}
+                disabled={!addrRoman}
                 className={`inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-black transition-colors disabled:opacity-40 ${
                   copied === "all" ? "bg-emerald-600 text-white" : "bg-[#BF0000] text-white active:bg-[#9E0000]"
                 }`}
@@ -250,13 +233,10 @@ export default function AddressConverter() {
             <OutRow label="都道府県" sub="State / Prefecture" value={stateProvince} copyKey="state" copied={copied} onCopy={copy} />
             <OutRow label="市区町村" sub="City" value={city} copyKey="city" copied={copied} onCopy={copy} />
             <OutRow label="住所1（番地＋町名）" sub="Address line 1" value={line1} copyKey="line1" copied={copied} onCopy={copy} />
-            {line2 && (
-              <OutRow label="住所2（建物・部屋）" sub="Address line 2" value={line2} copyKey="line2" copied={copied} onCopy={copy} />
-            )}
 
-            {!banchiNorm && (
+            {!addrRoman && (
               <p className="text-[10px] text-[#BF0000] font-bold leading-snug">
-                ② 番地を入力すると「住所1」が完成します（番地が空だと貼り付けできません）。
+                ② 現住所を入力してください（番地が空だと「住所1」を貼り付けできません）。
               </p>
             )}
             {en && !townEn && (

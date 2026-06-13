@@ -211,23 +211,31 @@ export function romanizeAddress(opts: {
   };
 }
 
-// 番地の正規化。全角→半角、丁目/番地/番/号・各種ダッシュ→半角ハイフン。
-// 「の」は数字に挟まれた時だけハイフンにする（建物名等の文字は消さずに残す）。
-// 例: "１丁目２番３号" / "1の2の3" → "1-2-3"
-export function normalizeBanchi(input: string): string {
-  return (input || "")
-    .normalize("NFKC")
-    .replace(/丁目|番地|丁|番|号/g, "-")
-    .replace(/([0-9])\s*[のノ]\s*(?=[0-9])/g, "$1-")
-    .replace(/[‐-―−ー]/g, "-")
-    .replace(/[\s　]+/g, " ")
-    .replace(/-+/g, "-")
-    .replace(/(^[-\s]+)|([-\s]+$)/g, "")
-    .trim();
-}
-
 // 郵便番号を 100-0005 形式へ。7桁でなければ元の値をそのまま返す。
 export function formatZip(input: string): string {
   const d = (input || "").replace(/[^0-9]/g, "");
   return d.length === 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : (input || "");
+}
+
+// 自由入力の住所行（番地＋建物名など）をローマ字寄りに整える。
+// 数字・丁目/番/号・各種ダッシュを整形、カタカナ/ひらがなはヘボン式、英数はそのまま。漢字は残す。
+// 例: "1丁目2-3 サニーハイツ101" → "1-2-3 Sanihaitsu101"
+export function romanizeFreeAddress(input: string): string {
+  let s = (input || "").normalize("NFKC");
+  s = s.replace(/丁目|番地|丁|番|号/g, "-");
+  s = s.replace(/([0-9])\s*[のノ]\s*(?=[0-9])/g, "$1-");
+  s = s.replace(/[ぁ-んァ-ヶー]+/g, (m) => katakanaToRomaji(m));
+  s = s
+    .replace(/[‐-―−ー]/g, "-")
+    .replace(/[\s　]+/g, " ")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^[-\s]+)|([-\s]+$)/g, "")
+    .trim();
+  return s.replace(/(^|\s)([a-z])/g, (_m, p, c) => p + c.toUpperCase());
+}
+
+// 文字列に漢字が含まれるか（自由入力で「ローマ字に直して」と案内する用）
+export function hasKanji(s: string): boolean {
+  return /[一-龥々]/.test(s || "");
 }
