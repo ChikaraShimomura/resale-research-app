@@ -13,6 +13,7 @@ import {
   Camera,
   HelpCircle,
 } from "lucide-react";
+import AddressConverter from "../../components/AddressConverter";
 
 export const metadata = {
   title: "eBayセラー登録 徹底ガイド（スマホ画面つき・1タップずつ） | 輸出ラボ",
@@ -427,6 +428,12 @@ export default function EbaySellerGuidePage() {
               ② <b>City（都市名）が空</b><br />
               ③ 電話に<b>先頭の0が付いている</b>
             </Warn>
+
+            {/* 住所を英語に変換するツール（ここでローマ字住所を作ってコピペ） */}
+            <p className="text-[12px] text-gray-600 leading-relaxed font-bold">
+              ↓ この赤い箱で<b className="text-[#BF0000]">日本の住所を英語に変換</b>。出てきた各欄をコピーして、上のフォームの同じ欄に貼り付けてください。
+            </p>
+            <AddressConverter />
             <p className="text-[12px] text-gray-500 leading-relaxed">
               SMS認証コードは数分で期限切れ。<b>コードを入れたら他をいじらず</b>、すぐ「次へ」を押すのがコツ。
               古いコードが残っていたら、届いた<b>最新の6桁</b>に入れ直してください。
