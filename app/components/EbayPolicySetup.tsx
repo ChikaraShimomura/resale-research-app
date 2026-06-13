@@ -82,7 +82,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       {showEdit && (
         <div className="space-y-2 mt-2">
           <div>
-            <label className="block text-[11px] text-gray-500 mb-0.5">発送までの日数（handling time）</label>
+            <label className="block text-[11px] text-gray-500 mb-0.5">発送までの日数（注文から何日で送るか）</label>
             <input
               type="text"
               inputMode="numeric"

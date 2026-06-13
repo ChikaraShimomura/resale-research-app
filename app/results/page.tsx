@@ -157,10 +157,10 @@ function ResultsContent() {
               ? <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
               : <Search size={44} className="mx-auto mb-4 text-gray-300" />}
             <p className="text-gray-600 text-sm font-semibold mb-1">
-              {allProducts.length === 0 ? "利益商品を探しています" : `「${displayLabel}」の商品が見つかりませんでした`}
+              {allProducts.length === 0 ? "いま掲載できる商品がありません" : `「${displayLabel}」の商品が見つかりませんでした`}
             </p>
             {allProducts.length === 0
-              ? <p className="text-gray-400 text-xs"></p>
+              ? <p className="text-gray-400 text-xs">時間をおいて、もう一度開いてみてください。</p>
               : <p className="text-gray-400 text-xs">別のキーワードで検索してみてください</p>
             }
             <Link href="/search"

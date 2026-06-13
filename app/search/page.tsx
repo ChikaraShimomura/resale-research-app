@@ -152,12 +152,18 @@ export default function SearchPage() {
           ) : products.length === 0 ? (
             <div className="text-center py-16 bg-white m-3 rounded-2xl border border-gray-100 shadow-sm">
               <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-600 text-sm font-semibold mb-1">利益商品を探しています</p>
-              <p className="text-gray-400 text-xs"></p>
-              <div className="mt-4 flex justify-center gap-1">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-[#BF0000]/30 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                ))}
+              <p className="text-gray-600 text-sm font-semibold mb-1">いま掲載できる商品がありません</p>
+              <p className="text-gray-400 text-xs mb-5">時間をおいて、もう一度開いてみてください。</p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2 rounded-full active:bg-red-50"
+                >
+                  再読み込み
+                </button>
+                <Link href="/guide" className="text-sm font-bold text-gray-500 px-5 py-2">
+                  使い方を見る
+                </Link>
               </div>
             </div>
           ) : (
