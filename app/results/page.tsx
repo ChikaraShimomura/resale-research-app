@@ -45,9 +45,10 @@ function ResultsContent() {
     fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
   }, []);
 
-  // アクティブ（仕入れ中）商品IDを localStorage から取得（先頭固定用）
+  // アクティブ（仕入れ中）商品IDを localStorage から取得（先頭固定用）＋一覧閲覧を記録
   useEffect(() => {
     setUnlockedIds(readUnlockedIds());
+    try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
   }, []);
 
   const filtered = useMemo(() => {

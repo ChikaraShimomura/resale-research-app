@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Target } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
+import OnboardingChecklist from "./components/OnboardingChecklist";
 
 export default function LandingPage() {
   return (
@@ -45,6 +46,9 @@ export default function LandingPage() {
           </Link>
         </div>
       </div>
+
+      {/* はじめてガイド（オンボーディング・チェックリスト） */}
+      <OnboardingChecklist />
 
       {/* 仕組み説明 */}
       <div className="bg-white border-b border-gray-100 shadow-sm">

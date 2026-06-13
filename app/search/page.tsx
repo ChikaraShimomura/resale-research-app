@@ -26,6 +26,7 @@ export default function SearchPage() {
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     setUnlockedIds(readUnlockedIds());
+    try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     fetchProducts()
       .then(({ products, lastUpdated }) => {
         setProducts(products);
