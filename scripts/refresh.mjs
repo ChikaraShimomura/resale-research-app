@@ -155,6 +155,23 @@ function isWeakKeyword(title) {
   return distinct.length < 2;                                // 固有名がほぼ無い＝汎用
 }
 
+// カード番号・型番の抽出（ST13-002 / P-028 / DW-5600E / GWG-1000-1A3 等）。年号や容量の裸数字は拾わない。
+function extractCodes(s) {
+  const up = (s || '').toUpperCase();
+  const m = up.match(/\b[A-Z]{1,4}-?\d{1,4}(?:[-/][A-Z0-9]{1,6})*\b/g) || [];
+  return [...new Set(
+    m.filter(c => /\d/.test(c) && (/[-/]/.test(c) || /[A-Z]{2,}\d/.test(c)))
+      .map(c => c.replace(/[^A-Z0-9]/g, ''))
+  )];
+}
+// 2つのタイトルの番号が食い違う＝別商品の誤マッチ（同キャラ別番号カード等）。
+// 前方一致は同型のサブ変種(GWG-1000 ⊂ GWG-1000-1A3)として許容。どちらかに番号が無ければ判定しない。
+function codesConflict(a, b) {
+  const ca = extractCodes(a), cb = extractCodes(b);
+  if (!ca.length || !cb.length) return false;
+  return !ca.some(x => cb.some(y => x === y || x.startsWith(y) || y.startsWith(x)));
+}
+
 // ========== 楽天商品取得 ==========
 async function fetchRakutenPage(keyword, page) {
   const params = new URLSearchParams({
@@ -628,6 +645,14 @@ async function main() {
   }
   if (recat || rekw) console.log(`  🔧 既存データ補正: カテゴリ再判定 ${recat}件 / coreKeyword英訳 ${rekw}件`);
 
+  // 既存の誤マッチ（カード番号/型番が楽天タイトルと食い違う＝別商品）を除外。
+  {
+    const before = dedupedProducts.length;
+    dedupedProducts = dedupedProducts.filter(p => !(p.title && p.coreKeyword && codesConflict(p.title, p.coreKeyword)));
+    const dropped = before - dedupedProducts.length;
+    if (dropped) console.log(`  🧹 番号不一致の誤マッチを除外: ${dropped}件`);
+  }
+
   // 既存商品の相場を eBay単品中央値で再評価し、過大な利益表示を是正（保守的に小さい方を採用）。
   // 中央値は24hキャッシュ。安全装置：万一>40%で利益消失するなら中央値の異常を疑い適用を見送る。
   const repriced = [];
@@ -710,6 +735,10 @@ async function main() {
       const pointAmount = Math.floor(rakutenItem.itemPrice * pointRate / 100);
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
       if (profit < 1 || profitRate > 300) continue;
+
+      // カード番号/型番が食い違う候補は別商品なので除外（同キャラ別番号カード等の誤マッチ防止）。
+      // 画像マッチ前に弾くことで Haiku も節約できる。
+      if (codesConflict(rakutenItem.itemName, ebayItem.title)) continue;
 
       // ② 利益が出る候補だけ画像マッチ（Haiku）で同一商品か検証
       if (ebayImg) {
