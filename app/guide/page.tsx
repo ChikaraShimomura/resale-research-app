@@ -82,6 +82,8 @@ const FAQS = [
   { q: "楽天ポイントはどう活用しますか？", a: "次の仕入れにそのまま使えます。1pt＝1円として楽天市場で利用できます。" },
 ];
 
+const SITE_URL = "https://www.yushutsu-fukugyo.com";
+
 // FAQ構造化データ（検索結果でのリッチ表示用）
 const FAQ_LD = {
   "@context": "https://schema.org",
@@ -91,6 +93,31 @@ const FAQ_LD = {
     name: f.q,
     acceptedAnswer: { "@type": "Answer", text: f.a },
   })),
+};
+
+// 手順（HowTo）構造化データ。5ステップをそのままリッチリザルト候補にする。
+const HOWTO_LD = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "楽天で仕入れてeBayで売る手順",
+  description: "楽天で日本の人気商品を仕入れ、eBayで海外に販売して利益を得るまでの5ステップ。",
+  step: STEPS.map((s, i) => ({
+    "@type": "HowToStep",
+    position: i + 1,
+    name: s.title,
+    text: s.desc,
+    url: `${SITE_URL}/guide#step-${s.num}`,
+  })),
+};
+
+// パンくず（BreadcrumbList）。検索結果のパンくず表示＝クリック率向上。
+const BREADCRUMB_LD = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "ホーム", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "ガイド", item: `${SITE_URL}/guide` },
+  ],
 };
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -106,6 +133,8 @@ export default function GuidePage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <JsonLd data={FAQ_LD} />
+      <JsonLd data={HOWTO_LD} />
+      <JsonLd data={BREADCRUMB_LD} />
       {/* ヘッダー */}
       <header className="bg-[#BF0000] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">
@@ -156,7 +185,7 @@ export default function GuidePage() {
           <SectionTitle>5ステップで始める</SectionTitle>
           <div className="flex flex-col gap-3.5">
             {STEPS.map((step) => (
-              <div key={step.num} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={step.num} id={`step-${step.num}`} className="scroll-mt-20 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
                   <span className="w-8 h-8 rounded-full bg-[#BF0000] text-white font-black flex items-center justify-center text-sm shrink-0">
                     {step.num}

@@ -1,9 +1,9 @@
-import { buildDailyReport } from "../../../lib/funnelReport";
+import { buildWeeklyReport } from "../../../lib/funnelReport";
 import { sendEmail, REPORT_TO, emailConfigured } from "../../../lib/email";
 
-// 行動ログの日次ファネルをメール送信する Vercel Cron エンドポイント。
-// vercel.json の crons から毎日 09:00 JST（00:00 UTC）に叩かれ、「昨日(JST)」を集計する。
-// 手動確認用に ?date=YYYY-MM-DD で対象日、?secret= で認証も可能。
+// 行動ログの週次ファネルをメール送信する Vercel Cron エンドポイント。
+// vercel.json の crons から毎週月曜 09:00 JST（00:00 UTC）に叩かれ、「直近7日(JST)」を集計する。
+// 手動確認用に ?date=YYYY-MM-DD で集計窓の最終日、?secret= で認証も可能。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -24,10 +24,10 @@ export async function GET(req: Request) {
   }
 
   const dateParam = url.searchParams.get("date");
-  const target = dateParam && DATE_RE.test(dateParam) ? dateParam : undefined;
+  const endDate = dateParam && DATE_RE.test(dateParam) ? dateParam : undefined;
 
   try {
-    const report = await buildDailyReport(target);
+    const report = await buildWeeklyReport(endDate);
     let sent = false;
     if (emailConfigured()) {
       await sendEmail({ to: REPORT_TO, subject: report.subject, html: report.html, text: report.text });
@@ -35,13 +35,14 @@ export async function GET(req: Request) {
     }
     return Response.json({
       ok: true,
-      date: report.date,
+      periodStart: report.periodStart,
+      periodEnd: report.periodEnd,
       sent,
       to: sent ? REPORT_TO : null,
       summary: report.summary,
     });
   } catch (err) {
-    console.error("[report/daily] error:", err);
+    console.error("[report/weekly] error:", err);
     return Response.json({ ok: false, error: "レポート生成に失敗しました" }, { status: 500 });
   }
 }

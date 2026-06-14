@@ -553,6 +553,92 @@ async function ebayMedianSinglePriceJpy(query) {
   } catch { return null; }
 }
 
+// ========== 落札価格(Marketplace Insights API) — 承認後に有効化 ==========
+//
+// 【現状】eBay の Marketplace Insights API (item_sales/search = 実際の落札/売却データ) は
+//   申請承認制。未承認のうちは下の機能は EBAY_INSIGHTS_ENABLED で OFF にしてあり、相場は
+//   従来どおり「現在出品の単品中央値(ebayMedianSinglePriceJpy)」を使う＝挙動は一切変わらない。
+//
+// 【承認されたら有効化する手順（これだけ）】
+//   1. Vercel と GitHub Actions(refresh) の env に  EBAY_INSIGHTS_ENABLED=1  を足す。
+//      ※ EBAY_APP_ID / EBAY_CLIENT_SECRET はそのまま。insights スコープは
+//        getEbayInsightsToken() が「本フラグ ON のときだけ」要求するので、承認前に
+//        スコープを足して本体トークン取得を壊す事故は起きない設計。
+//   2. 次の refresh(CI) から、相場が「実売(落札)中央値」優先に切り替わる。
+//      取れない/サンプル僅少なら自動で現在出品中央値へフォールバック。
+//   3. ログ「💱 実売中央値を採用」で実際に効いているか確認する。
+//   （任意）将来 UI で「相場」→「実売◯件」と出し分けるなら、marketMedianPriceJpy が返す
+//     soldBased を product に通して ProductCard の表記を分岐させる。
+const INSIGHTS_ENABLED = process.env.EBAY_INSIGHTS_ENABLED === '1';
+const INSIGHTS_SCOPE = 'https://api.ebay.com/oauth/api_scope/buy.marketplace.insights';
+
+// insights スコープ専用トークン（本体の api_scope トークンとは別キャッシュ。
+// 承認前にこのスコープを要求すると失敗するため、INSIGHTS_ENABLED のときだけ呼ぶ）。
+let ebayInsightsTokenCache = null;
+async function getEbayInsightsToken() {
+  if (!EBAY_APP_ID || !EBAY_CLIENT_SECRET) return null;
+  if (ebayInsightsTokenCache && Date.now() < ebayInsightsTokenCache.expiresAt) return ebayInsightsTokenCache.token;
+  const encoded = Buffer.from(`${EBAY_APP_ID}:${EBAY_CLIENT_SECRET}`).toString('base64');
+  try {
+    const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method: 'POST',
+      headers: { Authorization: `Basic ${encoded}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=client_credentials&scope=${encodeURIComponent(INSIGHTS_SCOPE)}`,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) { console.error(`  [Insights OAuth] HTTP ${res.status}（未承認の可能性）`); return null; }
+    const data = await res.json();
+    ebayInsightsTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+    return data.access_token;
+  } catch (e) { console.error(`  [Insights OAuth] ${e.message}`); return null; }
+}
+
+// eBay「落札(実売)中央値(JPY)」。Marketplace Insights の item_sales/search を叩く。
+// セット除外＋外れ値トリムは現在出品版と同じ。24hキャッシュ。失敗/少数時は null。
+async function ebaySoldMedianPriceJpy(query) {
+  if (!query || !INSIGHTS_ENABLED) return null;
+  const cacheKey = `sold_jpy:${ebayQueryHash(query)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && typeof cached === 'object' && cached.median > 0) return { ...cached, soldBased: true };
+  const token = await getEbayInsightsToken();
+  if (!token) return null;
+  try {
+    const params = new URLSearchParams({ q: query, limit: '24' });
+    const res = await fetch(`https://api.ebay.com/buy/marketplace_insights/v1_beta/item_sales/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const prices = (data?.itemSales ?? [])
+      .filter(it => !PRICE_SET_RE.test(it?.title ?? ''))
+      .map(it => {
+        const p = it?.lastSoldPrice ?? it?.price; // Insights は lastSoldPrice（実売価格）
+        const v = parseFloat(p?.value); const c = p?.currency;
+        if (!v || v <= 0) return 0;
+        if (c === 'USD') return Math.round(v * USD_TO_JPY);
+        if (c === 'GBP') return Math.round(v * GBP_TO_JPY);
+        if (c === 'AUD') return Math.round(v * AUD_TO_JPY);
+        if (c === 'JPY') return Math.round(v);
+        return 0;
+      })
+      .filter(p => p > 0);
+    const result = trimmedMedianJpy(prices);
+    if (result) await kvSet(cacheKey, result, 24 * 3600);
+    return result ? { ...result, soldBased: true } : null;
+  } catch { return null; }
+}
+
+// 相場の中央値(JPY)。承認後(INSIGHTS_ENABLED=1)は「実売中央値」を優先し、取れない/サンプル
+// 僅少なら「現在出品の単品中央値」にフォールバック。フラグOFF時は完全に従来挙動。
+async function marketMedianPriceJpy(query) {
+  if (INSIGHTS_ENABLED) {
+    const sold = await ebaySoldMedianPriceJpy(query);
+    if (sold && sold.count >= 3) { console.log('  💱 実売中央値を採用'); return sold; }
+  }
+  return ebayMedianSinglePriceJpy(query);
+}
+
 // ========== メイン処理 ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
@@ -658,7 +744,7 @@ async function main() {
   const repriced = [];
   for (const p of dedupedProducts) {
     if (!p.coreKeyword || !p.source || !(p.realAvgPrice > 0)) continue;
-    const med = await ebayMedianSinglePriceJpy(searchQueryFor(p.coreKeyword));
+    const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword));
     if (!med || med.count < 5) continue;
     if (med.median >= p.realAvgPrice) { p.realCount = med.count; continue; } // 下がらないなら件数だけ反映
     const r = calcProfit(p.source.price, med.median, p.source.pointAmount ?? 0);
@@ -759,7 +845,7 @@ async function main() {
       // 相場の妥当性向上：eBay現在出品の「単品中央値」を取り、保守的に小さい方を採用する
       // （1件の高値出品で利益が過大に出るのを防ぐ）。中央値で利益が消えたら出品しない。
       let realAvgPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
-      const med = await ebayMedianSinglePriceJpy(searchQueryFor(coreKeyword));
+      const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword));
       if (med && med.count >= 5) {
         realAvgPrice = Math.min(ebayItem.priceJpy, med.median);
         realCount = med.count;

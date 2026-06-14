@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { FUNNEL_EVENTS, FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../lib/funnel";
 
 // 行動ログ（離脱分析用）。ファネルの各イベントを「日次」で集計する。
-// キー設計とイベント定義は app/lib/funnel.ts に一元化（/api/report/daily と共有）。
+// キー設計とイベント定義は app/lib/funnel.ts に一元化（/api/report/weekly と共有）。
 // 個人を特定する生ログは保存しない（端末cookieのみ）。100日で自動失効。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
