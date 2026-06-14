@@ -50,3 +50,8 @@ video-slides/_work/
 video-slides/audio/
 video-slides/raw/
 video-slides/preview/
+
+# 画像マッチ検証などの一時テスト画像（リポジトリに含めない）
+img_verify/
+tcg_test/
+_imgtest/
