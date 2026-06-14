@@ -549,6 +549,26 @@ async function main() {
     console.log(`  ♻️ SOLD 30日経過: ${agedOut.size}件をDBから削除→再検知へ`);
   }
 
+  // 既存商品にも最新ロジックを遡及適用：カテゴリを再判定（誤分類の修正）し、
+  // coreKeyword が汎用的すぎる場合は楽天タイトルの英訳に差し替える（相場検索の精度向上）。
+  // guessCategory は純関数で安全、英訳は en_kw キャッシュ済みのため負荷は小さい。
+  let recat = 0, rekw = 0;
+  for (const p of dedupedProducts) {
+    if (p.title) {
+      const c = guessCategory(p.title);
+      if (c !== p.category) { p.category = c; recat++; }
+    }
+    if (p.coreKeyword && p.title && isWeakKeyword(p.coreKeyword)) {
+      const en = await rakutenTitleToEnglishKeyword(p.title);
+      if (en && en !== p.coreKeyword) {
+        p.coreKeyword = en;
+        p.ebaySoldUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(en)}&LH_Complete=1&LH_Sold=1`;
+        rekw++;
+      }
+    }
+  }
+  if (recat || rekw) console.log(`  🔧 既存データ補正: カテゴリ再判定 ${recat}件 / coreKeyword英訳 ${rekw}件`);
+
   const existingIds = new Set(dedupedProducts.map(p => p.id)); // 楽天itemCode
   const existingProducts = dedupedProducts;
   const profitableProducts = [...existingProducts];
