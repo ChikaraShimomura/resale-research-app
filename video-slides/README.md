@@ -1,8 +1,11 @@
 # ガイド動画の生成パイプライン
 
 サイトのガイド実画面から、縦型(1080×1920)の解説動画を自動生成するツール一式。
-**やさしい音声ナレーション（edge-tts / Nanami）＋ lo-fiチルBGM**つき。
+**音声ナレーション（VOICEVOX「春日部つむぎ」）＋ lo-fiチルBGM**つき。
 通し版（フル）と、**STEPごとの短い動画（ショート）**を両方出力する。
+
+> ⚠️ ナレーションは **VOICEVOX**（ローカルエンジン :50021）を使用。生成前に VOICEVOX アプリを起動しておくこと。
+> 公開時は各キャラの利用規約（クレジット表記）を確認すること（春日部つむぎ＝つくみ）。
 
 ## 生成物（出力先 public/videos/）
 | フル動画 | 内容 | 埋め込み先 |
@@ -21,7 +24,7 @@
 - `narration.json` … スライドごとの**読み上げ台本**（音声・スライドと1:1）。**ナレーションを直すならここ**
 - `segments.json` … **STEPごとのショート動画の分け方**（どのスライドを1本にするか）
 - `generate_bgm.mjs` … lo-fiチルBGMループ `bgm.wav` を合成（外部素材なし・76BPM）
-- `produce.mjs` … ★メイン。TTS(Nanami)→声に合わせて各スライド尺を自動調整→描画→クロスフェード結合→声＋BGMをミックス→フル＋ショートを `public/videos/` に出力
+- `produce.mjs` … ★メイン。TTS(VOICEVOX)→声に合わせて各スライド尺を自動調整→描画→クロスフェード結合→声＋BGMをミックス→フル＋ショートを `public/videos/` に出力
 - `raw/` … ガイド実画面のスクショ（素材） / `audio/cache/` … TTSキャッシュ（テキスト単位）
 
 ## 再生成
@@ -34,13 +37,15 @@ node video-slides/capture2.mjs && node video-slides/capture_ebay.mjs
 # 2) BGMを作り直す（任意）
 node video-slides/generate_bgm.mjs
 
-# 3) フル＋ショートを生成（要ネット: edge-tts。ffmpeg必須）
+# 3) フル＋ショートを生成（要: VOICEVOXアプリ起動 + ffmpeg）
 node video-slides/produce.mjs
 ```
+画面の一部だけ変えたときは `recapture.mjs`（テキスト指定で該当カードだけ撮り直し）。
 
 ## 調整ポイント（produce.mjs 冒頭の定数）
-- `VOICE` … 声。`ja-JP-NanamiNeural`(女性・優しい) / `ja-JP-KeitaNeural`(男性) など
-- `RATE` … 話す速さ（`-8%` でゆっくりめ）
+- `SPEAKER` … VOICEVOXの話者ID（`8`=春日部つむぎ）。一覧は `GET :50021/speakers`
+- `SPEED` … 速さ（`1.0`） / `INTONATION` … 抑揚（`1.0`） / `PITCH` … 高さ（`0.0`）
+- `VOLUME` … 声の音量（`2.2`。VOICEVOXは素が小さめなので持ち上げている）
 - `BGM_VOL` … BGM音量（`0.10`。上げると存在感アップ）
 - BGMを既製曲に差し替えたいときは `bgm.wav` を好きな音源で上書き（要・利用可能な権利）
 

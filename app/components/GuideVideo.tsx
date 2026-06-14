@@ -64,6 +64,7 @@ export default function GuideVideo({
       </div>
 
       {note && <p className="text-[11.5px] text-gray-500 leading-relaxed text-center mt-3">{note}</p>}
+      <p className="text-[10px] text-gray-400 text-center mt-2">音声：VOICEVOX：春日部つむぎ</p>
     </section>
   );
 }

@@ -14,7 +14,13 @@ const CACHE = path.join(DIR, 'audio', 'cache');
 const BGM = path.join(DIR, 'bgm.wav');
 
 const FADE = 0.6, LEAD = 0.5, TAIL = 1.1, BGM_VOL = 0.10;
-const VOICE = 'ja-JP-NanamiNeural', RATE = '-8%';
+// ナレーション: VOICEVOX（ローカルエンジン :50021）。声を変えるなら SPEAKER を変更
+const ENGINE = 'http://127.0.0.1:50021';
+const SPEAKER = 8;          // 春日部つむぎ（ノーマル）
+const SPEED = 1.0;          // 速さ
+const INTONATION = 1.0;     // 抑揚（人らしさ）
+const PITCH = 0.0;          // 高さ
+const VOLUME = 2.2;         // 音量（VOICEVOXは素が小さめなので持ち上げる）
 
 const VLABEL = { overview: 'はじめてガイド', ebay: 'eBay登録ガイド', payoneer: 'Payoneer出金ガイド' };
 
@@ -31,19 +37,27 @@ const q = (p) => `"${p}"`;
 const b64 = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64');
 const probeDur = (f) => parseFloat(sh(`ffprobe -v error -show_entries format=duration -of csv=p=0 ${q(f)}`));
 
-// ── edge-tts (Nanami) with on-disk cache, returns cleaned wav + duration ──
+// ── VOICEVOX TTS with on-disk cache, returns cleaned wav + duration ──
 const ttsMemo = new Map();
-function ttsWav(text) {
+async function ttsWav(text) {
   if (ttsMemo.has(text)) return ttsMemo.get(text);
-  const h = crypto.createHash('md5').update(VOICE + RATE + text).digest('hex').slice(0, 16);
+  const h = crypto.createHash('md5').update(`vv${SPEAKER}_${SPEED}_${INTONATION}_${PITCH}_${VOLUME}_` + text).digest('hex').slice(0, 16);
   const wav = path.join(CACHE, h + '.wav');
   if (!fs.existsSync(wav)) {
-    const txt = path.join(CACHE, h + '.txt');
-    const mp3 = path.join(CACHE, h + '.mp3');
-    fs.writeFileSync(txt, text, 'utf8');
-    execSync(`edge-tts --voice ${VOICE} --rate=${RATE} --file ${q(txt)} --write-media ${q(mp3)}`, { stdio: ['ignore', 'ignore', 'pipe'] });
-    // trim leading/trailing silence
-    execSync(`ffmpeg -y -i ${q(mp3)} -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse" -ar 44100 ${q(wav)}`, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const raw = path.join(CACHE, h + '_raw.wav');
+    const qr = await fetch(`${ENGINE}/audio_query?speaker=${SPEAKER}&text=${encodeURIComponent(text)}`, { method: 'POST' });
+    if (!qr.ok) throw new Error(`VOICEVOX audio_query failed (${qr.status}). エンジンが起動しているか確認してください。`);
+    const query = await qr.json();
+    query.speedScale = SPEED; query.intonationScale = INTONATION; query.pitchScale = PITCH;
+    query.volumeScale = VOLUME;
+    query.prePhonemeLength = 0.1; query.postPhonemeLength = 0.1;
+    const sr = await fetch(`${ENGINE}/synthesis?speaker=${SPEAKER}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query),
+    });
+    fs.writeFileSync(raw, Buffer.from(await sr.arrayBuffer()));
+    // trim leading/trailing silence + resample for mixing
+    execSync(`ffmpeg -y -i ${q(raw)} -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse" -ar 44100 ${q(wav)}`, { stdio: ['ignore', 'ignore', 'pipe'] });
+    fs.rmSync(raw, { force: true });
   }
   const r = { wav, dur: probeDur(wav) };
   ttsMemo.set(text, r);
@@ -102,7 +116,7 @@ async function renderFrames(page, job) {
     const f = path.join(dir, String(i).padStart(2, '0') + '.png');
     await page.screenshot({ path: f, type: 'png' });
     // narration timing
-    const { wav, dur } = ttsWav(s.narration);
+    const { wav, dur } = await ttsWav(s.narration);
     const base = Number(s.hold) || 3.5;
     frames.push({ file: f, wav, ndur: dur, hold: Math.max(base, LEAD + dur + TAIL) });
   }
