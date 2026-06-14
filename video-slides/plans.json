@@ -1,0 +1,77 @@
+{
+  "videos": [
+    {
+      "key": "overview",
+      "vlabel": "はじめてガイド",
+      "vtitle": "",
+      "plan": {
+        "videoTitle": "楽天×eBay 輸出転売 はじめてガイド",
+        "slides": [
+          {"type":"title","image":null,"badge":"はじめてガイド","title":"楽天×eBayで海外に売る","helper":"楽天で仕入れて世界へ売る副業の全体像\nやり方に迷ったら、まずこの動画から","hold":3.5},
+          {"type":"screen","image":"g_intro","badge":"全体の流れ","title":"まずは全体像をつかむ","helper":"楽天で仕入れ→eBayで売る→利益を回収\n進め方は5ステップ。順番どおりでOK","hold":5},
+          {"type":"screen","image":"g_step1","badge":"① ／ 5","title":"楽天で仕入れる","helper":"0と5のつく日はポイント高還元のチャンス\nスーパーSALEは最大44倍。日を狙って買う","hold":5},
+          {"type":"screen","image":"g_step2","badge":"② ／ 5","title":"eBayの口座を作る","helper":"売上の受け取り口座（セラー登録）は初回だけ\n詳しいやり方は専用の登録ガイド動画で解説","hold":5},
+          {"type":"screen","image":"g_step3","badge":"③ ／ 5","title":"eBayに出品する","helper":"灰色のときは先に赤い「楽天で仕入れる」を押すと解放\nタイトル・価格・カテゴリは自動。初回だけ設定が必要","hold":5.5},
+          {"type":"screen","image":"g_step4","badge":"④ ／ 5","title":"売れたら発送する","helper":"国際郵便で発送。電池・香水など送れない物に注意\n内容品は英語で電子申告・追跡番号の登録を忘れずに","hold":6.5},
+          {"type":"screen","image":"g_step5","badge":"⑤ ／ 5","title":"利益を受け取る","helper":"売上はPayoneer経由で銀行へ。手数料は13.25%＋¥47\n新規は最初お金が保留される＝正常。実績で早まる","hold":6.5},
+          {"type":"screen","image":"g_profit","badge":"利益の式","title":"もうけの計算式","helper":"eBay相場−楽天仕入れ＋ポイント−手数料＝利益\n国際送料は購入者の負担。ポイントは次の仕入れに","hold":6},
+          {"type":"outro","image":null,"badge":"次の一歩","title":"アプリで始めよう","helper":"まずは楽天で1品。アプリの出品ガイドが案内\n迷ったら各ステップの詳しい動画もチェック","hold":4}
+        ]
+      }
+    },
+    {
+      "key": "ebay",
+      "vlabel": "eBay登録ガイド",
+      "vtitle": "",
+      "plan": {
+        "videoTitle": "eBayセラー登録ガイド｜売上の受け取り口座を作る",
+        "slides": [
+          {"type":"title","image":null,"badge":"","title":"eBay登録\nつまずき解決ガイド","helper":"売上の受け取り口座まで全4ステップ\n手が止まったらこの動画で解決","hold":4},
+          {"type":"screen","image":"e_intro","badge":"はじめに","title":"用意するもの","helper":"登録は初回だけ・入力10〜15分(後で審査待ちあり)\nスマホ/本人確認書類/銀行口座/手数料用カード","hold":6},
+          {"type":"screen","image":"e_intro","badge":"はじめに","title":"名前と住所はローマ字","helper":"名前・住所はローマ字で身分証と完全に一致\n後の審査で止まらないための大事な下準備","hold":5},
+          {"type":"screen","image":"e_s1_login","badge":"STEP 1 / 4","title":"eBayにSign in","helper":"①メールとパスワードでSign in(ログイン)\n買い物用アカウントがあればそのまま使えます","hold":4.5},
+          {"type":"screen","image":"e_s1_sell","badge":"STEP 1 / 4","title":"出品を始める","helper":"②上部メニューの「Sell(出品)」を開く\n青い「Sell now」を押して進みます","hold":4.5},
+          {"type":"screen","image":"e_s1_search","badge":"STEP 1 / 4","title":"何か選んで進むだけ","helper":"③これは登録の入口。商品は何でもOK・状態は適当でOK\n必須項目は「テスト」と入れて進めばセラー登録画面へ","hold":5.5},
+          {"type":"screen","image":"e_s1_getstarted","badge":"STEP 1 / 4","title":"出品用口座を準備","helper":"④「Get started」を押すと自動でPayoneer画面へ\n勝手に切り替わるのは正しい動きです","hold":5},
+          {"type":"screen","image":"e_s2_signup","badge":"STEP 2 / 4","title":"Payoneerに新規登録","helper":"①「Sign up」で登録(持っていればSign in)\n確認メールのリンクを押して続行(迷惑メールも確認)","hold":5.5},
+          {"type":"screen","image":"e_s2_type","badge":"STEP 2 / 4","title":"種別と氏名","helper":"②種別は「個人(Individual)」を選ぶ\n氏名はローマ字で身分証と同じ表記に","hold":5},
+          {"type":"screen","image":"e_s2_contact","badge":"STEP 2 / 4 ★最大の難所","title":"連絡先を入力","helper":"「次へ」が押せない時はまず住所を候補から確定\n次にCity(都市名)を必ず埋める","hold":6.5},
+          {"type":"screen","image":"e_s2_contact","badge":"STEP 2 / 4 ★最大の難所","title":"電話番号のコツ","helper":"国をJapan(+81)にして電話の先頭の0を取る\n例 090→90 / SMSは最新6桁を入れて即「次へ」","hold":7},
+          {"type":"screen","image":"e_s2_kyc","badge":"STEP 2 / 4","title":"本人確認(KYC)","helper":"③書類番号の入力か撮影アップロード\n明るい所で四隅まで・反射注意(免許は表裏も)","hold":5.5},
+          {"type":"screen","image":"e_s2_bank","badge":"STEP 2 / 4","title":"受け取り口座を登録","helper":"④本人名義・ローマ字一致の銀行口座を登録\n支店コードやSWIFTは公式サイトで事前にメモ","hold":6},
+          {"type":"screen","image":"e_s2_done","badge":"STEP 2 / 4","title":"申請完了 でも待つ","helper":"「おめでとう」=申請完了で今は審査中です\nこの時点ではまだ出品できません。あせらず待つ","hold":6.5},
+          {"type":"screen","image":"e_s3_sync","badge":"STEP 3 / 4","title":"eBayに戻って同期","helper":"①Sync(同期)で氏名・住所が反映される\n内容を確認して「Continue」へ","hold":5},
+          {"type":"screen","image":"e_s3_card","badge":"STEP 3 / 4","title":"手数料用カード","helper":"②VISA/Masterを1枚登録(登録だけなら請求なし)\nデビットは登録不可のことあり","hold":5.5},
+          {"type":"screen","image":"e_s3_submit","badge":"STEP 3 / 4","title":"登録を送信","helper":"③「Submit registration」で送信\nこれでeBay側の入力は完了。あとは審査待ち","hold":5},
+          {"type":"screen","image":"e_s4_listing","badge":"STEP 4 / 4","title":"メールが来たら出品","helper":"Payoneerの「KYC完了」メールが出品解禁の合図\n輸出ラボの「出品する」で公開(以降1タップ)","hold":6.5},
+          {"type":"screen","image":"e_s4_listing","badge":"STEP 4 / 4 ★注意","title":"メールを間違えない","helper":"先に届く「有効化メール」では出品できません\n解禁は必ず「KYC完了」メールの方です","hold":6},
+          {"type":"screen","image":"e_troubles","badge":"困ったとき","title":"つまずき解決 ①②","helper":"①「次へ」不可=住所確定+City入力+電話先頭0を取る\n②「出品できない」=実はKYC審査待ちで正常","hold":7},
+          {"type":"screen","image":"e_troubles","badge":"困ったとき","title":"つまずき解決 ③④","helper":"③承認メールで出品不可=それは有効化メール\n解禁はKYC完了メール ④無い時は迷惑メール確認","hold":7},
+          {"type":"screen","image":"e_troubles","badge":"困ったとき ★追加","title":"出品の上限・審査","helper":"出品数が少ない=新規の上限（月10品・$500目安）。実績で増える\nKYC後も出品不可ならeBay側の最終確認。少し待つ","hold":7},
+          {"type":"outro","image":null,"badge":"準備OKで出品スタート","title":"準備OKで\n出品スタート","helper":"KYC完了メールが来たら輸出ラボで1タップ出品\n困ったらこの動画にいつでも戻ってきてね","hold":5}
+        ]
+      }
+    },
+    {
+      "key": "payoneer",
+      "vlabel": "Payoneer出金ガイド",
+      "vtitle": "",
+      "plan": {
+        "videoTitle": "Payoneer出金ガイド（売上を日本の銀行へ）",
+        "slides": [
+          {"type":"title","image":null,"badge":"","title":"Payoneerから\n日本の銀行へ出金","helper":"eBayの売上を手元のお金にする方法\n迷ったらこの動画で最後までできます","hold":3.5},
+          {"type":"screen","image":"p_intro","badge":"イントロ","title":"お金の流れ","helper":"売上はまずPayoneerに入り、銀行へ引き出します\n新規は最初お金が保留される＝正常。あせらず待つ","hold":4.5},
+          {"type":"screen","image":"p_prepare","badge":"準備","title":"用意するもの","helper":"本人名義の銀行口座だけ\n名義はPayoneer登録名と同じローマ字で","hold":4.5},
+          {"type":"screen","image":"p_step1","badge":"STEP 1 / 5","title":"ログインする","helper":"login.payoneer.com を開きます\n登録したメールとパスワードで入ります","hold":4},
+          {"type":"screen","image":"p_step2","badge":"STEP 2 / 5","title":"銀行口座を登録","helper":"設定→銀行口座→追加。名義はローマ字で一致\n初回は審査に最大3営業日（次回からは即出金）","hold":5.5},
+          {"type":"screen","image":"p_step3","badge":"STEP 3 / 5","title":"引き出しを選ぶ","helper":"メニューの「引き出し」を開きます\n出てきた中から「銀行口座宛」を選びます","hold":4},
+          {"type":"screen","image":"p_step4","badge":"STEP 4 / 5","title":"金額を入力","helper":"USDのまま貯めてまとめて円に替えるとお得\n手数料は出金約1〜2%＋為替最大2%（最低$1）","hold":6},
+          {"type":"screen","image":"p_step5","badge":"STEP 5 / 5","title":"確認して送信","helper":"金額・手数料・着金額を確認し「送信」\n確認メールが届き3〜5営業日で着金します","hold":5.5},
+          {"type":"screen","image":"p_fees","badge":"まとめ ①","title":"手数料と日数","helper":"出金約1〜2%／為替最大2%。初回審査は最大3営業日\n着金3〜5営業日。名義はPayoneer登録名と一致","hold":6},
+          {"type":"screen","image":"p_troubles","badge":"まとめ ②","title":"つまずき対策","helper":"出金不可=名義不一致や本人確認の未完了\n着金しない=SWIFT等の入力ミス。少額はまとめて出金","hold":7},
+          {"type":"outro","image":null,"badge":"まずは口座登録から","title":"売上を\n受け取ろう","helper":"まずは口座登録から。審査に余裕を持って準備を\n関連ガイドもチェックしてみてください","hold":4}
+        ]
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@ type Step = {
   title: string;
   desc: string;
   tips: string[];
+  warn?: string;
   link?: { label: string; href: string; external?: boolean };
 };
 
@@ -38,24 +39,27 @@ const STEPS: Step[] = [
     num: "3",
     Icon: PenLine,
     title: "eBayに出品する",
-    desc: "まず商品カードの「楽天で仕入れる」を押すと「eBay簡単出品」が解放されます。あとはボタンを押すだけ。タイトル・価格・カテゴリは自動で入り、楽天の画像で出品できます。",
-    tips: ["「楽天で仕入れる」を押すと出品が解放", "タイトル・価格・送料は自動入力", "気になる商品は後でeBayで自分の写真に差し替えも可"],
+    desc: "まず商品カードの赤い「楽天で仕入れる」ボタンを押すと「eBay簡単出品」が解放されます（商品画像をタップしても解放されません）。あとはボタンを押すだけ。タイトル・価格・カテゴリは自動で入り、楽天の画像で出品できます。",
+    tips: ["「eBay簡単出品」が灰色なら、先に赤い「楽天で仕入れる」を押すと解放", "出品の最後に「先に楽天で注文しました」のチェックが必要", "カテゴリが赤字で出たら、タイトルを具体的にして開き直すと通る"],
+    warn: "初回は出品の前に一度だけ、アプリの設定でeBay連携・送料／返品ポリシー・発送元住所の登録が必要です（数分・次回からは不要）。",
     link: { label: "商品を探して出品する", href: "/search" },
   },
   {
     num: "4",
     Icon: Package,
     title: "売れたら発送する",
-    desc: "落札後は日本郵便の国際郵便（EMS・ePacket）で発送します。「国際郵便マイページ」で送り状を作成でき、ラベル印刷も簡単です。",
-    tips: ["国際郵便マイページで送り状を作成", "追跡番号をeBayに登録する", "発送後3〜14日で到着"],
+    desc: "落札後は日本郵便の国際郵便（EMS・ePacket）で発送します。海外宛ては内容品を英語で電子申告するため、送り状は「国際郵便マイページ」で作成します（2024年から全世界宛てで電子データの事前提出が必須・手書きラベルは原則使えません）。",
+    tips: ["マイページで送り状＋内容品を英語申告（品名・数量・価格・HSコード）", "追跡番号は必ずeBayの注文に登録（未登録だと売上保留・未着クレームの原因）", "到着日数は目安で国により変動。引受停止中の国はeBayの発送除外に設定"],
+    warn: "国際郵便で送れない物に注意：モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライター等は航空危険物で発送できません。売れてから気づくと発送できず、未発送ペナルティになります。",
     link: { label: "国際郵便マイページを開く", href: "https://www.int-mypage.post.japanpost.jp/", external: true },
   },
   {
     num: "5",
     Icon: Wallet,
     title: "利益を受け取る",
-    desc: "落札者の受取確認後、売上がPayoneerや銀行口座に振り込まれます。楽天ポイントは次の仕入れにそのまま使えます。",
-    tips: ["eBay手数料は落札価格の13.25%＋¥47", "Payoneerから日本の銀行へ振込", "楽天ポイントは1pt＝1円で使える"],
+    desc: "売上はeBayからPayoneer（売上の受け取り口座）に入り、そこから日本の銀行口座へ出金します。楽天ポイントは次の仕入れにそのまま使えます。",
+    tips: ["eBay手数料は落札価格の13.25%＋¥47", "売上→Payoneer→銀行の順。反映に数日のラグあり", "楽天ポイントは1pt＝1円で使える"],
+    warn: "新規セラーは最初のうち売上が保留されます（追跡ありで配達確認の数日後／追跡なしは支払いから約1か月）。「売れたのにお金が来ない」は正常で、実績がつくと早く受け取れるようになります。",
     link: { label: "売上の受け取り方（出金ガイド）", href: "/guide/payoneer-withdraw" },
   },
 ];
@@ -69,7 +73,11 @@ const FLOW = [
 const FAQS = [
   { q: "初期費用はかかりますか？", a: "楽天・eBayともにアカウント作成は無料です。仕入れ費用のみ必要です。" },
   { q: "英語が話せなくても大丈夫ですか？", a: "ほぼ不要です。出品タイトルは自動生成され、購入者とのやり取りもテンプレートで対応できます。" },
-  { q: "どんな商品が売れますか？", a: "ポケモンカード・ガンプラ・LEGO・日本限定フィギュア・日本ブランドの腕時計・コスメが特に人気です。" },
+  { q: "どんな商品が売れますか？", a: "ポケモンカード・ガンプラ・LEGO・日本限定フィギュア・日本ブランドの腕時計・コスメが特に人気です。ただし香水・スプレー・電池内蔵品などは国際郵便で送れないことがあるので、仕入れ前に発送できるかを確認しましょう。" },
+  { q: "売れたのに口座にお金が来ません。", a: "新規セラーは最初のうち売上が保留されます（追跡ありなら配達確認の数日後、追跡なしは支払いから約1か月）。これは正常です。追跡番号をeBayに登録し、出品実績がつくと早く受け取れるようになります。" },
+  { q: "出品できる数が少ない・増やせません。", a: "新規セラーには出品上限（目安：月10品・合計500ドル）があります。出品実績がつくと自動で引き上げられ、マイeBayから引き上げ申請もできます（30日に1回）。" },
+  { q: "海外に送れない商品はありますか？", a: "モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライターなどは航空危険物で、国際郵便では送れません。仕入れる前に確認してください。" },
+  { q: "返品不可にすれば返金リスクはありませんか？", a: "いいえ。返品不可でも、未着や「説明と違う」商品はeBayの保証（Money Back Guarantee）で返金・返品の対象になります。追跡付きで発送し、正直な商品説明で身を守りましょう。" },
   { q: "eBayの手数料はいくらですか？", a: "落札価格の13.25%＋固定47円です。このサイトの利益計算にはすでに含まれています。" },
   { q: "楽天ポイントはどう活用しますか？", a: "次の仕入れにそのまま使えます。1pt＝1円として楽天市場で利用できます。" },
 ];
@@ -167,6 +175,12 @@ export default function GuidePage() {
                       </li>
                     ))}
                   </ul>
+                  {step.warn && (
+                    <div className="flex items-start gap-2 bg-[#BF0000]/[0.05] border border-[#BF0000]/20 rounded-xl px-3 py-2.5 mb-4">
+                      <span aria-hidden="true" className="text-[#BF0000] text-sm leading-none mt-0.5 shrink-0">⚠️</span>
+                      <p className="text-[12px] text-[#BF0000] leading-relaxed font-medium">{step.warn}</p>
+                    </div>
+                  )}
                   {step.link && (
                     step.link.external ? (
                       <a href={step.link.href} target="_blank" rel="noopener noreferrer"
@@ -195,12 +209,12 @@ export default function GuidePage() {
               <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
-              <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
+              <div className="flex justify-between"><span>国際送料・輸入関税</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
                 <span>利益</span><span>= ¥X,XXX ＋ XXXpt</span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 text-center mt-2.5">全商品この計算式で利益を算出しています（国際送料は購入者負担のため利益に含めません）</p>
+            <p className="text-[11px] text-gray-400 text-center mt-2.5">全商品この計算式で利益を算出しています（国際送料・輸入関税は購入者負担のため利益に含めません）</p>
           </div>
         </div>
 

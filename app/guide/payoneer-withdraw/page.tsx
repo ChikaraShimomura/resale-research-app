@@ -116,13 +116,13 @@ export default function PayoneerWithdrawGuide() {
           title="STEPごとに分けて見る（短い動画）"
           note="必要なステップだけ、サッと確認できます。"
           shorts={[
-            { label: "お金の流れ・準備", src: "/videos/shorts/payoneer-withdraw-guide-intro.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-intro-poster.jpg", durationLabel: "16秒" },
+            { label: "お金の流れ・準備", src: "/videos/shorts/payoneer-withdraw-guide-intro.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-intro-poster.jpg", durationLabel: "20秒" },
             { label: "① ログイン", src: "/videos/shorts/payoneer-withdraw-guide-step1.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step1-poster.jpg", durationLabel: "10秒" },
             { label: "② 口座登録", src: "/videos/shorts/payoneer-withdraw-guide-step2.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step2-poster.jpg", durationLabel: "13秒" },
             { label: "③ 引き出しを選ぶ", src: "/videos/shorts/payoneer-withdraw-guide-step3.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step3-poster.jpg", durationLabel: "12秒" },
             { label: "④ 金額を入力", src: "/videos/shorts/payoneer-withdraw-guide-step4.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step4-poster.jpg", durationLabel: "12秒" },
             { label: "⑤ 確認して送信", src: "/videos/shorts/payoneer-withdraw-guide-step5.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step5-poster.jpg", durationLabel: "12秒" },
-            { label: "手数料・つまずき", src: "/videos/shorts/payoneer-withdraw-guide-summary.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-summary-poster.jpg", durationLabel: "18秒" },
+            { label: "手数料・つまずき", src: "/videos/shorts/payoneer-withdraw-guide-summary.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-summary-poster.jpg", durationLabel: "24秒" },
           ]}
         />
 
@@ -135,6 +135,13 @@ export default function PayoneerWithdrawGuide() {
             eBayで売れたお金は、まず<b>Payoneer</b>に入ります。そこから<b>日本の銀行口座へ「出金（引き出し）」</b>して、
             やっと手元のお金になります。やり方を一歩ずつ案内します（初回の口座登録だけ少し待ちます）。
           </p>
+          <div className="mt-2.5 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+            <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-[12px] text-blue-800 leading-relaxed">
+              <b>お金の流れ</b>：落札 → 入金 → 発送 → 配達確認 → Payoneerに反映 → 銀行へ出金。
+              <b>新規セラーは最初のうち売上が保留</b>され（追跡ありで配達確認の数日後／追跡なしは支払いから約1か月）、すぐ出金できないのは正常です。実績がつくと早まります。
+            </p>
+          </div>
         </div>
 
         {/* 用意 */}
@@ -190,6 +197,9 @@ export default function PayoneerWithdrawGuide() {
             <b>手数料の目安</b>：出金手数料が<b>取引額の約1〜2%</b>＋（USD→円のとき）<b>為替手数料 最大2%</b>。
             少額（$100未満）は最低$1。<b>まとめて出金</b>した方が手数料率は下がります。
           </Warn>
+          <p className="text-[12px] text-gray-600 leading-relaxed">
+            受け取り方は2つ：①<b>USDのまま貯めて</b>円安のときにまとめて円に替える、②<b>都度、円で受け取る</b>。両替のたびに為替手数料が乗るので、急がないなら<b>まとめて円転</b>が有利です。最低出金額は出金画面に表示され、少額すぎると進めないことがあります。
+          </p>
         </StepCard>
 
         {/* STEP 5 */}
@@ -225,6 +235,8 @@ export default function PayoneerWithdrawGuide() {
             <li>🔴 <b>出金できない</b> → 口座名義がPayoneerの名前と<b>不一致</b>。ローマ字表記まで合わせる</li>
             <li>🔴 <b>すぐ出金できない</b> → 初回は<b>口座審査(最大3営業日)</b>がある。次回から即OK</li>
             <li>🔴 <b>手数料が高く感じる</b> → こまめより<b>まとめて出金</b>。為替分も考え、円安のタイミングが有利</li>
+            <li>🔴 <b>出金メニューが出ない・進めない</b> → <b>本人確認（KYC）が未完了</b>かも。完了の案内を待ってから出金する</li>
+            <li>🔴 <b>送金したのに着金しない・返ってくる</b> → <b>SWIFT・支店コード・口座番号の入力ミス</b>。銀行公式サイトで再確認する</li>
           </ul>
         </div>
 

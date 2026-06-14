@@ -65,7 +65,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const sourceUrl = toRakutenAffiliateUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
-  const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, product.realAvgPrice, (product as { market?: string }).market);
+  const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
   const { isFav, toggle: rawToggleFav } = useFavorite(product.id);
   // お気に入りトグル時、親（お気に入り一覧など）へ即時反映できるよう通知する。
   const toggleFav = () => {

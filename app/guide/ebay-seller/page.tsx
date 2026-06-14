@@ -44,7 +44,7 @@ export default function EbaySellerGuidePage() {
             { label: "② Payoneer登録", src: "/videos/shorts/ebay-seller-guide-step2.mp4", poster: "/videos/shorts/ebay-seller-guide-step2-poster.jpg", durationLabel: "52秒" },
             { label: "③ 仕上げ", src: "/videos/shorts/ebay-seller-guide-step3.mp4", poster: "/videos/shorts/ebay-seller-guide-step3-poster.jpg", durationLabel: "24秒" },
             { label: "④ 出品する", src: "/videos/shorts/ebay-seller-guide-step4.mp4", poster: "/videos/shorts/ebay-seller-guide-step4-poster.jpg", durationLabel: "19秒" },
-            { label: "困ったとき", src: "/videos/shorts/ebay-seller-guide-trouble.mp4", poster: "/videos/shorts/ebay-seller-guide-trouble-poster.jpg", durationLabel: "18秒" },
+            { label: "困ったとき", src: "/videos/shorts/ebay-seller-guide-trouble.mp4", poster: "/videos/shorts/ebay-seller-guide-trouble-poster.jpg", durationLabel: "26秒" },
           ]}
         />
         <EbaySellerStepper />

@@ -1,0 +1,98 @@
+[
+  {
+    "key": "overview",
+    "kind": "full",
+    "dur": 65,
+    "file": "public\\videos\\guide-overview.mp4"
+  },
+  {
+    "key": "ebay",
+    "kind": "full",
+    "dur": 141,
+    "file": "public\\videos\\ebay-seller-guide.mp4"
+  },
+  {
+    "key": "ebay_intro",
+    "kind": "short",
+    "dur": 16,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-intro.mp4"
+  },
+  {
+    "key": "ebay_step1",
+    "kind": "short",
+    "dur": 29,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-step1.mp4"
+  },
+  {
+    "key": "ebay_step2",
+    "kind": "short",
+    "dur": 52,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-step2.mp4"
+  },
+  {
+    "key": "ebay_step3",
+    "kind": "short",
+    "dur": 24,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-step3.mp4"
+  },
+  {
+    "key": "ebay_step4",
+    "kind": "short",
+    "dur": 19,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-step4.mp4"
+  },
+  {
+    "key": "ebay_trouble",
+    "kind": "short",
+    "dur": 26,
+    "file": "public\\videos\\shorts\\ebay-seller-guide-trouble.mp4"
+  },
+  {
+    "key": "payoneer",
+    "kind": "full",
+    "dur": 75,
+    "file": "public\\videos\\payoneer-withdraw-guide.mp4"
+  },
+  {
+    "key": "payoneer_intro",
+    "kind": "short",
+    "dur": 20,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-intro.mp4"
+  },
+  {
+    "key": "payoneer_step1",
+    "kind": "short",
+    "dur": 10,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-step1.mp4"
+  },
+  {
+    "key": "payoneer_step2",
+    "kind": "short",
+    "dur": 13,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-step2.mp4"
+  },
+  {
+    "key": "payoneer_step3",
+    "kind": "short",
+    "dur": 12,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-step3.mp4"
+  },
+  {
+    "key": "payoneer_step4",
+    "kind": "short",
+    "dur": 13,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-step4.mp4"
+  },
+  {
+    "key": "payoneer_step5",
+    "kind": "short",
+    "dur": 12,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-step5.mp4"
+  },
+  {
+    "key": "payoneer_summary",
+    "kind": "short",
+    "dur": 24,
+    "file": "public\\videos\\shorts\\payoneer-withdraw-guide-summary.mp4"
+  }
+]

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root{
+    --crimson:#BF0000; --crimson-dark:#9E0000; --pink:#FF4466;
+    --ink:#1f2430; --gray:#5b6472; --bg:#F5F7FA;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1080px;height:1920px;}
+  body{
+    font-family:"Yu Gothic UI","Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    -webkit-font-smoothing:antialiased; text-rendering:geometricPrecision;
+    background:var(--bg); overflow:hidden;
+  }
+  #stage{width:1080px;height:1920px;position:relative;overflow:hidden;}
+
+  /* ---------- SCREEN slide ---------- */
+  .screen{display:flex;flex-direction:column;height:1920px;
+    background:linear-gradient(180deg,#FFF2F2 0%,#F5F7FA 38%);}
+  .topbar{display:flex;align-items:center;gap:18px;height:156px;padding:0 56px;flex:none;
+    background:linear-gradient(135deg,var(--crimson),var(--crimson-dark));color:#fff;}
+  .brand{font-weight:800;font-size:36px;letter-spacing:.5px;}
+  .brand .b2{opacity:.9;font-weight:700;font-size:30px;margin-left:14px;
+    border-left:2px solid rgba(255,255,255,.45);padding-left:14px;}
+  .vtitle{margin-left:auto;font-weight:700;font-size:25px;opacity:.92;
+    max-width:520px;text-align:right;line-height:1.25;}
+
+  .imgwrap{height:1024px;flex:none;min-height:0;display:flex;align-items:center;
+    justify-content:center;padding:48px 56px 20px;}
+  .imgcard{background:#fff;border-radius:40px;padding:30px;overflow:hidden;
+    box-shadow:0 30px 70px -25px rgba(150,0,0,.35),0 8px 24px -12px rgba(0,0,0,.18);
+    display:flex;align-items:center;justify-content:center;max-width:962px;max-height:100%;}
+  .imgcard img{max-width:900px;max-height:900px;border-radius:22px;display:block;
+    object-fit:contain;}
+
+  .caption{margin:0 56px;background:#fff;border-radius:36px;padding:46px 50px;height:600px;flex:none;
+    box-shadow:0 18px 50px -22px rgba(0,0,0,.28);position:relative;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:center;}
+  .badge{align-self:flex-start;display:inline-flex;align-items:center;gap:10px;
+    background:rgba(191,0,0,.08);color:var(--crimson);font-weight:800;font-size:29px;
+    padding:12px 26px;border-radius:999px;margin-bottom:26px;border:2px solid rgba(191,0,0,.18);}
+  .ctitle{font-weight:800;font-size:53px;line-height:1.26;color:var(--ink);letter-spacing:.3px;}
+  .chelp{margin-top:26px;font-weight:600;font-size:35px;line-height:1.58;color:var(--gray);}
+  .chelp b,.chelp strong{color:var(--crimson);font-weight:800;}
+  .accent{position:absolute;left:0;top:50px;bottom:50px;width:10px;border-radius:999px;
+    background:linear-gradient(180deg,var(--crimson),var(--pink));}
+
+  .footer{display:flex;align-items:center;justify-content:center;gap:14px;height:140px;flex:none;}
+  .dot{width:16px;height:16px;border-radius:999px;background:#d6dbe3;}
+  .dot.on{background:var(--crimson);width:40px;}
+
+  /* ---------- TITLE / OUTRO ---------- */
+  .cover{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:0 96px;color:#fff;gap:14px;
+    background:radial-gradient(120% 80% at 50% 0%,#D81010 0%,var(--crimson) 42%,var(--crimson-dark) 100%);}
+  .cover .kbrand{font-weight:800;font-size:40px;letter-spacing:1px;opacity:.95;
+    border:3px solid rgba(255,255,255,.5);border-radius:999px;padding:14px 38px;margin-bottom:40px;}
+  .cover h1{font-weight:800;font-size:92px;line-height:1.22;letter-spacing:1px;
+    text-shadow:0 6px 24px rgba(0,0,0,.18);}
+  .cover .sub{margin-top:34px;font-weight:700;font-size:44px;line-height:1.5;opacity:.95;}
+  .cover .pill{margin-top:64px;background:#fff;color:var(--crimson);font-weight:800;font-size:46px;
+    padding:30px 64px;border-radius:999px;box-shadow:0 22px 50px -18px rgba(0,0,0,.4);}
+  .cover .hint{margin-top:30px;font-weight:700;font-size:34px;opacity:.9;}
+  .cover .icons{font-size:80px;letter-spacing:18px;margin-bottom:18px;}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  // **bold** -> <b>, \n -> <br>
+  function fmt(s){
+    return esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+  }
+  function dots(n,i){
+    let h='';for(let k=0;k<n;k++){h+='<span class="dot'+(k===i?' on':'')+'"></span>';}
+    return h;
+  }
+  function render(d){
+    const stage=document.getElementById('stage');
+    if(d.type==='title'){
+      stage.innerHTML=
+        '<div class="cover">'+
+          '<div class="kbrand">輸出ラボ ガイド</div>'+
+          (d.icons?('<div class="icons">'+esc(d.icons)+'</div>'):'')+
+          '<h1>'+fmt(d.title)+'</h1>'+
+          (d.helper?('<div class="sub">'+fmt(d.helper)+'</div>'):'')+
+          (d.badge?('<div class="hint">'+fmt(d.badge)+'</div>'):'')+
+        '</div>';
+      window.__ready__=true;return;
+    }
+    if(d.type==='outro'){
+      stage.innerHTML=
+        '<div class="cover">'+
+          '<div class="kbrand">輸出ラボ</div>'+
+          '<h1>'+fmt(d.title)+'</h1>'+
+          (d.helper?('<div class="sub">'+fmt(d.helper)+'</div>'):'')+
+          (d.badge?('<div class="pill">'+fmt(d.badge)+'</div>'):'')+
+        '</div>';
+      window.__ready__=true;return;
+    }
+    // screen
+    stage.innerHTML=
+      '<div class="screen">'+
+        '<div class="topbar"><span class="brand">輸出ラボ<span class="b2">'+esc(d.vlabel||'')+'</span></span>'+
+          (d.vtitle?('<span class="vtitle">'+esc(d.vtitle)+'</span>'):'')+'</div>'+
+        '<div class="imgwrap"><div class="imgcard"><img id="shot" src="'+esc(d.img)+'"></div></div>'+
+        '<div class="caption"><span class="accent"></span>'+
+          (d.badge?('<span class="badge">'+fmt(d.badge)+'</span>'):'')+
+          '<div class="ctitle">'+fmt(d.title)+'</div>'+
+          (d.helper?('<div class="chelp">'+fmt(d.helper)+'</div>'):'')+
+        '</div>'+
+        '<div class="footer">'+dots(d.total||1,d.index||0)+'</div>'+
+      '</div>';
+    const img=document.getElementById('shot');
+    if(img.complete){window.__ready__=true;}
+    else{img.onload=()=>{window.__ready__=true;};img.onerror=()=>{window.__ready__=true;};}
+  }
+  // data passed via location.hash (base64 of JSON)
+  try{
+    const raw=decodeURIComponent(escape(atob(location.hash.slice(1))));
+    render(JSON.parse(raw));
+  }catch(e){document.getElementById('stage').innerText='ERR '+e;}
+</script>
+</body>
+</html>

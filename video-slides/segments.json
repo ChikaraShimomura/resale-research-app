@@ -1,0 +1,29 @@
+{
+  "overview": {
+    "fullName": "guide-overview",
+    "segments": []
+  },
+  "ebay": {
+    "fullName": "ebay-seller-guide",
+    "segments": [
+      { "key": "intro",   "label": "はじめに・用意するもの", "narr": "はじめに、用意するものを確認しましょう。",          "slideIdx": [1, 2] },
+      { "key": "step1",   "label": "STEP1 出品をはじめる",   "narr": "ステップ1。イーベイで、出品をはじめます。",        "slideIdx": [3, 4, 5, 6] },
+      { "key": "step2",   "label": "STEP2 Payoneer登録",     "narr": "ステップ2。売上を受け取る、ペイオニアに登録します。", "slideIdx": [7, 8, 9, 10, 11, 12, 13] },
+      { "key": "step3",   "label": "STEP3 仕上げ",           "narr": "ステップ3。イーベイに戻って、仕上げます。",        "slideIdx": [14, 15, 16] },
+      { "key": "step4",   "label": "STEP4 出品",             "narr": "ステップ4。準備ができたら、いよいよ出品です。",     "slideIdx": [17, 18] },
+      { "key": "trouble", "label": "困ったとき Q&A",          "narr": "よくあるつまずきと、その解決法です。",            "slideIdx": [19, 20, 21] }
+    ]
+  },
+  "payoneer": {
+    "fullName": "payoneer-withdraw-guide",
+    "segments": [
+      { "key": "intro",   "label": "はじめに",            "narr": "はじめに、お金の流れと、用意するものです。",     "slideIdx": [1, 2] },
+      { "key": "step1",   "label": "STEP1 ログイン",       "narr": "ステップ1。ペイオニアにログインします。",       "slideIdx": [3] },
+      { "key": "step2",   "label": "STEP2 口座登録",       "narr": "ステップ2。出金先の銀行口座を登録します。",     "slideIdx": [4] },
+      { "key": "step3",   "label": "STEP3 引き出しを選ぶ", "narr": "ステップ3。引き出しから、銀行口座宛を選びます。", "slideIdx": [5] },
+      { "key": "step4",   "label": "STEP4 金額を入力",     "narr": "ステップ4。出金する金額を入力します。",         "slideIdx": [6] },
+      { "key": "step5",   "label": "STEP5 確認して送信",   "narr": "ステップ5。内容を確認して、送信します。",       "slideIdx": [7] },
+      { "key": "summary", "label": "手数料とつまずき",     "narr": "最後に、手数料と、よくあるつまずきです。",       "slideIdx": [8, 9] }
+    ]
+  }
+}
