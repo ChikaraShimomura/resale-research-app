@@ -121,18 +121,38 @@ function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount) {
 }
 
 // ========== カテゴリ推定 ==========
+// 注意: 単独の MG/HG/RG/PG は「資生堂MG5」等を誤ってガンプラ判定するため必ず \b で囲む。
+// また「クレンズ」が /レンズ/ にマッチしてカメラ誤判定になるため、コスメ・美容を先に判定する。
 function guessCategory(title) {
-  if (/ポケモン|遊戯王|デュエルマスターズ|トレカ|カード/i.test(title)) return 'トレカ';
-  if (/ガンプラ|ガンダム|HG|MG|RG|PG|1\/100|1\/144/i.test(title)) return 'ガンプラ';
-  if (/LEGO|レゴ/i.test(title)) return 'LEGO';
-  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ/i.test(title)) return 'フィギュア';
-  if (/Nintendo Switch|PS5|Xbox/i.test(title)) return 'ゲーム機';
-  if (/amiibo|アミーボ|ゲームソフト/i.test(title)) return 'ゲーム';
-  if (/腕時計|Watch|Seiko|Citizen|Casio|Gショック/i.test(title)) return '腕時計';
-  if (/カメラ|レンズ|Canon|Nikon|Fujifilm/i.test(title)) return 'カメラ';
-  if (/コスメ|香水|スキンケア|資生堂|ランコム|シャネル/i.test(title)) return 'コスメ';
-  if (/トミカ|プラレール|シルバニア/i.test(title)) return 'おもちゃ';
+  const t = title || '';
+  // コスメ・美容を先に（資生堂MG5・専科クレンズ等の誤判定を防ぐ）
+  if (/コスメ|香水|スキンケア|資生堂|花王|ランコム|シャネル|専科|アネッサ|ウーノ|\bUNO\b|イハダ|MG5|エムジー5|化粧水|乳液|美容液|洗顔|クレンジング|日焼け止め|\bSPF|ボディミルク|ハンドクリーム/i.test(t)) return 'コスメ';
+  if (/ポケモン|遊戯王|デュエルマスターズ|トレカ|カードゲーム|ワンピースカード|カードバトル/i.test(t)) return 'トレカ';
+  if (/ガンプラ|ガンダム|\bMG\b|\bHG\b|\bRG\b|\bPG\b|1\/100|1\/144|BANDAI SPIRITS/i.test(t)) return 'ガンプラ';
+  if (/LEGO|レゴ/i.test(t)) return 'LEGO';
+  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE/i.test(t)) return 'フィギュア';
+  if (/Nintendo Switch|PS5|PlayStation|Xbox/i.test(t)) return 'ゲーム機';
+  if (/amiibo|アミーボ|ゲームソフト/i.test(t)) return 'ゲーム';
+  if (/腕時計|Watch|Seiko|セイコー|Citizen|シチズン|Casio|カシオ|Gショック|G-SHOCK/i.test(t)) return '腕時計';
+  if (/カメラ|レンズ|Canon|Nikon|Fujifilm|一眼レフ/i.test(t)) return 'カメラ';
+  if (/トミカ|プラレール|シルバニア/i.test(t)) return 'おもちゃ';
   return 'その他';
+}
+
+// eBayタイトルが「汎用的すぎる」(型番・固有名がほぼ無い)か判定。
+// 例: "BANDAI Plastic Model Gunpla MASTER GRADE Preowned" → true（キット名が無い）。
+// これが true の商品は coreKeyword を楽天タイトルの英訳に差し替え、検索で同じ商品が出やすくする。
+const KW_GENERIC = new Set([
+  'bandai', 'spirits', 'plastic', 'model', 'kit', 'gunpla', 'master', 'grade', 'high', 'figure',
+  'nintendo', 'japan', 'japanese', 'new', 'sealed', 'unopened', 'preowned', 'used', 'official',
+  'authentic', 'genuine', 'import', 'imported', 'limited', 'edition', 'rare', 'set', 'lot', 'toy',
+  'collectible', 'collection', 'anime', 'game', 'the', 'and', 'for', 'with',
+]);
+function isWeakKeyword(title) {
+  const toks = (title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean);
+  if (toks.some(t => /\d/.test(t))) return false;            // 型番・番号があれば特定できる＝弱くない
+  const distinct = toks.filter(t => t.length >= 3 && !KW_GENERIC.has(t));
+  return distinct.length < 2;                                // 固有名がほぼ無い＝汎用
 }
 
 // ========== 楽天商品取得 ==========
@@ -422,6 +442,41 @@ Output the Japanese keyword only, nothing else.`
   } catch { return null; }
 }
 
+// 楽天の日本語タイトル → eBay検索用の英語キーワード（汎用的すぎるeBayタイトルの置換用）。
+// 型番・キット名・キャラ名・容量を残し、状態/発送語は省く。Haiku・168hキャッシュ。
+async function rakutenTitleToEnglishKeyword(jpTitle) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const cacheKey = `en_kw:${ebayQueryHash(jpTitle)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached) return cached;
+  try {
+    await haikuGate();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 40,
+        temperature: 0,
+        messages: [{
+          role: 'user',
+          content: `Convert this Japanese product title into a short English eBay search query (max 6 words) that uniquely identifies the product. Keep model numbers, kit names, character names and sizes; drop condition/shipping/seller words.
+Japanese: "${jpTitle}"
+Output only the English query, nothing else.`,
+        }],
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    haikuCallsToday++;
+    if (!res.ok) return null;
+    const data = await res.json();
+    const kw = data?.content?.[0]?.text?.trim() ?? '';
+    if (!kw || kw.length < 3) return null;
+    await kvSet(cacheKey, kw, 168 * 3600);
+    return kw;
+  } catch { return null; }
+}
+
 // ========== メイン処理 ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
@@ -560,6 +615,14 @@ async function main() {
 
       console.log(`  💰 ${profitRate}% | 楽天¥${rakutenItem.itemPrice.toLocaleString()} → eBay¥${ebayItem.priceJpy.toLocaleString()} | ${rakutenItem.itemName.slice(0, 35)}`);
 
+      // coreKeyword: 原則 eBayタイトル。汎用的すぎる(キット名/固有名なし)場合のみ、
+      // 楽天タイトルを英訳して差し替える。画像一致済みなので価格は妥当、検索語だけ改善する。
+      let coreKeyword = ebayItem.title;
+      if (isWeakKeyword(ebayItem.title)) {
+        const en = await rakutenTitleToEnglishKeyword(rakutenItem.itemName);
+        if (en) coreKeyword = en;
+      }
+
       return {
         type: 'profit',
         id: itemId,
@@ -579,8 +642,8 @@ async function main() {
           },
           isNew: rakutenItem.itemName.includes('新品') || rakutenItem.itemName.includes('未開封'),
           market: 'EBAY_US',
-          coreKeyword: ebayItem.title,
-          ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebayItem.title)}&LH_Complete=1&LH_Sold=1`,
+          coreKeyword,
+          ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
           realAvgPrice: ebayItem.priceJpy,
           realProfit: profit,
           realProfitRate: profitRate,
