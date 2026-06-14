@@ -279,22 +279,34 @@ function parseStrictSame(text) {
   return /SAME_VARIANT:\s*YES/i.test(text) && !/CONFIDENCE:\s*LOW/i.test(text);
 }
 
-// Gemini(安価)での同一判定。true/false、キー無し・失敗時は null。Anthropic不通時のフォールバックにも使う。
-async function geminiMatch(img, rakutenTitle, ebayTitle) {
+// Gemini(主軸・ほぼ無料)での同一判定。識別子重視プロンプトを使う。true/false、キー無し・失敗時は null。
+let geminiCallsToday = 0;
+async function geminiStrictMatch(img, rakutenTitle, ebayTitle, qty) {
   if (!GEMINI_API_KEY) return null;
   try {
     const body = { contents: [{ parts: [
-      { text: `Do these two photos show the EXACT SAME product VARIANT (same character/model/card number/grade/edition/volume; genuine != compatible; single != set)? Consider the titles. Title1: "${rakutenTitle}" Title2: "${ebayTitle}". Answer YES or NO only.` },
+      { text: strictMatchPrompt(rakutenTitle, ebayTitle, qty) },
       { inlineData: { mimeType: img.mt1, data: img.b1 } },
       { inlineData: { mimeType: img.mt2, data: img.b2 } },
-    ]}], generationConfig: { maxOutputTokens: 4, temperature: 0 } };
+    ]}], generationConfig: { maxOutputTokens: 200, temperature: 0 } };
     const gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000) });
     if (!gr.ok) return null;
     const gd = await gr.json();
-    const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
-    return answer.startsWith('YES');
+    const text = gd?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    if (!text) return null;
+    geminiCallsToday++;
+    return parseStrictSame(text);
   } catch { return null; }
+}
+
+// Haiku を識別子重視プロンプトで判定（合議の二重確認用）。true/false、キー無し・失敗時 null。
+async function haikuStrict(img, rakutenTitle, ebayTitle, qty) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const t = await anthropicVision('claude-haiku-4-5', 220, strictMatchPrompt(rakutenTitle, ebayTitle, qty), img);
+  if (t === null) return null;
+  haikuCallsToday++;
+  return parseStrictSame(t);
 }
 
 async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
@@ -321,40 +333,49 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
     };
   } catch { return true; }
 
-  // Anthropicキーが無ければ Gemini にフォールバック。
-  if (!ANTHROPIC_API_KEY) {
-    const g = await geminiMatch(img, rakutenTitle, ebayTitle);
-    if (g === null) return true;            // 判定不能→保留(キャッシュしない=次回再評価)
-    await kvSet(cacheKey, g, 168 * 3600);
-    return g;
-  }
-
+  // ===== A+B 合議判定 =====
+  // A(主軸): Gemini(ほぼ無料・Anthropicクレジット0でも動く)で識別子判定。
+  // B(二重確認): Geminiが「同一」と言った候補だけ Haiku でも確認し、両方一致した時だけ採用＝偽陽性を二重で潰す。
+  // C(任意): 両者が食い違ったら、Sonnet予算(MAX_SONNET_PER_RUN)がある時だけ仲裁。
   try {
-    // Tier1(既定): Haiku を識別子重視プロンプトで判定。単独で完結＝Sonnet予算0でも機能する低コスト経路。
-    const htext = await anthropicVision('claude-haiku-4-5', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
-    if (htext === null) {
-      // Anthropic不通(クレジット切れ等)→ Gemini で代替。それも無理なら保留(キャッシュしない=次回再評価)。
-      const g = await geminiMatch(img, rakutenTitle, ebayTitle);
-      if (g === null) return true;
-      await kvSet(cacheKey, g, 24 * 3600);
-      return g;
-    }
-    haikuCallsToday++;
-    let same = parseStrictSame(htext);
+    const gem = await geminiStrictMatch(img, rakutenTitle, ebayTitle, rakutenQuantity);
 
-    // Tier2(予算制): 予算が残る時だけ、Haikuが「同一」と言った候補を Sonnet で二重確認し偽陽性を潰す。
-    // MAX_SONNET_PER_RUN で1回の実行あたりの Sonnet コスト上限を固定＝クレジットを使い切らない。
-    if (same && sonnetCallsToday < MAX_SONNET_PER_RUN) {
-      const stext = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
-      if (stext !== null) {
+    // Geminiが使えない時は Haiku 単独にフォールバック。
+    if (gem === null) {
+      const h = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
+      if (h === null) return true;                  // 両方不通→保留(キャッシュしない=次回再評価)
+      await kvSet(cacheKey, h, 168 * 3600);
+      return h;
+    }
+    if (gem === false) {                            // Geminiが別物→確定で除外(無料)
+      await kvSet(cacheKey, false, 168 * 3600);
+      return false;
+    }
+
+    // gem === true。B: Haikuで二重確認。
+    const hai = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
+    if (hai === null) {                             // Anthropic不通(クレジット切れ等)→ Gemini単独で採用(=プランA運用)
+      await kvSet(cacheKey, true, 24 * 3600);       // 短期キャッシュ。クレジット復旧後に合議で再評価
+      return true;
+    }
+    if (hai === true) {                             // 合議YES→採用
+      await kvSet(cacheKey, true, 168 * 3600);
+      return true;
+    }
+
+    // 食い違い(Gemini=YES, Haiku=NO)。C: Sonnet予算があれば仲裁、無ければ保守的に除外＝精度優先。
+    if (sonnetCallsToday < MAX_SONNET_PER_RUN) {
+      const st = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
+      if (st !== null) {
         sonnetCallsToday++;
-        same = parseStrictSame(stext);
-        if (!same) console.log(`  [img NG/sonnet] ${stext.match(/REASON:\s*(.+)/i)?.[1] ?? ''}`);
+        const sv = parseStrictSame(st);
+        await kvSet(cacheKey, sv, 168 * 3600);
+        return sv;
       }
     }
-    if (!same) { const r = htext.match(/REASON:\s*(.+)/i)?.[1] ?? ''; if (r) console.log(`  [img NG] ${r}`); }
-    await kvSet(cacheKey, same, 168 * 3600);
-    return same;
+    console.log('  [img NG/合議不一致]');
+    await kvSet(cacheKey, false, 168 * 3600);
+    return false;
   } catch { return true; }
 }
 
@@ -971,6 +992,7 @@ async function main() {
     existingCount: existingProducts.length,
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
+    geminiCalls: geminiCallsToday,
     haikuCalls: haikuCallsToday,
     sonnetCalls: sonnetCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
@@ -983,7 +1005,7 @@ async function main() {
   処理: ${toProcess.length}件
   新規利益商品: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  Claude Haiku: ${haikuCallsToday}回 / Sonnet: ${sonnetCallsToday}回
+  画像判定: Gemini ${geminiCallsToday}回 / Haiku ${haikuCallsToday}回 / Sonnet ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }
