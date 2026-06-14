@@ -477,6 +477,65 @@ Output only the English query, nothing else.`,
   } catch { return null; }
 }
 
+// ========== 相場(単品中央値)の取得 ==========
+// coreKeyword から識別子(型番/カード番号)を残した検索語を作る（toEbayMarketUrl と同方針）。
+const PRICE_NOISE = /\b(new|sealed|unopened|opened|mint|nib|misb|bnib|preowned|pre-owned|used|official|authentic|genuine|japan|japanese|jp|import|imported|version|ver|limited|edition|exclusive|free|shipping|fast|tracking|rare|htf|lot|with|for|from|the|and|of|in|brand|preorder|pre-order)\b/gi;
+function searchQueryFor(coreKeyword) {
+  const ts = (coreKeyword || '')
+    .replace(/【[^】]*】/g, ' ').replace(/[^\x00-\x7F]/g, ' ').replace(/[^A-Za-z0-9#.\/\s-]/g, ' ')
+    .replace(PRICE_NOISE, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const isId = t => /\d/.test(t) || /[A-Za-z].*-.*[A-Za-z0-9]/.test(t);
+  const ids = ts.filter(isId).slice(0, 2);
+  const names = ts.filter(t => !isId(t)).slice(0, 4);
+  const picked = [...names, ...ids];
+  return (picked.length ? picked : ts.slice(0, 6)).join(' ');
+}
+
+// セット/まとめ売り(複数個)の除外。中央値を「単品」に寄せる。
+const PRICE_SET_RE = /\b(lot of \d|set of \d|\d+\s*pcs|\d+\s*pieces|bundle|\d+\s*x\b|x\s*\d+|\d+\s*-?\s*pack|joblot|job lot|wholesale|\d+\s*set\b)\b/i;
+function trimmedMedianJpy(pricesJpy) {
+  const xs = pricesJpy.filter(p => p > 0).sort((a, b) => a - b);
+  if (xs.length < 3) return null;
+  const m0 = xs[Math.floor(xs.length / 2)];
+  const kept = xs.filter(p => p >= m0 * 0.4 && p <= m0 * 2.5); // 外れ値(付属品/極端値)をトリム
+  const use = kept.length >= 3 ? kept : xs;
+  return { median: use[Math.floor(use.length / 2)], count: use.length };
+}
+
+// eBay現在出品の「単品中央値(JPY)」。セット除外＋外れ値トリム。24hキャッシュ。失敗/少数時はnull。
+async function ebayMedianSinglePriceJpy(query) {
+  if (!query) return null;
+  const cacheKey = `median_jpy:${ebayQueryHash(query)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached && typeof cached === 'object' && cached.median > 0) return cached;
+  const token = await getEbayToken();
+  if (!token) return null;
+  try {
+    const params = new URLSearchParams({ q: query, limit: '24', fieldgroups: 'COMPACT' });
+    const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const prices = (data?.itemSummaries ?? [])
+      .filter(it => !PRICE_SET_RE.test(it?.title ?? ''))
+      .map(it => {
+        const v = parseFloat(it?.price?.value); const c = it?.price?.currency;
+        if (!v || v <= 0) return 0;
+        if (c === 'USD') return Math.round(v * USD_TO_JPY);
+        if (c === 'GBP') return Math.round(v * GBP_TO_JPY);
+        if (c === 'AUD') return Math.round(v * AUD_TO_JPY);
+        if (c === 'JPY') return Math.round(v);
+        return 0;
+      })
+      .filter(p => p > 0);
+    const result = trimmedMedianJpy(prices);
+    if (result) await kvSet(cacheKey, result, 24 * 3600);
+    return result;
+  } catch { return null; }
+}
+
 // ========== メイン処理 ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
@@ -569,6 +628,31 @@ async function main() {
   }
   if (recat || rekw) console.log(`  🔧 既存データ補正: カテゴリ再判定 ${recat}件 / coreKeyword英訳 ${rekw}件`);
 
+  // 既存商品の相場を eBay単品中央値で再評価し、過大な利益表示を是正（保守的に小さい方を採用）。
+  // 中央値は24hキャッシュ。安全装置：万一>40%で利益消失するなら中央値の異常を疑い適用を見送る。
+  const repriced = [];
+  for (const p of dedupedProducts) {
+    if (!p.coreKeyword || !p.source || !(p.realAvgPrice > 0)) continue;
+    const med = await ebayMedianSinglePriceJpy(searchQueryFor(p.coreKeyword));
+    if (!med || med.count < 5) continue;
+    if (med.median >= p.realAvgPrice) { p.realCount = med.count; continue; } // 下がらないなら件数だけ反映
+    const r = calcProfit(p.source.price, med.median, p.source.pointAmount ?? 0);
+    repriced.push({ p, newAvg: med.median, count: med.count, profit: r.profit, rate: r.profitRate });
+  }
+  const wouldDrop = repriced.filter(x => x.profit < 1).length;
+  if (repriced.length && wouldDrop / dedupedProducts.length > 0.4) {
+    console.log(`  ⚠️ 中央値再評価で${wouldDrop}/${dedupedProducts.length}件が利益消失(>40%)。異常の可能性があるため再評価を見送り。`);
+  } else if (repriced.length) {
+    const drop = new Set();
+    let updated = 0;
+    for (const x of repriced) {
+      x.p.realAvgPrice = x.newAvg; x.p.realCount = x.count; x.p.realProfit = x.profit; x.p.realProfitRate = x.rate;
+      if (x.profit < 1) drop.add(x.p.id); else updated++;
+    }
+    dedupedProducts = dedupedProducts.filter(p => !drop.has(p.id));
+    console.log(`  💹 相場を単品中央値で是正: ${updated}件更新 / ${drop.size}件は利益消失で除外`);
+  }
+
   const existingIds = new Set(dedupedProducts.map(p => p.id)); // 楽天itemCode
   const existingProducts = dedupedProducts;
   const profitableProducts = [...existingProducts];
@@ -643,6 +727,18 @@ async function main() {
         if (en) coreKeyword = en;
       }
 
+      // 相場の妥当性向上：eBay現在出品の「単品中央値」を取り、保守的に小さい方を採用する
+      // （1件の高値出品で利益が過大に出るのを防ぐ）。中央値で利益が消えたら出品しない。
+      let realAvgPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
+      const med = await ebayMedianSinglePriceJpy(searchQueryFor(coreKeyword));
+      if (med && med.count >= 5) {
+        realAvgPrice = Math.min(ebayItem.priceJpy, med.median);
+        realCount = med.count;
+        const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount);
+        finalProfit = r.profit; finalRate = r.profitRate;
+        if (finalProfit < 1 || finalRate > 300) continue;
+      }
+
       return {
         type: 'profit',
         id: itemId,
@@ -664,10 +760,10 @@ async function main() {
           market: 'EBAY_US',
           coreKeyword,
           ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
-          realAvgPrice: ebayItem.priceJpy,
-          realProfit: profit,
-          realProfitRate: profitRate,
-          realCount: 1,
+          realAvgPrice,
+          realProfit: finalProfit,
+          realProfitRate: finalRate,
+          realCount,
           avgDaysToSell: null, // eBay Finding API(落札データ)が廃止のため現状取得不可。Marketplace Insights API(要承認)が必要
           addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
         },
