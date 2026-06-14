@@ -24,9 +24,14 @@ export default function EbayListingSetup() {
   const [listId, setListId] = useState<string | null>(null);
   useEffect(() => {
     try {
-      // URLの ?list= が OAuth往復で失われても、出品モーダルが書いた sessionStorage から復元する
+      // URLの ?list= が OAuth往復で失われても、出品モーダルが書いた storage から復元する。
+      // アプリ内ブラウザは sessionStorage が消えやすいので localStorage もフォールバックに使う。
       const fromUrl = new URLSearchParams(window.location.search).get("list");
-      setListId(fromUrl ?? sessionStorage.getItem("ebay_list_after"));
+      setListId(
+        fromUrl ??
+          sessionStorage.getItem("ebay_list_after") ??
+          localStorage.getItem("ebay_list_after")
+      );
     } catch {
       /* noop */
     }
@@ -57,13 +62,15 @@ export default function EbayListingSetup() {
   const firstIncomplete = dones.findIndex((d) => !d); // 全完了なら -1
   const openIdx = override ?? firstIncomplete;
 
-  // 全STEP完了かつ「eBay簡単出品」から来た場合、その商品の出品画面へ自動で戻す。
-  useEffect(() => {
-    if (!loading && allDone && listId) {
-      try { sessionStorage.removeItem("ebay_list_after"); } catch { /* noop */ }
-      router.push(`/product/${encodeURIComponent(listId)}?list=1`);
-    }
-  }, [loading, allDone, listId, router]);
+  // 準備完了後の導線。自動遷移は「画面が勝手に変わって迷子」の原因になるため、
+  // 明示ボタンで出品画面へ戻す。来歴(listId)があればその商品へ、無ければ検索へ。
+  const continueToListing = useCallback(() => {
+    try {
+      sessionStorage.removeItem("ebay_list_after");
+      localStorage.removeItem("ebay_list_after");
+    } catch { /* noop */ }
+    router.push(listId ? `/product/${encodeURIComponent(listId)}?list=1` : "/search");
+  }, [listId, router]);
 
   const steps = [
     { title: "eBayと連携する", body: <EbayConnect onChange={refresh} /> },
@@ -89,8 +96,20 @@ export default function EbayListingSetup() {
       </div>
 
       {allDone && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-[13px] font-bold text-emerald-700 flex items-center gap-2">
-          <BadgeCheck size={16} /> 準備完了！「eBay自動出品」が使えます。
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
+          <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-2">
+            <BadgeCheck size={16} /> 準備完了！あとは出品するだけです。
+          </p>
+          <button
+            type="button"
+            onClick={continueToListing}
+            className="w-full h-12 bg-[#0064D2] text-white font-black text-sm rounded-xl active:bg-[#0053AE]"
+          >
+            {listId ? "この商品を出品する →" : "商品を探して出品する →"}
+          </button>
+          <p className="text-[11px] text-emerald-800 leading-relaxed">
+            このあと<b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り設定）</b>に進みます。出品ボタンを押すと、そのまま画面の案内に沿って進められます。
+          </p>
         </div>
       )}
 

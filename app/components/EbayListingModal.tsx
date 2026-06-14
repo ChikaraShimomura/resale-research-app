@@ -269,8 +269,12 @@ export default function EbayListingModal({
               </p>
               <button
                 onClick={() => {
-                  // OAuth全ページ往復で ?list= が消えても復元できるよう端末に控える（EbayListingSetupが拾う）
-                  try { sessionStorage.setItem("ebay_list_after", product.id); } catch { /* noop */ }
+                  // OAuth/アカウント作成の往復で ?list= や sessionStorage が消えても復元できるよう、
+                  // localStorage にも控える（アプリ内ブラウザは session が消えやすい）。EbayListingSetupが拾う。
+                  try {
+                    sessionStorage.setItem("ebay_list_after", product.id);
+                    localStorage.setItem("ebay_list_after", product.id);
+                  } catch { /* noop */ }
                   router.push(`/settings?list=${encodeURIComponent(product.id)}`);
                 }}
                 className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
