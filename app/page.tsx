@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Target } from "lucide-react";
+import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
 import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
@@ -85,6 +85,36 @@ export default function LandingPage() {
       </div>
 
 
+      {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション */}
+      <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="w-1 h-5 bg-gradient-to-b from-[#BF0000] to-[#FF4466] rounded-full" />
+          <h2 className="text-sm font-black text-gray-800">「海外に売るのは難しそう」は、もう古い</h2>
+        </div>
+        <p className="text-[12px] text-gray-500 mb-4 pl-3">日本にいながら、いつもの通販と同じ感覚で始められます。</p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { Icon: Languages, t: "英語はいらない", d: "出品タイトルは自動で作成。購入者とのやり取りも定型文でこなせます。" },
+            { Icon: MapPin, t: "日本にいながら完結", d: "仕入れも発送も国内。海外発送は近くの郵便局・国際郵便マイページから。" },
+            { Icon: TrendingUp, t: "海外だから高く売れる", d: "日本にしかない商品は、海外では価値が上がって高値で売れます。" },
+            { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブルを防げます。" },
+          ].map(({ Icon, t, d }, i) => (
+            <div key={i} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-[#BF0000]/10 flex items-center justify-center mb-2">
+                <Icon size={16} className="text-[#BF0000]" />
+              </div>
+              <p className="text-[13px] font-black text-gray-800 mb-1">{t}</p>
+              <p className="text-[11px] text-gray-500 leading-relaxed">{d}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 text-center">
+          <Link href="/guide" className="text-[12px] font-bold text-[#BF0000] underline underline-offset-2">
+            はじめ方を画像つきガイドで見る →
+          </Link>
+        </div>
+      </section>
+
       {/* 利益計算の説明 */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-6">
         <div className="flex items-center gap-2 mb-4">
@@ -98,6 +128,7 @@ export default function LandingPage() {
           <div className="bg-[#F5F7FA] rounded-xl p-4 text-xs text-gray-600 space-y-2 font-mono mb-3">
             <div className="flex justify-between"><span>eBayの想定売値</span><span className="text-[#0064D2]">+ ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
+            <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
@@ -121,7 +152,7 @@ export default function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-gray-100 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 利益はeBayの想定売値（現在の出品ベース）・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
+          ※ 利益はeBayの想定売値（現在の出品ベース）・楽天ポイント・eBay手数料(13.25%)・国内送料（送料別の商品は概算で原価に算入）をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
           実際の利益は状態・競合・為替等により異なります。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">

@@ -112,12 +112,25 @@ function ebayQueryHash(query) {
 }
 
 // ========== 利益計算 ==========
-function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount) {
-  const effectiveBuy = rakutenPrice - pointAmount;
+function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount, domesticShipJpy = 0) {
+  // 原価 = 楽天価格 + 国内送料(ショップ→自分) - 獲得ポイント。ポイントは商品代に対して付くので送料には掛けない。
+  const effectiveBuy = rakutenPrice + domesticShipJpy - pointAmount;
   if (effectiveBuy <= 0) return { profit: 0, profitRate: 0 };
   const ebayFee = Math.round(ebayAvgJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED_JPY;
   const profit = ebayAvgJpy - effectiveBuy - ebayFee - SHIPPING_COST_JPY;
   return { profit, profitRate: Math.round((profit / effectiveBuy) * 100) };
+}
+
+// 国内送料(楽天ショップ→自分)の概算。送料込み(postageFlag=0)は0。
+// 楽天APIは正確な送料額を返さないため、カテゴリの典型サイズで保守的に概算する（過小利益＝安全側）。
+// 送料別の商品はこの分だけ利益が下がり、閾値割れすれば落ちる＝より正直な利益表示になる。
+const DOMESTIC_SHIP_JPY = {
+  'トレカ': 350, 'コスメ': 500, 'ゲーム': 400, 'フィギュア': 800, 'ガンプラ': 800,
+  'LEGO': 1000, '腕時計': 600, 'ゲーム機': 1100, 'カメラ': 1000, 'おもちゃ': 700, 'その他': 700,
+};
+function domesticShipping(category, postageFlag) {
+  if (Number(postageFlag) === 0) return 0;       // postageFlag=0 → 送料込み
+  return DOMESTIC_SHIP_JPY[category] ?? 700;     // 送料別 → カテゴリ別概算
 }
 
 // ========== カテゴリ推定 ==========
@@ -203,31 +216,93 @@ async function fetchRakutenPage(keyword, page) {
   } catch { return []; }
 }
 
-// ========== 画像マッチ（Haiku / Geminiフォールバック） ==========
+// ========== 画像マッチ（ジャンル別・識別子重視 / Haiku選別→Sonnet確定 / Geminiフォールバック） ==========
+// 別変種(同キャラ別番号・同機体別グレード・同ライン別容量・正規vs互換 等)をSAMEと誤る偽陽性が相場/利益を狂わせる。
+// 対策: 画像を高解像度化＋タイトル文脈＋識別子を読ませる保守プロンプト。実画像検証で旧プロンプトの偽陽性3→0・取りこぼし0。
+// コスト最適化: まずHaikuで安価に「明らかな別物」を落とし(recall重視)、残りをSonnetで厳密確定(precision重視)。
 let haikuCallsToday = 0;
+let sonnetCallsToday = 0;
 
-async function isImageMatch(rakutenUrl, ebayUrl, rakutenQuantity = null) {
+// 楽天サムネは _ex=128x128 等で型番/容量の文字が読めない→拡大。eBayの s-l{N} も大判化。
+function upscaleRakuten(url) { return (url || '').replace(/_ex=\d+x\d+/, '_ex=600x600'); }
+function upscaleEbay(url) { return (url || '').replace(/s-l\d{2,4}/i, 's-l800'); }
+
+// 識別子重視・保守的な厳密判定プロンプト（カテゴリ別ルール＋識別子が読めなければLOW=reject）。
+function strictMatchPrompt(rakutenTitle, ebayTitle, qty) {
+  return `You verify whether two photos show the EXACT SAME sellable product variant, for a resale price catalog. A wrong "same" misleads users about market price, so be conservative: if you cannot confirm the same specific variant, answer NO.
+Image 1: Rakuten (Japan). Title: "${(rakutenTitle || '').slice(0, 140)}".${qty ? ` Quantity: ${qty}.` : ''}
+Image 2: eBay. Title: "${(ebayTitle || '').slice(0, 140)}".
+Step 1 - For EACH image, read every identifier from the image AND its title: product/character name, series, model or card number, edition/version, color, size/volume, dosage form, quantity.
+Step 2 - Compare the SPECIFIC variant, not just the category:
+ - Figures/amiibo/plush: same CHARACTER and version. Same series but different character = NO.
+ - Trading cards: the card NUMBER and the specific card must match. Different number/rarity/edition (1st vs unlimited) = NO.
+ - Model kits (Gunpla): same kit AND grade (HG/RG/MG/PG) AND version (Ver.x.x). Different grade/version = NO.
+ - Cosmetics/consumables: same product line, same dosage form (lotion/milk/cream/serum), AND same size/volume (e.g. 80g vs 90g). Any difference = NO.
+ - Watches/accessories: a genuine branded item is NOT the same as a generic/compatible/aftermarket item. Only treat as genuine if the titles/model numbers agree; never declare genuine from the image alone.
+ - Quantity: single vs set/lot/box/bundle must match.
+Step 3 - If a distinguishing identifier (grade/volume/number/edition) cannot be read in EITHER the image or the title, do NOT guess YES; set CONFIDENCE: LOW.
+Reply EXACTLY in this format:
+ID1: <the specific variant in image 1>
+ID2: <the specific variant in image 2>
+SAME_VARIANT: YES/NO
+CONFIDENCE: HIGH/MEDIUM/LOW
+REASON: <short>`;
+}
+
+// Anthropic ビジョン呼び出し（2画像）。失敗時 null。共通レートゲートを通す。
+async function anthropicVision(model, maxTokens, promptText, img) {
+  await haikuGate();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model, max_tokens: maxTokens, temperature: 0,
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: promptText },
+        { type: 'image', source: { type: 'base64', media_type: img.mt1, data: img.b1 } },
+        { type: 'image', source: { type: 'base64', media_type: img.mt2, data: img.b2 } },
+      ]}],
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.content?.[0]?.text ?? '';
+}
+
+async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
   if (!rakutenUrl || !ebayUrl) return true;
+  const { rakutenTitle = '', ebayTitle = '', rakutenQuantity = null } = opts;
 
-  const cacheKey = `haiku_img:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
+  // キャッシュキーを v2 にして、旧matcher(汎用プロンプト)の偽陽性を次回refreshで再判定させる。
+  const cacheKey = `img_match2:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
 
-  // Anthropic APIキーがなければGeminiにフォールバック
+  // 画像は一度だけ高解像度で取得（文字＝識別子を読めるように）。
+  let img;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(upscaleRakuten(rakutenUrl), { signal: AbortSignal.timeout(6000) }),
+      fetch(upscaleEbay(ebayUrl), { signal: AbortSignal.timeout(6000) }),
+    ]);
+    if (!r1.ok || !r2.ok) return true; // 取得不可は判定不能→従来通りfail-open（商品を不当に落とさない）
+    const [a1, a2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
+    img = {
+      b1: Buffer.from(a1).toString('base64'), mt1: r1.headers.get('content-type') ?? 'image/jpeg',
+      b2: Buffer.from(a2).toString('base64'), mt2: r2.headers.get('content-type') ?? 'image/jpeg',
+    };
+  } catch { return true; }
+
+  // Anthropicキーが無ければGeminiにフォールバック（単段・識別子重視の簡易版）。
   if (!ANTHROPIC_API_KEY) {
     if (!GEMINI_API_KEY) return true;
     try {
-      const [r1, r2] = await Promise.all([
-        fetch(rakutenUrl, { signal: AbortSignal.timeout(5000) }),
-        fetch(ebayUrl, { signal: AbortSignal.timeout(5000) }),
-      ]);
-      if (!r1.ok || !r2.ok) return true;
-      const [b1, b2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
       const body = {
         contents: [{ parts: [
-          { text: 'Are these two product images showing the EXACT SAME product type and model? Answer YES or NO only.' },
-          { inlineData: { mimeType: 'image/jpeg', data: Buffer.from(b1).toString('base64') } },
-          { inlineData: { mimeType: 'image/jpeg', data: Buffer.from(b2).toString('base64') } },
+          { text: `Do these two photos show the EXACT SAME product VARIANT (same character/model/card number/grade/edition/volume; genuine != compatible; single != set)? Consider the titles. Title1: "${rakutenTitle}" Title2: "${ebayTitle}". Answer YES or NO only.` },
+          { inlineData: { mimeType: img.mt1, data: img.b1 } },
+          { inlineData: { mimeType: img.mt2, data: img.b2 } },
         ]}],
         generationConfig: { maxOutputTokens: 4, temperature: 0 },
       };
@@ -245,77 +320,28 @@ async function isImageMatch(rakutenUrl, ebayUrl, rakutenQuantity = null) {
   }
 
   try {
-    const [r1, r2] = await Promise.all([
-      fetch(rakutenUrl, { signal: AbortSignal.timeout(5000) }),
-      fetch(ebayUrl, { signal: AbortSignal.timeout(5000) }),
-    ]);
-    if (!r1.ok || !r2.ok) return true;
-
-    const [b1, b2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
-
-    const body = {
-      model: 'claude-haiku-4-5',
-      max_tokens: 64,
-      temperature: 0,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Compare these two product images carefully.
-Image 1 is from a Japanese online store (Rakuten).${rakutenQuantity ? ` Known quantity: ${rakutenQuantity}.` : ''}
-Image 2 is from eBay.
-
-Answer these three questions:
-1. Are they the SAME type of product? (e.g. both are watch straps, not strap vs watch)
-2. Are they the SAME specific product? (same model, same edition, same version)
-3. Does the QUANTITY match? (e.g. single item vs set of 10, 1 pack vs 1 BOX)
-
-Reply in exactly this format:
-SAME_TYPE: YES/NO
-SAME_PRODUCT: YES/NO
-SAME_QUANTITY: YES/NO
-REASON: (one short sentence)`
-          },
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: r1.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b1).toString('base64') }
-          },
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: r2.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(b2).toString('base64') }
-          },
-        ]
-      }]
-    };
-
-    await haikuGate(); // レート制限内に収める（キャッシュミス時のみ到達）
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
-    });
+    // Tier1: Haikuで安価にスクリーニング。明らかに無関係/別タイプのみ落とす（recall重視）。
+    const screen = await anthropicVision('claude-haiku-4-5', 16,
+      `Could these two photos plausibly be the SAME product (same category and same franchise/brand/line)? Answer "NO" only if clearly unrelated or a different type of item; otherwise "YES". Titles: "${(rakutenTitle || '').slice(0, 120)}" / "${(ebayTitle || '').slice(0, 120)}". Reply YES or NO only.`,
+      img);
     haikuCallsToday++;
-
-    if (!res.ok) return true;
-    const data = await res.json();
-    const text = data?.content?.[0]?.text ?? '';
-
-    const sameType     = /SAME_TYPE:\s*YES/i.test(text);
-    const sameProduct  = /SAME_PRODUCT:\s*YES/i.test(text);
-    const sameQuantity = /SAME_QUANTITY:\s*YES/i.test(text);
-    const result = sameType && sameProduct && sameQuantity;
-
-    if (!result) {
-      const reason = text.match(/REASON:\s*(.+)/i)?.[1] ?? '';
-      console.log(`  [Haiku NG] ${reason}`);
+    if (screen !== null && /^\s*NO\b/i.test(screen.trim())) {
+      await kvSet(cacheKey, false, 168 * 3600);
+      console.log('  [img screen NG]');
+      return false;
     }
 
+    // Tier2: Sonnetで識別子重視の厳密確定（偽陽性=別変種を潰す）。
+    const text = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
+    sonnetCallsToday++;
+    if (text === null) { await kvSet(cacheKey, true, 24 * 3600); return true; } // Sonnet不通は短期で従来通り採用（infra障害で商品を落とさない）
+    const sameVariant = /SAME_VARIANT:\s*YES/i.test(text);
+    const lowConf = /CONFIDENCE:\s*LOW/i.test(text);
+    const result = sameVariant && !lowConf; // 確信が持てない(LOW)同一はreject＝保守的
+    if (!result) {
+      const reason = text.match(/REASON:\s*(.+)/i)?.[1] ?? '';
+      console.log(`  [img NG] ${reason}`);
+    }
     await kvSet(cacheKey, result, 168 * 3600);
     return result;
   } catch { return true; }
@@ -747,7 +773,7 @@ async function main() {
     const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword));
     if (!med || med.count < 5) continue;
     if (med.median >= p.realAvgPrice) { p.realCount = med.count; continue; } // 下がらないなら件数だけ反映
-    const r = calcProfit(p.source.price, med.median, p.source.pointAmount ?? 0);
+    const r = calcProfit(p.source.price, med.median, p.source.pointAmount ?? 0, p.source.shippingJpy ?? 0);
     repriced.push({ p, newAvg: med.median, count: med.count, profit: r.profit, rate: r.profitRate });
   }
   const wouldDrop = repriced.filter(x => x.profit < 1).length;
@@ -819,7 +845,9 @@ async function main() {
       // ポイントは楽天APIの実際の倍率を使う（base 1倍=1%）。1箇所で算出し表示・利益計算で共有。
       const pointRate = rakutenItem.pointRate ?? 1;
       const pointAmount = Math.floor(rakutenItem.itemPrice * pointRate / 100);
-      const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount);
+      const cat = guessCategory(rakutenItem.itemName);
+      const shipJpy = domesticShipping(cat, rakutenItem.postageFlag); // 送料別なら国内送料を原価に算入
+      const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
       if (profit < 1 || profitRate > 300) continue;
 
       // カード番号/型番が食い違う候補は別商品なので除外（同キャラ別番号カード等の誤マッチ防止）。
@@ -828,7 +856,7 @@ async function main() {
 
       // ② 利益が出る候補だけ画像マッチ（Haiku）で同一商品か検証
       if (ebayImg) {
-        const matched = await isImageMatch(rakutenImg, ebayImg, null);
+        const matched = await isImageMatch(rakutenImg, ebayImg, { rakutenTitle: rakutenItem.itemName, ebayTitle: ebayItem.title });
         if (!matched) continue;
       }
 
@@ -849,7 +877,7 @@ async function main() {
       if (med && med.count >= 5) {
         realAvgPrice = Math.min(ebayItem.priceJpy, med.median);
         realCount = med.count;
-        const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount);
+        const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount, shipJpy);
         finalProfit = r.profit; finalRate = r.profitRate;
         if (finalProfit < 1 || finalRate > 300) continue;
       }
@@ -862,7 +890,7 @@ async function main() {
           id: rakutenItem.itemCode,
           title: rakutenItem.itemName,
           imageUrl: rakutenImg,
-          category: guessCategory(rakutenItem.itemName),
+          category: cat,
           source: {
             site: 'rakuten',
             siteName: '楽天',
@@ -870,6 +898,8 @@ async function main() {
             url: rakutenItem.affiliateUrl || rakutenItem.itemUrl,
             pointRate,
             pointAmount,
+            shippingJpy: shipJpy,                               // 利益計算に算入済みの国内送料概算
+            postageIncluded: Number(rakutenItem.postageFlag) === 0,
           },
           isNew: rakutenItem.itemName.includes('新品') || rakutenItem.itemName.includes('未開封'),
           market: 'EBAY_US',
@@ -931,6 +961,7 @@ async function main() {
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
     haikuCalls: haikuCallsToday,
+    sonnetCalls: sonnetCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
@@ -941,7 +972,7 @@ async function main() {
   処理: ${toProcess.length}件
   新規利益商品: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  Claude Haiku: ${haikuCallsToday}回
+  Claude Haiku: ${haikuCallsToday}回 / Sonnet: ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }

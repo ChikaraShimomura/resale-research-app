@@ -101,7 +101,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
-  const realCost = source.price - pointAmount;
+  const shippingJpy = source.shippingJpy ?? 0; // 国内送料概算（利益計算に算入済み）
+  const realCost = source.price + shippingJpy - pointAmount;
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
 
   return (
@@ -257,6 +258,14 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             <div className="flex justify-between text-[#BF0000]">
               <span>楽天仕入れ価格</span>
               <span>- {formatJpy(source.price)}</span>
+            </div>
+            <div className="flex justify-between text-gray-500">
+              <span>国内送料（楽天→自分）</span>
+              {shippingJpy > 0 ? (
+                <span className="text-[#BF0000]">- {formatJpy(shippingJpy)}（概算）</span>
+              ) : (
+                <span className="font-bold text-emerald-600">送料込み（¥0）</span>
+              )}
             </div>
             {pointAmount > 0 && (
               <div className="flex justify-between text-[#FF4466]">

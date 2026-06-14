@@ -501,6 +501,11 @@ export default function EbayListingModal({
                 </span>
               </label>
 
+              {/* 海外出品の不安をやわらげる一言 */}
+              <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-gray-100 rounded-lg px-3 py-2 leading-relaxed">
+                🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>です。
+              </p>
+
               {/* 出品ボタン */}
               <button
                 onClick={publish}
