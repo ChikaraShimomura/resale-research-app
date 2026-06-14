@@ -58,6 +58,9 @@ interface PublishResult {
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "pending" | "error";
 
+// 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
+const FAST_DISCOUNT = 0.08;
+
 export default function EbayListingModal({
   product,
   onClose,
@@ -73,6 +76,7 @@ export default function EbayListingModal({
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
+  const [strategy, setStrategy] = useState<"fast" | "market">("fast"); // 売り方（既定: はやく売る）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
@@ -118,7 +122,8 @@ export default function EbayListingModal({
       setData(p);
       setTitle(p.title);
       setDescription(p.description);
-      setPriceUsd(p.priceUsd);
+      // 既定は「はやく売る」＝相場より少し安く
+      setPriceUsd((Number(p.priceUsd) * (1 - FAST_DISCOUNT)).toFixed(2));
       setCondition(p.condition);
       // デフォルトは中サイズの送料（無ければ先頭）
       const midShip = p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0];
@@ -217,6 +222,13 @@ export default function EbayListingModal({
   };
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
+
+  // 売り方の選択：はやく売る（相場より少し安く）/ 高く売る（相場どおり）。選ぶと価格を自動セット。
+  const marketUsd = Number(data?.priceUsd) || 0;
+  const chooseStrategy = (s: "fast" | "market") => {
+    setStrategy(s);
+    if (marketUsd > 0) setPriceUsd((s === "fast" ? marketUsd * (1 - FAST_DISCOUNT) : marketUsd).toFixed(2));
+  };
 
   const overlay = (
     <div
@@ -320,6 +332,40 @@ export default function EbayListingModal({
                   <option value="USED_EXCELLENT">中古 - 非常に良い</option>
                   <option value="USED_GOOD">中古 - 良い</option>
                 </select>
+              </div>
+
+              {/* 売り方（はやく売る / 高く売る）。既定は「はやく売る」 */}
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">売り方</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => chooseStrategy("fast")}
+                    aria-pressed={strategy === "fast"}
+                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                      strategy === "fast" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <span className="text-[13px] font-bold">⚡ はやく売る</span>
+                    <span className="text-[10px]">相場より少し安く</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => chooseStrategy("market")}
+                    aria-pressed={strategy === "market"}
+                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                      strategy === "market" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <span className="text-[13px] font-bold">💰 高く売る</span>
+                    <span className="text-[10px]">相場どおり・待つ</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {strategy === "fast"
+                    ? "相場より少し安くして、早く売れやすくします（おすすめ）"
+                    : "相場どおりの価格。売れるまで少し待ちます"}
+                </p>
               </div>
 
               {/* 価格 */}
