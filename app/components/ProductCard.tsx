@@ -54,9 +54,9 @@ function TrustBadge({ count }: { count: number }) {
   if (count >= 5) return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-500"><BadgeCheck size={12} />信頼小</span>
   );
-  // eBay の現在の出品価格（日本セラー・新品）をベースにしているため肯定的に表示
+  // eBay の現在の出品（日本セラー・新品）の最安をベースにしているため肯定的に表示
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />eBay相場価格</span>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><BadgeCheck size={12} />eBay最安ベース</span>
   );
 }
 
@@ -191,16 +191,22 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
         {/* eBay価格・利益エリア — 想定売値 → 利益を主役に */}
         <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-gray-100">
-          {/* 想定売値 */}
+          {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-400">eBayの想定売値</span>
+            <span className="text-xs text-gray-400">eBay最安値</span>
             <span className="text-lg font-bold text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</span>
           </div>
+          {product.realMedianPrice != null && product.realMedianPrice > product.realAvgPrice && (
+            <div className="flex items-baseline justify-between gap-2 mt-0.5">
+              <span className="text-[10px] text-gray-400">参考：中央値</span>
+              <span className="text-[11px] text-gray-400 whitespace-nowrap">{formatJpy(product.realMedianPrice)}</span>
+            </div>
+          )}
 
           {/* 利益（ヒーロー） */}
           <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-end justify-between gap-2">
             <div className="shrink-0">
-              <p className="text-xs text-gray-400 mb-1">実質利益（ポイント込み）</p>
+              <p className="text-xs text-gray-400 mb-1">実質利益（最安で売れた時・pt込み）</p>
               <ProfitRateBadge rate={product.realProfitRate} />
             </div>
             <p className="text-3xl font-black text-[#BF0000] leading-none whitespace-nowrap">
@@ -252,7 +258,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         {showBreakdown && (
           <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 text-[12px] text-gray-600 space-y-1.5 border border-gray-100">
             <div className="flex justify-between">
-              <span>eBayの想定売値（相場ベース）</span>
+              <span>eBay最安値（早く売れる価格）</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#BF0000]">

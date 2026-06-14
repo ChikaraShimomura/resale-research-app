@@ -1,7 +1,8 @@
 import { Product } from "../types";
 
 export interface ProfitProduct extends Product {
-  realAvgPrice: number;  // eBay相場価格（現在の出品ベース・円換算）
+  realAvgPrice: number;  // eBay最安値ベースの参照価格（早く売る前提・円換算）。表示と利益の基準。
+  realMedianPrice?: number; // eBay中央値（併記・参考用）
   realProfit: number;    // 利益額
   realProfitRate: number; // 利益率（%）
   realCount: number;     // 相場の参照件数

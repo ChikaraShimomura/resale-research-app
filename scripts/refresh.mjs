@@ -574,7 +574,8 @@ function trimmedMedianJpy(pricesJpy) {
   const m0 = xs[Math.floor(xs.length / 2)];
   const kept = xs.filter(p => p >= m0 * 0.4 && p <= m0 * 2.5); // 外れ値(付属品/極端値)をトリム
   const use = kept.length >= 3 ? kept : xs;
-  return { median: use[Math.floor(use.length / 2)], count: use.length };
+  // low = 外れ値除去後の最安（ロバストな最安）。median は併記用。
+  return { median: use[Math.floor(use.length / 2)], low: use[0], count: use.length };
 }
 
 // eBay現在出品の「単品中央値(JPY)」。セット除外＋外れ値トリム。24hキャッシュ。失敗/少数時はnull。
@@ -797,29 +798,30 @@ async function main() {
     if (dropped) console.log(`  🧹 番号不一致の誤マッチを除外: ${dropped}件`);
   }
 
-  // 既存商品の相場を eBay単品中央値で再評価し、過大な利益表示を是正（保守的に小さい方を採用）。
-  // 中央値は24hキャッシュ。安全装置：万一>40%で利益消失するなら中央値の異常を疑い適用を見送る。
+  // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
+  // 安全装置：万一ほぼ全件(>85%)が利益消失するなら取得異常を疑い適用を見送る（最安化で件数が減るのは想定内なので閾値は高め）。
   const repriced = [];
   for (const p of dedupedProducts) {
     if (!p.coreKeyword || !p.source || !(p.realAvgPrice > 0)) continue;
     const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword));
     if (!med || med.count < 5) continue;
-    if (med.median >= p.realAvgPrice) { p.realCount = med.count; continue; } // 下がらないなら件数だけ反映
-    const r = calcProfit(p.source.price, med.median, p.source.pointAmount ?? 0, p.source.shippingJpy ?? 0);
-    repriced.push({ p, newAvg: med.median, count: med.count, profit: r.profit, rate: r.profitRate });
+    const low = med.low ?? med.median;                 // ★eBay最安ベース（旧キャッシュ対策で中央値フォールバック）
+    if (low >= p.realAvgPrice) { p.realCount = med.count; p.realMedianPrice = med.median; continue; } // 下がらないなら件数/中央値だけ反映
+    const r = calcProfit(p.source.price, low, p.source.pointAmount ?? 0, p.source.shippingJpy ?? 0);
+    repriced.push({ p, newAvg: low, median: med.median, count: med.count, profit: r.profit, rate: r.profitRate });
   }
   const wouldDrop = repriced.filter(x => x.profit < 1).length;
-  if (repriced.length && wouldDrop / dedupedProducts.length > 0.4) {
-    console.log(`  ⚠️ 中央値再評価で${wouldDrop}/${dedupedProducts.length}件が利益消失(>40%)。異常の可能性があるため再評価を見送り。`);
+  if (repriced.length && wouldDrop / dedupedProducts.length > 0.85) {
+    console.log(`  ⚠️ 最安再評価で${wouldDrop}/${dedupedProducts.length}件が利益消失(>85%)。取得異常の可能性があるため再評価を見送り。`);
   } else if (repriced.length) {
     const drop = new Set();
     let updated = 0;
     for (const x of repriced) {
-      x.p.realAvgPrice = x.newAvg; x.p.realCount = x.count; x.p.realProfit = x.profit; x.p.realProfitRate = x.rate;
+      x.p.realAvgPrice = x.newAvg; x.p.realMedianPrice = x.median; x.p.realCount = x.count; x.p.realProfit = x.profit; x.p.realProfitRate = x.rate;
       if (x.profit < 1) drop.add(x.p.id); else updated++;
     }
     dedupedProducts = dedupedProducts.filter(p => !drop.has(p.id));
-    console.log(`  💹 相場を単品中央値で是正: ${updated}件更新 / ${drop.size}件は利益消失で除外`);
+    console.log(`  💹 相場をeBay最安値で是正: ${updated}件更新 / ${drop.size}件は利益消失で除外`);
   }
 
   const existingIds = new Set(dedupedProducts.map(p => p.id)); // 楽天itemCode
@@ -902,12 +904,14 @@ async function main() {
         if (en) coreKeyword = en;
       }
 
-      // 相場の妥当性向上：eBay現在出品の「単品中央値」を取り、保守的に小さい方を採用する
-      // （1件の高値出品で利益が過大に出るのを防ぐ）。中央値で利益が消えたら出品しない。
-      let realAvgPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
+      // 相場は「eBay最安値」ベース。早く売る前提なので、最安で売ったときの利益で見せる（過大表示を防ぐ正直版）。
+      // 中央値(realMedianPrice)は併記用に保持。外れ値(別物/破損/まとめ売り)は trimmedMedianJpy で除外済み。
+      let realAvgPrice = ebayItem.priceJpy, realMedianPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
       const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword));
       if (med && med.count >= 5) {
-        realAvgPrice = Math.min(ebayItem.priceJpy, med.median);
+        const low = med.low ?? med.median;                 // ロバストな最安（旧キャッシュ対策で中央値フォールバック）
+        realAvgPrice = Math.min(ebayItem.priceJpy, low);   // ★相場＝eBay最安値ベース
+        realMedianPrice = med.median;
         realCount = med.count;
         const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount, shipJpy);
         finalProfit = r.profit; finalRate = r.profitRate;
@@ -937,7 +941,8 @@ async function main() {
           market: 'EBAY_US',
           coreKeyword,
           ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
-          realAvgPrice,
+          realAvgPrice,         // ★eBay最安値ベース（表示・利益の基準）
+          realMedianPrice,      // 中央値（併記用・参考）
           realProfit: finalProfit,
           realProfitRate: finalRate,
           realCount,

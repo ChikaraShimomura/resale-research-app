@@ -64,7 +64,12 @@ export async function POST(req: Request) {
   const product = await getProduct(productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
+  // 既定の表示価格＝eBay最安ベース(realAvgPrice)。売り方「相場/はやく」は中央値を基準にするため medianUsd も返す。
   const priceUsd = Math.max(1, Math.round((product.realAvgPrice / USD_JPY) * 100) / 100).toFixed(2);
+  const medianUsd =
+    product.realMedianPrice && product.realMedianPrice > 0
+      ? Math.max(1, Math.round((product.realMedianPrice / USD_JPY) * 100) / 100).toFixed(2)
+      : priceUsd;
 
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
   const enTitle = (product.coreKeyword || product.title).slice(0, 80);
@@ -107,7 +112,8 @@ export async function POST(req: Request) {
       },
       title: enTitle,
       description,
-      priceUsd,
+      priceUsd,  // 既定の表示価格＝eBay最安ベース
+      medianUsd, // 中央値USD（売り方「相場/はやく」の基準）
       lowestUsd, // 同等品の現在の最安USD（null=取得できず）
       floorUsd,  // 損益分岐USD（これ未満は赤字）
       condition,

@@ -15,6 +15,7 @@ interface PrepareData {
   title: string;
   description: string;
   priceUsd: string;
+  medianUsd?: string;        // 中央値USD（売り方「相場/はやく」の基準）
   lowestUsd?: string | null; // 同等品の現在の最安USD（最速出品用）
   floorUsd?: string;         // 損益分岐USD（これ未満は赤字）
   condition: string;
@@ -78,7 +79,7 @@ export default function EbayListingModal({
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
-  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest">("fast"); // 売り方（既定: はやく売る）
+  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest">("lowest"); // 売り方（既定: 最安＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
@@ -124,8 +125,14 @@ export default function EbayListingModal({
       setData(p);
       setTitle(p.title);
       setDescription(p.description);
-      // 既定は「はやく売る」＝相場より少し安く
-      setPriceUsd((Number(p.priceUsd) * (1 - FAST_DISCOUNT)).toFixed(2));
+      // 既定は「最安」＝eBay最安に合わせる（損益分岐は割らない）。取れなければ相場-8%。
+      {
+        const lowU = Number(p.lowestUsd) || 0;
+        const floorU = Number(p.floorUsd) || 0;
+        const medU = Number(p.medianUsd) || Number(p.priceUsd) || 0;
+        const initLowest = lowU > 0 ? Math.max(lowU, floorU) : medU > 0 ? medU * (1 - FAST_DISCOUNT) : Number(p.priceUsd) || 0;
+        setPriceUsd(initLowest.toFixed(2));
+      }
       setCondition(p.condition);
       // デフォルトは中サイズの送料（無ければ先頭）
       const midShip = p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0];
@@ -225,19 +232,19 @@ export default function EbayListingModal({
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
 
-  // 売り方の選択：はやく売る（相場-8%）/ 最安（eBay最安・最速）/ 高く売る（相場どおり）。選ぶと価格を自動セット。
-  const marketUsd = Number(data?.priceUsd) || 0;
+  // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
+  // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
+  const medianUsd = Number(data?.medianUsd) || Number(data?.priceUsd) || 0;
   const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
   const floorUsd = Number(data?.floorUsd) || 0;    // 損益分岐（これ未満は赤字）
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
+  const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
   const chooseStrategy = (s: "fast" | "market" | "lowest") => {
     setStrategy(s);
-    if (s === "market") { if (marketUsd > 0) setPriceUsd(marketUsd.toFixed(2)); return; }
-    if (s === "fast") { if (marketUsd > 0) setPriceUsd((marketUsd * (1 - FAST_DISCOUNT)).toFixed(2)); return; }
-    // 最安：eBayの最安に合わせる。ただし損益分岐(floor)は割らない。取れなければ相場-8%にフォールバック。
-    const target = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : (marketUsd > 0 ? marketUsd * (1 - FAST_DISCOUNT) : 0);
-    if (target > 0) setPriceUsd(target.toFixed(2));
+    if (s === "market") { if (medianUsd > 0) setPriceUsd(medianUsd.toFixed(2)); return; }
+    if (s === "fast") { if (medianUsd > 0) setPriceUsd((medianUsd * (1 - FAST_DISCOUNT)).toFixed(2)); return; }
+    if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安（損益分岐は割らない）
   };
 
   const overlay = (

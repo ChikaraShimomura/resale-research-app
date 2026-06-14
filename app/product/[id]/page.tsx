@@ -62,7 +62,7 @@ export async function generateMetadata({
     return { title: "商品が見つかりません", robots: { index: false } };
   }
   const title = product.title.slice(0, 60);
-  const desc = `楽天¥${product.source.price.toLocaleString()} → eBay平均¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`;
+  const desc = `楽天¥${product.source.price.toLocaleString()} → eBay最安¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`;
   const img = hiResImage(product.imageUrl);
   const images = img ? [img] : [];
   return {
@@ -139,7 +139,7 @@ export default async function ProductPage({
     "@type": "Product",
     name: product.title,
     ...(product.imageUrl ? { image: [hiResImage(product.imageUrl)] } : {}),
-    description: `楽天¥${product.source.price.toLocaleString()} → eBay相場¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`,
+    description: `楽天¥${product.source.price.toLocaleString()} → eBay最安¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`,
     category: product.category,
     offers: {
       "@type": "Offer",
