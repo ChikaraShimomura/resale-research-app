@@ -15,6 +15,8 @@ interface PrepareData {
   title: string;
   description: string;
   priceUsd: string;
+  lowestUsd?: string | null; // 同等品の現在の最安USD（最速出品用）
+  floorUsd?: string;         // 損益分岐USD（これ未満は赤字）
   condition: string;
   category: { categoryId?: string; categoryName?: string; categoryTreeId: string } | null;
   requiredAspects: RequiredAspect[];
@@ -76,7 +78,7 @@ export default function EbayListingModal({
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
-  const [strategy, setStrategy] = useState<"fast" | "market">("fast"); // 売り方（既定: はやく売る）
+  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest">("fast"); // 売り方（既定: はやく売る）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
@@ -223,11 +225,19 @@ export default function EbayListingModal({
 
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
 
-  // 売り方の選択：はやく売る（相場より少し安く）/ 高く売る（相場どおり）。選ぶと価格を自動セット。
+  // 売り方の選択：はやく売る（相場-8%）/ 最安（eBay最安・最速）/ 高く売る（相場どおり）。選ぶと価格を自動セット。
   const marketUsd = Number(data?.priceUsd) || 0;
-  const chooseStrategy = (s: "fast" | "market") => {
+  const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
+  const floorUsd = Number(data?.floorUsd) || 0;    // 損益分岐（これ未満は赤字）
+  const lowestAvailable = lowUsd > 0;
+  const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
+  const chooseStrategy = (s: "fast" | "market" | "lowest") => {
     setStrategy(s);
-    if (marketUsd > 0) setPriceUsd((s === "fast" ? marketUsd * (1 - FAST_DISCOUNT) : marketUsd).toFixed(2));
+    if (s === "market") { if (marketUsd > 0) setPriceUsd(marketUsd.toFixed(2)); return; }
+    if (s === "fast") { if (marketUsd > 0) setPriceUsd((marketUsd * (1 - FAST_DISCOUNT)).toFixed(2)); return; }
+    // 最安：eBayの最安に合わせる。ただし損益分岐(floor)は割らない。取れなければ相場-8%にフォールバック。
+    const target = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : (marketUsd > 0 ? marketUsd * (1 - FAST_DISCOUNT) : 0);
+    if (target > 0) setPriceUsd(target.toFixed(2));
   };
 
   const overlay = (
@@ -338,10 +348,10 @@ export default function EbayListingModal({
                 </select>
               </div>
 
-              {/* 売り方（はやく売る / 高く売る）。既定は「はやく売る」 */}
+              {/* 売り方（はやく / 最安 / 高く）。既定は「はやく売る」 */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">売り方</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => chooseStrategy("fast")}
@@ -350,8 +360,19 @@ export default function EbayListingModal({
                       strategy === "fast" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
                     }`}
                   >
-                    <span className="text-[13px] font-bold">⚡ はやく売る</span>
-                    <span className="text-[10px]">相場より少し安く</span>
+                    <span className="text-[12px] font-bold">⚡ はやく</span>
+                    <span className="text-[10px]">相場−8%</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => chooseStrategy("lowest")}
+                    aria-pressed={strategy === "lowest"}
+                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                      strategy === "lowest" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <span className="text-[12px] font-bold">🚀 最安</span>
+                    <span className="text-[10px]">eBay最安に</span>
                   </button>
                   <button
                     type="button"
@@ -361,14 +382,20 @@ export default function EbayListingModal({
                       strategy === "market" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
                     }`}
                   >
-                    <span className="text-[13px] font-bold">💰 高く売る</span>
-                    <span className="text-[10px]">相場どおり・待つ</span>
+                    <span className="text-[12px] font-bold">💰 高く</span>
+                    <span className="text-[10px]">相場どおり</span>
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1">
                   {strategy === "fast"
                     ? "相場より少し安くして、早く売れやすくします（おすすめ）"
-                    : "相場どおりの価格。売れるまで少し待ちます"}
+                    : strategy === "market"
+                    ? "相場どおりの価格。売れるまで少し待ちます"
+                    : !lowestAvailable
+                    ? "eBayの最安が取れなかったため、相場より少し安くしています"
+                    : lowestClamped
+                    ? `eBayの最安は赤字になるため、損益分岐 $${data.floorUsd} で出します（最速・赤字回避）`
+                    : "eBayの最安値に合わせて、最速で売れやすくします（赤字にはしません）"}
                 </p>
               </div>
 

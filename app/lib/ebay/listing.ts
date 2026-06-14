@@ -199,6 +199,45 @@ export async function listFulfillmentPolicies(token: string): Promise<ShippingCh
     .filter((p) => p.fulfillmentPolicyId);
 }
 
+// ── 同等品の「現在の最安USD」（Browse API・現在出品ベース） ──
+// 「最安で出して最速で売る」値付け用。セット/まとめ売りと、極端に安い外れ値(別物・破損・誤出品)を
+// 除いた“ロバストな最安”を返す。失敗時 null。アプリトークン(client_credentials)で呼ぶ。
+const LOWEST_SET_RE =
+  /\b(lot of \d|set of \d|\d+\s*pcs|\d+\s*pieces|bundle|\d+\s*x\b|x\s*\d+|\d+\s*-?\s*pack|joblot|job lot|wholesale|\d+\s*set\b)\b/i;
+
+export async function getLowestComparableUsd(appToken: string, query: string): Promise<number | null> {
+  if (!query) return null;
+  try {
+    const params = new URLSearchParams({
+      q: query.slice(0, 120),
+      limit: "24",
+      fieldgroups: "COMPACT",
+      filter: "conditions:{NEW|LIKE_NEW}",
+      sort: "price",
+    });
+    const res = await fetch(`${API}/buy/browse/v1/item_summary/search?${params}`, {
+      headers: { Authorization: `Bearer ${appToken}`, "X-EBAY-C-MARKETPLACE-ID": MARKETPLACE, Accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      itemSummaries?: { title?: string; price?: { value?: string; currency?: string } }[];
+    };
+    const usd = (data.itemSummaries ?? [])
+      .filter((it) => !LOWEST_SET_RE.test(it.title ?? ""))
+      .map((it) => (it.price?.currency === "USD" ? parseFloat(it.price?.value ?? "") : 0))
+      .filter((v) => v > 0)
+      .sort((a, b) => a - b);
+    if (usd.length === 0) return null;
+    if (usd.length < 4) return usd[0]; // サンプル僅少→そのまま最安
+    const med = usd[Math.floor(usd.length / 2)];
+    const kept = usd.filter((v) => v >= med * 0.4); // 中央値の40%未満は別物/破損の疑い→除外
+    return kept[0] ?? usd[0];
+  } catch {
+    return null;
+  }
+}
+
 // ── 出品（作成→公開） ──
 export interface PublishInput {
   productId: string;

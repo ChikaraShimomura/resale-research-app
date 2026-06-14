@@ -48,6 +48,24 @@
     background:linear-gradient(180deg,var(--crimson),var(--pink));}
 
   .footer{display:flex;align-items:center;justify-content:center;gap:14px;height:140px;flex:none;}
+
+  /* ---------- PROFIT (利益リビール) ---------- */
+  .ppanel{justify-content:center;gap:6px;}
+  .pbadges{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px;}
+  .pbadge{display:inline-flex;align-items:center;font-weight:800;font-size:34px;padding:12px 30px;border-radius:999px;}
+  .pbadge.green{background:rgba(5,150,105,.12);color:#059669;border:2px solid rgba(5,150,105,.32);}
+  .pbadge.pink{background:rgba(255,68,102,.12);color:#FF4466;border:2px solid rgba(255,68,102,.32);}
+  .pbadge.crimson{background:rgba(191,0,0,.08);color:#BF0000;border:2px solid rgba(191,0,0,.2);}
+  .phero{display:flex;flex-direction:column;align-items:flex-start;margin:4px 0 2px;}
+  .phl{font-weight:800;font-size:40px;color:#5b6472;}
+  .phv{font-weight:800;font-size:128px;line-height:1.02;color:#059669;letter-spacing:1px;}
+  .prows{display:flex;flex-direction:column;gap:20px;width:100%;margin-top:8px;}
+  .prow{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px dashed #e5e8ee;padding-bottom:16px;}
+  .prow .pl{font-weight:700;font-size:40px;color:#5b6472;}
+  .prow .pv{font-weight:800;font-size:58px;color:#1f2430;}
+  .pv.blue{color:#0064D2;}
+  .pv.crimson{color:#BF0000;}
+  .pv.green{color:#059669;}
   .dot{width:16px;height:16px;border-radius:999px;background:#d6dbe3;}
   .dot.on{background:var(--crimson);width:40px;}
 
@@ -100,6 +118,26 @@
           (d.badge?('<div class="pill">'+fmt(d.badge)+'</div>'):'')+
         '</div>';
       window.__ready__=true;return;
+    }
+    if(d.type==='profit'){
+      const badges=(d.badges||[]).map(b=>'<span class="pbadge '+(b.c||'')+'">'+esc(b.t)+'</span>').join('');
+      const hero=d.hero?('<div class="phero"><span class="phl">'+esc(d.hero.t)+'</span><span class="phv">'+esc(d.hero.v)+'</span></div>'):'';
+      const rows=(d.rows||[]).map(r=>'<div class="prow"><span class="pl">'+esc(r.t)+'</span><span class="pv '+(r.c||'')+'">'+esc(r.v)+'</span></div>').join('');
+      stage.innerHTML=
+        '<div class="screen">'+
+          '<div class="topbar"><span class="brand">輸出ラボ<span class="b2">'+esc(d.vlabel||'')+'</span></span></div>'+
+          '<div class="imgwrap"><div class="imgcard"><img id="shot" src="'+esc(d.img)+'"></div></div>'+
+          '<div class="caption ppanel"><span class="accent"></span>'+
+            (badges?('<div class="pbadges">'+badges+'</div>'):'')+
+            hero+
+            (rows?('<div class="prows">'+rows+'</div>'):'')+
+          '</div>'+
+          '<div class="footer">'+dots(d.total||1,d.index||0)+'</div>'+
+        '</div>';
+      const pimg=document.getElementById('shot');
+      if(pimg.complete){window.__ready__=true;}
+      else{pimg.onload=()=>{window.__ready__=true;};pimg.onerror=()=>{window.__ready__=true;};}
+      return;
     }
     // screen
     stage.innerHTML=

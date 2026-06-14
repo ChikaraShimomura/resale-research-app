@@ -7,9 +7,14 @@ import {
   getCategorySuggestion,
   getRequiredAspects,
   listFulfillmentPolicies,
+  getLowestComparableUsd,
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
+
+// 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
+const EBAY_FEE_RATE = 0.1325;
+const EBAY_FEE_FIXED_JPY = 47;
 
 // 「eBay出品画面」の確認用データを返す（読み取りのみ・eBayへの書き込みなし）。
 // 楽天画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
@@ -69,10 +74,20 @@ export async function POST(req: Request) {
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
   // 送料サイズ（配送ポリシー）一覧も取得。
   const taxoToken = (await getAppAccessToken()) || token;
-  const [cat, shipping] = await Promise.all([
+  const [cat, shipping, lowestComparable] = await Promise.all([
     getCategorySuggestion(taxoToken, enTitle),
     listFulfillmentPolicies(token),
+    getLowestComparableUsd(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD（最速出品用）
   ]);
+
+  // 損益分岐(USD)：このeBay価格を下回ると赤字になる下限。「最安で出す」時もここは割らない。
+  // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 仕入れ実質原価(楽天価格+国内送料-ポイント)。
+  const effBuyJpy =
+    product.source.price + (product.source.shippingJpy ?? 0) - (product.source.pointAmount ?? 0);
+  const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY) / (1 - EBAY_FEE_RATE));
+  const floorUsd = (Math.round((floorJpy / USD_JPY) * 100) / 100).toFixed(2);
+  const lowestUsd =
+    lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 
   let requiredAspects: { name: string; values: string[]; free: boolean; value: string }[] = [];
   if (cat?.categoryId) {
@@ -93,6 +108,8 @@ export async function POST(req: Request) {
       title: enTitle,
       description,
       priceUsd,
+      lowestUsd, // 同等品の現在の最安USD（null=取得できず）
+      floorUsd,  // 損益分岐USD（これ未満は赤字）
       condition,
       category: cat
         ? { categoryId: cat.categoryId, categoryName: cat.categoryName, categoryTreeId: cat.categoryTreeId }
