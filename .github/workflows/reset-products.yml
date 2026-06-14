@@ -1,0 +1,45 @@
+name: Reset products & Refresh (targeted)
+
+# 商品リストだけを作り直すための安全なリセット。
+# flushdb と違い eBay連携トークン・行動ログ(evc/evu)・端末データ(rr_did/お気に入り)は保持する。
+# 新しい画像同一判定・国内送料などの改善をカタログ全体へ適用したいときに使う。
+on:
+  workflow_dispatch:
+
+jobs:
+  reset-products:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # キャッシュ次第ではフル再構築になるため余裕を持たせる
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clear only product list + checked_ids (keep eBay tokens / analytics / devices)
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          curl -s -X POST "$KV_REST_API_URL/pipeline" \
+            -H "Authorization: Bearer $KV_REST_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '[["DEL","profitable_products"],["DEL","last_updated"],["SET","checked_ids","[]"]]'
+          echo "products + checked_ids cleared (eBay連携 / 行動ログ / 端末データ は保持)."
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run refresh script
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          EBAY_APP_ID:          ${{ secrets.EBAY_APP_ID }}
+          EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/refresh.mjs
