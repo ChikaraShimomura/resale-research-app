@@ -216,12 +216,16 @@ async function fetchRakutenPage(keyword, page) {
   } catch { return []; }
 }
 
-// ========== 画像マッチ（ジャンル別・識別子重視 / Haiku選別→Sonnet確定 / Geminiフォールバック） ==========
+// ========== 画像マッチ（ジャンル別・識別子重視 / Haiku既定＋Sonnet予算制 / Geminiフォールバック） ==========
 // 別変種(同キャラ別番号・同機体別グレード・同ライン別容量・正規vs互換 等)をSAMEと誤る偽陽性が相場/利益を狂わせる。
 // 対策: 画像を高解像度化＋タイトル文脈＋識別子を読ませる保守プロンプト。実画像検証で旧プロンプトの偽陽性3→0・取りこぼし0。
-// コスト最適化: まずHaikuで安価に「明らかな別物」を落とし(recall重視)、残りをSonnetで厳密確定(precision重視)。
+// 【コスト安全】既定は Haiku 単独(識別子プロンプト)で判定＝安価。Sonnet は「予算がある時だけ」Haiku陽性を
+//   二重確認して偽陽性を潰す。予算 MAX_SONNET_PER_RUN で1回の実行コスト上限を固定し、クレジット枯渇を防ぐ。
 let haikuCallsToday = 0;
 let sonnetCallsToday = 0;
+// Sonnet(高精度・高コスト)の実行あたり上限回数。既定0=Sonnet不使用(Haiku単独・最安・クレジット安全)。
+// クレジットに余裕があり精度を底上げしたいときだけ env で予算を与える（例: IMG_MATCH_SONNET_BUDGET=60）。
+const MAX_SONNET_PER_RUN = Number(process.env.IMG_MATCH_SONNET_BUDGET ?? 0);
 
 // 楽天サムネは _ex=128x128 等で型番/容量の文字が読めない→拡大。eBayの s-l{N} も大判化。
 function upscaleRakuten(url) { return (url || '').replace(/_ex=\d+x\d+/, '_ex=600x600'); }
@@ -270,6 +274,29 @@ async function anthropicVision(model, maxTokens, promptText, img) {
   return data?.content?.[0]?.text ?? '';
 }
 
+// strictMatchPrompt の応答を「同一(YES)かつ確信がLOWでない」かで判定。
+function parseStrictSame(text) {
+  return /SAME_VARIANT:\s*YES/i.test(text) && !/CONFIDENCE:\s*LOW/i.test(text);
+}
+
+// Gemini(安価)での同一判定。true/false、キー無し・失敗時は null。Anthropic不通時のフォールバックにも使う。
+async function geminiMatch(img, rakutenTitle, ebayTitle) {
+  if (!GEMINI_API_KEY) return null;
+  try {
+    const body = { contents: [{ parts: [
+      { text: `Do these two photos show the EXACT SAME product VARIANT (same character/model/card number/grade/edition/volume; genuine != compatible; single != set)? Consider the titles. Title1: "${rakutenTitle}" Title2: "${ebayTitle}". Answer YES or NO only.` },
+      { inlineData: { mimeType: img.mt1, data: img.b1 } },
+      { inlineData: { mimeType: img.mt2, data: img.b2 } },
+    ]}], generationConfig: { maxOutputTokens: 4, temperature: 0 } };
+    const gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
+    if (!gr.ok) return null;
+    const gd = await gr.json();
+    const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
+    return answer.startsWith('YES');
+  } catch { return null; }
+}
+
 async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
   if (!rakutenUrl || !ebayUrl) return true;
   const { rakutenTitle = '', ebayTitle = '', rakutenQuantity = null } = opts;
@@ -294,56 +321,40 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
     };
   } catch { return true; }
 
-  // Anthropicキーが無ければGeminiにフォールバック（単段・識別子重視の簡易版）。
+  // Anthropicキーが無ければ Gemini にフォールバック。
   if (!ANTHROPIC_API_KEY) {
-    if (!GEMINI_API_KEY) return true;
-    try {
-      const body = {
-        contents: [{ parts: [
-          { text: `Do these two photos show the EXACT SAME product VARIANT (same character/model/card number/grade/edition/volume; genuine != compatible; single != set)? Consider the titles. Title1: "${rakutenTitle}" Title2: "${ebayTitle}". Answer YES or NO only.` },
-          { inlineData: { mimeType: img.mt1, data: img.b1 } },
-          { inlineData: { mimeType: img.mt2, data: img.b2 } },
-        ]}],
-        generationConfig: { maxOutputTokens: 4, temperature: 0 },
-      };
-      const gr = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) }
-      );
-      if (!gr.ok) return true;
-      const gd = await gr.json();
-      const answer = gd?.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() ?? '';
-      const result = answer.startsWith('YES');
-      await kvSet(cacheKey, result, 168 * 3600);
-      return result;
-    } catch { return true; }
+    const g = await geminiMatch(img, rakutenTitle, ebayTitle);
+    if (g === null) return true;            // 判定不能→保留(キャッシュしない=次回再評価)
+    await kvSet(cacheKey, g, 168 * 3600);
+    return g;
   }
 
   try {
-    // Tier1: Haikuで安価にスクリーニング。明らかに無関係/別タイプのみ落とす（recall重視）。
-    const screen = await anthropicVision('claude-haiku-4-5', 16,
-      `Could these two photos plausibly be the SAME product (same category and same franchise/brand/line)? Answer "NO" only if clearly unrelated or a different type of item; otherwise "YES". Titles: "${(rakutenTitle || '').slice(0, 120)}" / "${(ebayTitle || '').slice(0, 120)}". Reply YES or NO only.`,
-      img);
+    // Tier1(既定): Haiku を識別子重視プロンプトで判定。単独で完結＝Sonnet予算0でも機能する低コスト経路。
+    const htext = await anthropicVision('claude-haiku-4-5', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
+    if (htext === null) {
+      // Anthropic不通(クレジット切れ等)→ Gemini で代替。それも無理なら保留(キャッシュしない=次回再評価)。
+      const g = await geminiMatch(img, rakutenTitle, ebayTitle);
+      if (g === null) return true;
+      await kvSet(cacheKey, g, 24 * 3600);
+      return g;
+    }
     haikuCallsToday++;
-    if (screen !== null && /^\s*NO\b/i.test(screen.trim())) {
-      await kvSet(cacheKey, false, 168 * 3600);
-      console.log('  [img screen NG]');
-      return false;
-    }
+    let same = parseStrictSame(htext);
 
-    // Tier2: Sonnetで識別子重視の厳密確定（偽陽性=別変種を潰す）。
-    const text = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
-    sonnetCallsToday++;
-    if (text === null) { await kvSet(cacheKey, true, 24 * 3600); return true; } // Sonnet不通は短期で従来通り採用（infra障害で商品を落とさない）
-    const sameVariant = /SAME_VARIANT:\s*YES/i.test(text);
-    const lowConf = /CONFIDENCE:\s*LOW/i.test(text);
-    const result = sameVariant && !lowConf; // 確信が持てない(LOW)同一はreject＝保守的
-    if (!result) {
-      const reason = text.match(/REASON:\s*(.+)/i)?.[1] ?? '';
-      console.log(`  [img NG] ${reason}`);
+    // Tier2(予算制): 予算が残る時だけ、Haikuが「同一」と言った候補を Sonnet で二重確認し偽陽性を潰す。
+    // MAX_SONNET_PER_RUN で1回の実行あたりの Sonnet コスト上限を固定＝クレジットを使い切らない。
+    if (same && sonnetCallsToday < MAX_SONNET_PER_RUN) {
+      const stext = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
+      if (stext !== null) {
+        sonnetCallsToday++;
+        same = parseStrictSame(stext);
+        if (!same) console.log(`  [img NG/sonnet] ${stext.match(/REASON:\s*(.+)/i)?.[1] ?? ''}`);
+      }
     }
-    await kvSet(cacheKey, result, 168 * 3600);
-    return result;
+    if (!same) { const r = htext.match(/REASON:\s*(.+)/i)?.[1] ?? ''; if (r) console.log(`  [img NG] ${r}`); }
+    await kvSet(cacheKey, same, 168 * 3600);
+    return same;
   } catch { return true; }
 }
 
