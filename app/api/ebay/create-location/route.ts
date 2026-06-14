@@ -20,6 +20,10 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad request" }, { status: 400 });
   }
+  // JSON literal null / 配列 / プリミティブはここで弾く（後続の body.xxx が TypeError→500 になるのを防ぐ）
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+  }
 
   const addressLine1 = (body.addressLine1 ?? "").trim();
   const addressLine2 = (body.addressLine2 ?? "").trim();

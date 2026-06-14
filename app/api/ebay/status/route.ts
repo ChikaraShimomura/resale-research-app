@@ -13,8 +13,12 @@ export async function GET() {
     return Response.json({ connected: false, configured }, { headers: { "Cache-Control": "private, no-store" } });
   }
   const t = await loadTokens(conn);
+  // リフレッシュトークン失効後は再連携が必要なので connected:false にする
+  // （旧データで refreshExpiresAt が無い場合は後方互換で true 維持）。
+  const usable =
+    Boolean(t) && (typeof t!.refreshExpiresAt !== "number" || t!.refreshExpiresAt > Date.now());
   return Response.json(
-    { connected: Boolean(t), configured },
+    { connected: usable, configured },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }

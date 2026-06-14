@@ -67,7 +67,7 @@ export default function GrowthDashboard() {
   }
 
   const pct = stats.nextRank
-    ? Math.min(100, Math.round((stats.totalProfit / stats.nextRank.min) * 100))
+    ? Math.max(0, Math.min(100, Math.round((stats.totalProfit / stats.nextRank.min) * 100)))
     : 100;
 
   return (

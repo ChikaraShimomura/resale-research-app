@@ -12,9 +12,16 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const favIds = Object.keys(localStorage)
-      .filter(k => k.startsWith("fav_") && localStorage.getItem(k) === "1")
-      .map(k => k.replace("fav_", ""));
+    let favIds: string[];
+    try {
+      favIds = Object.keys(localStorage)
+        .filter(k => k.startsWith("fav_") && localStorage.getItem(k) === "1")
+        .map(k => k.replace("fav_", ""));
+    } catch {
+      // localStorage がブロックされる環境ではスケルトンで固まらないよう空扱いで抜ける
+      setLoading(false);
+      return;
+    }
 
     if (favIds.length === 0) {
       setLoading(false);
@@ -75,7 +82,13 @@ export default function FavoritesPage() {
         ) : (
           <div className="flex flex-col gap-[1px] bg-gray-200 mt-[1px]">
             {favorites.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                onFavoriteChange={(id, fav) => {
+                  if (!fav) setFavorites(prev => prev.filter(p => p.id !== id));
+                }}
+              />
             ))}
           </div>
         )}

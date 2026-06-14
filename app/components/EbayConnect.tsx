@@ -7,7 +7,7 @@ interface Status {
   configured: boolean;
 }
 
-export default function EbayConnect() {
+export default function EbayConnect({ onChange }: { onChange?: () => void }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<"connected" | "error" | "disconnected" | null>(null);
@@ -33,6 +33,7 @@ export default function EbayConnect() {
       await fetch("/api/ebay/disconnect", { method: "POST" });
       setStatus((s) => (s ? { ...s, connected: false } : s));
       setFlash("disconnected");
+      onChange?.(); // 親(セットアップ)へ通知して readiness を再取得し、STEP/準備完了バナーを最新化
     } catch {
       /* noop */
     } finally {

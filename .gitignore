@@ -44,3 +44,9 @@ next-env.d.ts
 
 __pycache__/
 *.pyc
+
+# 動画生成の中間ファイル（生成物・重いのでリポジトリに含めない）
+video-slides/_work/
+video-slides/audio/
+video-slides/raw/
+video-slides/preview/

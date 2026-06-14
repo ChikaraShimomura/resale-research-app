@@ -144,11 +144,13 @@ function cap(s: string): string {
 // 末尾の行政区分（区/市/町/村）をハイフン付きの読みに整える。
 function withSuffix(romaji: string, lastKanji: string): string {
   const base = cap(romaji);
-  if (lastKanji === "区" && /ku$/i.test(base)) return base.slice(0, -2) + "-ku";
-  if (lastKanji === "市" && /shi$/i.test(base)) return base.slice(0, -3) + "-shi";
+  // 接尾辞直前の長音(ou/uu)を縮約（中央区 Chuou→Chuo 等）。語幹中間の ou は保持される。
+  const trimLong = (st: string) => st.replace(/(ou|uu)$/i, (s) => s[0]);
+  if (lastKanji === "区" && /ku$/i.test(base)) return trimLong(base.slice(0, -2)) + "-ku";
+  if (lastKanji === "市" && /shi$/i.test(base)) return trimLong(base.slice(0, -3)) + "-shi";
   if (lastKanji === "村") {
-    if (/mura$/i.test(base)) return base.slice(0, -4) + "-mura";
-    if (/son$/i.test(base)) return base.slice(0, -3) + "-son";
+    if (/mura$/i.test(base)) return trimLong(base.slice(0, -4)) + "-mura";
+    if (/son$/i.test(base)) return trimLong(base.slice(0, -3)) + "-son";
   }
   if (lastKanji === "町") {
     if (/machi$/i.test(base)) return base.slice(0, -5) + "-machi";
@@ -228,9 +230,11 @@ export function romanizeFreeAddress(input: string): string {
   s = s
     .replace(/[‐-―−ー]/g, "-")
     .replace(/[\s　]+/g, " ")
-    .replace(/\s*-\s*/g, "-")
+    .replace(/([0-9])\s*-\s*(?=[0-9])/g, "$1-") // 数字間の '-' のみ連結（番地）
+    .replace(/\s*-(?=\s|$)/g, " ") // 後続トークンが無い末尾の '-' は空白へ（建物名の連結・小文字化を防ぐ）
     .replace(/-+/g, "-")
     .replace(/(^[-\s]+)|([-\s]+$)/g, "")
+    .replace(/[\s　]+/g, " ")
     .trim();
   return s.replace(/(^|\s)([a-z])/g, (_m, p, c) => p + c.toUpperCase());
 }

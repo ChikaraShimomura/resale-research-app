@@ -2,6 +2,11 @@ import Link from "next/link";
 import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, type LucideIcon } from "lucide-react";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
+import GuideVideo from "../components/GuideVideo";
+
+export const metadata = {
+  alternates: { canonical: "/guide" },
+};
 
 type Step = {
   num: string;
@@ -124,6 +129,18 @@ export default function GuidePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 全体像の動画 */}
+        <div className="mb-6">
+          <SectionTitle>まずは動画で全体像</SectionTitle>
+          <GuideVideo
+            title="楽天×eBay 輸出転売のはじめ方"
+            src="/videos/guide-overview.mp4"
+            poster="/videos/guide-overview-poster.jpg"
+            durationLabel="約1分"
+            note="※ 仕入れ→出品→発送→入金までの流れを、やさしい音声ナレーションつきでまとめています。"
+          />
         </div>
 
         {/* ステップ */}

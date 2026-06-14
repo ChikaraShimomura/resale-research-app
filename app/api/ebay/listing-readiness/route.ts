@@ -4,7 +4,7 @@ import {
   countFulfillmentPolicies,
   countPaymentPolicies,
   countReturnPolicies,
-  countInventoryLocations,
+  hasShipFromLocation,
 } from "../../../lib/ebay/sellApi";
 
 // 「写真だけ出品」の準備状況チェック（読み取り専用）。
@@ -22,14 +22,14 @@ export async function GET(req: Request) {
   const token = await getValidAccessToken(conn);
   if (!token) return Response.json({ connected: false });
 
-  const [fulfillment, payment, ret, locations] = await Promise.all([
+  const [fulfillment, payment, ret, hasLoc] = await Promise.all([
     countFulfillmentPolicies(token, marketplace),
     countPaymentPolicies(token, marketplace),
     countReturnPolicies(token, marketplace),
-    countInventoryLocations(token),
+    hasShipFromLocation(token), // publish が要求する固定キー jp-ship-from の実在で判定
   ]);
 
-  const ready = fulfillment > 0 && payment > 0 && ret > 0 && locations > 0;
+  const ready = fulfillment > 0 && payment > 0 && ret > 0 && hasLoc;
 
   return Response.json(
     {
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       fulfillmentPolicies: fulfillment,
       paymentPolicies: payment,
       returnPolicies: ret,
-      locations,
+      locations: hasLoc ? 1 : 0, // 後方互換: EbayListingReadiness は (locations??0)>0 を参照
       ready,
     },
     { headers: { "Cache-Control": "private, no-store" } }

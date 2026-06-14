@@ -32,6 +32,12 @@ export default function ConsentBanner() {
       /* noop */
     }
     if (granted) window.gtag?.("consent", "update", { analytics_storage: "granted" });
+    // 同一タブの A2HS バナー等へ「Cookie同意が決まった」ことを通知し再評価させる
+    try {
+      window.dispatchEvent(new Event("consent-decided"));
+    } catch {
+      /* noop */
+    }
     setShow(false);
   };
 

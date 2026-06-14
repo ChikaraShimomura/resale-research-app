@@ -98,9 +98,8 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  alternates: {
-    canonical: SITE_URL,
-  },
+  // canonical はページごとに自己参照で設定する（ここで固定するとレイアウトを継承する全ページが
+  // トップURLを canonical 申告してしまい、ガイド等がインデックスから外れる）。
 };
 
 export default async function RootLayout({

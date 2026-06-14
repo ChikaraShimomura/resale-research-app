@@ -46,12 +46,22 @@ function ResultsContent() {
     fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
   }, []);
 
-  // アクティブ（仕入れ中）商品IDを localStorage から取得（先頭固定用）＋一覧閲覧を記録
+  // アクティブ（仕入れ中）商品IDを取得（先頭固定/SOLD除外用）。出品・仕入れの変化でも再取得する。
   useEffect(() => {
-    setUnlockedIds(readUnlockedIds());
+    const refresh = () => setUnlockedIds(readUnlockedIds());
+    refresh();
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
-    logEvent("results_view"); // 一覧閲覧（ファネル計測）
+    window.addEventListener("rkt-changed", refresh); // 同一タブの仕入れ/出品
+    window.addEventListener("storage", refresh); // 別タブ
+    return () => {
+      window.removeEventListener("rkt-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
   }, []);
+  // 一覧閲覧（ファネル計測）。2回目以降の検索（keyword変化）でも発火させ過少計上を防ぐ。
+  useEffect(() => {
+    logEvent("results_view");
+  }, [keyword]);
 
   const filtered = useMemo(() => {
     const q = keyword.toLowerCase().trim();
@@ -63,7 +73,8 @@ function ResultsContent() {
   }, [allProducts, keyword]);
 
   const sorted = useMemo(() => {
-    const base = hideSold ? filtered.filter((p) => !isSold(p)) : withSoldDummies(filtered);
+    // 「SOLD除外」でも、自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない。ProductCardのsold判定と一致）
+    const base = hideSold ? filtered.filter((p) => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(filtered);
     const arr = sortProducts(base, sortOrder);
     // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
     let ordered: ProfitProduct[];

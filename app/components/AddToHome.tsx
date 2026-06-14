@@ -32,15 +32,36 @@ export default function AddToHome() {
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
     setEnv({ isIOS, isAndroid, inApp, standalone });
-    setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
-    setConsentPending(localStorage.getItem("cookie_consent_v1") === null);
+
+    // localStorage がブロックされる環境（アプリ内WebView/プライベートモード等）でも
+    // effect が途中で throw しないようガード。失敗時はバナーを出せる既定値にフォールバック。
+    const syncConsent = () => {
+      try {
+        setConsentPending(localStorage.getItem("cookie_consent_v1") === null);
+      } catch {
+        setConsentPending(false);
+      }
+    };
+    try {
+      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+    syncConsent();
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferred(e as InstallEvent);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    // Cookie同意を決めた直後（同一タブ）にもバナー表示判定を更新する
+    window.addEventListener("consent-decided", syncConsent);
+    window.addEventListener("storage", syncConsent);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("consent-decided", syncConsent);
+      window.removeEventListener("storage", syncConsent);
+    };
   }, []);
 
   if (!env || dismissed || env.standalone || consentPending) return null;
@@ -71,9 +92,10 @@ export default function AddToHome() {
   const install = async () => {
     if (!deferred) return;
     deferred.prompt();
-    await deferred.userChoice;
+    const choice = (await deferred.userChoice) as { outcome?: string };
     setDeferred(null);
-    close();
+    // 追加を承諾した時だけ恒久 dismiss。キャンセル(dismissed)では閉じず、再訪で再表示できる。
+    if (choice.outcome === "accepted") close();
   };
 
   let title: string;

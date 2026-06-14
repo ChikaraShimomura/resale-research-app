@@ -28,16 +28,23 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad request" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json({ ok: false, error: "bad request" }, { status: 400 });
+  }
 
   const handlingDays = Number(body.handlingDays) > 0 ? Math.floor(Number(body.handlingDays)) : 7;
+  // 送料は数値(>0)のみ受理し、eBay受理形(小数2桁)へ正規化。非数値/全角/空はここで除外。
   const sizes = [
     { key: "Small", value: body.small },
     { key: "Medium", value: body.medium },
     { key: "Large", value: body.large },
-  ].filter((s) => s.value != null && String(s.value).trim() !== "");
+  ]
+    .map((s) => ({ key: s.key, n: Number(String(s.value ?? "").trim()) }))
+    .filter((s) => Number.isFinite(s.n) && s.n > 0)
+    .map((s) => ({ key: s.key, value: s.n.toFixed(2) }));
 
   if (sizes.length === 0) {
-    return Response.json({ ok: false, error: "サイズ別の送料を少なくとも1つ入力してください。" }, { status: 400 });
+    return Response.json({ ok: false, error: "サイズ別の送料を半角数字で1つ以上入力してください。" }, { status: 400 });
   }
 
   const steps: { step: string; ok: boolean; error?: string }[] = [];

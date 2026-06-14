@@ -24,7 +24,9 @@ export default function EbayListingSetup() {
   const [listId, setListId] = useState<string | null>(null);
   useEffect(() => {
     try {
-      setListId(new URLSearchParams(window.location.search).get("list"));
+      // URLの ?list= が OAuth往復で失われても、出品モーダルが書いた sessionStorage から復元する
+      const fromUrl = new URLSearchParams(window.location.search).get("list");
+      setListId(fromUrl ?? sessionStorage.getItem("ebay_list_after"));
     } catch {
       /* noop */
     }
@@ -58,12 +60,13 @@ export default function EbayListingSetup() {
   // 全STEP完了かつ「eBay簡単出品」から来た場合、その商品の出品画面へ自動で戻す。
   useEffect(() => {
     if (!loading && allDone && listId) {
+      try { sessionStorage.removeItem("ebay_list_after"); } catch { /* noop */ }
       router.push(`/product/${encodeURIComponent(listId)}?list=1`);
     }
   }, [loading, allDone, listId, router]);
 
   const steps = [
-    { title: "eBayと連携する", body: <EbayConnect /> },
+    { title: "eBayと連携する", body: <EbayConnect onChange={refresh} /> },
     { title: "送料・支払い・返品を設定（おすすめのままでOK）", body: <EbayPolicySetup onDone={refresh} /> },
     { title: "発送元を登録", body: <EbayLocationSetup onDone={refresh} /> },
   ];

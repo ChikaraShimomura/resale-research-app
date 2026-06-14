@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, AlertTriangle } from "lucide-react";
 
 interface StepResult {
@@ -23,8 +23,24 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
   const [msg, setMsg] = useState("");
+  // 成功後の onDone 遅延発火タイマー。アンマウント/再submitで確実にクリアする。
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+  }, []);
 
   const submit = async () => {
+    // 送料は半角数字(>0)のみ。非数値/全角があれば送信前に弾く（サーバーでも再検証）。
+    const sizeVals = SIZE_FIELDS.map((f) => String(vals[f.key] ?? "").trim()).filter((v) => v !== "");
+    if (sizeVals.length === 0 || sizeVals.some((v) => !(Number(v) > 0))) {
+      setState("error");
+      setMsg("送料は半角数字で1つ以上入力してください（例: 12）。");
+      return;
+    }
+    if (doneTimer.current) {
+      clearTimeout(doneTimer.current);
+      doneTimer.current = null;
+    }
     setState("saving");
     setMsg("");
     setSteps([]);
@@ -44,7 +60,10 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       if (j.ok) {
         setState("done");
         setMsg("送料・支払い・返品の設定を登録しました。");
-        setTimeout(() => onDone?.(), 1200);
+        doneTimer.current = setTimeout(() => {
+          doneTimer.current = null;
+          onDone?.();
+        }, 1200);
       } else {
         setState("error");
         setMsg(j.error || "一部の設定の登録に失敗しました。下の結果を確認してください。");

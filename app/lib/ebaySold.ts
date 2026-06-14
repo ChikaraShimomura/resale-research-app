@@ -15,7 +15,9 @@ export async function fetchSoldIds(): Promise<SoldState> {
   let doSync = true;
   try {
     const last = Number(localStorage.getItem(SYNC_GATE_KEY) || 0);
-    doSync = !Number.isFinite(last) || Date.now() - last > SYNC_INTERVAL_MS;
+    const now = Date.now();
+    // 未来方向の時計ズレ/壊れた値(last>now)でゲートが恒久ロックしないようガード
+    doSync = !Number.isFinite(last) || last > now || now - last > SYNC_INTERVAL_MS;
   } catch {
     /* localStorage不可なら同期する */
   }

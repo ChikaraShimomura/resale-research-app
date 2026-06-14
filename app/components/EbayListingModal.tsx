@@ -53,6 +53,7 @@ interface PublishResult {
   steps?: { step: string; ok: boolean; error?: string }[];
   needsSellerRegistration?: boolean;
   pendingVerification?: boolean;
+  connected?: boolean; // false=連携切れ（再連携が必要）
 }
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "pending" | "error";
@@ -96,7 +97,7 @@ export default function EbayListingModal({
         setPhase("setup");
         return;
       }
-      const p: PrepareData & { ok?: boolean; error?: string } = await fetch("/api/ebay/list/prepare", {
+      const p: PrepareData & { ok?: boolean; error?: string; connected?: boolean } = await fetch("/api/ebay/list/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id }),
@@ -104,6 +105,11 @@ export default function EbayListingModal({
         .then((r) => r.json())
         .catch(() => ({ ok: false }));
       if (!alive) return;
+      // 連携が切れていたら（読み込み中にトークン失効など）再連携へ誘導
+      if (p.connected === false) {
+        setPhase("setup");
+        return;
+      }
       if (!p.ok) {
         setMsg(p.error || "出品準備に失敗しました。");
         setPhase("error");
@@ -176,6 +182,10 @@ export default function EbayListingModal({
     setPhase("publishing");
     setMsg("");
     const res = await postPublish();
+    if (res.connected === false) {
+      setPhase("setup"); // 連携切れ → 再連携へ
+      return;
+    }
     if (res.ok) {
       finishOk(res);
       return;
@@ -195,6 +205,10 @@ export default function EbayListingModal({
     setConfirmErr(false);
     const res = await postPublish();
     setConfirming(false);
+    if (res.connected === false) {
+      setPhase("setup"); // 連携切れ → 再連携へ
+      return;
+    }
     if (res.ok) finishOk(res);
     else {
       setConfirmErr(true);
@@ -210,7 +224,8 @@ export default function EbayListingModal({
       aria-modal="true"
       aria-label="eBay出品"
       className="fixed inset-0 z-[100] bg-black/50 flex items-end sm:items-center justify-center"
-      onClick={onClose}
+      // 出品中・登録確認中は背景タップでの誤クローズを防ぐ（実行中の操作を取りこぼさない）
+      onClick={phase === "publishing" || confirming ? undefined : onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -241,7 +256,11 @@ export default function EbayListingModal({
                 設定画面で順に進めれば、数分で完了します。
               </p>
               <button
-                onClick={() => router.push(`/settings?list=${encodeURIComponent(product.id)}`)}
+                onClick={() => {
+                  // OAuth全ページ往復で ?list= が消えても復元できるよう端末に控える（EbayListingSetupが拾う）
+                  try { sessionStorage.setItem("ebay_list_after", product.id); } catch { /* noop */ }
+                  router.push(`/settings?list=${encodeURIComponent(product.id)}`);
+                }}
                 className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
               >
                 <Settings size={16} /> 設定へ進む
@@ -602,9 +621,12 @@ export default function EbayListingModal({
                 </ul>
               )}
               <div className="flex gap-2">
-                <button onClick={() => { setPhase("form"); setResult(null); }} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-bold text-gray-600">
-                  入力に戻る
-                </button>
+                {/* 入力フォームがある時だけ「入力に戻る」。初回準備の失敗（data無し）では空フォームになるため出さない。 */}
+                {data && (
+                  <button onClick={() => { setPhase("form"); setResult(null); }} className="flex-1 h-11 border border-gray-200 rounded-xl text-sm font-bold text-gray-600">
+                    入力に戻る
+                  </button>
+                )}
                 <button onClick={onClose} className="flex-1 h-11 bg-gray-100 rounded-xl text-sm font-bold text-gray-600">
                   閉じる
                 </button>

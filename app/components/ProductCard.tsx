@@ -1,7 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenAffiliateUrl, toEbayMarketUrl } from "../lib/utils";
 import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
-import Link from "next/link";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -61,13 +60,19 @@ function TrustBadge({ count }: { count: number }) {
   );
 }
 
-export default function ProductCard({ product, ebaySold = false, autoOpenListing = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean }) {
+export default function ProductCard({ product, ebaySold = false, autoOpenListing = false, onFavoriteChange }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean; onFavoriteChange?: (productId: string, isFav: boolean) => void }) {
   const { source } = product;
   const sourceUrl = toRakutenAffiliateUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
   const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, product.realAvgPrice, (product as { market?: string }).market);
-  const { isFav, toggle: toggleFav } = useFavorite(product.id);
+  const { isFav, toggle: rawToggleFav } = useFavorite(product.id);
+  // お気に入りトグル時、親（お気に入り一覧など）へ即時反映できるよう通知する。
+  const toggleFav = () => {
+    const next = !isFav; // rawToggleFav 後の値（このレンダーでは isFav は更新前）
+    rawToggleFav();
+    onFavoriteChange?.(product.id, next);
+  };
   // 出品者数(下書き含む)は /api/products が付与済み。SOLD判定に使う。計上はサーバー側。
   const listingCount = product.listingCount ?? 0;
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -78,7 +83,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
   }, [product.id]);
   const markRakutenClicked = () => {
-    try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
+    // 同一タブの他ページ（検索/結果一覧）にも仕入れ状態の変化を伝える（先頭固定・SOLD除外の再計算用）
+    try { localStorage.setItem(`rkt_${product.id}`, "1"); window.dispatchEvent(new Event("rkt-changed")); } catch { /* noop */ }
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
     logEvent("rakuten_buy");
@@ -197,7 +203,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <ProfitRateBadge rate={product.realProfitRate} />
             </div>
             <p className="text-3xl font-black text-[#BF0000] leading-none whitespace-nowrap">
-              {formatJpy(product.realProfit + pointAmount)}
+              {formatJpy(product.realProfit)}
             </p>
           </div>
 
@@ -268,12 +274,12 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
             <div className="flex justify-between font-black text-[#BF0000] pt-1.5 border-t border-gray-200 text-[13px]">
               <span>実質利益合計</span>
-              <span>{formatJpy(product.realProfit + pointAmount)}</span>
+              <span>{formatJpy(product.realProfit)}</span>
             </div>
             {pointAmount > 0 && (
               <div className="flex justify-between text-[10px] text-gray-400">
                 <span>内訳: 売却益 + ポイント{source.pointRate}%</span>
-                <span>{formatJpy(product.realProfit)} + {pointAmount.toLocaleString()}pt</span>
+                <span>{formatJpy(product.realProfit - pointAmount)} + {pointAmount.toLocaleString()}pt</span>
               </div>
             )}
           </div>

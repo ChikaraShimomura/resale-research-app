@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Check, Landmark, Hand, Clock, Wallet } from "lucide-react";
+import GuideVideo from "../../components/GuideVideo";
+import GuideVideoShorts from "../../components/GuideVideoShorts";
 
 export const metadata = {
   title: "Payoneerから日本の銀行口座へ出金する方法（画像つき） | 輸出ラボ",
   description:
     "eBayの売上はPayoneerに入ります。そこから日本の銀行口座へ出金（引き出し）する方法を、どこを押す・何を入れるか画像つきで一歩ずつ。手数料・着金日数も。",
+  alternates: { canonical: "/guide/payoneer-withdraw" },
 };
 
 function PayoneerLogo() {
@@ -102,6 +105,27 @@ export default function PayoneerWithdrawGuide() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-3">
+        <GuideVideo
+          title="動画で出金の流れをつかむ"
+          src="/videos/payoneer-withdraw-guide.mp4"
+          poster="/videos/payoneer-withdraw-guide-poster.jpg"
+          durationLabel="約1分"
+          note="※ やさしい音声ナレーションつき。手数料・着金日数・名義一致のコツまで、この動画でまとめて確認できます。"
+        />
+        <GuideVideoShorts
+          title="STEPごとに分けて見る（短い動画）"
+          note="必要なステップだけ、サッと確認できます。"
+          shorts={[
+            { label: "お金の流れ・準備", src: "/videos/shorts/payoneer-withdraw-guide-intro.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-intro-poster.jpg", durationLabel: "16秒" },
+            { label: "① ログイン", src: "/videos/shorts/payoneer-withdraw-guide-step1.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step1-poster.jpg", durationLabel: "10秒" },
+            { label: "② 口座登録", src: "/videos/shorts/payoneer-withdraw-guide-step2.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step2-poster.jpg", durationLabel: "13秒" },
+            { label: "③ 引き出しを選ぶ", src: "/videos/shorts/payoneer-withdraw-guide-step3.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step3-poster.jpg", durationLabel: "12秒" },
+            { label: "④ 金額を入力", src: "/videos/shorts/payoneer-withdraw-guide-step4.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step4-poster.jpg", durationLabel: "12秒" },
+            { label: "⑤ 確認して送信", src: "/videos/shorts/payoneer-withdraw-guide-step5.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step5-poster.jpg", durationLabel: "12秒" },
+            { label: "手数料・つまずき", src: "/videos/shorts/payoneer-withdraw-guide-summary.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-summary-poster.jpg", durationLabel: "18秒" },
+          ]}
+        />
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-1.5">
             <Wallet size={18} className="text-[#BF0000]" />

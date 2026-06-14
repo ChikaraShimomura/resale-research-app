@@ -2,8 +2,9 @@ import { kv } from "@vercel/kv";
 import { cookies } from "next/headers";
 import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../lib/ebay/sellApi";
-import { SKU_MAP_KEY } from "../../../lib/ebay/listing";
+import { SKU_MAP_KEY, SKU_MAP_TTL } from "../../../lib/ebay/listing";
 import { recordSold } from "../../../lib/ebay/stats";
+import { FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../../lib/funnel";
 
 // 「自分がeBayで売れた商品」の自動検知。
 // アプリ出品は SKU="rr-{サニタイズ済み商品ID}"。getOrders から売れた注文の SKU を読み、
@@ -59,6 +60,14 @@ export async function POST() {
   if (res.items.length > 0) {
     try {
       const map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
+      // 同期のたびに逆引き表のTTLを再延長（活動があれば実質失効させない）
+      if (Object.keys(map).length > 0) {
+        try {
+          await kv.expire(SKU_MAP_KEY(actor), SKU_MAP_TTL);
+        } catch {
+          /* noop */
+        }
+      }
       for (const it of res.items) {
         const pid = map[it.sku];
         if (!pid) continue;
@@ -72,9 +81,20 @@ export async function POST() {
 
   if (productIds.length > 0) {
     try {
-      // sadd は member を1つ以上要求するため先頭を別引数で渡す（length>0 を確認済み）
-      await kv.sadd(SOLD_KEY(actor), productIds[0], ...productIds.slice(1));
+      // sadd は member を1つ以上要求するため先頭を別引数で渡す（length>0 を確認済み）。
+      // 戻り値＝新規に追加された件数（＝今回はじめて検知した売却）。
+      const added = await kv.sadd(SOLD_KEY(actor), productIds[0], ...productIds.slice(1));
       await kv.expire(SOLD_KEY(actor), TTL_SECONDS);
+      // ファネル計測：新規検知分だけ「売れた」を加算（ポーリングでの二重計上を防ぐ）。
+      if (added > 0) {
+        const date = jstDate();
+        await Promise.all([
+          kv.incrby(evcKey(date, "sold"), added),
+          kv.expire(evcKey(date, "sold"), FUNNEL_TTL),
+          kv.sadd(evuKey(date, "sold"), actor),
+          kv.expire(evuKey(date, "sold"), FUNNEL_TTL),
+        ]);
+      }
     } catch {
       /* noop */
     }

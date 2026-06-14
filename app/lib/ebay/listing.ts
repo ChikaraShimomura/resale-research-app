@@ -12,6 +12,9 @@ export const USD_JPY = 155; // realAvgPrice の換算に使った固定レート
 
 // SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
 export const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
+// 逆引き表のTTL（365日）。長期在庫の出品が売れる前に失効しないよう、出品時に設定し
+// 売却同期のたびに再延長する（skuForProduct は非可逆＝復元不能のため失効＝取りこぼし）。
+export const SKU_MAP_TTL = 365 * 24 * 60 * 60;
 
 // ── 低レベル fetch（詳細エラー抽出つき） ──
 interface EbayError {
@@ -245,8 +248,14 @@ async function upsertOffer(
 ): Promise<string | null> {
   const create = await ebayFetch(token, "POST", `/sell/inventory/v1/offer`, body);
   if (create.ok) {
-    steps.push({ step: "オファー作成", ok: true });
-    return (create.data as { offerId?: string } | null)?.offerId ?? (await findOfferId(token, sku));
+    const id = (create.data as { offerId?: string } | null)?.offerId ?? (await findOfferId(token, sku));
+    if (id) {
+      steps.push({ step: "オファー作成", ok: true });
+      return id;
+    }
+    // 作成は成功したが offerId が取得できない＝以降の公開に進めない。ステップも失敗として記録。
+    steps.push({ step: "オファー作成", ok: false, error: "オファーIDを取得できませんでした" });
+    return null;
   }
   // 既に存在 → 既存offerを更新
   if (/already|exist|duplicate|25002/i.test(create.error ?? "")) {

@@ -54,15 +54,6 @@ export async function countReturnPolicies(token: string, marketplace: string): P
   return r.data?.returnPolicies?.length ?? 0;
 }
 
-// 在庫ロケーション（Inventory API で出品する際の merchantLocationKey の元）。
-export async function countInventoryLocations(token: string): Promise<number> {
-  const r = await ebayGet<{ locations?: unknown[]; total?: number }>(
-    token,
-    `/sell/inventory/v1/location`
-  );
-  return r.data?.locations?.length ?? r.data?.total ?? 0;
-}
-
 // ── アプリ出品の SKU（売却検知の鍵） ──
 // アプリ経由でeBay出品した商品は SKU を "rr-{サニタイズ済み商品ID}" にする。
 // 楽天 itemCode は "shop:code" のようにコロンを含み eBay SKU(英数字+ハイフン+_/50字)で弾かれるため、
@@ -108,14 +99,17 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
   const items: SoldItem[] = [];
   const seen = new Set<string>();
   let offset = 0;
+  let reachedEnd = false;
   for (let pageReq = 0; pageReq < 5; pageReq++) {
     const r = await ebayGet<OrdersResponse>(
       token,
       `/sell/fulfillment/v1/order?limit=200&offset=${offset}`
     );
-    // 401/403 はスコープ未付与（旧トークン）→ 再連携が必要
+    // 401/403：初回ページのみスコープ未付与＝再連携。途中ページは一時失敗とみなし、
+    // 既に拾えた items は温存して partial:true（次回も同期させ取りこぼさない）。
     if (r.status === 401 || r.status === 403) {
-      return { ok: false, needsReconnect: true, partial: true, items: [] };
+      if (pageReq === 0) return { ok: false, needsReconnect: true, partial: true, items: [] };
+      return { ok: false, needsReconnect: false, partial: true, items };
     }
     if (!r.ok || !r.data) {
       // ページ途中での失敗：拾えた分は返すが「全件読めていない(partial)」を立てる。
@@ -135,10 +129,14 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
         }
       }
     }
-    if (orders.length < 200) break; // 最終ページ
+    if (orders.length < 200) {
+      reachedEnd = true;
+      break; // 最終ページまで読み切れた
+    }
     offset += 200;
   }
-  return { ok: true, needsReconnect: false, partial: false, items };
+  // 上限(5ページ=1000注文)に達して打ち切った場合は partial:true（同期未完了として次回も読む）
+  return { ok: true, needsReconnect: false, partial: !reachedEnd, items };
 }
 
 // ── 書き込み系（下書き作成の土台） ──
@@ -191,18 +189,34 @@ export interface ShipFromAddress {
   country: string; // 2文字コード（例: "JP"）
 }
 
-// 既存を削除してから作成（住所更新に対応・冪等）。初回はDELETEが404でも問題なし。
+// まずPOSTで作成し、キー重複(409/already exists)の時だけDELETE→POSTで作り直す。
+// 破壊的なDELETE先行をやめることで、新住所が無効/一時障害でPOSTが落ちても既存ロケーションを壊さない。
 export async function upsertInventoryLocation(
   token: string,
   addr: ShipFromAddress
 ): Promise<EbayWriteResult> {
-  await ebayWrite(token, "DELETE", `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`);
-  return ebayWrite(token, "POST", `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`, {
+  const path = `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`;
+  const payload = {
     location: { address: { ...addr } },
     name: "Japan ship-from",
     merchantLocationStatus: "ENABLED",
     locationTypes: ["WAREHOUSE"],
-  });
+  };
+  const first = await ebayWrite(token, "POST", path, payload);
+  if (first.ok) return first;
+  // 重複以外の失敗は既存を温存して返す（誤って消さない）
+  const isConflict = first.status === 409 || /exist|duplicate|already/i.test(first.error ?? "");
+  if (!isConflict) return first;
+  const del = await ebayWrite(token, "DELETE", path);
+  if (!del.ok && del.status !== 404) return del;
+  return ebayWrite(token, "POST", path, payload);
+}
+
+// publish が要求する固定キー(jp-ship-from)の実在チェック。readiness 判定に使う
+// （任意の1件ではなく、この固定キーが無いと公開が必ず失敗するため）。
+export async function hasShipFromLocation(token: string): Promise<boolean> {
+  const r = await ebayGet<unknown>(token, `/sell/inventory/v1/location/${SHIP_FROM_LOCATION_KEY}`);
+  return r.ok; // 200=存在 / 404=なし。ネット失敗(ok:false)はなし扱い（誤ったOK表示を避ける）
 }
 
 // ── ビジネスポリシーの作成（JSONレスポンスとid/errorを返す） ──
@@ -267,10 +281,13 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
 
 const CATEGORY_TYPES = [{ name: "ALL_EXCLUDING_MOTORS_VEHICLES" }];
 
-// 同名ポリシーが既に存在するエラーは成功扱い（再実行で誤って失敗表示しないため）
+// 同名ポリシーが既に存在するエラーは成功扱い（再実行で誤って失敗表示しないため）。
+// ただし「does not exist」系（本物の作成失敗）は素通りさせない（"exist" の過剰一致を防ぐ）。
 function okIfExists(r: EbayPostResult): EbayPostResult {
   if (r.ok) return r;
-  if (/already|exist|duplicate/i.test(r.error ?? "")) return { ok: true, status: r.status };
+  const msg = r.error ?? "";
+  if (/does not exist|non-?existent/i.test(msg)) return r;
+  if (/already|duplicate/i.test(msg)) return { ok: true, status: r.status };
   return r;
 }
 
@@ -317,8 +334,7 @@ export async function createFlatIntlFulfillmentPolicy(
   shippingCostUsd: string,
   handlingDays: number
 ): Promise<EbayPostResult> {
-  return okIfExists(
-    await ebayPost(token, "/sell/account/v1/fulfillment_policy", {
+  const body = {
     name,
     marketplaceId: marketplace,
     categoryTypes: CATEGORY_TYPES,
@@ -350,6 +366,18 @@ export async function createFlatIntlFulfillmentPolicy(
         ],
       },
     ],
-    })
+  };
+  const post = await ebayPost(token, "/sell/account/v1/fulfillment_policy", body);
+  if (post.ok) return post;
+  // 配送ポリシー名はサイズ固定のため再実行で同名衝突する。送料・発送日数は変わり得るので
+  // 「重複なら更新(PUT)」する。okIfExists で握りつぶすと送料変更が無音で無効化されてしまう。
+  if (!/already|exist|duplicate/i.test(post.error ?? "")) return post;
+  const list = await ebayGet<{ fulfillmentPolicies?: { fulfillmentPolicyId?: string; name?: string }[] }>(
+    token,
+    `/sell/account/v1/fulfillment_policy?marketplace_id=${marketplace}`
   );
+  const id = list.data?.fulfillmentPolicies?.find((p) => p.name === name)?.fulfillmentPolicyId;
+  if (!id) return post; // 既存IDを特定できなければ元のエラーを返す
+  const put = await ebayWrite(token, "PUT", `/sell/account/v1/fulfillment_policy/${id}`, body);
+  return put.ok ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
 }

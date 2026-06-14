@@ -35,6 +35,17 @@ export default function SearchPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // 仕入れ/出品の状態変化（同一タブ=rkt-changed、別タブ=storage）で先頭固定・件数を再計算
+  useEffect(() => {
+    const refresh = () => setUnlockedIds(readUnlockedIds());
+    window.addEventListener("rkt-changed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("rkt-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
   const dismissBanner = () => {
     localStorage.setItem("spu_banner_dismissed", "1");
     setBannerDismissed(true);
@@ -45,10 +56,13 @@ export default function SearchPage() {
     : null;
 
   const hotCount = products.filter(p => p.realProfitRate >= 30).length;
-  // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在
-  const baseList = hideSold ? products.filter(p => !isSold(p)) : withSoldDummies(products);
+  // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在。
+  // 「SOLD除外」でも自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない）。
+  const baseList = hideSold ? products.filter(p => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(products);
   // 「楽天で仕入れる」を押した商品（eBay簡単出品アクティブ）を先頭に固定
   const sortedProducts = pinUnlockedFirst(sortProducts(baseList, sortOrder), unlockedIds);
+  // ヘッダー件数は実表示数に合わせる（SOLD除外時の過大表示を防ぐ）
+  const visibleCount = hideSold ? baseList.length : products.length;
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
   const [page, setPage] = useState(1);
@@ -119,7 +133,7 @@ export default function SearchPage() {
               <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
             ) : (
               <p className="text-xs text-gray-500">
-                <span className="font-black text-[#BF0000] text-base">{products.length}</span>
+                <span className="font-black text-[#BF0000] text-base">{visibleCount}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
                   <span className="ml-2 text-[13px] text-[#FF4466] font-bold inline-flex items-center gap-1"><Flame size={13} />{hotCount}件が利益30%超</span>

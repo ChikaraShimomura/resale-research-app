@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface AddrJa { prefecture: string; city: string; town: string }
 interface AddrEn { stateOrProvince: string; city: string; town: string }
@@ -12,13 +12,16 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   const [lookupMsg, setLookupMsg] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
+  // 入力ごとに進める世代番号。最新リクエストの応答だけを反映し、順序前後/古い応答の混入を防ぐ。
+  const lookupGen = useRef(0);
 
   const onZip = (v: string) => {
     setZip(v);
     setState("idle");
     setMsg("");
     const digits = v.replace(/[^0-9]/g, "");
-    if (digits.length === 7) lookup(digits);
+    const gen = ++lookupGen.current; // 入力のたび世代を進める＝in-flight の旧 lookup を無効化
+    if (digits.length === 7) lookup(digits, gen);
     else {
       setJa(null);
       setEn(null);
@@ -26,10 +29,11 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
     }
   };
 
-  const lookup = async (digits: string) => {
+  const lookup = async (digits: string, gen: number) => {
     setLookupMsg("住所を検索中...");
     try {
       const r = await fetch(`/api/postal-lookup?zip=${digits}`, { cache: "no-store" }).then((x) => x.json());
+      if (gen !== lookupGen.current) return; // 古い応答は破棄（zipとenの不一致を防ぐ）
       if (r.ok) {
         setJa(r.ja);
         setEn(r.en);
@@ -40,6 +44,10 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         setLookupMsg(r.error || "住所が見つかりませんでした");
       }
     } catch {
+      if (gen !== lookupGen.current) return;
+      // 失敗時も住所をクリア（古いenが残って新zipと食い違うのを防ぐ）
+      setJa(null);
+      setEn(null);
       setLookupMsg("住所検索に失敗しました");
     }
   };

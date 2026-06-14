@@ -65,6 +65,7 @@ export default function AddressConverter() {
     const id = ++reqId.current;
     setLoading(true);
     setLookupMsg("");
+    setCopyErr(false); // 住所を引き直したら、前のコピー失敗表示はリセット
     try {
       const r = await fetch(`/api/postal-lookup?zip=${digits}`, { cache: "no-store" }).then((x) => x.json());
       if (id !== reqId.current) return; // 古い応答は破棄
@@ -196,7 +197,7 @@ export default function AddressConverter() {
           <input
             type="text"
             value={addr}
-            onChange={(e) => setAddr(e.target.value)}
+            onChange={(e) => { setAddr(e.target.value); setCopyErr(false); }}
             placeholder="例: 1-2-3 ○○マンション101"
             className="w-full h-11 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
           />

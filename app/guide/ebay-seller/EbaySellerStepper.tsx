@@ -182,6 +182,39 @@ function MailCard({
   );
 }
 
+// Payoneerアプリの導入カード（本人確認書類の撮影アップロードがスムーズになる）
+function PayoneerAppInstall() {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-3">
+      <p className="text-[12px] font-bold text-gray-800 flex items-center gap-1.5 mb-2">
+        <Smartphone size={15} className="text-[#BF0000] shrink-0" />
+        Payoneerアプリを入れておく（書類の提出がかんたん）
+      </p>
+      <div className="flex gap-2">
+        <a
+          href="https://apps.apple.com/jp/app/payoneer/id663338402"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 inline-flex items-center justify-center h-10 rounded-xl bg-gray-900 text-white text-[12px] font-bold active:opacity-80"
+        >
+          App Store（iPhone）
+        </a>
+        <a
+          href="https://play.google.com/store/apps/details?id=com.payoneer.android"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 inline-flex items-center justify-center h-10 rounded-xl bg-gray-900 text-white text-[12px] font-bold active:opacity-80"
+        >
+          Google Play（Android）
+        </a>
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1.5 leading-snug">
+        App Store / Google Play で「Payoneer」と検索しても入れられます。書類はアプリのカメラでその場で撮ってアップロードできます。
+      </p>
+    </div>
+  );
+}
+
 /* ── STEPの中身（各STEPの本文） ── */
 
 function Step1Body() {
@@ -228,31 +261,36 @@ function Step1Body() {
         画面いちばん上の「Sell（出品）」を押すと出品ページが開きます。続けて青い「Sell now（セルナウ＝今すぐ出品）」を押し、出品を始めます。
       </p>
 
-      {/* ③ 商品名で検索 */}
-      <p className="text-[12px] font-bold text-gray-700">③ 商品名で検索して、いちばん近い候補を選ぶ</p>
+      {/* ③ 何か選んで進むだけ（商品は“テスト”でOK） */}
+      <p className="text-[12px] font-bold text-gray-700">③ 何か選んで進むだけ（商品は“テスト”でOK）</p>
       <Phone>
         <Screen logo={<EbayLogo />}>
-          <p className="text-[12px] font-bold text-gray-800">What are you selling?</p>
+          <p className="text-[12px] font-bold text-gray-800">出品の入口（セラー登録のためだけ）</p>
           <div className="h-9 px-3 flex items-center gap-2 rounded-lg border border-gray-200 text-[12px] text-gray-700">
             <Search size={14} className="text-gray-400 shrink-0" />
-            <span>商品名を入力</span>
+            <span>商品名は何でもOK</span>
+          </div>
+          <p className="text-[11px] text-[#0064D2] font-bold">
+            候補が出たらどれか1つ／無ければ「一致なしで続行」
+          </p>
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-gray-200 text-[11.5px] text-gray-600">
+            <span>コンディション（状態）</span>
+            <span className="font-bold text-gray-700">適当に選ぶ</span>
           </div>
           <Tap>
-            <span className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-gray-700">
-              <span className="w-7 h-7 rounded bg-gray-100 shrink-0" />
-              いちばん近い候補をタップ
+            <span className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-[12px] text-emerald-700">
+              タイトル等の必須項目は「テスト」
+              <Check size={13} className="ml-auto shrink-0 text-emerald-500" />
             </span>
           </Tap>
-          <p className="text-[11px] text-[#0064D2] font-bold underline underline-offset-2">
-            一致なしで続行（Continue without a match）→
-          </p>
+          <BlueBtn>Continue（続ける）</BlueBtn>
         </Screen>
       </Phone>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        検索ボックスに商品名を入れて検索し、いちばん近い候補をタップします。ピッタリが無ければ「一致なしで続行（Continue＝コンティニュー／つづける）」でOKです。
+        この画面は<b>「出品」ではなく、セラー登録に進むための入口</b>です。だから商品は<b>何でもOK</b>。検索して候補が出たらどれか1つ選び（無ければ「一致なしで続行」）、状態（コンディション）も<b>適当に選んで</b>かまいません。
       </p>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        商品を選ぶと、状態（中古など）や写真・価格を聞かれる画面が出ることがあります。ここは登録のための“きっかけ”なので、深く考えず案内のまま進めてください。やがて「Set up your selling account（セラー登録）」の画面になります。
+        続けてタイトルなどの<b>必須項目を求められたら、すべて「テスト」</b>と入れて進めて大丈夫です。写真や価格も適当でOK。やがて「Set up your selling account（セラー登録）」の画面になります。
       </p>
 
       {/* ④ Get started */}
@@ -277,7 +315,7 @@ function Step1Body() {
       </p>
 
       <Warn>
-        ここで選ぶ商品は“登録を進めるための仮の入口”です。このまま実際に売られることはありません（あとで破棄してOK）。本当の出品は、登録が全部終わってから、アプリ（輸出ラボ）の「eBay簡単出品」が写真だけで自動で行います。ここは似た商品を“なんとなく”選ぶだけで大丈夫です。
+        ここで作るものは“セラー登録に進むための仮の入口”で、<b>このまま公開・販売されることはありません</b>（あとで下書きを破棄してOK）。だから<b>商品・状態・タイトルは「テスト」など適当で大丈夫</b>。本当の出品は登録が全部終わってから、アプリ（輸出ラボ）の「eBay簡単出品」が写真だけで自動で行います。
       </Warn>
       <Tip>上のメニューに「Sell」が見当たらない時は、右上の「☰（三本線）」を押すと中に入っています。</Tip>
       <p className="text-[12px] text-[#BF0000] font-bold leading-relaxed">
@@ -297,7 +335,7 @@ function Step2Body() {
         Payoneer（ペイオニア）は、eBayの売上を受け取る口座です。ここが一番つまずきやすいところです。落ち着いて1つずつ進めましょう。
       </p>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        ここから先は、画面が「次へ」で1枚ずつ進みます（②種別→③連絡先→④本人確認→⑤口座→⑥完了の順）。下に出てくる画面は“順番に出てくる別々のページ”です。1つ終わったら「次へ」で次の画面に進んでください。
+        ここから先は、画面が「次へ」で1枚ずつ進みます（②種別→③連絡先→④口座→⑤完了の順）。下に出てくる画面は“順番に出てくる別々のページ”です。1つ終わったら「次へ」で次の画面に進んでください。<b>本人確認（書類の提出）は、この登録のあとにPayoneerからメールで案内が来ます</b>（後述の⑥）。
       </p>
 
       {/* ① 新規登録 */}
@@ -379,27 +417,8 @@ function Step2Body() {
         </p>
       </div>
 
-      {/* ④ 本人確認 */}
-      <p className="text-[12px] font-bold text-gray-700">④ 本人確認（KYC）＝書類番号の入力か、撮影アップロード</p>
-      <Phone>
-        <Screen logo={<PayoneerLogo />}>
-          <Field label="本人確認書類の種類" value="免許証 / マイナンバー / パスポート" />
-          <Field label="書類番号" value="番号を入力" />
-          <p className="text-[11px] text-gray-500 flex items-center gap-1">
-            <Camera size={13} className="text-gray-400 shrink-0" />
-            環境によっては書類の撮影アップロードを求められます
-          </p>
-        </Screen>
-      </Phone>
-      <p className="text-[12px] text-gray-600 leading-relaxed">
-        本人確認（KYC）とは、Payoneerが「本人かどうか」を確かめる手続きです。書類番号を入れるか、案内に従って書類を撮影してアップロードします。
-      </p>
-      <p className="text-[12px] text-gray-600 leading-relaxed">
-        撮影を求められたら、明るい場所で、書類の四隅が全部写るように、文字がはっきり読めるよう撮ります。光が反射して文字が白く飛ばないよう注意。免許証は表・裏の両方を求められることがあります。ピンボケや暗いと再提出になるので、落ち着いて撮り直してOKです。
-      </p>
-
-      {/* ⑤ 受け取り銀行口座 */}
-      <p className="text-[12px] font-bold text-gray-700">⑤ 受け取り銀行口座を登録（本人名義・ローマ字一致）</p>
+      {/* ④ 受け取り銀行口座 */}
+      <p className="text-[12px] font-bold text-gray-700">④ 受け取り銀行口座を登録（本人名義・ローマ字一致）</p>
       <Phone>
         <Screen logo={<PayoneerLogo />}>
           <Field label="銀行名 / Bank" value="〇〇銀行" />
@@ -414,8 +433,8 @@ function Step2Body() {
         銀行によっては「支店コード（3桁の数字）」や「SWIFT（スイフト）コード」を聞かれます。SWIFTコードは銀行ごとに決まった英数字8〜11桁の記号で、各銀行の公式サイトで「（銀行名）SWIFTコード」と検索すると出てきます。通帳やキャッシュカードには載っていないので、事前に調べてメモしておくと安心です。
       </p>
 
-      {/* ⑥ 申請完了 */}
-      <p className="text-[12px] font-bold text-gray-700">⑥ 「おめでとうございます」＝申請完了</p>
+      {/* ⑤ 申請完了 */}
+      <p className="text-[12px] font-bold text-gray-700">⑤ 「おめでとうございます」＝申請完了</p>
       <Phone>
         <Screen logo={<PayoneerLogo />}>
           <p className="text-[13px] font-black text-[#1e9bff]">🎉 おめでとうございます！</p>
@@ -425,8 +444,27 @@ function Step2Body() {
       <p className="text-[12px] text-gray-600 leading-relaxed">
         この画面のあと、自動でeBayの登録画面に戻ります（「eBayに戻る／Return to eBay」のようなボタンが出たら、それを押してください）。戻ったら次のSTEP3に進みます。
       </p>
+
+      {/* ⑥ 本人確認(KYC)の書類提出メール（登録のあとに届く） */}
+      <p className="text-[12px] font-bold text-gray-700">⑥ 本人確認（KYC）の書類提出メールが届く → 提出すると 0〜3日で承認</p>
+      <MailCard
+        from={<PayoneerLogo />}
+        subject="（例）本人確認書類のご提出のお願い"
+        body="申請のあと、Payoneer（ペイオニア）から「本人確認の書類を提出してください」というメールが届きます。メール内の案内（ボタン／リンク）から、身分証などの書類を提出します。登録画面でその場で求められず、あとからメールで来るのがふつうです。"
+        link="書類を提出する / Verify your identity"
+      />
+      <p className="text-[12px] text-gray-600 leading-relaxed">
+        書類の提出は <b>Payoneerアプリ</b> を使うとスムーズです（その場でカメラ撮影してアップロードできます）。下から入れておきましょう。
+      </p>
+      <PayoneerAppInstall />
+      <p className="text-[12px] text-gray-600 leading-relaxed flex items-start gap-1.5">
+        <Camera size={14} className="text-gray-400 shrink-0 mt-0.5" />
+        撮影のコツ：明るい場所で、書類の四隅が全部写るように、文字がはっきり読めるように。光の反射で文字が白飛びしないよう注意。免許証は表・裏の両方を求められることがあります。ピンボケや暗いと再提出になるので、落ち着いて撮り直してOKです。
+      </p>
       <Warn>
-        これは「Payoneer（ペイオニア）へ申請できた」という段階です。実際に出品できるのは、もう少し先（STEP4で届くメールのあと）です。途中でPayoneerから「有効化」や「承認」のメールが届くことがありますが、それだけではまだ出品できません。あせらず待ちましょう。
+        提出すると審査が始まり、<b>早ければ当日、長くても0〜3日ほど</b>で承認されます。承認されると、いよいよ出品できます（STEP4）。
+        <br />
+        ※承認の前に「有効化」「承認」など別のメールが届くことがありますが、出品できるのは<b>本人確認（KYC）が完了</b>してからです。あせらず待ちましょう。
       </Warn>
       <p className="text-[12px] text-[#BF0000] font-bold leading-relaxed">
         → ここまでできたら、下の赤いボタン「できた・次へ進む」を押してください。
@@ -502,7 +540,7 @@ function Step4Body() {
       <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
         <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
         <p className="text-[12px] text-blue-800 leading-relaxed">
-          Payoneer（ペイオニア）が本人確認（KYC）を審査します。早ければ数分、長いと数日かかります。完了すると、Payoneerからメールが届きます。この間、何度も画面を確認したり、アプリを開きっぱなしにする必要はありません。スマホを閉じて、ふだんどおり過ごして大丈夫です。準備ができるとPayoneerからメールで知らせが来るので、それまで待つだけでOKです。
+          STEP2で本人確認の書類を提出したら、あとはPayoneer（ペイオニア）の審査を待つだけです。早ければ当日、長くても0〜3日ほどで完了し、Payoneerからメールが届きます。この間、何度も画面を確認したり、アプリを開きっぱなしにする必要はありません。スマホを閉じて、ふだんどおり過ごして大丈夫です。準備ができるとPayoneerからメールで知らせが来るので、それまで待つだけでOKです。
         </p>
       </div>
 
@@ -562,7 +600,7 @@ const STEPS: StepDef[] = [
   },
   {
     title: "Payoneer（売上の受け取り口座）に登録",
-    summary: "個人で登録 → 連絡先・本人確認・口座を入力 → 申請完了",
+    summary: "個人で登録 → 連絡先・口座を入力 → 申請 → メールで本人確認書類を提出",
     body: <Step2Body />,
   },
   {
@@ -621,7 +659,9 @@ export default function EbaySellerStepper() {
   // 全STEP完了（current が範囲外＝最後の「次へ」を押した状態）
   const allDone = current >= TOTAL;
   const progressCount = Math.min(current, TOTAL);
-  const progressPct = Math.round((progressCount / TOTAL) * 100);
+  // 表示中のステップ番号（完了時はTOTAL）。進捗バーと「N/TOTAL」表記を常に一致させる。
+  const displayStep = Math.min(progressCount + (allDone ? 0 : 1), TOTAL);
+  const progressPct = Math.round((displayStep / TOTAL) * 100);
 
   return (
     <div className="space-y-3">
@@ -678,7 +718,7 @@ export default function EbaySellerStepper() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <p className="text-[12.5px] font-black text-gray-800">
-            ステップ {Math.min(progressCount + (allDone ? 0 : 1), TOTAL)} / {TOTAL}
+            ステップ {displayStep} / {TOTAL}
             {allDone && <span className="ml-1 text-emerald-600">（完了！）</span>}
           </p>
           <button

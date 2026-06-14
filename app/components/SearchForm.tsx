@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { logEvent } from "../lib/analytics";
 
 export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: string }) {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!keyword.trim()) return;
+    logEvent("search"); // 検索実行（ファネル計測）
     router.push(`/results?q=${encodeURIComponent(keyword)}`);
   }
 

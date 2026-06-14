@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { kvReadOnly } from "../../../../lib/kv";
 import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
-import { createAndPublish, SKU_MAP_KEY } from "../../../../lib/ebay/listing";
+import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { recordListed } from "../../../../lib/ebay/stats";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
   if (result.ok) {
     try {
       await kv.hset(SKU_MAP_KEY(actor), { [skuForProduct(product.id)]: product.id });
-      await kv.expire(SKU_MAP_KEY(actor), 180 * 24 * 60 * 60);
+      await kv.expire(SKU_MAP_KEY(actor), SKU_MAP_TTL);
     } catch {
       /* noop */
     }

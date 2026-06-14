@@ -5,6 +5,10 @@ import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
 
+export const metadata = {
+  alternates: { canonical: "/" },
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">

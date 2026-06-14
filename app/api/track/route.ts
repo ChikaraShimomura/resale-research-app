@@ -1,26 +1,15 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { cookies, headers } from "next/headers";
+import { FUNNEL_EVENTS, FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../lib/funnel";
 
 // 行動ログ（離脱分析用）。ファネルの各イベントを「日次」で集計する。
-// evc:{JST日付}:{event} = 回数(INCR)、evu:{JST日付}:{event} = ユニーク端末数(SADD rr_did)。
+// キー設計とイベント定義は app/lib/funnel.ts に一元化（/api/report/daily と共有）。
 // 個人を特定する生ログは保存しない（端末cookieのみ）。100日で自動失効。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 受け付けるイベント名（タイポ・濫用での無限キー生成を防ぐallowlist）
-export const FUNNEL_EVENTS = [
-  "visit",
-  "search",
-  "results_view",
-  "product_view",
-  "rakuten_buy",
-  "listing_open",
-  "listed",
-  "sold",
-] as const;
 const ALLOWED = new Set<string>(FUNNEL_EVENTS);
-const TTL = 100 * 24 * 60 * 60;
 
 const rl = new Ratelimit({
   redis: kv,
@@ -31,11 +20,6 @@ const rl = new Ratelimit({
 
 function clientIp(h: Headers): string {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "0.0.0.0";
-}
-
-// 集計の日付キーは日本時間（ユーザーは日本在住・レポートもJST基準）。
-function jstDate(): string {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
 export async function POST(req: Request) {
@@ -60,10 +44,10 @@ export async function POST(req: Request) {
   const actor = (await cookies()).get("rr_did")?.value || "anon";
   try {
     await Promise.all([
-      kv.incr(`evc:${date}:${event}`),
-      kv.expire(`evc:${date}:${event}`, TTL),
-      kv.sadd(`evu:${date}:${event}`, actor),
-      kv.expire(`evu:${date}:${event}`, TTL),
+      kv.incr(evcKey(date, event)),
+      kv.expire(evcKey(date, event), FUNNEL_TTL),
+      kv.sadd(evuKey(date, event), actor),
+      kv.expire(evuKey(date, event), FUNNEL_TTL),
     ]);
   } catch {
     /* 集計失敗は黙って捨てる（ユーザー体験を妨げない） */
