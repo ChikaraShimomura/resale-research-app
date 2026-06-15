@@ -326,6 +326,58 @@ async function setPolicyHandlingTime(
   return { ok: put.ok, error: put.error };
 }
 
+// ── 状態(condition)をカテゴリ対応に補正 ──
+// eBayはカテゴリごとに使える conditionId が異なり、NEW(1000)を受けないカテゴリだと publish時に
+// #25021「condition id is invalid for the category」で落ちる。カテゴリの許可conditionを取得して送る状態を補正する。
+const ENUM_TO_CONDID: Record<string, string> = {
+  NEW: "1000", LIKE_NEW: "2750", NEW_OTHER: "1500", NEW_WITH_DEFECTS: "1750",
+  USED_EXCELLENT: "3000", USED_VERY_GOOD: "4000", USED_GOOD: "5000",
+  USED_ACCEPTABLE: "6000", FOR_PARTS_OR_NOT_WORKING: "7000",
+};
+const CONDID_TO_ENUM: Record<string, string> = Object.fromEntries(
+  Object.entries(ENUM_TO_CONDID).map(([k, v]) => [v, k])
+);
+
+async function allowedConditionIds(token: string, categoryId: string): Promise<Set<string> | null> {
+  if (!categoryId) return null;
+  const filter = encodeURIComponent(`categoryIds:{${categoryId}}`);
+  const r = await ebayFetch(
+    token,
+    "GET",
+    `/sell/metadata/v1/marketplace/${MARKETPLACE}/get_item_condition_policies?filter=${filter}`
+  );
+  if (!r.ok || !r.data) return null;
+  const pol = (
+    r.data as { itemConditionPolicies?: { itemConditions?: { conditionId?: string }[] }[] }
+  ).itemConditionPolicies?.[0];
+  const ids = (pol?.itemConditions ?? []).map((c) => String(c.conditionId)).filter(Boolean);
+  return ids.length ? new Set(ids) : null;
+}
+
+// 希望状態がカテゴリで使えればそのまま、ダメなら近い許可状態へ寄せる。新品系↔中古系の取り違えも避ける。
+function pickCondition(allowed: Set<string>, desiredEnum: string): string {
+  const desiredId = ENUM_TO_CONDID[desiredEnum];
+  if (desiredId && allowed.has(desiredId)) return desiredEnum;
+  const isNewFamily = ["1000", "1500", "1750", "2750"].includes(desiredId ?? "");
+  const order = isNewFamily
+    ? ["1000", "1500", "1750", "2750", "3000", "4000", "5000", "6000"]
+    : ["3000", "4000", "5000", "6000", "2750", "1500", "1000"];
+  for (const id of order) if (allowed.has(id)) return CONDID_TO_ENUM[id];
+  const first = [...allowed][0];
+  return CONDID_TO_ENUM[first] ?? desiredEnum;
+}
+
+// 取得失敗時は無補正（fail-open＝従来動作）。これにより本修正で状況が悪化することはない。
+async function resolveCondition(token: string, categoryId: string, desiredEnum: string): Promise<string> {
+  try {
+    const allowed = await allowedConditionIds(token, categoryId);
+    if (!allowed || allowed.size === 0) return desiredEnum;
+    return pickCondition(allowed, desiredEnum);
+  } catch {
+    return desiredEnum;
+  }
+}
+
 export async function createAndPublish(token: string, input: PublishInput): Promise<PublishResult> {
   const sku = skuForProduct(input.productId);
   const steps: StepResult[] = [];
@@ -344,10 +396,16 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     .map((l) => (/^\s*(【|Q\.)/.test(l) ? `<b>${l}</b>` : l))
     .join("<br>");
 
+  // 状態をカテゴリが受け付ける値に補正（NEW非対応カテゴリでの #25021 を防ぐ。取得失敗時は無補正）。
+  const condEnum = await resolveCondition(token, input.categoryId, input.condition);
+  if (condEnum !== input.condition) {
+    steps.push({ step: `状態をカテゴリ対応に補正（${input.condition}→${condEnum}）`, ok: true });
+  }
+
   // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
   const itemBody = {
     availability: { shipToLocationAvailability: { quantity: qty } },
-    condition: input.condition,
+    condition: condEnum,
     product: {
       title: input.title.slice(0, 80),
       description: descHtml,
