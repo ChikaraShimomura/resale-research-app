@@ -18,7 +18,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/search`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE_URL}/results`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${SITE_URL}/guide`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
-    { url: `${SITE_URL}/guide/ebay-seller`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/guide/payoneer-withdraw`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/pricing`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
@@ -37,38 +37,15 @@ export default function EbayListingSetup() {
     }
   }, []);
 
-  // 3STEP(連携・ポリシー・発送元)が「今このセッションで」全部完了した瞬間を検知するための前回値。
-  // 初回ロード時は null → 既に完了済みで来た再訪では自動遷移しない（迷子防止）。
-  const wasAllDone = useRef<boolean | null>(null);
-
   const refresh = useCallback(() => {
     fetch("/api/ebay/listing-readiness", { cache: "no-store" })
       .then((x) => x.json())
       .then((d: Readiness) => {
         setR(d);
         setOverride(null); // 登録完了で自動的に次のSTEPへ
-        // 発送元(STEP3)まで完了して3つ揃った瞬間だけ、セラー登録ガイドへ自動で進める。
-        const nowAllDone =
-          !!d.connected &&
-          (d.fulfillmentPolicies ?? 0) > 0 && (d.paymentPolicies ?? 0) > 0 && (d.returnPolicies ?? 0) > 0 &&
-          (d.locations ?? 0) > 0;
-        if (wasAllDone.current === false && nowAllDone) {
-          router.push("/guide/ebay-seller");
-        }
-        wasAllDone.current = nowAllDone;
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [router]);
-
-  // テスト用: /settings?testflow=1 で開くと、既に完了済みでも「今完了した」扱いにして
-  // セラー登録への自動遷移を再現できる（eBayの設定は一切変更しない）。確認後に削除可。
-  useEffect(() => {
-    try {
-      if (new URLSearchParams(window.location.search).has("testflow")) {
-        wasAllDone.current = false;
-      }
-    } catch { /* noop */ }
   }, []);
 
   useEffect(() => {
@@ -125,13 +102,17 @@ export default function EbayListingSetup() {
           </p>
           <button
             type="button"
-            onClick={() => router.push("/guide/ebay-seller")}
+            onClick={() => {
+              // eBay公式のセラー登録を別ウィンドウで開く（アプリは開いたまま→戻って出品できる）
+              const w = window.open("https://www.ebay.com/sl/sell", "ebaySellerRegister", "width=920,height=840");
+              if (w) w.opener = null; // 逆タブナビング対策
+            }}
             className="w-full h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]"
           >
-            セラー登録に進む →
+            eBayでセラー登録する（公式）→
           </button>
           <p className="text-[11px] text-emerald-800 leading-relaxed">
-            <b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り）</b>が必要です。画像つきガイドの通りに進めればOK。登録が済んだら出品できます。
+            <b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り）</b>が必要です。eBay公式で登録・本人確認を済ませると出品できます。
           </p>
           <button
             type="button"

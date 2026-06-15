@@ -31,9 +31,9 @@ const STEPS: Step[] = [
     num: "2",
     Icon: Globe,
     title: "eBayアカウントを作成する",
-    desc: "eBayで売上を受け取るためのセラー登録（初回だけ）。Payoneer連携と本人確認まで、画像つきガイドの通りに進めればOKです。",
-    tips: ["登録は初回の1回だけ", "売上の受け取りはPayoneer（本人確認あり）", "迷わないよう画像つきガイドを用意"],
-    link: { label: "登録のやり方（画像つき）を見る", href: "/guide/ebay-seller" },
+    desc: "eBayで売上を受け取るためのセラー登録（初回だけ）。Payoneer連携と本人確認まで、eBay公式の案内に沿って進めます。",
+    tips: ["登録は初回の1回だけ", "売上の受け取りはPayoneer（本人確認あり）", "手順はeBay公式が最新。アプリは出品を自動化します"],
+    link: { label: "eBayでセラー登録する（公式）", href: "https://www.ebay.com/sl/sell", external: true },
   },
   {
     num: "3",

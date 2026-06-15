@@ -33,10 +33,10 @@ const payoPoints: Pt[] = [
 ];
 
 function Card({
-  accent, HeadIcon, name, role, tagline, points, href, linked,
+  accent, HeadIcon, name, role, tagline, points, href, linked, external,
 }: {
   accent: string; HeadIcon: LucideIcon; name: string; role?: string; tagline: string;
-  points: Pt[]; href: string; linked: boolean;
+  points: Pt[]; href: string; linked: boolean; external?: boolean;
 }) {
   const body = (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 h-full">
@@ -65,9 +65,12 @@ function Card({
       </ul>
     </div>
   );
-  return linked ? (
+  if (!linked) return body;
+  return external ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.99] transition-transform">{body}</a>
+  ) : (
     <Link href={href} className="block active:scale-[0.99] transition-transform">{body}</Link>
-  ) : body;
+  );
 }
 
 export default function TrustBadges({ withRakuten = false, linked = false }: { withRakuten?: boolean; linked?: boolean } = {}) {
@@ -91,7 +94,7 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
         {withRakuten && (
           <Card accent={RAKU} HeadIcon={ShoppingBag} name="楽天" role="仕入れ" tagline="日本最大級のネット通販モール" points={rakuPoints} href="/guide/rakuten" linked={linked} />
         )}
-        <Card accent={EBAY} HeadIcon={Globe} name="eBay" role={withRakuten ? "販売" : undefined} tagline="世界最大級のフリマサイト" points={ebayPoints} href="/guide/ebay-seller" linked={linked} />
+        <Card accent={EBAY} HeadIcon={Globe} name="eBay" role={withRakuten ? "販売" : undefined} tagline="世界最大級のフリマサイト" points={ebayPoints} href="https://www.ebay.com/sl/sell" linked={linked} external />
         <Card accent={PAYO} HeadIcon={Landmark} name="Payoneer" role={withRakuten ? "受け取り" : undefined} tagline="世界の入金・受け取りサービス" points={payoPoints} href="/guide/payoneer-withdraw" linked={linked} />
       </div>
 

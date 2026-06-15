@@ -291,6 +291,7 @@ export interface PublishResult {
   error?: string;
   needsSellerRegistration?: boolean; // 下書きは保存済み・セラー登録だけ未完で公開できなかった
   pendingVerification?: boolean; // 登録済みだが本人確認(KYC)の完了待ちで公開できない
+  accountUnusable?: boolean; // アカウントが出品できる状態にない（制限/一時停止/出品権限なし 等）
 }
 
 async function findOfferId(token: string, sku: string): Promise<string | null> {
@@ -496,10 +497,21 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     !pub.ok &&
     !pendingVerify &&
     /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|register to sell/i.test(pub.error ?? "");
+  // ③ アカウントが出品できる状態にない（制限/一時停止/出品権限の停止 等）。bug ではないので
+  //    「開発者に報告」ではなく、利用者向けの落ち着いた注意書きへ回す。
+  const accountUnusable =
+    !pub.ok &&
+    !pendingVerify &&
+    !needsReg &&
+    /suspended|restricted|account.*(hold|holds|blocked|disabled|not eligible|ineligible|limited|inactive)|not (allowed|permitted) to (list|sell)|cannot (list|sell)|selling.*(restricted|blocked|limited|not allowed)/i.test(
+      pub.error ?? ""
+    );
   const friendly = pendingVerify
     ? "アカウントの最終確認（本人確認）の完了待ちです。確認が取れると数日以内にメールが届きます。"
     : needsReg
     ? "セラー登録（売上の受け取り設定）がまだ完了していません。"
+    : accountUnusable
+    ? "現在、このeBayアカウントでは出品できない状態です（制限中、または確認中の可能性があります）。"
     : pub.error;
   steps.push({ step: "eBayに公開", ok: pub.ok, error: pub.ok ? undefined : friendly });
   if (!pub.ok)
@@ -511,6 +523,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
       error: friendly,
       needsSellerRegistration: needsReg,
       pendingVerification: pendingVerify,
+      accountUnusable,
     };
 
   return { ok: true, sku, offerId, listingId, steps };

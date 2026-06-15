@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
-import EbaySellerGuide from "./EbaySellerGuide";
-import GuideVideo from "./GuideVideo";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
@@ -58,10 +56,11 @@ interface PublishResult {
   steps?: { step: string; ok: boolean; error?: string }[];
   needsSellerRegistration?: boolean;
   pendingVerification?: boolean;
+  accountUnusable?: boolean; // アカウントが出品できる状態にない（制限/確認中 等）
   connected?: boolean; // false=連携切れ（再連携が必要）
 }
 
-type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "draftsaved" | "pending" | "error";
+type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error";
 
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
@@ -212,8 +211,7 @@ export default function EbayListingModal({
       return;
     }
     setResult(res);
-    if (res.needsSellerRegistration) setPhase("draftsaved");
-    else if (res.pendingVerification) setPhase("pending");
+    if (res.needsSellerRegistration || res.pendingVerification || res.accountUnusable) setPhase("notready");
     else {
       setMsg(res.error || "出品に失敗しました。");
       setPhase("error");
@@ -639,125 +637,56 @@ export default function EbayListingModal({
             </div>
           )}
 
-          {phase === "draftsaved" && (
-            <div className="py-4">
-              <div className="text-center">
-                {/* ★完了アイコン(緑チェック)は「出品できた」と誤解させるため、未完了を示す琥珀の警告に変更 */}
-                <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
-                <p className="text-base font-black text-amber-700 mb-1">まだ出品されていません</p>
-                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                  出品内容の準備はできました。でも<b className="text-gray-700">公開するには、初回だけ eBayのセラー登録（売上の受け取り設定）</b>が必要です。
-                </p>
-                <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-3 leading-relaxed text-center">
-                  <b className="text-[14px]">⚠ この商品はまだ eBayに公開されていません</b>
-                  <br />
-                  下のセラー登録（<b>初回だけ</b>）を終えると出品できます。
-                </p>
-              </div>
-
-              {/* ★まず2分動画で流れを掴ませる（任意リンクではなく画面内に埋め込み＝飛ばされない） */}
-              <p className="text-[12px] font-bold text-gray-700 text-center mb-2">
-                ▶ まず下の<b className="text-[#BF0000]">2分動画</b>で全体の流れを確認してください
+          {phase === "notready" && (
+            <div className="py-6 text-center">
+              <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
+              <p className="text-base font-black text-amber-700 mb-2">まだ出品できません</p>
+              <p className="text-sm text-gray-700 mb-4 leading-relaxed text-left bg-amber-50 border border-amber-100 rounded-xl px-3 py-3">
+                {result?.pendingVerification ? (
+                  <>
+                    eBayが<b className="text-gray-900">本人確認</b>をしている最中です。
+                    <b>「アカウントの準備ができました」のメール</b>が届いたら、下のボタンでもう一度お試しください（早ければ数分、長いと数日）。
+                  </>
+                ) : (
+                  <>
+                    <b className="text-gray-900">eBayのセラー登録（売上の受け取り設定）が完了していない</b>か、
+                    アカウントが出品できる状態にありません。
+                    <br />
+                    eBayでセラー登録・設定を済ませてから、もう一度お試しください。
+                  </>
+                )}
               </p>
-              <div className="mb-4">
-                <GuideVideo
-                  title="eBayセラー登録の流れ（2分）"
-                  src="/videos/ebay-seller-guide.mp4"
-                  poster="/videos/ebay-seller-guide-poster.jpg"
-                  durationLabel="約2分"
-                  note="※タップで再生・音が出ます。手が止まったら、同じ場面に戻ると解決できます。"
-                />
-              </div>
 
-              {/* まず「画像つきの全手順（フルガイド）」を一番上に */}
-              <a
-                href="/guide/ebay-seller"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 border-2 border-[#0064D2] text-[#0064D2] font-bold text-sm rounded-xl active:bg-[#0064D2]/5"
-              >
-                📖 画像つきの全手順（フルガイド）を見る <ExternalLink size={14} />
-              </a>
-
-              <div className="text-center mt-3">
-                <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 mb-4 leading-relaxed text-left">
-                  <b className="text-gray-700">eBayの「下書き」を探さなくて大丈夫。</b> 登録前の出品はそこに出ない仕様です。登録後にこのアプリから公開すれば「出品中」に並びます。
-                </p>
+              {/* 本人確認待ち以外は、eBay公式の登録ページへ（手順は自分で進めてもらう方針） */}
+              {!result?.pendingVerification && (
                 <button
                   type="button"
                   onClick={() => {
-                    // 別ウィンドウでeBay登録を開く（アプリは開いたまま→戻って「登録完了」を押せる）
-                    const w = window.open(
-                      "https://www.ebay.com/sl/sell",
-                      "ebaySellerRegister",
-                      "width=920,height=840"
-                    );
+                    // 別ウィンドウでeBay公式を開く（アプリは開いたまま→戻って再試行できる）
+                    const w = window.open("https://www.ebay.com/sl/sell", "ebaySellerRegister", "width=920,height=840");
                     if (w) w.opener = null; // 逆タブナビング対策
                   }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-11 mb-2 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
                 >
-                  eBayでセラー登録する
+                  eBayでセラー登録・設定する <ExternalLink size={14} />
                 </button>
+              )}
 
-                <button
-                  type="button"
-                  onClick={confirmRegistered}
-                  disabled={confirming || cooldown > 0}
-                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
-                >
-                  {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "登録完了"}
-                </button>
-
-                {confirmErr && (
-                  <p className="mt-2 text-[11px] text-[#BF0000] leading-relaxed">
-                    まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
-                  </p>
-                )}
-              </div>
-
-              <EbaySellerGuide />
-              <div className="text-center mt-3">
-                <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
-              </div>
-            </div>
-          )}
-
-          {phase === "pending" && (
-            <div className="py-5 text-center">
-              <Clock size={40} className="mx-auto mb-3 text-amber-500" />
-              <p className="text-sm font-black text-gray-800 mb-1">アカウントの最終確認待ちです</p>
-              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                登録ありがとうございます！いまeBayが<b className="text-gray-700">本人確認</b>をしています。
-                <br />
-                <b>確認メール</b>が届いたら出品できます（早ければ数分、長いと数日）。
-              </p>
-              <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-4 leading-relaxed">
-                メールが届いたら、下のボタンを押すと<b>そのまま出品</b>されます。
-              </p>
               <button
                 type="button"
                 onClick={confirmRegistered}
                 disabled={confirming || cooldown > 0}
-                className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
+                className="w-full h-11 mb-2 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
               >
-                {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "確認できた・出品する"}
+                {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "設定できた・もう一度試す"}
               </button>
               {confirmErr && (
-                <p className="mt-2 text-[11px] text-[#BF0000] leading-relaxed">
-                  まだ確認が取れていません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
+                <p className="mb-2 text-[11px] text-[#BF0000] leading-relaxed">
+                  まだ完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
                 </p>
               )}
-              <a
-                href="/guide/ebay-seller"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 block text-center text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
-              >
-                📖 登録のやり方を画像つきで見る
-              </a>
-              <div className="mt-3">
-                <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>
-              </div>
+
+              <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
             </div>
           )}
 

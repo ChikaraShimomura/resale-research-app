@@ -241,8 +241,8 @@ export default function PayoneerWithdrawGuide() {
         </div>
 
         <div className="text-center pt-2 pb-6">
-          <Link href="/guide/ebay-seller" className="text-[12px] font-bold text-[#0064D2] underline underline-offset-2">
-            ← eBayセラー登録ガイドに戻る
+          <Link href="/guide" className="text-[12px] font-bold text-[#0064D2] underline underline-offset-2">
+            ← はじめてガイドに戻る
           </Link>
         </div>
       </main>
