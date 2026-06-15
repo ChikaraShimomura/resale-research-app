@@ -43,7 +43,6 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("[report/weekly] error:", err);
-    // 一時診断: secret 認証済みのみアクセス可なので、原因特定のため詳細を返す（特定後に戻す）。
-    return Response.json({ ok: false, error: "レポート生成に失敗しました", detail: String((err as Error)?.stack || err).slice(0, 600) }, { status: 500 });
+    return Response.json({ ok: false, error: "レポート生成に失敗しました" }, { status: 500 });
   }
 }
