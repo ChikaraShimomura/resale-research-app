@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { kv } from "@vercel/kv";
 import { kvReadOnly } from "../../../../lib/kv";
+import { geminiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
 import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getAppAccessToken } from "../../../../lib/ebay/oauth";
@@ -119,9 +121,9 @@ function buildDescription(enTitle: string, condition: string, category?: string)
     "A. It ships from Japan with a tracking number. Delivery usually takes about 1 to 3 weeks depending on your country and local customs processing."
   );
   L.push("");
-  L.push("Q. Are import duties or customs fees included?");
+  L.push("Q. Will I be charged customs or import duties?");
   L.push(
-    "A. No. Any import duties, taxes, or customs fees are the buyer's responsibility and are NOT included in the item price or shipping. Please check your country's rules before buying."
+    "A. I try to choose items that usually do not trigger customs duties. However, if any import duties, taxes, or customs fees ARE charged by your country, they are the buyer's responsibility and are NOT included in the item price or shipping. Please check your country's import rules before buying."
   );
   L.push("");
   L.push("Q. How will it be packaged?");
@@ -133,6 +135,11 @@ function buildDescription(enTitle: string, condition: string, category?: string)
   L.push("Q. What is your return policy?");
   L.push(
     "A. Returns are accepted in line with the return policy on this listing and eBay's Money Back Guarantee. If anything is wrong, please message me first and I will do my best to make it right."
+  );
+  L.push("");
+  L.push("Q. Is there a warranty for defects?");
+  L.push(
+    "A. I do not offer a separate warranty or compensation. Products sold in Japan very rarely have initial defects, so problems are uncommon. In the rare case of a genuine manufacturer defect, please contact the manufacturer's support directly. For anything about your order, please message me first."
   );
 
   // ジャンル別の注意（トラブル回避）。
@@ -155,6 +162,21 @@ function buildDescription(enTitle: string, condition: string, category?: string)
     L.push("Q. How are the cards packaged?");
     L.push(
       "A. Cards are protected with a sleeve and rigid packaging, then shipped with tracking. Please see the photos for the exact card and condition."
+    );
+  }
+  if (category === "フィギュア" || category === "ガンプラ" || category === "LEGO" || category === "おもちゃ") {
+    L.push("");
+    L.push("Q. What about the box condition?");
+    L.push(
+      "A. For collectible items, the outer box may have minor shelf wear from storage or transport, but the contents are unaffected. Please check the photos." +
+        (category === "ガンプラ" ? " Note: model kits are sold unbuilt and require assembly." : "")
+    );
+  }
+  if (category === "腕時計") {
+    L.push("");
+    L.push("Q. Anything to know about the watch?");
+    L.push(
+      "A. The battery may need replacement over time, and water resistance is not guaranteed unless stated. Please see the photos and feel free to ask before buying."
     );
   }
 
@@ -191,6 +213,28 @@ export async function POST(req: Request) {
   const enTitle = (product.coreKeyword || product.title).slice(0, 80);
   const condition = detectCondition(product.title);
   const description = buildDescription(enTitle, condition, product.category);
+
+  // AIチェック：作り込んだ定型文を Gemini(無料枠) で自然化。必須の方針/トラブル回避文が残っている時だけ採用。
+  // 商品×状態でキャッシュ（無料枠の節約＋高速化）。失敗・欠落時は定型をそのまま使う（安全側）。
+  let finalDescription = description;
+  try {
+    const descKey = `ebay_desc:v1:${productId}:${condition}`;
+    const cached = await kv.get<string>(descKey);
+    if (typeof cached === "string" && cached.length > 150) {
+      finalDescription = cached;
+    } else {
+      const refined = await geminiRefineDescription(description);
+      if (refined && keepsKeyClauses(refined)) {
+        finalDescription = refined;
+        await kv.set(descKey, refined, { ex: 30 * 24 * 3600 });
+      } else {
+        // 定型にフォールバック。短めTTLでキャッシュし、次回Gemini再試行の余地を残す。
+        await kv.set(descKey, description, { ex: 7 * 24 * 3600 });
+      }
+    }
+  } catch {
+    /* キャッシュ/AI失敗時は素の定型文を使う */
+  }
 
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
   // 送料サイズ（配送ポリシー）一覧も取得。
@@ -234,7 +278,7 @@ export async function POST(req: Request) {
         ebayAvgJpy: product.realAvgPrice,
       },
       title: enTitle,
-      description,
+      description: finalDescription,
       priceUsd,  // 既定の表示価格＝eBay最安ベース
       medianUsd, // 中央値USD（売り方「相場/はやく」の基準）
       lowestUsd, // 同等品の現在の最安USD（null=取得できず）
