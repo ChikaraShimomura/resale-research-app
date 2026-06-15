@@ -18,7 +18,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
-  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("recommended"); // 既定=総合おすすめ順
   const [hideSold, setHideSold] = useState(false);
   // 「楽天で仕入れる」を押した（=eBay簡単出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());

@@ -22,8 +22,8 @@ function ResultsContent() {
 
   const [allProducts, setAllProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  // "default" = 登録順（新着順）。利益率ソートは将来の有料機能
-  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
+  // 既定=総合おすすめ順（利幅×需要×手頃さ×ライバルのバランス）。新着順は選択肢に残す。
+  const [sortOrder, setSortOrder] = useState<SortOrder>("recommended");
   const [hideSold, setHideSold] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   // 自分がeBayで売れた商品ID（端末単位）。最下部化/非表示に使う。
