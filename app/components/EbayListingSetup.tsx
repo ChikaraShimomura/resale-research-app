@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
@@ -37,16 +37,29 @@ export default function EbayListingSetup() {
     }
   }, []);
 
+  // 3STEP(連携・ポリシー・発送元)が「今このセッションで」全部完了した瞬間を検知するための前回値。
+  // 初回ロード時は null → 既に完了済みで来た再訪では自動遷移しない（迷子防止）。
+  const wasAllDone = useRef<boolean | null>(null);
+
   const refresh = useCallback(() => {
     fetch("/api/ebay/listing-readiness", { cache: "no-store" })
       .then((x) => x.json())
       .then((d: Readiness) => {
         setR(d);
         setOverride(null); // 登録完了で自動的に次のSTEPへ
+        // 発送元(STEP3)まで完了して3つ揃った瞬間だけ、セラー登録ガイドへ自動で進める。
+        const nowAllDone =
+          !!d.connected &&
+          (d.fulfillmentPolicies ?? 0) > 0 && (d.paymentPolicies ?? 0) > 0 && (d.returnPolicies ?? 0) > 0 &&
+          (d.locations ?? 0) > 0;
+        if (wasAllDone.current === false && nowAllDone) {
+          router.push("/guide/ebay-seller");
+        }
+        wasAllDone.current = nowAllDone;
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     refresh();
@@ -98,18 +111,25 @@ export default function EbayListingSetup() {
       {allDone && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
           <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-2">
-            <BadgeCheck size={16} /> 準備完了！あとは出品するだけです。
+            <BadgeCheck size={16} /> 準備完了！次は「セラー登録（売上の受け取り設定）」です。
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/guide/ebay-seller")}
+            className="w-full h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]"
+          >
+            セラー登録に進む →
+          </button>
+          <p className="text-[11px] text-emerald-800 leading-relaxed">
+            <b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り）</b>が必要です。画像つきガイドの通りに進めればOK。登録が済んだら出品できます。
           </p>
           <button
             type="button"
             onClick={continueToListing}
-            className="w-full h-12 bg-[#0064D2] text-white font-black text-sm rounded-xl active:bg-[#0053AE]"
+            className="w-full h-10 bg-white border border-gray-200 text-gray-600 font-bold text-[13px] rounded-xl active:bg-gray-50"
           >
-            {listId ? "この商品を出品する →" : "商品を探して出品する →"}
+            {listId ? "登録は済んでいる・この商品を出品する →" : "登録は済んでいる・商品を探す →"}
           </button>
-          <p className="text-[11px] text-emerald-800 leading-relaxed">
-            このあと<b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り設定）</b>に進みます。出品ボタンを押すと、そのまま画面の案内に沿って進められます。
-          </p>
         </div>
       )}
 

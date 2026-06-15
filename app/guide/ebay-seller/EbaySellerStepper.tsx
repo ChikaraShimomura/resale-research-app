@@ -240,26 +240,28 @@ function Step1Body() {
         メールアドレスとパスワードを入れて「Sign in（サインイン）」を押します。買い物用のアカウントがあれば、そのまま使えます。
       </p>
 
-      {/* ② Sell → Sell now */}
-      <p className="text-[12px] font-bold text-gray-700">② 「Sell（出品）」→「Sell now」を押す</p>
+      {/* ② Sell → List an item */}
+      <p className="text-[12px] font-bold text-gray-700">② 「Sell」→「List an item（出品する）」を押す</p>
       <Phone>
         <Screen logo={<EbayLogo />}>
-          <div className="flex items-center justify-between text-[12px] text-gray-600 border-b border-gray-100 pb-1.5">
+          <div className="flex items-center justify-end gap-3 text-[12px] text-gray-600 border-b border-gray-100 pb-1.5">
             <span>My eBay</span>
             <Tap>
               <span className="font-bold text-gray-800">Sell</span>
             </Tap>
-            <span>Watchlist</span>
           </div>
-          <p className="text-[11px] text-gray-500">出品ページが開いたら、青いボタンを押します</p>
+          <p className="text-[11px] text-gray-500">出品ページが開いたら、出品作成のボタンを押します</p>
           <Tap>
-            <BlueBtn>Sell now</BlueBtn>
+            <BlueBtn>List an item</BlueBtn>
           </Tap>
         </Screen>
       </Phone>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        画面いちばん上の「Sell（出品）」を押すと出品ページが開きます。続けて青い「Sell now（セルナウ＝今すぐ出品）」を押し、出品を始めます。
+        画面右上の「Sell（出品）」を押すと出品ページが開きます。そこにある「List an item（リスト・アン・アイテム＝出品する）」を押して出品を始めます。
       </p>
+      <Tip>
+        ボタン名はeBayの画面更新で「Create listing（出品を作成）」などに変わることがあります。<b>スマホのeBayアプリ</b>なら、画面<b>右下の「出品」</b>ボタンから始められます（表示が一部日本語で分かりやすい）。
+      </Tip>
 
       {/* ③ 何か選んで進むだけ（商品は“テスト”でOK） */}
       <p className="text-[12px] font-bold text-gray-700">③ 何か選んで進むだけ（商品は“テスト”でOK）</p>
@@ -313,6 +315,9 @@ function Step1Body() {
       <p className="text-[12px] text-gray-600 leading-relaxed">
         「Get started」を押すと、画面が自動で「Payoneer（ペイオニア）」に切り替わります（ロゴがカラフルな丸い印に変わります）。これは正しい動きなので、そのまま次のSTEP2へ進んでください。
       </p>
+      <Tip>
+        この後、接続の途中で「<b>個人アカウントでよいか</b>」を聞かれます。<b>「Yes, keep this as an individual account（個人として続ける）」→「Continue」</b>を選べばOKです（会社でやる人以外は個人）。
+      </Tip>
 
       <Warn>
         ここで作るものは“セラー登録に進むための仮の入口”で、<b>このまま公開・販売されることはありません</b>（あとで下書きを破棄してOK）。だから<b>商品・状態・タイトルは「テスト」など適当で大丈夫</b>。本当の出品は登録が全部終わってから、アプリ（輸出ラボ）の「eBay簡単出品」が写真だけで自動で行います。

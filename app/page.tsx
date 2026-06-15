@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
-import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
@@ -55,8 +54,10 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* はじめてガイド（オンボーディング・チェックリスト） */}
-      <OnboardingChecklist />
+      {/* このサイトで使う3つのサービス（仕入れ→販売→受け取り・信頼ブロック／押すと各ガイドへ） */}
+      <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
+        <TrustBadges withRakuten linked />
+      </section>
 
       {/* 仕組み説明 */}
       <div className="bg-white border-b border-gray-100 shadow-sm">
@@ -114,11 +115,6 @@ export default function LandingPage() {
             はじめ方を画像つきガイドで見る →
           </Link>
         </div>
-      </section>
-
-      {/* eBay・Payoneerの信頼バッジ（海外への不安をケア） */}
-      <section className="max-w-2xl mx-auto px-4 pt-4 pb-2">
-        <TrustBadges />
       </section>
 
       {/* 利益計算の説明 */}
