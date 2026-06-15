@@ -6,6 +6,7 @@ import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import EbaySellerGuide from "./EbaySellerGuide";
+import GuideVideo from "./GuideVideo";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
@@ -636,16 +637,34 @@ export default function EbayListingModal({
           {phase === "draftsaved" && (
             <div className="py-4">
               <div className="text-center">
-                <BadgeCheck size={40} className="mx-auto mb-3 text-emerald-500" />
-                <p className="text-sm font-black text-gray-800 mb-1">出品内容は準備できました！あと1ステップ</p>
+                {/* ★完了アイコン(緑チェック)は「出品できた」と誤解させるため、未完了を示す琥珀の警告に変更 */}
+                <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
+                <p className="text-base font-black text-amber-700 mb-1">まだ出品されていません</p>
                 <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                  公開には、<b className="text-gray-700">初回だけ必要なeBayのセラー登録（売上の受け取り設定）</b>が必要です。
+                  出品内容の準備はできました。でも<b className="text-gray-700">公開するには、初回だけ eBayのセラー登録（売上の受け取り設定）</b>が必要です。
                 </p>
-                <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-3 mb-3 leading-relaxed text-center">
-                  <b className="text-[15px]">！！初回だけ！！</b>
+                <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-3 leading-relaxed text-center">
+                  <b className="text-[14px]">⚠ この商品はまだ eBayに公開されていません</b>
                   <br />
-                  セラー登録をする必要があります。
+                  下のセラー登録（<b>初回だけ</b>）を終えると出品できます。
                 </p>
+              </div>
+
+              {/* ★まず2分動画で流れを掴ませる（任意リンクではなく画面内に埋め込み＝飛ばされない） */}
+              <p className="text-[12px] font-bold text-gray-700 text-center mb-2">
+                ▶ まず下の<b className="text-[#BF0000]">2分動画</b>で全体の流れを確認してください
+              </p>
+              <div className="mb-4">
+                <GuideVideo
+                  title="eBayセラー登録の流れ（2分）"
+                  src="/videos/ebay-seller-guide.mp4"
+                  poster="/videos/ebay-seller-guide-poster.jpg"
+                  durationLabel="約2分"
+                  note="※タップで再生・音が出ます。手が止まったら、同じ場面に戻ると解決できます。"
+                />
+              </div>
+
+              <div className="text-center">
                 <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 mb-4 leading-relaxed text-left">
                   <b className="text-gray-700">eBayの「下書き」を探さなくて大丈夫。</b> 登録前の出品はそこに出ない仕様です。登録後にこのアプリから公開すれば「出品中」に並びます。
                 </p>
@@ -680,13 +699,15 @@ export default function EbayListingModal({
                   </p>
                 )}
               </div>
+
+              {/* ★小さなリンク → 大きめのフルガイド誘導ボタンに格上げ */}
               <a
                 href="/guide/ebay-seller"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 block text-center text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
+                className="mt-3 w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 border-2 border-[#0064D2] text-[#0064D2] font-bold text-sm rounded-xl active:bg-[#0064D2]/5"
               >
-                📖 登録のやり方を画像つきでくわしく見る
+                📖 画像つきの全手順（フルガイド）を見る <ExternalLink size={14} />
               </a>
               <EbaySellerGuide />
               <div className="text-center mt-3">
