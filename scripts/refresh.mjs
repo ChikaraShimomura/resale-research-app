@@ -140,6 +140,16 @@ const EXPECTED_GENRE = {
   'ガンプラMG': 'ガンプラ', 'ガンプラHG': 'ガンプラ', 'ねんどろいど': 'フィギュア',
   'LEGO': 'LEGO', 'セイコー': '腕時計', 'Gショック': '腕時計', '資生堂': 'コスメ',
   'トミカ': 'おもちゃ', 'アミーボ': 'ゲーム',
+  // recall拡張ぶん。値は guessCategory の実測出力に合わせる（誤った別ジャンル除外で良マッチを落とさないため）。
+  // ※amiiboカード=ゲーム / METAL BUILD=ガンプラ(ガンダム判定) / ポケセンぬいぐるみ=トレカ(ポケモン判定) は実測で補正。
+  'DBフュージョンワールド': 'トレカ', 'ヴァイス ホロライブ': 'トレカ', 'デジモンカード': 'トレカ',
+  'どうぶつの森amiiboカード': 'ゲーム',
+  'ガンプラRG': 'ガンプラ', 'ガンプラPG': 'ガンプラ', 'ガンプラEG': 'ガンプラ', '30MM ACVI': 'ガンプラ',
+  'SHFドラゴンボール': 'フィギュア', 'SHF鬼滅': 'フィギュア', 'figma': 'フィギュア', 'POP UP PARADE': 'フィギュア',
+  'METAL BUILD': 'ガンプラ', 'メガミ/FAガール': 'フィギュア',
+  'オシアナス': '腕時計', 'アテッサ': '腕時計', 'オリエント バンビーノ': '腕時計',
+  'アネッサ': 'コスメ', 'ハダラボ極潤': 'コスメ', 'キャンメイク': 'コスメ', 'SK-II': 'コスメ',
+  'ベイブレードX': 'おもちゃ', 'ミニ四駆': 'おもちゃ', 'ポケセンぬいぐるみ': 'トレカ',
 };
 // ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
 const PRICE_RATIO_MAX = 8;
@@ -432,10 +442,35 @@ const EBAY_JP_QUERIES = [
   { q: 'shiseido skincare japan new',                name: '資生堂' },
   { q: 'tomica diecast car japan new',               name: 'トミカ' },
   { q: 'amiibo nintendo new japan sealed',           name: 'アミーボ' },
+  // ── recall拡張(2026-06-15): 日本→eBay輸出の高価値ライン(新品・単品・楽天入手可)を多エージェント研究で追加 ──
+  { q: 'dragon ball fusion world booster box japanese sealed',                 name: 'DBフュージョンワールド' },
+  { q: 'weiss schwarz hololive booster box japanese sealed',                   name: 'ヴァイス ホロライブ' },
+  { q: 'digimon card game booster box japanese sealed bandai',                 name: 'デジモンカード' },
+  { q: 'amiibo card animal crossing japanese sealed booster',                  name: 'どうぶつの森amiiboカード' },
+  { q: 'gundam RG real grade model kit bandai japan new sealed',               name: 'ガンプラRG' },
+  { q: 'gundam PG perfect grade unleashed model kit bandai japan new sealed',  name: 'ガンプラPG' },
+  { q: 'gundam entry grade EG model kit bandai japan new sealed',              name: 'ガンプラEG' },
+  { q: '30MM armored core VI model kit bandai japan new sealed',               name: '30MM ACVI' },
+  { q: 's.h.figuarts dragon ball figure japan new sealed',                     name: 'SHFドラゴンボール' },
+  { q: 's.h.figuarts demon slayer figure new japan',                          name: 'SHF鬼滅' },
+  { q: 'figma figure max factory japan new sealed',                           name: 'figma' },
+  { q: 'pop up parade figure good smile new japan',                           name: 'POP UP PARADE' },
+  { q: 'metal build gundam bandai figure japan new sealed',                    name: 'METAL BUILD' },
+  { q: 'kotobukiya megami device frame arms girl model kit japan new sealed',  name: 'メガミ/FAガール' },
+  { q: 'casio oceanus watch japan new',                                       name: 'オシアナス' },
+  { q: 'citizen attesa eco-drive radio watch japan new',                       name: 'アテッサ' },
+  { q: 'orient bambino automatic watch japan new',                            name: 'オリエント バンビーノ' },
+  { q: 'anessa perfect uv sunscreen spf50 japan new',                         name: 'アネッサ' },
+  { q: 'hada labo gokujyun lotion japan new sealed',                          name: 'ハダラボ極潤' },
+  { q: 'canmake makeup japan new sealed',                                     name: 'キャンメイク' },
+  { q: 'sk-ii facial treatment essence japan new sealed',                      name: 'SK-II' },
+  { q: 'beyblade x takara tomy booster japan new sealed',                      name: 'ベイブレードX' },
+  { q: 'tamiya mini 4wd model kit japan new sealed',                          name: 'ミニ四駆' },
+  { q: 'pokemon center plush japan exclusive new with tag',                    name: 'ポケセンぬいぐるみ' },
 ];
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles';
+  const cacheKey = 'ebay_jp_sold_titles_v2'; // recall拡張でクエリ群を更新→旧キャッシュを無効化して全クエリを再取得
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached) && cached.length > 0) {
     console.log(`  [Phase0 cache] ${cached.length}件`);
