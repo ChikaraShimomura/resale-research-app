@@ -603,7 +603,7 @@ export default function EbayListingModal({
           {phase === "done" && (
             <div className="py-8 text-center">
               <BadgeCheck size={44} className="mx-auto mb-3 text-emerald-500" />
-              <p className="text-base font-black text-gray-800 mb-1.5">eBayに出品しました！</p>
+              <p className="text-base font-black text-gray-800 mb-1.5">出品が完了しました！</p>
               <p className="text-xs text-gray-500 mb-4 leading-relaxed">売れたら自動で検知して、この一覧の下の方に移動します。</p>
               <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-emerald-800 leading-relaxed">
@@ -618,19 +618,18 @@ export default function EbayListingModal({
                   💴 売上の受け取り方を見る
                 </a>
               </div>
-              {result?.listingId && (
-                <a
-                  href={`https://www.ebay.com/itm/${result.listingId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-10 px-5 border border-[#0064D2] text-[#0064D2] font-bold text-sm rounded-xl active:bg-blue-50 mb-2"
-                >
-                  出品ページを見る <ExternalLink size={14} />
-                </a>
-              )}
-              <div>
-                <button onClick={onClose} className="mt-2 text-sm font-bold text-gray-500">閉じる</button>
-              </div>
+              {/* eBayで出品した商品を確認。listingIdがあれば直リンク、無ければ自分の出品一覧へ（必ず確認できる）。 */}
+              <a
+                href={result?.listingId ? `https://www.ebay.com/itm/${result.listingId}` : "https://www.ebay.com/sh/lst/active"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-1.5 h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] mb-2"
+              >
+                🔎 eBayで出品した商品を見る <ExternalLink size={14} />
+              </a>
+              <button onClick={onClose} className="w-full h-11 border border-gray-200 rounded-xl text-sm font-bold text-gray-600">
+                閉じる
+              </button>
             </div>
           )}
 
