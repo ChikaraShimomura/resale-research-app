@@ -91,6 +91,7 @@ export default function EbayListingModal({
   const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
   const [ordered, setOrdered] = useState(false); // 先に楽天で注文した（無在庫抑止のチェック）
   const [cooldown, setCooldown] = useState(0); // 「登録完了」失敗後のクールダウン秒数
+  const [reportState, setReportState] = useState<"idle" | "sending" | "done">("idle"); // 開発者に報告
 
   useEffect(() => {
     let alive = true;
@@ -211,6 +212,33 @@ export default function EbayListingModal({
       setMsg(res.error || "出品に失敗しました。");
       setPhase("error");
     }
+  };
+
+  // 「開発者に報告」：予期せぬエラーの状況を送る（KV保存＋運用者へメール）。開発者が取り込んで修正に使う。
+  const reportError = async () => {
+    setReportState("sending");
+    try {
+      await fetch("/api/report/error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          where: "ebay_listing",
+          message: msg || result?.error || "",
+          steps: result?.steps,
+          productId: product.id,
+          coreKeyword: product.coreKeyword,
+          category: data?.category,
+          priceUsd,
+          strategy,
+          condition,
+          quantity,
+          aspects,
+        }),
+      });
+    } catch {
+      /* 送信失敗でも done にして多重送信を防ぐ */
+    }
+    setReportState("done");
   };
 
   // 「登録完了」：準備済みの内容で再出品。成功で公開、失敗なら赤字メッセージ。
@@ -721,6 +749,18 @@ export default function EbayListingModal({
                     </li>
                   ))}
                 </ul>
+              )}
+              {/* 予期せぬエラーを開発者に報告（自動修復のための情報を送る） */}
+              <button
+                type="button"
+                onClick={reportError}
+                disabled={reportState !== "idle"}
+                className="w-full h-11 mb-2 bg-[#BF0000] text-white rounded-xl text-sm font-bold active:bg-[#9E0000] disabled:opacity-50"
+              >
+                {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
+              </button>
+              {reportState === "done" && (
+                <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しください。</p>
               )}
               <div className="flex gap-2">
                 {/* 入力フォームがある時だけ「入力に戻る」。初回準備の失敗（data無し）では空フォームになるため出さない。 */}
