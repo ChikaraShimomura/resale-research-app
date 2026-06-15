@@ -10,6 +10,12 @@ export const MARKETPLACE = "EBAY_US";
 export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
 export const USD_JPY = 155; // realAvgPrice の換算に使った固定レート（refresh.mjs と一致）
 
+// 楽天のmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠で小さく表示されるため、
+// 出品時は高解像度(_ex=1200x1200)に差し替える。元画像が小さければ楽天側が縮小無しで返すだけ＝無害。
+function upscaleListingImage(url: string): string {
+  return (url || "").replace(/_ex=\d+x\d+/, "_ex=1200x1200");
+}
+
 // SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
 export const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 // 逆引き表のTTL（365日）。長期在庫の出品が売れる前に失効しないよう、出品時に設定し
@@ -425,7 +431,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     product: {
       title: input.title.slice(0, 80),
       description: descHtml,
-      imageUrls: input.imageUrl ? [input.imageUrl] : [],
+      imageUrls: input.imageUrl ? [upscaleListingImage(input.imageUrl)] : [],
       aspects: input.aspects,
     },
   };
