@@ -285,11 +285,38 @@ function Step1Body() {
         検索ボックスに<b>半角英語で「figure」</b>と入力し、出てきた<b>候補の一番上</b>を選びます。これは<b>セラー登録に進むための入口</b>なので、商品はサンプルの「figure」でOK（このまま実際に売られることはありません）。
       </p>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        次に「<b>商品の状態を選択</b>」が出たら <b>New</b> か <b>Used</b> を選び、「<b>出品情報に進む</b>」を押します。やがて「Set up your selling account（セラー登録）」の画面になります。
+        次に「<b>商品の状態を選択</b>」が出たら <b>New</b> か <b>Used</b> を選び（<b>どちらでもOK</b>・登録に進むだけなので気にしなくて大丈夫）、「<b>出品情報に進む</b>」を押します。やがて、まず連絡先（住所・電話）の入力画面になります。
       </p>
 
-      {/* ④ Get started */}
-      <p className="text-[12px] font-bold text-gray-700">④ 「Get started」を押してセラー登録へ</p>
+      {/* ④ アカウント情報を完成する（連絡先・住所）— 先に英語に変換しておく */}
+      <p className="text-[12px] font-bold text-gray-700">④ 連絡先（住所・電話）を入れる ※住所は先に英語に変換</p>
+      <Phone>
+        <Screen logo={<EbayLogo />}>
+          <p className="text-[12px] font-bold text-gray-800">アカウント情報を完成する</p>
+          <Field label="国/地域 / Country" value="Japan" ok />
+          <Field label="住所 / Street address" value="1-2-3 Marunouchi" />
+          <Field label="市区町村 / City" value="Chiyoda-ku" />
+          <Field label="州/都道府県 / State" value="Tokyo" />
+          <Field label="郵便番号 / ZIP" value="100-0005" />
+          <Field label="電話番号（先頭の0を取る）" value="9012345678" ok />
+        </Screen>
+      </Phone>
+      <p className="text-[12px] text-gray-600 leading-relaxed">
+        「figure」を選んで進むと、まず<b>連絡先情報（住所・電話）</b>を求められます（<b>初回だけ</b>）。<b>住所はローマ字</b>で身分証と同じ表記に。電話は<b>先頭の0を取り</b>、国を選べば <b>+81</b> が自動で付きます。
+      </p>
+      <p className="text-[12px] text-gray-700 leading-relaxed font-bold">
+        先に下の赤い箱で<b>日本の住所を英語に変換</b>し、出てきた英語を上のフォームに貼り付けてください。
+      </p>
+      <AddressConverter />
+      <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+        <span aria-hidden="true" className="text-base leading-none mt-0.5 shrink-0">💡</span>
+        <p className="text-[12px] text-blue-800 leading-relaxed">
+          ここで作った<b>英語の住所は、このあとのPayoneer登録（STEP2）でも同じものを使います</b>。コピー（メモ）しておくと、2回目の入力がぐっとラクになります。
+        </p>
+      </div>
+
+      {/* ⑤ Get started */}
+      <p className="text-[12px] font-bold text-gray-700">⑤ 「Get started」を押してセラー登録へ</p>
       <Phone>
         <Screen logo={<EbayLogo />}>
           <p className="text-[12px] font-bold text-gray-800">Set up your selling account</p>
