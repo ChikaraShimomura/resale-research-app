@@ -61,6 +61,16 @@ export default function EbayListingSetup() {
       .finally(() => setLoading(false));
   }, [router]);
 
+  // テスト用: /settings?testflow=1 で開くと、既に完了済みでも「今完了した」扱いにして
+  // セラー登録への自動遷移を再現できる（eBayの設定は一切変更しない）。確認後に削除可。
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).has("testflow")) {
+        wasAllDone.current = false;
+      }
+    } catch { /* noop */ }
+  }, []);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
