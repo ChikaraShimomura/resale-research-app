@@ -13,11 +13,13 @@ const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// 無料枠の都合で 2.0-flash は枠ゼロ化→2.5-flash に移行（環境変数で上書き可）。2.5は思考モデルなので thinkingBudget:0 必須。
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 const USD_TO_JPY = 155, GBP_TO_JPY = 197, AUD_TO_JPY = 100;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Gemini無料枠(約15 RPM)対策：全Gemini呼び出しを直列化し最低4.5秒間隔に（429回避）。
+// Gemini無料枠(2.5-flashは約10 RPM)対策：全Gemini呼び出しを直列化し最低6.5秒間隔に（429回避）。
 let _gq = Promise.resolve();
-function geminiGate() { const w = _gq; _gq = w.then(() => sleep(4500)); return w; }
+function geminiGate() { const w = _gq; _gq = w.then(() => sleep(6500)); return w; }
 
 // 弱点ジャンル中心の種（eBay英語クエリ＋楽天和キーワード）。
 const GENRES = [
@@ -30,8 +32,8 @@ const GENRES = [
   { cat: 'LEGO', ebayQ: 'lego set japan new sealed', rakutenKw: 'レゴ セット 新品' },
   { cat: 'おもちゃ', ebayQ: 'tomica diecast car japan new', rakutenKw: 'トミカ 新品' },
 ];
-const PER_GENRE = 4;   // 各ジャンル×各戦略で扱う種数（コスト/時間/レート制限の制御）
-const CANDIDATES = 3;  // 各種につき試す相手候補数
+const PER_GENRE = 3;   // 各ジャンル×各戦略で扱う種数（2.5-flash無料枠 約250 RPD 内に収める）
+const CANDIDATES = 2;  // 各種につき試す相手候補数
 
 // 除外パターン（refresh.mjs と同一）。
 const EXCLUDE_PATTERN = /オリパ|ばら売り|パック売り|BOXくじ|ボックスくじ|くじ引き|ガチャ|オリジナルパック|アソート売り|\d+パック\s*(売り|のみ|セット)/i;
@@ -120,9 +122,9 @@ async function gemini(prompt, maxTok) {
   if (!GEMINI_API_KEY) return null;
   try {
     await geminiGate();
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTok, temperature: 0 } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTok, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } }),
       signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) return null;
@@ -144,12 +146,12 @@ async function imgMatch(rImg, eImg, rt, et) {
       { text: prompt },
       { inlineData: { mimeType: a.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(ab).toString('base64') } },
       { inlineData: { mimeType: b.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(bb).toString('base64') } },
-    ]}], generationConfig: { maxOutputTokens: 4, temperature: 0 } };
+    ]}], generationConfig: { maxOutputTokens: 8, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } };
     await geminiGate();
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) { console.error(`[img] HTTP ${res.status}`); return false; }
+    if (!res.ok) { console.error(`[img] HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 120)}`); return false; }
     const d = await res.json();
     return (d?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim().toUpperCase().startsWith('YES');
   } catch (e) { console.error(`[img] ERR ${e.message}`); return false; }

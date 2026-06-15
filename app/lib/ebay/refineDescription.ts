@@ -2,6 +2,9 @@
 // 方針/トラブル回避の文を削らせないよう厳格に指示し、呼び出し側で必須句の残存も検証する。
 // 失敗・キー無し・必須句欠落時は null を返し、呼び出し側で「作り込んだ定型文」にフォールバックさせる。
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// 無料枠の都合で 2.0-flash は枠ゼロ化されたため 2.5-flash に移行（環境変数で上書き可）。
+// 2.5系は思考モデルなので thinkingConfig.thinkingBudget:0 で思考を無効化しないと出力が空になりうる。
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 export async function geminiRefineDescription(draft: string): Promise<string | null> {
   if (!GEMINI_API_KEY || !draft) return null;
@@ -20,10 +23,10 @@ ${draft}`;
   try {
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1400, temperature: 0.3 },
+      generationConfig: { maxOutputTokens: 1400, temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } },
     };
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000) }
     );
     if (!r.ok) return null;

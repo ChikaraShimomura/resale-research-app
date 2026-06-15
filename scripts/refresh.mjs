@@ -299,7 +299,13 @@ function parseStrictSame(text) {
 }
 
 // Gemini(主軸・ほぼ無料)での同一判定。識別子重視プロンプトを使う。true/false、キー無し・失敗時は null。
+// モデルは環境変数で上書き可（無料枠の都合で 2.0-flash は枠ゼロ化→2.5-flash に移行）。
+// 2.5系は思考モデルのため thinkingConfig.thinkingBudget:0 で思考を無効化しないと出力が空になりうる。
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 let geminiCallsToday = 0;
+// 観測フック: Geminiの成否を可視化する。無効鍵/モデル廃止で黙ってHaikuにフォールバック(=クレジット消費)するのを検知。
+let geminiFailToday = 0, geminiFirstError = null;
+function noteGeminiFail(reason) { geminiFailToday++; if (!geminiFirstError) geminiFirstError = reason; }
 async function geminiStrictMatch(img, rakutenTitle, ebayTitle, qty) {
   if (!GEMINI_API_KEY) return null;
   try {
@@ -307,16 +313,16 @@ async function geminiStrictMatch(img, rakutenTitle, ebayTitle, qty) {
       { text: strictMatchPrompt(rakutenTitle, ebayTitle, qty) },
       { inlineData: { mimeType: img.mt1, data: img.b1 } },
       { inlineData: { mimeType: img.mt2, data: img.b2 } },
-    ]}], generationConfig: { maxOutputTokens: 200, temperature: 0 } };
-    const gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    ]}], generationConfig: { maxOutputTokens: 200, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } };
+    const gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000) });
-    if (!gr.ok) return null;
+    if (!gr.ok) { noteGeminiFail(`HTTP ${gr.status}: ${(await gr.text().catch(() => '')).slice(0, 160)}`); return null; }
     const gd = await gr.json();
     const text = gd?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    if (!text) return null;
+    if (!text) { noteGeminiFail('empty response (parts/finishReason missing — 思考で枠消費の疑い)'); return null; }
     geminiCallsToday++;
     return parseStrictSame(text);
-  } catch { return null; }
+  } catch (e) { noteGeminiFail(`ERR ${e.message}`); return null; }
 }
 
 // Haiku を識別子重視プロンプトで判定（合議の二重確認用）。true/false、キー無し・失敗時 null。
@@ -1037,11 +1043,30 @@ async function main() {
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
     geminiCalls: geminiCallsToday,
+    geminiFail: geminiFailToday,
+    geminiModel: GEMINI_MODEL,
+    geminiFirstError,
     haikuCalls: haikuCallsToday,
     sonnetCalls: sonnetCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
+  // 観測フック: Geminiの健康状態を専用キーにも残す（/api やレポートから参照しやすく）。
+  await kvSet('gemini_health', {
+    ok: geminiCallsToday, fail: geminiFailToday, model: GEMINI_MODEL,
+    firstError: geminiFirstError, down: geminiFailToday > 0 && geminiCallsToday === 0,
+    runAt: new Date().toISOString(),
+  }, 480 * 3600);
+
+  // 全滅(成功0/失敗あり)なら、Haikuに黙って落ちてクレジットを焼いている状態。CIログで目立たせる。
+  if (geminiFailToday > 0 && geminiCallsToday === 0) {
+    console.log(`
+⚠️⚠️ GEMINI DOWN: 成功0 / 失敗${geminiFailToday}回 → 全てHaiku(Anthropicクレジット)にフォールバック中。
+   model=${GEMINI_MODEL}  初回エラー: ${geminiFirstError}
+   → GEMINI_API_KEY とモデル名(無料枠の有無)を確認してください。`);
+  } else if (geminiFailToday > 0) {
+    console.log(`  ⚠️ Gemini一部失敗: 成功${geminiCallsToday} / 失敗${geminiFailToday}（初回: ${geminiFirstError}）`);
+  }
 
   console.log(`
 ✨ 完了!
@@ -1049,7 +1074,7 @@ async function main() {
   処理: ${toProcess.length}件
   新規利益商品: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  画像判定: Gemini ${geminiCallsToday}回 / Haiku ${haikuCallsToday}回 / Sonnet ${sonnetCallsToday}回
+  画像判定: Gemini 成功${geminiCallsToday}/失敗${geminiFailToday}回 (${GEMINI_MODEL}) / Haiku ${haikuCallsToday}回 / Sonnet ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }
