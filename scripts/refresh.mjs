@@ -111,6 +111,26 @@ const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|
 // 中古/ユーズド/ジャンク。新品eBay相場と比較すると利益が過大に見える誤検知の温床（精度監査で確認）。
 // 初心者向け・低リスク方針に合わせ、中古の楽天品はカタログから除外する。detectCondition と同じ語で判定。
 const USED_EXCLUDE = /中古|ユーズド|used|ジャンク/i;
+
+// タイトルから「数量(個数)」を推定する。既定1。楽天が複数パック/セットなのにeBay単品と比較され
+// 価格(=利益)が狂う事故を防ぐ。ml/g等の単位・型番・版数(Ver.2/No.264)は数量と誤認しない設計。
+function quantityOf(title) {
+  const s = title || "";
+  let q = 1;
+  const bump = (n) => { const v = parseInt(n, 10); if (v >= 2 && v <= 50) q = Math.max(q, v); };
+  let m;
+  // 日本語: 数字 + 個数カウンタ（個/本/点/枚/コ/ヶ/組/袋/箱/パック/セット）。「N個入り」「Nセット」も含む。
+  const jp = /(\d{1,2})\s*(?:個|本|点|枚|コ|ヶ|組|袋|箱|パック|セット)/g;
+  while ((m = jp.exec(s))) bump(m[1]);
+  if (/(?:^|[^ァ-ヶー])ペア(?![ンミ])/.test(s)) q = Math.max(q, 2); // ペア=2（ペイント/ペンは除外）
+  // 英語(eBay): lot of N / set of N / pack of N / N pcs / N pieces / N-pack
+  const en = /(?:lot|set|pack)\s*of\s*(\d{1,2})|(\d{1,2})\s*(?:pcs|pieces|[- ]pack)\b/gi;
+  while ((m = en.exec(s))) bump(m[1] || m[2]);
+  // ×N（掛け算の数量。寸法[150x150]誤検出を避け 2〜20 に限定）
+  const x = /[×x]\s*([2-9]|1\d|20)\b/gi;
+  while ((m = x.exec(s))) bump(m[1]);
+  return q;
+}
 // ① 楽天検索のNGKeyword（除外語）。社外/互換/部品/アクセサリ/シール等の別物を“拾う前に”除外。
 //   ※「バンド/ベルト」単体は純正時計名にも出るため入れない(recall維持)。バンド誤マッチは価格比とPART_EXCLUDEで対処。
 const NG_KEYWORDS = '互換 社外 交換用 汎用 スリーブ ローダー 保護フィルム バネ棒 遊環 シール ステッカー';
@@ -799,12 +819,13 @@ async function main() {
     dedupedProducts = dedupedProducts.filter(p => {
       if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
       if (p.title && USED_EXCLUDE.test(p.title)) return false; // 中古品（新品相場と比較され利益過大の誤検知）
+      if (p.title && quantityOf(p.title) > 1) return false;    // 複数パック(数量>1)＝単品相場と比較され価格が狂う
       // ⑤ 価格比サニティ（既存にも適用）
       if (p.realAvgPrice > 0 && p.source?.price > 0 && p.realAvgPrice > p.source.price * PRICE_RATIO_MAX) return false;
       return true;
     });
     const dropped = before - dedupedProducts.length;
-    if (dropped) console.log(`  🧹 互換部品/セット/中古/価格比異常の誤マッチを除外: ${dropped}件`);
+    if (dropped) console.log(`  🧹 互換部品/セット/中古/数量違い/価格比異常の誤マッチを除外: ${dropped}件`);
   }
 
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
@@ -905,9 +926,14 @@ async function main() {
       // 画像マッチ前に弾くことで Haiku も節約できる。
       if (codesConflict(rakutenItem.itemName, ebayItem.title)) continue;
 
+      // 数量(個数)が食い違う候補は除外（楽天=2本パック vs eBay=単品 等。価格基準が狂うのを防ぐ）。
+      // 画像では複数パックも1個に見えるため、タイトルから数値抽出して決定論的に弾く。
+      const rQty = quantityOf(rakutenItem.itemName);
+      if (rQty !== quantityOf(ebayItem.title)) continue;
+
       // ② 利益が出る候補だけ画像マッチ（Haiku）で同一商品か検証
       if (ebayImg) {
-        const matched = await isImageMatch(rakutenImg, ebayImg, { rakutenTitle: rakutenItem.itemName, ebayTitle: ebayItem.title });
+        const matched = await isImageMatch(rakutenImg, ebayImg, { rakutenTitle: rakutenItem.itemName, ebayTitle: ebayItem.title, rakutenQuantity: rQty });
         if (!matched) continue;
       }
 
