@@ -111,6 +111,9 @@ const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|
 // 中古/ユーズド/ジャンク。新品eBay相場と比較すると利益が過大に見える誤検知の温床（精度監査で確認）。
 // 初心者向け・低リスク方針に合わせ、中古の楽天品はカタログから除外する。detectCondition と同じ語で判定。
 const USED_EXCLUDE = /中古|ユーズド|used|ジャンク/i;
+// 【ユーザー厳命】関税問題/国際郵便で送れない航空危険物等は絶対にカタログ対象にしない。
+// 明確な危険物ワードに限定（腕時計の「電池/ソーラー」やスプレーボトル等の正常品を巻き込まないよう bareの電池/スプレーは使わない）。
+const PROHIBITED_EXCLUDE = /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|lighter|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
 
 // タイトルから「数量(個数)」を推定する。既定1。楽天が複数パック/セットなのにeBay単品と比較され
 // 価格(=利益)が狂う事故を防ぐ。ml/g等の単位・型番・版数(Ver.2/No.264)は数量と誤認しない設計。
@@ -515,6 +518,7 @@ async function fetchEbayJapanSoldItems() {
         const price = parseFloat(item?.price?.value);
         const currency = item?.price?.currency;
         if (!title || isNaN(price) || price <= 0) continue;
+        if (PROHIBITED_EXCLUDE.test(title)) continue; // 【厳命】香水/スプレー/電池等 国際発送不可・関税問題はseed段階で除外
         let priceJpy = 0;
         if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
         else if (currency === 'GBP') priceJpy = Math.round(price * GBP_TO_JPY);
@@ -881,6 +885,7 @@ async function main() {
     dedupedProducts = dedupedProducts.filter(p => {
       if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
       if (p.title && USED_EXCLUDE.test(p.title)) return false; // 中古品（新品相場と比較され利益過大の誤検知）
+      if (p.title && PROHIBITED_EXCLUDE.test(p.title)) return false; // 【厳命】国際発送不可・関税問題ジャンルは既存からも除去
       if (p.title && quantityOf(p.title) > 1) return false;    // 複数パック(数量>1)＝単品相場と比較され価格が狂う
       if (typeof p.realProfitRate === "number" && p.realProfitRate <= PROFIT_RATE_FLOOR) return false; // 利益率10%以下は出さない
       // ⑤ 価格比サニティ（既存にも適用）
@@ -954,6 +959,7 @@ async function main() {
         if (PART_EXCLUDE.test(it.itemName)) continue;     // 互換バンド/社外部品 等の別物アクセサリ
         if (SET_EXCLUDE.test(it.itemName)) continue;       // 複数個セット/まとめ売り
         if (USED_EXCLUDE.test(it.itemName)) continue;      // 中古/ユーズド/ジャンク（新品相場比較で利益過大）
+        if (PROHIBITED_EXCLUDE.test(it.itemName)) continue; // 【厳命】香水/スプレー/電池/ライター等 国際発送不可・関税問題ジャンルは絶対対象外
         if (existingIds.has(it.itemCode)) continue;
         rakutenItems.push(it);
       }
