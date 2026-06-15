@@ -1,0 +1,21 @@
+name: Rakuten fields probe
+
+# 楽天APIが正確な送料額/商品固有ポイント倍率を返すかの一発診断。手動実行のみ。本番非干渉。
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run rakuten probe
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: node scripts/rakuten_probe.mjs
