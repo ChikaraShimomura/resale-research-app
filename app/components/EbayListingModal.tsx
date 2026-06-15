@@ -638,55 +638,87 @@ export default function EbayListingModal({
           )}
 
           {phase === "notready" && (
-            <div className="py-6 text-center">
-              <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
-              <p className="text-base font-black text-amber-700 mb-2">まだ出品できません</p>
-              <p className="text-sm text-gray-700 mb-4 leading-relaxed text-left bg-amber-50 border border-amber-100 rounded-xl px-3 py-3">
-                {result?.pendingVerification ? (
-                  <>
-                    eBayが<b className="text-gray-900">本人確認</b>をしている最中です。
-                    <b>「アカウントの準備ができました」のメール</b>が届いたら、下のボタンでもう一度お試しください（早ければ数分、長いと数日）。
-                  </>
-                ) : (
-                  <>
-                    <b className="text-gray-900">eBayのセラー登録（売上の受け取り設定）が完了していない</b>か、
-                    アカウントが出品できる状態にありません。
-                    <br />
-                    eBayでセラー登録・設定を済ませてから、もう一度お試しください。
-                  </>
-                )}
-              </p>
+            <div className="py-6">
+              <div className="text-center">
+                <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
+                <p className="text-lg font-black text-amber-700 mb-2">セラー登録が出来ていません。</p>
+                <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
+                  eBayで売上を受け取るための<b className="text-gray-700">セラー登録（初回だけ）</b>が済むと、ここから出品できます。
+                </p>
+              </div>
 
-              {/* 本人確認待ち以外は、eBay公式の登録ページへ（手順は自分で進めてもらう方針） */}
-              {!result?.pendingVerification && (
+              {/* 「登録の壁」は他社サポート(ココナラ等)で突破できる、という応援。手順はアプリでは案内しない方針。 */}
+              <div className="bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-3 mb-4 text-left">
+                <p className="text-[12px] text-amber-900 leading-relaxed">
+                  💪 ここが<b>最初の関門</b>。登録は<b>一度きり</b>です。自分で進めるのが不安なら、
+                  <b>ココナラ（スキル販売の他社サービス）</b>で「eBay セラー登録 サポート」を探すと、詳しい人に手伝ってもらえます。
+                  <br />
+                  この壁さえ越えれば、あとは<b>アプリのワンタップ出品</b>で世界に売っていけます。応援しています！
+                </p>
+              </div>
+
+              {/* 収益の複利イメージ（10万円→毎月+10%）。断定額ではなく「イメージ図」＋免責で誇大表現を回避。 */}
+              <div className="bg-white border border-gray-100 rounded-xl px-3 pt-3 pb-2 mb-4">
+                <p className="text-[11px] font-bold text-gray-700 text-center mb-1">
+                  10万円から、毎月10%ずつ増やせたら…📈
+                </p>
+                <svg
+                  viewBox="0 0 340 180"
+                  className="w-full h-auto"
+                  role="img"
+                  aria-label="10万円を毎月10%増やすと5年で約3,000万円になる複利のイメージ図"
+                >
+                  <line x1="38" y1="18" x2="38" y2="140" stroke="#E5E7EB" strokeWidth="1.5" />
+                  <line x1="38" y1="140" x2="326" y2="140" stroke="#E5E7EB" strokeWidth="1.5" />
+                  <text x="8" y="16" fontSize="10" fill="#9CA3AF">資産</text>
+                  <path
+                    d="M40 139.6 L96 138.8 L152 136.1 L208 127.8 L264 101.8 L320 20 L320 140 L40 140 Z"
+                    fill="#10B98120"
+                  />
+                  <polyline
+                    points="40,139.6 96,138.8 152,136.1 208,127.8 264,101.8 320,20"
+                    fill="none"
+                    stroke="#10B981"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="40" cy="139.6" r="3.5" fill="#10B981" />
+                  <circle cx="208" cy="127.8" r="3.5" fill="#10B981" />
+                  <circle cx="264" cy="101.8" r="3.5" fill="#10B981" />
+                  <circle cx="320" cy="20" r="4.5" fill="#059669" />
+                  <text x="40" y="132" fontSize="9.5" fill="#6B7280" textAnchor="middle">10万</text>
+                  <text x="206" y="121" fontSize="9.5" fill="#059669" textAnchor="middle">約300万</text>
+                  <text x="322" y="14" fontSize="12" fontWeight="bold" fill="#059669" textAnchor="end">
+                    5年で約3,000万円
+                  </text>
+                  {["今", "1年", "2年", "3年", "4年", "5年"].map((l, i) => (
+                    <text key={l} x={40 + i * 56} y="156" fontSize="10" fill="#9CA3AF" textAnchor="middle">
+                      {l}
+                    </text>
+                  ))}
+                </svg>
+                <p className="text-[10px] text-gray-400 leading-relaxed mt-1">
+                  ※ 利益を仕入れに回して<b>毎月10%</b>増やせた場合の複利イメージです（実際の結果を保証するものではありません）。
+                </p>
+              </div>
+
+              <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => {
-                    // 別ウィンドウでeBay公式を開く（アプリは開いたまま→戻って再試行できる）
-                    const w = window.open("https://www.ebay.com/sl/sell", "ebaySellerRegister", "width=920,height=840");
-                    if (w) w.opener = null; // 逆タブナビング対策
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 h-11 mb-2 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE]"
+                  onClick={confirmRegistered}
+                  disabled={confirming || cooldown > 0}
+                  className="w-full h-11 mb-2 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
                 >
-                  eBayでセラー登録・設定する <ExternalLink size={14} />
+                  {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "登録できた・もう一度試す"}
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={confirmRegistered}
-                disabled={confirming || cooldown > 0}
-                className="w-full h-11 mb-2 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
-              >
-                {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "設定できた・もう一度試す"}
-              </button>
-              {confirmErr && (
-                <p className="mb-2 text-[11px] text-[#BF0000] leading-relaxed">
-                  まだ完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
-                </p>
-              )}
-
-              <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
+                {confirmErr && (
+                  <p className="mb-2 text-[11px] text-[#BF0000] leading-relaxed">
+                    まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
+                  </p>
+                )}
+                <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
+              </div>
             </div>
           )}
 

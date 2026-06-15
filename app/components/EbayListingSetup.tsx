@@ -98,28 +98,18 @@ export default function EbayListingSetup() {
       {allDone && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
           <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-2">
-            <BadgeCheck size={16} /> 準備完了！次は「セラー登録（売上の受け取り設定）」です。
+            <BadgeCheck size={16} /> eBay連携・出品の準備が完了しました！
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              // eBay公式のセラー登録を別ウィンドウで開く（アプリは開いたまま→戻って出品できる）
-              const w = window.open("https://www.ebay.com/sl/sell", "ebaySellerRegister", "width=920,height=840");
-              if (w) w.opener = null; // 逆タブナビング対策
-            }}
-            className="w-full h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]"
-          >
-            eBayでセラー登録する（公式）→
-          </button>
           <p className="text-[11px] text-emerald-800 leading-relaxed">
-            <b>初回だけ</b>、eBayの<b>セラー登録（売上の受け取り）</b>が必要です。eBay公式で登録・本人確認を済ませると出品できます。
+            あとは商品を選んで「eBay簡単出品」を押すだけ。<br />
+            ※ まだeBayの<b>セラー登録（売上の受け取り）</b>が済んでいない場合は、出品しようとしたときにお知らせします（登録は<b>初回だけ</b>・eBay側で行います）。
           </p>
           <button
             type="button"
             onClick={continueToListing}
-            className="w-full h-10 bg-white border border-gray-200 text-gray-600 font-bold text-[13px] rounded-xl active:bg-gray-50"
+            className="w-full h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]"
           >
-            {listId ? "登録は済んでいる・この商品を出品する →" : "登録は済んでいる・商品を探す →"}
+            {listId ? "この商品を出品する →" : "商品を探して出品する →"}
           </button>
         </div>
       )}
