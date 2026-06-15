@@ -23,6 +23,7 @@ interface PrepareData {
   category: { categoryId?: string; categoryName?: string; categoryTreeId: string } | null;
   requiredAspects: RequiredAspect[];
   shipping: ShippingChoice[];
+  recommendedShippingId?: string; // ジャンル(サイズ)に最適な送料ポリシー（既定選択に使う）
 }
 
 // 送料ポリシー名を日本語ラベルに
@@ -136,9 +137,13 @@ export default function EbayListingModal({
         setPriceUsd(initLowest.toFixed(2));
       }
       setCondition(p.condition);
-      // デフォルトは中サイズの送料（無ければ先頭）
-      const midShip = p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0];
-      setShippingId(midShip?.fulfillmentPolicyId ?? "");
+      // デフォルトはジャンル(サイズ)に最適な送料。無ければ中サイズ→先頭にフォールバック。
+      const recOk =
+        p.recommendedShippingId && p.shipping?.some((s) => s.fulfillmentPolicyId === p.recommendedShippingId);
+      const def = recOk
+        ? p.recommendedShippingId
+        : (p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0])?.fulfillmentPolicyId;
+      setShippingId(def ?? "");
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);

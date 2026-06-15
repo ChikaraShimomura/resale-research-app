@@ -93,7 +93,8 @@ export interface CategorySuggestion {
 
 export async function getCategorySuggestion(
   appToken: string,
-  query: string
+  query: string,
+  preferCondition?: string // 例 "NEW"。指定時は その状態を許可する候補を優先（used-only誤判定→#25021/Used誤表示を回避）
 ): Promise<CategorySuggestion | null> {
   const tree = await ebayFetch(
     appToken,
@@ -109,10 +110,26 @@ export async function getCategorySuggestion(
       query.slice(0, 80)
     )}`
   );
-  const first = (
+  const cats = ((
     sug.data as { categorySuggestions?: { category?: { categoryId?: string; categoryName?: string } }[] } | null
-  )?.categorySuggestions?.[0]?.category;
-  return { categoryTreeId: treeId, categoryId: first?.categoryId, categoryName: first?.categoryName };
+  )?.categorySuggestions ?? [])
+    .map((s) => s.category)
+    .filter((c): c is { categoryId: string; categoryName?: string } => !!c?.categoryId);
+  if (!cats.length) return { categoryTreeId: treeId };
+
+  // 希望状態(例:NEW)が指定されていれば、それを許可する最初の候補を選ぶ。
+  // eBayの先頭候補が used-only だと新品が出せず #25021／Used誤表示になるため、上位5件まで状態ポリシーを確認。
+  const preferId = preferCondition ? ENUM_TO_CONDID[preferCondition] : undefined;
+  if (preferId) {
+    for (const c of cats.slice(0, 5)) {
+      const allowed = await allowedConditionIds(appToken, c.categoryId);
+      // allowed=null は「デフォルトポリシー(=New含む)」。null か 希望IDを含むカテゴリを採用。
+      if (!allowed || allowed.has(preferId)) {
+        return { categoryTreeId: treeId, categoryId: c.categoryId, categoryName: c.categoryName };
+      }
+    }
+  }
+  return { categoryTreeId: treeId, categoryId: cats[0].categoryId, categoryName: cats[0].categoryName };
 }
 
 export interface RequiredAspect {
@@ -354,17 +371,16 @@ async function allowedConditionIds(token: string, categoryId: string): Promise<S
   return ids.length ? new Set(ids) : null;
 }
 
-// 希望状態がカテゴリで使えればそのまま、ダメなら近い許可状態へ寄せる。新品系↔中古系の取り違えも避ける。
+// 希望状態がカテゴリで使えればそのまま、ダメでも「同じ系統(新品系/中古系)」の中だけで寄せる。
+// 新品を中古(Used)に格下げ表示しない＝買い手に状態を偽らない（ユーザー方針）。同系統が無ければ希望状態のまま返す。
+const NEW_FAMILY = ["1000", "1500", "1750", "2750"];   // New / New other / New w/defects / Like New
+const USED_FAMILY = ["3000", "4000", "5000", "6000"];  // Used: Excellent / Very good / Good / Acceptable
 function pickCondition(allowed: Set<string>, desiredEnum: string): string {
   const desiredId = ENUM_TO_CONDID[desiredEnum];
   if (desiredId && allowed.has(desiredId)) return desiredEnum;
-  const isNewFamily = ["1000", "1500", "1750", "2750"].includes(desiredId ?? "");
-  const order = isNewFamily
-    ? ["1000", "1500", "1750", "2750", "3000", "4000", "5000", "6000"]
-    : ["3000", "4000", "5000", "6000", "2750", "1500", "1000"];
-  for (const id of order) if (allowed.has(id)) return CONDID_TO_ENUM[id];
-  const first = [...allowed][0];
-  return CONDID_TO_ENUM[first] ?? desiredEnum;
+  const sameFamily = NEW_FAMILY.includes(desiredId ?? "") ? NEW_FAMILY : USED_FAMILY;
+  for (const id of sameFamily) if (allowed.has(id)) return CONDID_TO_ENUM[id];
+  return desiredEnum; // 同系統に許可が無い→状態は偽らない（カテゴリ側で解決する）
 }
 
 // 取得失敗時は無補正（fail-open＝従来動作）。これにより本修正で状況が悪化することはない。

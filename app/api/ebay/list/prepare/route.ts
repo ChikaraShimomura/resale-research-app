@@ -92,6 +92,27 @@ function detectCondition(jaTitle: string): string {
   return "NEW";
 }
 
+// ジャンル(=荷物の大きさの目安)→ eBay配送ポリシーのサイズ区分。小さい物に大サイズ送料を当てない。
+const SHIP_TIER_BY_GENRE: Record<string, "small" | "medium" | "large"> = {
+  トレカ: "small", コスメ: "small", 腕時計: "small", フィギュア: "small",
+  ゲーム: "small", おもちゃ: "small", ガンプラ: "medium", LEGO: "large",
+};
+// ジャンルに最適な送料ポリシーのIDを選ぶ（ポリシー名の small/medium/large で判定）。
+// 該当サイズが無ければ medium→先頭にフォールバック。ユーザーは画面で変更可。
+function recommendShippingId(
+  shipping: { fulfillmentPolicyId: string; name: string }[],
+  genre?: string
+): string | undefined {
+  if (!shipping?.length) return undefined;
+  const tier = (genre && SHIP_TIER_BY_GENRE[genre]) || "medium";
+  const re = tier === "small" ? /small/i : tier === "large" ? /large/i : /medium/i;
+  const hit =
+    shipping.find((s) => re.test(s.name)) ??
+    shipping.find((s) => /medium/i.test(s.name)) ??
+    shipping[0];
+  return hit?.fulfillmentPolicyId;
+}
+
 // 英語の説明文（編集可）。購入者がよく気にする点をQ&Aで手厚く、かつトラブル回避の文言を網羅する。
 // プレーンテキストで返し（編集しやすい）、公開時に listing.ts が改行→HTMLに変換する。
 function buildDescription(enTitle: string, condition: string, category?: string): string {
@@ -240,7 +261,7 @@ export async function POST(req: Request) {
   // 送料サイズ（配送ポリシー）一覧も取得。
   const taxoToken = (await getAppAccessToken()) || token;
   const [cat, shipping, lowestComparable] = await Promise.all([
-    getCategorySuggestion(taxoToken, enTitle),
+    getCategorySuggestion(taxoToken, enTitle, condition),
     listFulfillmentPolicies(token),
     getLowestComparableUsd(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD（最速出品用）
   ]);
@@ -289,6 +310,7 @@ export async function POST(req: Request) {
         : null,
       requiredAspects,
       shipping,
+      recommendedShippingId: recommendShippingId(shipping, product.category), // ジャンル(サイズ)に最適な送料ポリシー
     },
     { headers: { "Cache-Control": "private, no-store" } }
   );
