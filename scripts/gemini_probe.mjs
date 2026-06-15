@@ -65,6 +65,16 @@ async function callGemini(label, body) {
 
 (async () => {
   log('keys present:', { rakuten: !!RAKUTEN_APP_ID, ebay: !!EBAY_APP_ID, gemini: !!GEMINI_API_KEY });
+  // 鍵の「形」だけを安全に診断（鍵本体は晒さない）。正常な AI Studio 鍵は 39文字・"AIza" 始まり。
+  const k = GEMINI_API_KEY ?? '';
+  log('GEMINI key shape:', {
+    len: k.length,
+    startsAIza: k.startsWith('AIza'),
+    hasWhitespace: /\s/.test(k),
+    hasQuote: /['"`]/.test(k),
+    first4: k.slice(0, 4),
+    last2: k.slice(-2),
+  });
   const [eUrl, rUrl] = await Promise.all([ebayImg(), rakutenImg()]);
   log('eBay img:', eUrl);
   log('Rakuten img:', rUrl);
