@@ -108,6 +108,9 @@ const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ロ�
 const PART_EXCLUDE = /互換|社外|交換用|交換\s*(?:ベルト|バンド|ストラップ)|替え\s*(?:ベルト|バンド|ストラップ)|汎用|バネ棒|遊環|尾錠単体|NATO\s*(?:ベルト|ストラップ|バンド)|ZULU|(?:対応|適合|用)\s*(?:ベルト|バンド|ストラップ)/i;
 // 複数個セット/まとめ売り。単品のeBay出品と数量が食い違う誤マッチを防ぐ。
 const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|本|体)\s*まとめ|まとめ売り|セット売り|\d+\s*個入り|詰め合わせ/i;
+// 中古/ユーズド/ジャンク。新品eBay相場と比較すると利益が過大に見える誤検知の温床（精度監査で確認）。
+// 初心者向け・低リスク方針に合わせ、中古の楽天品はカタログから除外する。detectCondition と同じ語で判定。
+const USED_EXCLUDE = /中古|ユーズド|used|ジャンク/i;
 // ① 楽天検索のNGKeyword（除外語）。社外/互換/部品/アクセサリ/シール等の別物を“拾う前に”除外。
 //   ※「バンド/ベルト」単体は純正時計名にも出るため入れない(recall維持)。バンド誤マッチは価格比とPART_EXCLUDEで対処。
 const NG_KEYWORDS = '互換 社外 交換用 汎用 スリーブ ローダー 保護フィルム バネ棒 遊環 シール ステッカー';
@@ -795,12 +798,13 @@ async function main() {
     const before = dedupedProducts.length;
     dedupedProducts = dedupedProducts.filter(p => {
       if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
+      if (p.title && USED_EXCLUDE.test(p.title)) return false; // 中古品（新品相場と比較され利益過大の誤検知）
       // ⑤ 価格比サニティ（既存にも適用）
       if (p.realAvgPrice > 0 && p.source?.price > 0 && p.realAvgPrice > p.source.price * PRICE_RATIO_MAX) return false;
       return true;
     });
     const dropped = before - dedupedProducts.length;
-    if (dropped) console.log(`  🧹 互換部品/セット/価格比異常の誤マッチを除外: ${dropped}件`);
+    if (dropped) console.log(`  🧹 互換部品/セット/中古/価格比異常の誤マッチを除外: ${dropped}件`);
   }
 
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
@@ -865,6 +869,7 @@ async function main() {
         if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
         if (PART_EXCLUDE.test(it.itemName)) continue;     // 互換バンド/社外部品 等の別物アクセサリ
         if (SET_EXCLUDE.test(it.itemName)) continue;       // 複数個セット/まとめ売り
+        if (USED_EXCLUDE.test(it.itemName)) continue;      // 中古/ユーズド/ジャンク（新品相場比較で利益過大）
         if (existingIds.has(it.itemCode)) continue;
         rakutenItems.push(it);
       }
