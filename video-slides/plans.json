@@ -31,7 +31,7 @@
           {"type":"screen","image":"e_intro","badge":"はじめに","title":"名前と住所はローマ字","helper":"名前・住所はローマ字で身分証と完全に一致\n後の審査で止まらないための大事な下準備","hold":5},
           {"type":"screen","image":"e_s1_login","badge":"STEP 1 / 4","title":"eBayにSign in","helper":"①メールとパスワードでSign in(ログイン)\n買い物用アカウントがあればそのまま使えます","hold":4.5},
           {"type":"screen","image":"e_s1_sell","badge":"STEP 1 / 4","title":"出品を始める","helper":"②上部メニューの「Sell(出品)」を開く\n青い「Sell now」を押して進みます","hold":4.5},
-          {"type":"screen","image":"e_s1_search","badge":"STEP 1 / 4","title":"何か選んで進むだけ","helper":"③これは登録の入口。商品は何でもOK・状態は適当でOK\n必須項目は「テスト」と入れて進めばセラー登録画面へ","hold":5.5},
+          {"type":"screen","image":"e_s1_search","badge":"STEP 1 / 4","title":"「figure」と入力して選ぶ","helper":"③検索に半角英語で「figure」と入力 → 一番上の候補を選ぶ\n状態(New/Used)を選び「出品情報に進む」でセラー登録へ","hold":5.5},
           {"type":"screen","image":"e_s1_getstarted","badge":"STEP 1 / 4","title":"出品用口座を準備","helper":"④「Get started」を押すと自動でPayoneer画面へ\n勝手に切り替わるのは正しい動きです","hold":5},
           {"type":"screen","image":"e_s2_signup","badge":"STEP 2 / 4","title":"Payoneerに新規登録","helper":"①「Sign up」で登録(持っていればSign in)\n確認メールのリンクを押して続行(迷惑メールも確認)","hold":5.5},
           {"type":"screen","image":"e_s2_type","badge":"STEP 2 / 4","title":"種別と氏名","helper":"②種別は「個人(Individual)」を選ぶ\n氏名はローマ字で身分証と同じ表記に","hold":5},

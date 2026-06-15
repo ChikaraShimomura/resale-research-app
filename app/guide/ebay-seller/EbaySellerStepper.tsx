@@ -263,36 +263,29 @@ function Step1Body() {
         ボタン名はeBayの画面更新で「Create listing（出品を作成）」などに変わることがあります。<b>スマホのeBayアプリ</b>なら、画面<b>右下の「出品」</b>ボタンから始められます（表示が一部日本語で分かりやすい）。
       </Tip>
 
-      {/* ③ 何か選んで進むだけ（商品は“テスト”でOK） */}
-      <p className="text-[12px] font-bold text-gray-700">③ 何か選んで進むだけ（商品は“テスト”でOK）</p>
+      {/* ③ 「figure」と入力して一番上を選ぶ */}
+      <p className="text-[12px] font-bold text-gray-700">③ 「figure」と入力して、一番上の候補を選ぶ</p>
       <Phone>
         <Screen logo={<EbayLogo />}>
-          <p className="text-[12px] font-bold text-gray-800">出品の入口（セラー登録のためだけ）</p>
+          <p className="text-[12px] font-bold text-gray-800">どんな商品を出品しますか</p>
           <div className="h-9 px-3 flex items-center gap-2 rounded-lg border border-gray-200 text-[12px] text-gray-700">
             <Search size={14} className="text-gray-400 shrink-0" />
-            <span>商品名は何でもOK</span>
-          </div>
-          <p className="text-[11px] text-[#0064D2] font-bold">
-            候補が出たらどれか1つ／無ければ「一致なしで続行」
-          </p>
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-gray-200 text-[11.5px] text-gray-600">
-            <span>コンディション（状態）</span>
-            <span className="font-bold text-gray-700">適当に選ぶ</span>
+            <span className="font-bold text-gray-800">figure</span>
           </div>
           <Tap>
-            <span className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-[12px] text-emerald-700">
-              タイトル等の必須項目は「テスト」
-              <Check size={13} className="ml-auto shrink-0 text-emerald-500" />
+            <span className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-gray-700">
+              <span className="w-7 h-7 rounded bg-gray-100 shrink-0" />
+              一番上に出た候補を選ぶ
             </span>
           </Tap>
-          <BlueBtn>Continue（続ける）</BlueBtn>
+          <p className="text-[11px] text-gray-400">※ 候補が出ないときだけ「一致なしで続行」</p>
         </Screen>
       </Phone>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        この画面は<b>「出品」ではなく、セラー登録に進むための入口</b>です。だから商品は<b>何でもOK</b>。検索して候補が出たらどれか1つ選び（無ければ「一致なしで続行」）、状態（コンディション）も<b>適当に選んで</b>かまいません。
+        検索ボックスに<b>半角英語で「figure」</b>と入力し、出てきた<b>候補の一番上</b>を選びます。これは<b>セラー登録に進むための入口</b>なので、商品はサンプルの「figure」でOK（このまま実際に売られることはありません）。
       </p>
       <p className="text-[12px] text-gray-600 leading-relaxed">
-        続けてタイトルなどの<b>必須項目を求められたら、すべて「テスト」</b>と入れて進めて大丈夫です。写真や価格も適当でOK。やがて「Set up your selling account（セラー登録）」の画面になります。
+        次に「<b>商品の状態を選択</b>」が出たら <b>New</b> か <b>Used</b> を選び、「<b>出品情報に進む</b>」を押します。やがて「Set up your selling account（セラー登録）」の画面になります。
       </p>
 
       {/* ④ Get started */}
@@ -320,7 +313,7 @@ function Step1Body() {
       </Tip>
 
       <Warn>
-        ここで作るものは“セラー登録に進むための仮の入口”で、<b>このまま公開・販売されることはありません</b>（あとで下書きを破棄してOK）。だから<b>商品・状態・タイトルは「テスト」など適当で大丈夫</b>。本当の出品は登録が全部終わってから、アプリ（輸出ラボ）の「eBay簡単出品」が写真だけで自動で行います。
+        ここで作るものは“セラー登録に進むための仮の入口”で、<b>このまま公開・販売されることはありません</b>（あとで下書きを破棄してOK）。だから<b>サンプルの「figure」を選ぶだけ</b>で大丈夫。本当の出品は登録が全部終わってから、アプリ（輸出ラボ）の「eBay簡単出品」が写真だけで自動で行います。
       </Warn>
       <Tip>上のメニューに「Sell」が見当たらない時は、右上の「☰（三本線）」を押すと中に入っています。</Tip>
       <p className="text-[12px] text-[#BF0000] font-bold leading-relaxed">

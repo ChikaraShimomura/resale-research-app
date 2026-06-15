@@ -17,7 +17,7 @@ const b = await chromium.launch();
 for (const step of [0, 1, 2, 3]) {
   const ctx = await b.newContext({ viewport: { width: 430, height: 860 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
-  await page.addInitScript((s) => { try { localStorage.setItem('ebay_guide_step', String(s)); } catch {} }, step);
+  await page.addInitScript((s) => { try { localStorage.setItem('ebay_guide_step', String(s)); localStorage.setItem('cookie_consent_v1', 'denied'); } catch {} }, step);
   await page.goto(`${BASE}/guide/ebay-seller`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(500);
   const phones = await page.$$('div[class*="max-w-[260px]"]');

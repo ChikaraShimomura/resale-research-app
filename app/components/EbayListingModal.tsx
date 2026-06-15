@@ -669,7 +669,17 @@ export default function EbayListingModal({
                 />
               </div>
 
-              <div className="text-center">
+              {/* まず「画像つきの全手順（フルガイド）」を一番上に */}
+              <a
+                href="/guide/ebay-seller"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 border-2 border-[#0064D2] text-[#0064D2] font-bold text-sm rounded-xl active:bg-[#0064D2]/5"
+              >
+                📖 画像つきの全手順（フルガイド）を見る <ExternalLink size={14} />
+              </a>
+
+              <div className="text-center mt-3">
                 <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 mb-4 leading-relaxed text-left">
                   <b className="text-gray-700">eBayの「下書き」を探さなくて大丈夫。</b> 登録前の出品はそこに出ない仕様です。登録後にこのアプリから公開すれば「出品中」に並びます。
                 </p>
@@ -705,15 +715,6 @@ export default function EbayListingModal({
                 )}
               </div>
 
-              {/* ★小さなリンク → 大きめのフルガイド誘導ボタンに格上げ */}
-              <a
-                href="/guide/ebay-seller"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 w-full inline-flex items-center justify-center gap-1.5 h-11 px-6 border-2 border-[#0064D2] text-[#0064D2] font-bold text-sm rounded-xl active:bg-[#0064D2]/5"
-              >
-                📖 画像つきの全手順（フルガイド）を見る <ExternalLink size={14} />
-              </a>
               <EbaySellerGuide />
               <div className="text-center mt-3">
                 <button onClick={onClose} className="text-sm font-bold text-gray-500">あとで</button>

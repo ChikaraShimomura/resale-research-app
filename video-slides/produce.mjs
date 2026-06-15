@@ -183,9 +183,12 @@ const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 })).newPage();
 
 const allJobs = plans.videos.flatMap(jobsFor);
-console.log(`${allJobs.length} jobs (3 full + ${allJobs.length - 3} shorts)\n`);
+// 引数でジョブ(key)を絞れる: node produce.mjs ebay ebay_step1  （無指定なら全部）
+const only = process.argv.slice(2);
+const jobs = only.length ? allJobs.filter((j) => only.includes(j.key)) : allJobs;
+console.log(`${jobs.length}/${allJobs.length} jobs${only.length ? ` (only: ${only.join(', ')})` : ''}\n`);
 const summary = [];
-for (const job of allJobs) {
+for (const job of jobs) {
   process.stdout.write(`• ${job.key} (${job.slides.length} slides) ... `);
   const frames = await renderFrames(page, job);
   const silent = path.join(WORK, job.key + '_silent.mp4');
