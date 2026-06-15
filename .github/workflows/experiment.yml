@@ -1,0 +1,25 @@
+name: Match strategy experiment (A/B/C)
+
+# マッチング「順序」のA/B/Cバトル。本番カタログには触れない（結果はログに出すだけ）。
+# 手動実行のみ。結果は run のログ内 EXPERIMENT_RESULTS_START/END の間のJSONで回収する。
+on:
+  workflow_dispatch: {}
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run experiment
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          EBAY_APP_ID:          ${{ secrets.EBAY_APP_ID }}
+          EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
+          GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/experiment.mjs
