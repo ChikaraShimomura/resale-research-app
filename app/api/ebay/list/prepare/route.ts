@@ -33,7 +33,8 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
 // 必須Item Specifics の初期値（Brandは Unbranded、選択式は先頭候補、それ以外は空）
 function defaultAspect(a: RequiredAspect): string {
   if (/brand/i.test(a.name)) return "Unbranded";
-  if (!a.free && a.values.length > 0) return a.values[0];
+  // 候補があれば（自由入力タイプでも）先頭を既定に。必須Item Specific の未入力(#25002)を防ぐ。
+  if (a.values.length > 0) return a.values[0];
   return "";
 }
 

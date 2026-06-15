@@ -230,7 +230,9 @@ export default function EbayListingModal({
     }
   };
 
-  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0;
+  // 必須Item Specifics（Type等）が全て埋まっているか。未入力だと公開が #25002 で弾かれるため出品をブロック。
+  const aspectsFilled = (data?.requiredAspects ?? []).every((a) => (aspects[a.name] ?? "").trim() !== "");
+  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled;
 
   // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
@@ -496,32 +498,36 @@ export default function EbayListingModal({
               {/* 必須Item Specifics */}
               {data.requiredAspects.length > 0 && (
                 <div className="space-y-2.5">
-                  <label className="block text-[11px] text-gray-500">商品の詳細</label>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">分かる範囲でOK・空欄でも多くは出品できます。</p>
-                  {data.requiredAspects.map((a) => (
-                    <div key={a.name}>
-                      <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}</span>
-                      {!a.free && a.values.length > 0 ? (
-                        <select
-                          value={aspects[a.name] ?? ""}
-                          onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
-                          className="w-full h-9 px-2.5 rounded-lg border border-gray-200 text-[13px] bg-white focus:outline-none focus:border-[#BF0000]"
-                        >
-                          <option value="">選択してください</option>
-                          {a.values.map((v) => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={aspects[a.name] ?? ""}
-                          onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
-                          className="w-full h-9 px-2.5 rounded-lg border border-gray-200 text-[13px] focus:outline-none focus:border-[#BF0000]"
-                        />
-                      )}
-                    </div>
-                  ))}
+                  <label className="block text-[11px] text-gray-500">商品の詳細（必須）</label>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">eBayの必須項目です。未入力だと出品できません（候補から選べばOK）。</p>
+                  {data.requiredAspects.map((a) => {
+                    const empty = (aspects[a.name] ?? "").trim() === "";
+                    const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${empty ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
+                    return (
+                      <div key={a.name}>
+                        <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{empty && <span className="text-[#BF0000]"> ※必須</span>}</span>
+                        {a.values.length > 0 ? (
+                          <select
+                            value={aspects[a.name] ?? ""}
+                            onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
+                            className={`${base} bg-white`}
+                          >
+                            <option value="">選択してください</option>
+                            {a.values.map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={aspects[a.name] ?? ""}
+                            onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
+                            className={base}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -543,6 +549,13 @@ export default function EbayListingModal({
               <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-gray-100 rounded-lg px-3 py-2 leading-relaxed">
                 🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>です。
               </p>
+
+              {/* 必須項目が未入力の時の案内（公開エラー#25002の予防） */}
+              {!aspectsFilled && (
+                <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  ⚠️ 上の「商品の詳細（必須）」に未入力があります。候補から選ぶと出品できます。
+                </p>
+              )}
 
               {/* 出品ボタン */}
               <button
