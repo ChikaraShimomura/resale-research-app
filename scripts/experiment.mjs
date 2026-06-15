@@ -68,27 +68,30 @@ async function ebayToken() {
       body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
       signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) { console.error(`[ebayToken] HTTP ${res.status}`); return null; }
     const d = await res.json();
     ebayTok = { t: d.access_token, exp: Date.now() + (d.expires_in - 60) * 1000 };
     return d.access_token;
-  } catch { return null; }
+  } catch (e) { console.error(`[ebayToken] ERR ${e.message}`); return null; }
 }
 async function ebaySearch(query, limit) {
   const tok = await ebayToken();
   if (!tok || !query) return [];
-  const params = new URLSearchParams({ q: query.slice(0, 120), filter: 'conditions:{NEW|LIKE_NEW}', sort: 'price', limit: String(limit), fieldgroups: 'COMPACT' });
+  const params = new URLSearchParams({ q: query.slice(0, 120), filter: 'conditions:{NEW|LIKE_NEW}', sort: 'price', limit: String(limit) });
   try {
     const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
       headers: { Authorization: `Bearer ${tok}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
       signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) { console.error(`[ebay] "${query.slice(0, 30)}" HTTP ${res.status}`); return []; }
     const d = await res.json();
-    return (d.itemSummaries ?? [])
+    const raw = d.itemSummaries ?? [];
+    const out = raw
       .map((it) => ({ title: it.title ?? '', priceJpy: toJpy(parseFloat(it.price?.value), it.price?.currency), img: it.image?.imageUrl ?? it.thumbnailImages?.[0]?.imageUrl ?? '', url: it.itemWebUrl ?? '' }))
       .filter((x) => x.title && x.priceJpy > 0 && x.img && !SET_EXCLUDE.test(x.title));
-  } catch { return []; }
+    console.error(`[ebay] "${query.slice(0, 30)}" raw=${raw.length} kept=${out.length}`);
+    return out;
+  } catch (e) { console.error(`[ebay] "${query.slice(0, 30)}" ERR ${e.message}`); return []; }
 }
 async function rakutenSearch(keyword) {
   if (!keyword) return [];
@@ -98,14 +101,16 @@ async function rakutenSearch(keyword) {
       headers: { Referer: 'https://www.yushutsu-fukugyo.com/', Origin: 'https://www.yushutsu-fukugyo.com' },
       signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) { console.error(`[rakuten] "${keyword.slice(0, 20)}" HTTP ${res.status}`); return []; }
     const d = await res.json();
-    return (d.Items ?? []).map((x) => x.Item).filter(Boolean).map((it) => ({
+    const out = (d.Items ?? []).map((x) => x.Item).filter(Boolean).map((it) => ({
       name: it.itemName, price: it.itemPrice,
       img: (it.mediumImageUrls?.[0]?.imageUrl || it.smallImageUrls?.[0]?.imageUrl || '').replace(/_ex=\d+x\d+/, '_ex=600x600'),
       url: it.itemUrl,
     })).filter((r) => r.name && r.img && r.price >= 1000);
-  } catch { return []; }
+    console.error(`[rakuten] "${keyword.slice(0, 20)}" raw=${(d.Items ?? []).length} kept=${out.length}`);
+    return out;
+  } catch (e) { console.error(`[rakuten] "${keyword.slice(0, 20)}" ERR ${e.message}`); return []; }
 }
 
 async function gemini(prompt, maxTok) {
