@@ -30,12 +30,55 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
   }
 }
 
-// 必須Item Specifics の初期値（Brandは Unbranded、選択式は先頭候補、それ以外は空）
+// 必須Item Specifics の初期値（選択式は先頭候補、それ以外は空）。Brand はジャンル別に別途整える。
 function defaultAspect(a: RequiredAspect): string {
   if (/brand/i.test(a.name)) return "Unbranded";
   // 候補があれば（自由入力タイプでも）先頭を既定に。必須Item Specific の未入力(#25002)を防ぐ。
   if (a.values.length > 0) return a.values[0];
   return "";
+}
+
+// ブランド候補をジャンル別に最大3つへ絞り、タイトルから分かれば正しいブランドを既定にする。
+// eBayの大量候補は初心者に多すぎるため、把握しているジャンル情報で「無難な3択＋既定」に整える。
+const BRAND_BY_GENRE: Record<string, { options: string[]; def: string }> = {
+  ガンプラ: { options: ["Bandai", "Unbranded"], def: "Bandai" },
+  LEGO: { options: ["LEGO", "Unbranded"], def: "LEGO" },
+  フィギュア: { options: ["Good Smile Company", "Bandai", "Unbranded"], def: "Unbranded" },
+  腕時計: { options: ["Casio", "Seiko", "Unbranded"], def: "Unbranded" },
+  コスメ: { options: ["Shiseido", "Kao", "Unbranded"], def: "Unbranded" },
+  トレカ: { options: ["Pokémon", "Bandai", "Unbranded"], def: "Unbranded" },
+  ゲーム: { options: ["Nintendo", "Sony", "Unbranded"], def: "Unbranded" },
+  ゲーム機: { options: ["Nintendo", "Sony", "Unbranded"], def: "Unbranded" },
+  カメラ: { options: ["Canon", "Sony", "Unbranded"], def: "Unbranded" },
+  おもちゃ: { options: ["Takara Tomy", "Bandai", "Unbranded"], def: "Unbranded" },
+};
+
+function brandFor(genre: string, titleText: string): { options: string[]; value: string } {
+  const base = BRAND_BY_GENRE[genre] ?? { options: ["Unbranded"], def: "Unbranded" };
+  const t = (titleText || "").toLowerCase();
+  const hit = (re: RegExp, brand: string): string | null => (re.test(t) ? brand : null);
+  // タイトル(英/和)から分かるブランドを優先＝既定がより正確に。
+  const detected =
+    hit(/pok[eé]mon|ポケモン/, "Pokémon") ||
+    hit(/one ?piece|ワンピース|dragon ?ball|ドラゴンボール|gundam|ガンダム|ガンプラ|bandai|バンダイ/, "Bandai") ||
+    hit(/yu-?gi-?oh|遊戯王|konami|コナミ/, "Konami") ||
+    hit(/lego|レゴ/, "LEGO") ||
+    hit(/nintendo|任天堂|amiibo|アミーボ|switch/, "Nintendo") ||
+    hit(/playstation|プレイステーション|プレステ|\bsony\b|ソニー/, "Sony") ||
+    hit(/seiko|セイコー/, "Seiko") ||
+    hit(/casio|カシオ|g-?shock|gショック/, "Casio") ||
+    hit(/citizen|シチズン/, "Citizen") ||
+    hit(/shiseido|資生堂/, "Shiseido") ||
+    hit(/花王/, "Kao") ||
+    hit(/good ?smile|グッドスマイル|nendoroid|ねんどろいど/, "Good Smile Company") ||
+    hit(/canon|キヤノン|キャノン/, "Canon") ||
+    hit(/nikon|ニコン/, "Nikon") ||
+    hit(/takara ?tomy|タカラトミー|トミカ|プラレール/, "Takara Tomy");
+  if (detected) {
+    const options = [detected, ...base.options.filter((o) => o !== detected)].slice(0, 3);
+    return { options, value: detected };
+  }
+  return { options: base.options, value: base.def };
 }
 
 // 状態の自動判定：大半は新品。楽天タイトルに「中古」等があるときだけ中古に。
@@ -98,7 +141,14 @@ export async function POST(req: Request) {
   let requiredAspects: { name: string; values: string[]; free: boolean; value: string }[] = [];
   if (cat?.categoryId) {
     const aspects = await getRequiredAspects(taxoToken, cat.categoryTreeId, cat.categoryId);
-    requiredAspects = aspects.map((a) => ({ ...a, value: defaultAspect(a) }));
+    requiredAspects = aspects.map((a) => {
+      if (/brand/i.test(a.name)) {
+        // ブランドはジャンル別に3択へ絞り、タイトルから分かれば正しいブランドを既定選択にする。
+        const b = brandFor(product.category, `${product.coreKeyword ?? ""} ${product.title ?? ""}`);
+        return { ...a, values: b.options, free: false, value: b.value };
+      }
+      return { ...a, value: defaultAspect(a) };
+    });
   }
 
   return Response.json(
