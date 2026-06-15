@@ -4,6 +4,7 @@ import GrowthDashboard from "./components/GrowthDashboard";
 import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
+import TrustBadges from "./components/TrustBadges";
 
 export const metadata = {
   alternates: { canonical: "/" },
@@ -113,6 +114,11 @@ export default function LandingPage() {
             はじめ方を画像つきガイドで見る →
           </Link>
         </div>
+      </section>
+
+      {/* eBay・Payoneerの信頼バッジ（海外への不安をケア） */}
+      <section className="max-w-2xl mx-auto px-4 pt-4 pb-2">
+        <TrustBadges />
       </section>
 
       {/* 利益計算の説明 */}

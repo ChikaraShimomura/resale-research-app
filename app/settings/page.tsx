@@ -3,6 +3,7 @@ import Link from "next/link";
 import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
 import ResetListingCounts from "../components/ResetListingCounts";
+import TrustBadges from "../components/TrustBadges";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -30,6 +31,11 @@ export default async function SettingsPage({
       </header>
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
+        {/* eBay・Payoneerの信頼バッジ（連携/登録の不安をその場でケア） */}
+        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+          <TrustBadges />
+        </section>
+
         <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
           <h2 className="text-sm font-black text-gray-800 mb-1">eBay出品の準備</h2>
           <p className="text-xs text-gray-500 leading-relaxed">
