@@ -114,9 +114,16 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
+  const consume = url.searchParams.get("consume") === "1"; // 自動修復ジョブ用：取り込んだ分をpendingから除去
   let items: string[] = [];
   try {
     items = (await kv.lrange<string>(LIST_KEY, 0, limit - 1)) ?? [];
+    if (consume && items.length) {
+      // 取り込んだ分は done に退避してから pending から除去（二重修正の防止）。
+      await kv.lpush("error_reports:done", ...items);
+      await kv.ltrim("error_reports:done", 0, 499);
+      await kv.ltrim(LIST_KEY, items.length, -1);
+    }
   } catch {
     /* 取得失敗は空配列 */
   }

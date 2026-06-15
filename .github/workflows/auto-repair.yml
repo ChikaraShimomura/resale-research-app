@@ -1,0 +1,157 @@
+name: Auto-repair (Claude self-heal)
+
+# 「開発者に報告」されたエラーを Claude が無人で自動修正し、ビルドが通れば本番へ自動デプロイする。
+# 完全自動（人のレビューは挟まない）。ただし“無人でも事故らない”自動ブレーキを必ず通す:
+#  ① ビルド/型チェックが緑のときだけ push（=Vercel自動デプロイ）。落ちたら push しない。
+#  ② デプロイ後にヘルスチェック→明確にダウンなら自動 revert（ロールバック）。
+#  ③ 毎回メール通知（結果・差分・元に戻すコマンド）。
+#  ④ 報告は consume で取り込み済みにし二重修正を防止／Claudeは最小変更・git/secret/CIに触れない。
+#
+# 必要シークレット: ANTHROPIC_API_KEY / GMAIL_USERNAME / GMAIL_APP_PASSWORD（既存）＋
+#   CRON_SECRET（GitHub Secret に追加。値は Vercel の CRON_SECRET と同一にする）。
+#   ※ CRON_SECRET 未設定なら報告APIが401→何もせず終了（安全な無効状態）。
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # 2時間ごと。報告が無ければ即終了＝低コスト
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-repair
+  cancel-in-progress: false
+
+env:
+  SITE: https://www.yushutsu-fukugyo.com
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 報告を取り込み（consume）
+        id: fetch
+        run: |
+          code=$(curl -s -o auto-repair-input.json -w "%{http_code}" \
+            "$SITE/api/report/error?secret=${{ secrets.CRON_SECRET }}&consume=1&limit=20" || echo "000")
+          if [ "$code" != "200" ]; then echo "fetch failed: $code"; echo "has=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          count=$(node -e "try{const d=require('./auto-repair-input.json');console.log((d.reports||[]).length)}catch(e){console.log(0)}")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -gt 0 ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Claude 自動修正
+        if: steps.fetch.outputs.has == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            これは無人の自動修復ジョブです。リポジトリ直下の auto-repair-input.json に、ユーザーから
+            報告された出品エラー等が入っています。次を厳守してください。
+            1. auto-repair-input.json を読み、報告された不具合の根本原因をコードから特定する。
+            2. 報告された不具合「だけ」を、最小限の差分で修正する（無関係なコードや挙動は変えない）。
+            3. `npm run build` で型エラー/ビルドが通ることを必ず確認する。
+            4. 機密(.env*)・.github/ 配下・課金/デプロイ設定・依存の大幅変更には触れない。
+            5. git 操作（commit/push/reset 等）は一切しない。コミットとデプロイは後続のCIが行う。
+            6. 原因が特定できない／修正が不要な場合は、ファイルを一切変更しないこと。
+          claude_args: |
+            --model sonnet
+            --max-turns 25
+            --max-budget-usd 5.00
+            --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(npm run build:*)" "Bash(npm ci:*)"
+            --disallowedTools "Bash(git push:*)" "Bash(git commit:*)" "Bash(git reset:*)" "Bash(git rebase:*)" "Bash(rm:*)"
+            --append-system-prompt "本番に自動デプロイされる。最小変更・安全第一。git/secret/CI設定は触らない。"
+
+      - name: ビルド検証（緑でなければデプロイしない）
+        if: steps.fetch.outputs.has == 'true'
+        id: build
+        run: |
+          rm -f auto-repair-input.json
+          npm ci
+          if npm run build; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: 差分判定
+        if: steps.fetch.outputs.has == 'true'
+        id: diff
+        run: |
+          if git diff --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+          {
+            echo "DIFF<<EOF"
+            git --no-pager diff --stat | head -40
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: コミット＆プッシュ（ビルド緑＋差分あり時のみ）
+        if: steps.fetch.outputs.has == 'true' && steps.build.outputs.ok == 'true' && steps.diff.outputs.changed == 'true'
+        id: deploy
+        run: |
+          git config user.name "claude-autofix[bot]"
+          git config user.email "claude-autofix@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: 自動修復 by Claude (報告 ${{ steps.fetch.outputs.count }}件)"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          git push origin HEAD:master
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: デプロイ後ヘルスチェック→ダメなら自動ロールバック
+        if: steps.deploy.outputs.pushed == 'true'
+        id: health
+        run: |
+          echo "Vercelデプロイ待ち..."; sleep 240
+          ok=false
+          for i in 1 2 3 4 5 6; do
+            c=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/api/products" || echo 000)
+            echo "try $i: $c"
+            if [ "$c" = "200" ]; then ok=true; break; fi
+            sleep 30
+          done
+          if [ "$ok" = "true" ]; then
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+            echo "本番が不健全→自動ロールバック"
+            git revert --no-edit HEAD
+            git push origin HEAD:master
+            echo "rolledback=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 結果メール通知
+        if: steps.fetch.outputs.has == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "🤖 自動修復ジョブ結果（報告${{ steps.fetch.outputs.count }}件）"
+          to: chikara0323@gmail.com
+          from: "輸出ラボ自動修復 <${{ secrets.GMAIL_USERNAME }}>"
+          body: |
+            自動修復ジョブが走りました。
+
+            報告件数   : ${{ steps.fetch.outputs.count }}
+            ビルド     : ${{ steps.build.outputs.ok }}
+            変更あり   : ${{ steps.diff.outputs.changed }}
+            デプロイ   : ${{ steps.deploy.outputs.pushed || 'なし' }}  (commit ${{ steps.deploy.outputs.sha }})
+            健全性     : ${{ steps.health.outputs.healthy || 'N/A' }}
+            ロールバック : ${{ steps.health.outputs.rolledback || 'なし' }}
+
+            変更差分(stat):
+            ${{ env.DIFF }}
+
+            ▼ 手動で元に戻すには（必要なら）
+            git revert ${{ steps.deploy.outputs.sha }} && git push
+
+            ▼ 実行ログ
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
