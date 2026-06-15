@@ -320,8 +320,9 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
   if (!rakutenUrl || !ebayUrl) return true;
   const { rakutenTitle = '', ebayTitle = '', rakutenQuantity = null } = opts;
 
-  // キャッシュキーを v2 にして、旧matcher(汎用プロンプト)の偽陽性を次回refreshで再判定させる。
-  const cacheKey = `img_match2:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
+  // キャッシュキーを v3 に更新。旧 img_match2 は「壊れたGemini→Haiku単独」時代の判定なので無効化し、
+  // 新しい Haiku下調べ→Sonnet確認 の合議で全ペアを判定し直させる（BOX≠単品 等の取りこぼしを洗浄）。
+  const cacheKey = `img_match3:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
 
