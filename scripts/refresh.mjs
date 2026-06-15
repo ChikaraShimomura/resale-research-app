@@ -8,7 +8,6 @@ const RAKUTEN_ACCESS_KEY  = process.env.RAKUTEN_ACCESS_KEY;
 const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID         = process.env.EBAY_APP_ID;
 const EBAY_CLIENT_SECRET  = process.env.EBAY_CLIENT_SECRET;
-const GEMINI_API_KEY      = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY   = process.env.ANTHROPIC_API_KEY;
 const KV_URL              = process.env.KV_REST_API_URL;
 const KV_TOKEN            = process.env.KV_REST_API_TOKEN;
@@ -235,16 +234,17 @@ async function fetchRakutenPage(keyword, page) {
   } catch { return []; }
 }
 
-// ========== 画像マッチ（ジャンル別・識別子重視 / Haiku既定＋Sonnet予算制 / Geminiフォールバック） ==========
+// ========== 画像マッチ（ジャンル別・識別子重視 / Claude一本化: Haiku下調べ＋Sonnet確認） ==========
 // 別変種(同キャラ別番号・同機体別グレード・同ライン別容量・正規vs互換 等)をSAMEと誤る偽陽性が相場/利益を狂わせる。
 // 対策: 画像を高解像度化＋タイトル文脈＋識別子を読ませる保守プロンプト。実画像検証で旧プロンプトの偽陽性3→0・取りこぼし0。
-// 【コスト安全】既定は Haiku 単独(識別子プロンプト)で判定＝安価。Sonnet は「予算がある時だけ」Haiku陽性を
-//   二重確認して偽陽性を潰す。予算 MAX_SONNET_PER_RUN で1回の実行コスト上限を固定し、クレジット枯渇を防ぐ。
+// 【合議】A(下調べ): 安価な Haiku で判定。NOなら即除外。B(確認): HaikuがYESの候補だけ上位の Sonnet で確認し、
+//   両方YESの時だけ採用＝偽陽性を上位モデルで潰す。AIベンダーは Anthropic に一本化（Gemini廃止）。
 let haikuCallsToday = 0;
 let sonnetCallsToday = 0;
-// Sonnet(高精度・高コスト)の実行あたり上限回数。既定0=Sonnet不使用(Haiku単独・最安・クレジット安全)。
-// クレジットに余裕があり精度を底上げしたいときだけ env で予算を与える（例: IMG_MATCH_SONNET_BUDGET=60）。
-const MAX_SONNET_PER_RUN = Number(process.env.IMG_MATCH_SONNET_BUDGET ?? 0);
+let haikuFailToday = 0; // 観測フック: Haiku不通(Anthropic到達不可)の回数。全滅時は未検証で商品が通る(fail-open)ため要警戒。
+// Sonnet確認の実行あたり上限回数（巨大リビルド時のコスト暴走を防ぐブレーキ）。既定300=通常運用は常に確認。
+// 最小コストで回したい時は IMG_MATCH_SONNET_BUDGET=0 で Haiku 単独運用に落とせる。
+const MAX_SONNET_PER_RUN = Number(process.env.IMG_MATCH_SONNET_BUDGET ?? 300);
 
 // 楽天サムネは _ex=128x128 等で型番/容量の文字が読めない→拡大。eBayの s-l{N} も大判化。
 function upscaleRakuten(url) { return (url || '').replace(/_ex=\d+x\d+/, '_ex=600x600'); }
@@ -298,40 +298,21 @@ function parseStrictSame(text) {
   return /SAME_VARIANT:\s*YES/i.test(text) && !/CONFIDENCE:\s*LOW/i.test(text);
 }
 
-// Gemini(主軸・ほぼ無料)での同一判定。識別子重視プロンプトを使う。true/false、キー無し・失敗時は null。
-// 本番は精度優先で full flash を既定に（要: Google課金有効化。無料枠は1日20回で実質不可）。環境変数で上書き可。
-// 無料に戻すなら GEMINI_MODEL=gemini-2.5-flash-lite（≒1日1000回・課金不要だが識別子読みは弱い）。2.0系は枠ゼロ。
-// 2.5系は思考モデルのため thinkingConfig.thinkingBudget:0 で思考を無効化しないと出力が空になりうる。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
-let geminiCallsToday = 0;
-// 観測フック: Geminiの成否を可視化する。無効鍵/モデル廃止で黙ってHaikuにフォールバック(=クレジット消費)するのを検知。
-let geminiFailToday = 0, geminiFirstError = null;
-function noteGeminiFail(reason) { geminiFailToday++; if (!geminiFirstError) geminiFirstError = reason; }
-async function geminiStrictMatch(img, rakutenTitle, ebayTitle, qty) {
-  if (!GEMINI_API_KEY) return null;
-  try {
-    const body = { contents: [{ parts: [
-      { text: strictMatchPrompt(rakutenTitle, ebayTitle, qty) },
-      { inlineData: { mimeType: img.mt1, data: img.b1 } },
-      { inlineData: { mimeType: img.mt2, data: img.b2 } },
-    ]}], generationConfig: { maxOutputTokens: 200, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } };
-    const gr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000) });
-    if (!gr.ok) { noteGeminiFail(`HTTP ${gr.status}: ${(await gr.text().catch(() => '')).slice(0, 160)}`); return null; }
-    const gd = await gr.json();
-    const text = gd?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    if (!text) { noteGeminiFail('empty response (parts/finishReason missing — 思考で枠消費の疑い)'); return null; }
-    geminiCallsToday++;
-    return parseStrictSame(text);
-  } catch (e) { noteGeminiFail(`ERR ${e.message}`); return null; }
-}
-
-// Haiku を識別子重視プロンプトで判定（合議の二重確認用）。true/false、キー無し・失敗時 null。
+// Haiku で同一判定（下調べ・主軸）。識別子重視プロンプト。true/false、キー無し・失敗時 null。
 async function haikuStrict(img, rakutenTitle, ebayTitle, qty) {
   if (!ANTHROPIC_API_KEY) return null;
   const t = await anthropicVision('claude-haiku-4-5', 220, strictMatchPrompt(rakutenTitle, ebayTitle, qty), img);
   if (t === null) return null;
   haikuCallsToday++;
+  return parseStrictSame(t);
+}
+
+// Sonnet で同一判定（上位モデルでの確認用）。HaikuがYESと言った候補だけに使う。true/false、失敗時 null。
+async function sonnetStrict(img, rakutenTitle, ebayTitle, qty) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const t = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, qty), img);
+  if (t === null) return null;
+  sonnetCallsToday++;
   return parseStrictSame(t);
 }
 
@@ -359,49 +340,33 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
     };
   } catch { return true; }
 
-  // ===== A+B 合議判定 =====
-  // A(主軸): Gemini(ほぼ無料・Anthropicクレジット0でも動く)で識別子判定。
-  // B(二重確認): Geminiが「同一」と言った候補だけ Haiku でも確認し、両方一致した時だけ採用＝偽陽性を二重で潰す。
-  // C(任意): 両者が食い違ったら、Sonnet予算(MAX_SONNET_PER_RUN)がある時だけ仲裁。
+  // ===== Claude一本化: Haiku下調べ → Sonnet確認 =====
+  // A(下調べ): 安価な Haiku で識別子判定。NOなら即除外。null(Anthropic不通)は保留=fail-open（商品を不当に落とさない）。
+  // B(確認): HaikuがYESの候補だけ、上位の Sonnet で確認。両方YESの時だけ採用＝偽陽性を上位モデルで潰す。
   try {
-    const gem = await geminiStrictMatch(img, rakutenTitle, ebayTitle, rakutenQuantity);
-
-    // Geminiが使えない時は Haiku 単独にフォールバック。
-    if (gem === null) {
-      const h = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
-      if (h === null) return true;                  // 両方不通→保留(キャッシュしない=次回再評価)
-      await kvSet(cacheKey, h, 168 * 3600);
-      return h;
-    }
-    if (gem === false) {                            // Geminiが別物→確定で除外(無料)
+    const hai = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
+    if (hai === null) { haikuFailToday++; return true; }  // Anthropic不通→保留(キャッシュしない=次回再評価)
+    if (hai === false) {                            // Haikuが別物→確定で除外
       await kvSet(cacheKey, false, 168 * 3600);
       return false;
     }
 
-    // gem === true。B: Haikuで二重確認。
-    const hai = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
-    if (hai === null) {                             // Anthropic不通(クレジット切れ等)→ Gemini単独で採用(=プランA運用)
-      await kvSet(cacheKey, true, 24 * 3600);       // 短期キャッシュ。クレジット復旧後に合議で再評価
-      return true;
-    }
-    if (hai === true) {                             // 合議YES→採用
-      await kvSet(cacheKey, true, 168 * 3600);
-      return true;
+    // hai === true。B: Sonnetで確認（誤検知を上位モデルで潰す）。
+    if (sonnetCallsToday < MAX_SONNET_PER_RUN) {
+      const son = await sonnetStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
+      if (son === null) {                           // Sonnet不通→Haiku単独で短期採用(復旧後に再評価)
+        await kvSet(cacheKey, true, 24 * 3600);
+        return true;
+      }
+      if (son === false) console.log('  [img NG/Sonnet否決]');
+      await kvSet(cacheKey, son, 168 * 3600);
+      return son;
     }
 
-    // 食い違い(Gemini=YES, Haiku=NO)。C: Sonnet予算があれば仲裁、無ければ保守的に除外＝精度優先。
-    if (sonnetCallsToday < MAX_SONNET_PER_RUN) {
-      const st = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, rakutenQuantity), img);
-      if (st !== null) {
-        sonnetCallsToday++;
-        const sv = parseStrictSame(st);
-        await kvSet(cacheKey, sv, 168 * 3600);
-        return sv;
-      }
-    }
-    console.log('  [img NG/合議不一致]');
-    await kvSet(cacheKey, false, 168 * 3600);
-    return false;
+    // Sonnet予算切れ(巨大リビルド等)→ Haiku単独で短期採用＋ログ（次回/予算復活で再確認）。
+    console.log('  [img Sonnet予算切れ→Haiku単独で暫定採用]');
+    await kvSet(cacheKey, true, 24 * 3600);
+    return true;
   } catch { return true; }
 }
 
@@ -1043,30 +1008,26 @@ async function main() {
     existingCount: existingProducts.length,
     newCount: profitableProducts.length - existingProducts.length,
     profitableCount: profitableProducts.length,
-    geminiCalls: geminiCallsToday,
-    geminiFail: geminiFailToday,
-    geminiModel: GEMINI_MODEL,
-    geminiFirstError,
     haikuCalls: haikuCallsToday,
+    haikuFail: haikuFailToday,
     sonnetCalls: sonnetCallsToday,
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
-  // 観測フック: Geminiの健康状態を専用キーにも残す（/api やレポートから参照しやすく）。
-  await kvSet('gemini_health', {
-    ok: geminiCallsToday, fail: geminiFailToday, model: GEMINI_MODEL,
-    firstError: geminiFirstError, down: geminiFailToday > 0 && geminiCallsToday === 0,
+  // 観測フック: 照合(Anthropic)の健康状態を専用キーにも残す（/api やレポートから参照しやすく）。
+  await kvSet('match_health', {
+    haiku: haikuCallsToday, sonnet: sonnetCallsToday, haikuFail: haikuFailToday,
+    down: haikuFailToday > 0 && haikuCallsToday === 0,
     runAt: new Date().toISOString(),
   }, 480 * 3600);
 
-  // 全滅(成功0/失敗あり)なら、Haikuに黙って落ちてクレジットを焼いている状態。CIログで目立たせる。
-  if (geminiFailToday > 0 && geminiCallsToday === 0) {
+  // 観測フック: Haikuが全滅(成功0/失敗あり)＝Anthropic到達不可。未検証のまま商品が通る(fail-open)危険状態なのでCIログで目立たせる。
+  if (haikuFailToday > 0 && haikuCallsToday === 0) {
     console.log(`
-⚠️⚠️ GEMINI DOWN: 成功0 / 失敗${geminiFailToday}回 → 全てHaiku(Anthropicクレジット)にフォールバック中。
-   model=${GEMINI_MODEL}  初回エラー: ${geminiFirstError}
-   → GEMINI_API_KEY とモデル名(無料枠の有無)を確認してください。`);
-  } else if (geminiFailToday > 0) {
-    console.log(`  ⚠️ Gemini一部失敗: 成功${geminiCallsToday} / 失敗${geminiFailToday}（初回: ${geminiFirstError}）`);
+⚠️⚠️ 照合DOWN: Haiku成功0 / 失敗${haikuFailToday}回 → Anthropic到達不可。未検証のまま商品が通る(fail-open)状態。
+   → ANTHROPIC_API_KEY / クレジット残高 / レート制限を確認してください。`);
+  } else if (haikuFailToday > 0) {
+    console.log(`  ⚠️ 照合の一部でHaiku不通: 失敗${haikuFailToday}回（その分は保留=fail-open）`);
   }
 
   console.log(`
@@ -1075,7 +1036,7 @@ async function main() {
   処理: ${toProcess.length}件
   新規利益商品: ${profitableProducts.length - existingProducts.length}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
-  画像判定: Gemini 成功${geminiCallsToday}/失敗${geminiFailToday}回 (${GEMINI_MODEL}) / Haiku ${haikuCallsToday}回 / Sonnet ${sonnetCallsToday}回
+  画像判定(Claude): Haiku 成功${haikuCallsToday}/不通${haikuFailToday}回 / Sonnet確認 ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
 }

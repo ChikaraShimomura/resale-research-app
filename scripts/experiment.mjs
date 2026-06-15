@@ -5,22 +5,22 @@
 //   B: 楽天-first（楽天実商品→英訳→eBay検索→画像一致）
 //   C: 識別子アンカー（eBayの型番/番号で楽天を引き、番号一致＋画像一致）
 // 結果は stdout に EXPERIMENT_RESULTS_START/END で囲んで JSON 出力（CIログから回収）。
-// マッチャは全戦略で共通の Gemini(無料枠) を使い、順序の差だけを公平に比較する。
+// マッチャは全戦略で共通の Claude(Haiku) を使い、順序の差だけを公平に比較する（本番もAnthropic一本化）。
 
 const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID;
 const RAKUTEN_ACCESS_KEY = process.env.RAKUTEN_ACCESS_KEY;
 const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 無料枠の実測: 2.5-flash=1日20回(不可)/2.5-flash-lite=潤沢。無料運用は flash-lite 一択（環境変数で上書き可）。2.5は思考モデルなので thinkingBudget:0 必須。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash-lite';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// AIベンダーは本番と同じく Anthropic に一本化。実験は順序比較なので単一モデル(Haiku)で統一＝公平。環境変数で上書き可。
+const AI_MODEL = process.env.EXPERIMENT_MODEL ?? 'claude-haiku-4-5';
 const USD_TO_JPY = 155, GBP_TO_JPY = 197, AUD_TO_JPY = 100;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Gemini無料枠(flash-lite 約15 RPM)対策：全Gemini呼び出しを直列化し最低4.5秒間隔に（429回避）。
+// Anthropicのレート制限内に収める：全AI呼び出しを直列化し最低1.2秒間隔に。
 let _gq = Promise.resolve();
-function geminiGate() { const w = _gq; _gq = w.then(() => sleep(4500)); return w; }
-// 楽天APIも約15 RPM。全rakutenSearchを直列化し最低4.2秒間隔に（楽天側429回避）。
+function aiGate() { const w = _gq; _gq = w.then(() => sleep(1200)); return w; }
+// 楽天APIは約15 RPM。全rakutenSearchを直列化し最低4.2秒間隔に（楽天側429回避）。
 let _rq = Promise.resolve();
 function rakutenGate() { const w = _rq; _rq = w.then(() => sleep(4200)); return w; }
 
@@ -35,7 +35,7 @@ const GENRES = [
   { cat: 'LEGO', ebayQ: 'lego set japan new sealed', rakutenKw: 'レゴ セット 新品' },
   { cat: 'おもちゃ', ebayQ: 'tomica diecast car japan new', rakutenKw: 'トミカ 新品' },
 ];
-const PER_GENRE = 3;   // 各ジャンル×各戦略で扱う種数（2.5-flash無料枠 約250 RPD 内に収める）
+const PER_GENRE = 3;   // 各ジャンル×各戦略で扱う種数（コスト/時間の制御）
 const CANDIDATES = 2;  // 各種につき試す相手候補数
 
 // 除外パターン（refresh.mjs と同一）。
@@ -122,42 +122,45 @@ async function rakutenSearch(keyword) {
   } catch (e) { console.error(`[rakuten] "${keyword.slice(0, 20)}" ERR ${e.message}`); return []; }
 }
 
-async function gemini(prompt, maxTok) {
-  if (!GEMINI_API_KEY) return null;
+async function ai(prompt, maxTok) {
+  if (!ANTHROPIC_API_KEY) return null;
   try {
-    await geminiGate();
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTok, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } }),
-      signal: AbortSignal.timeout(12000),
+    await aiGate();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTok, temperature: 0, messages: [{ role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) { console.error(`[ai] HTTP ${res.status}`); return null; }
     const d = await res.json();
-    return d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
+    return d?.content?.[0]?.text?.trim() ?? null;
   } catch { return null; }
 }
-const toJa = (en) => gemini(`Convert this eBay listing title to a short Japanese Rakuten search keyword (max 4 words, Japanese only, no English): "${en}". Output only the keyword.`, 40);
-const toEn = (ja) => gemini(`Convert this Japanese product title into a short English eBay search query (max 6 words) that uniquely identifies the product. Keep model numbers, character names and sizes: "${ja}". Output only the query.`, 40);
+const toJa = (en) => ai(`Convert this eBay listing title to a short Japanese Rakuten search keyword (max 4 words, Japanese only, no English): "${en}". Output only the keyword.`, 40);
+const toEn = (ja) => ai(`Convert this Japanese product title into a short English eBay search query (max 6 words) that uniquely identifies the product. Keep model numbers, character names and sizes: "${ja}". Output only the query.`, 40);
 
 async function imgMatch(rImg, eImg, rt, et) {
-  if (!rImg || !eImg || !GEMINI_API_KEY) return false;
+  if (!rImg || !eImg || !ANTHROPIC_API_KEY) return false;
   try {
     const [a, b] = await Promise.all([fetch(rImg, { signal: AbortSignal.timeout(8000) }), fetch(eImg, { signal: AbortSignal.timeout(8000) })]);
     if (!a.ok || !b.ok) return false;
     const [ab, bb] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
     const prompt = `Do these two photos show the EXACT SAME product variant? Image1=Rakuten(Japan) title "${(rt || '').slice(0, 120)}". Image2=eBay title "${(et || '').slice(0, 120)}". Same character/model/card number/grade/edition/volume required; a genuine item != a compatible/aftermarket part; single != set. Answer YES or NO only.`;
-    const body = { contents: [{ parts: [
-      { text: prompt },
-      { inlineData: { mimeType: a.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(ab).toString('base64') } },
-      { inlineData: { mimeType: b.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(bb).toString('base64') } },
-    ]}], generationConfig: { maxOutputTokens: 8, temperature: 0, thinkingConfig: { thinkingBudget: 0 } } };
-    await geminiGate();
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000),
+    await aiGate();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 8, temperature: 0, messages: [{ role: 'user', content: [
+        { type: 'text', text: prompt },
+        { type: 'image', source: { type: 'base64', media_type: a.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(ab).toString('base64') } },
+        { type: 'image', source: { type: 'base64', media_type: b.headers.get('content-type') ?? 'image/jpeg', data: Buffer.from(bb).toString('base64') } },
+      ]}] }),
+      signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) { console.error(`[img] HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 120)}`); return false; }
     const d = await res.json();
-    return (d?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim().toUpperCase().startsWith('YES');
+    return (d?.content?.[0]?.text ?? '').trim().toUpperCase().startsWith('YES');
   } catch (e) { console.error(`[img] ERR ${e.message}`); return false; }
 }
 

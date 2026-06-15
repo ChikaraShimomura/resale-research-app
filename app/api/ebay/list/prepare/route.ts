@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
 import { kvReadOnly } from "../../../../lib/kv";
-import { geminiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
+import { aiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
 import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getAppAccessToken } from "../../../../lib/ebay/oauth";
@@ -214,7 +214,7 @@ export async function POST(req: Request) {
   const condition = detectCondition(product.title);
   const description = buildDescription(enTitle, condition, product.category);
 
-  // AIチェック：作り込んだ定型文を Gemini(無料枠) で自然化。必須の方針/トラブル回避文が残っている時だけ採用。
+  // AIチェック：作り込んだ定型文を Claude(Haiku) で自然化。必須の方針/トラブル回避文が残っている時だけ採用。
   // 商品×状態でキャッシュ（無料枠の節約＋高速化）。失敗・欠落時は定型をそのまま使う（安全側）。
   let finalDescription = description;
   try {
@@ -223,12 +223,12 @@ export async function POST(req: Request) {
     if (typeof cached === "string" && cached.length > 150) {
       finalDescription = cached;
     } else {
-      const refined = await geminiRefineDescription(description);
+      const refined = await aiRefineDescription(description);
       if (refined && keepsKeyClauses(refined)) {
         finalDescription = refined;
         await kv.set(descKey, refined, { ex: 30 * 24 * 3600 });
       } else {
-        // 定型にフォールバック。短めTTLでキャッシュし、次回Gemini再試行の余地を残す。
+        // 定型にフォールバック。短めTTLでキャッシュし、次回AI再試行の余地を残す。
         await kv.set(descKey, description, { ex: 7 * 24 * 3600 });
       }
     }

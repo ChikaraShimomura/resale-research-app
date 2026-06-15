@@ -1,13 +1,12 @@
-// 出品説明文を Gemini(無料枠) でチェック・自然化する。
+// 出品説明文を Claude(Haiku) でチェック・自然化する（AIベンダーは Anthropic に一本化）。
 // 方針/トラブル回避の文を削らせないよう厳格に指示し、呼び出し側で必須句の残存も検証する。
 // 失敗・キー無し・必須句欠落時は null を返し、呼び出し側で「作り込んだ定型文」にフォールバックさせる。
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 本番は精度優先で full flash 既定（要: Google課金有効化。無料枠は1日20回で実質不可）。環境変数で上書き可。
-// 無料に戻すなら GEMINI_MODEL=gemini-2.5-flash-lite。2.5系は思考モデルなので thinkingConfig.thinkingBudget:0 が必須。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// 校正タスクなので Haiku で十分。環境変数で上書き可。
+const DESC_MODEL = process.env.DESC_MODEL ?? "claude-haiku-4-5";
 
-export async function geminiRefineDescription(draft: string): Promise<string | null> {
-  if (!GEMINI_API_KEY || !draft) return null;
+export async function aiRefineDescription(draft: string): Promise<string | null> {
+  if (!ANTHROPIC_API_KEY || !draft) return null;
   const prompt = `You are proofreading an eBay listing description written by a Japanese seller who ships internationally. Improve clarity, grammar, and natural English so it reads like a trustworthy, professional eBay listing.
 
 STRICT RULES:
@@ -21,17 +20,24 @@ Return ONLY the improved description text. No preamble, no explanations, no code
 --- DRAFT ---
 ${draft}`;
   try {
-    const body = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1400, temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } },
-    };
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000) }
-    );
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: DESC_MODEL,
+        max_tokens: 1500,
+        temperature: 0.3,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
     if (!r.ok) return null;
     const d = await r.json();
-    let text: string = d?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    let text: string = d?.content?.[0]?.text ?? "";
     text = text.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/i, "").trim();
     return text.length > 150 ? text : null;
   } catch {
