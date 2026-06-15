@@ -109,6 +109,18 @@ const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ロ�
 const PART_EXCLUDE = /互換|社外|交換用|交換\s*(?:ベルト|バンド|ストラップ)|替え\s*(?:ベルト|バンド|ストラップ)|汎用|バネ棒|遊環|尾錠単体|NATO\s*(?:ベルト|ストラップ|バンド)|ZULU|(?:対応|適合|用)\s*(?:ベルト|バンド|ストラップ)/i;
 // 複数個セット/まとめ売り。単品のeBay出品と数量が食い違う誤マッチを防ぐ。
 const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|本|体)\s*まとめ|まとめ売り|セット売り|\d+\s*個入り|詰め合わせ/i;
+// ① 楽天検索のNGKeyword（除外語）。社外/互換/部品/アクセサリ/シール等の別物を“拾う前に”除外。
+//   ※「バンド/ベルト」単体は純正時計名にも出るため入れない(recall維持)。バンド誤マッチは価格比とPART_EXCLUDEで対処。
+const NG_KEYWORDS = '互換 社外 交換用 汎用 スリーブ ローダー 保護フィルム バネ棒 遊環 シール ステッカー';
+// ② eBay種ジャンル(EBAY_JP_QUERIESのname) → 期待する楽天側ジャンル(guessCategory)。明確な別ジャンル混入を弾く。
+const EXPECTED_GENRE = {
+  'ポケモンカード': 'トレカ', '遊戯王': 'トレカ', 'ワンピースカード': 'トレカ',
+  'ガンプラMG': 'ガンプラ', 'ガンプラHG': 'ガンプラ', 'ねんどろいど': 'フィギュア',
+  'LEGO': 'LEGO', 'セイコー': '腕時計', 'Gショック': '腕時計', '資生堂': 'コスメ',
+  'トミカ': 'おもちゃ', 'アミーボ': 'ゲーム',
+};
+// ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
+const PRICE_RATIO_MAX = 8;
 
 // ========== eBayクエリハッシュ ==========
 function ebayQueryHash(query) {
@@ -204,6 +216,7 @@ async function fetchRakutenPage(keyword, page) {
     minPrice: '1000',
     maxPrice: '100000',
     keyword,
+    NGKeyword: NG_KEYWORDS, // ① 社外/互換/部品/アクセサリ等を検索段階で除外
   });
   try {
     const res = await fetch(
@@ -804,12 +817,17 @@ async function main() {
     if (dropped) console.log(`  🧹 番号不一致の誤マッチを除外: ${dropped}件`);
   }
 
-  // 既存の別物アクセサリ(互換バンド/社外部品)・複数個セット を除外（監査で腕時計の互換バンド誤マッチが多数判明）。
+  // 既存の別物アクセサリ(互換バンド/社外部品)・複数個セット・価格比異常 を除外（監査で腕時計の誤マッチ多数判明）。
   {
     const before = dedupedProducts.length;
-    dedupedProducts = dedupedProducts.filter(p => !(p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))));
+    dedupedProducts = dedupedProducts.filter(p => {
+      if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
+      // ⑤ 価格比サニティ（既存にも適用）
+      if (p.realAvgPrice > 0 && p.source?.price > 0 && p.realAvgPrice > p.source.price * PRICE_RATIO_MAX) return false;
+      return true;
+    });
     const dropped = before - dedupedProducts.length;
-    if (dropped) console.log(`  🧹 互換部品/セットの誤マッチを除外: ${dropped}件`);
+    if (dropped) console.log(`  🧹 互換部品/セット/価格比異常の誤マッチを除外: ${dropped}件`);
   }
 
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
@@ -899,6 +917,11 @@ async function main() {
       const shipJpy = domesticShipping(cat, rakutenItem.postageFlag); // 送料別なら国内送料を原価に算入
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
       if (profit < 1 || profitRate > 300) continue;
+      // ② カテゴリ整合: 楽天の推定ジャンルがeBay種ジャンルと明確に食い違う別物は除外（誤ジャンル混入防止）。
+      const expectedGenre = EXPECTED_GENRE[ebayItem.category];
+      if (expectedGenre && cat !== 'その他' && cat !== expectedGenre) continue;
+      // ⑤ 価格比サニティ: eBayが楽天の規定倍率超＝安い部品×高い本体等の誤マッチ疑い→除外。
+      if (ebayItem.priceJpy > rakutenItem.itemPrice * PRICE_RATIO_MAX) continue;
 
       // カード番号/型番が食い違う候補は別商品なので除外（同キャラ別番号カード等の誤マッチ防止）。
       // 画像マッチ前に弾くことで Haiku も節約できる。
