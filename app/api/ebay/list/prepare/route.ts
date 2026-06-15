@@ -90,10 +90,82 @@ function detectCondition(jaTitle: string): string {
   return "NEW";
 }
 
-// 英語の説明文（編集可）。タイトルは英語(coreKeyword)を使う。
-function buildDescription(enTitle: string, condition: string): string {
-  const cond = condition === "NEW" ? "Brand new and unused." : "Pre-owned, in good condition.";
-  return `${enTitle}\n\n${cond} Shipped directly from Japan with tracking. Carefully packaged. Please check the photo. Feel free to message me with any questions before purchase.`;
+// 英語の説明文（編集可）。購入者がよく気にする点をQ&Aで手厚く、かつトラブル回避の文言を網羅する。
+// プレーンテキストで返し（編集しやすい）、公開時に listing.ts が改行→HTMLに変換する。
+function buildDescription(enTitle: string, condition: string, category?: string): string {
+  const isNew = condition === "NEW";
+  const condLine = isNew
+    ? "Brand new and unused (factory sealed unless the photos show otherwise)."
+    : "Pre-owned and in good overall condition. Please check the photos for the exact condition.";
+
+  const L: string[] = [];
+  L.push(enTitle);
+  L.push("");
+  L.push(
+    "Thank you for viewing my listing! This item is located in Japan and ships directly from Japan with tracking. Please read the details below before purchasing."
+  );
+  L.push("");
+  L.push("【 Condition 】");
+  L.push(condLine);
+  L.push("The photos are part of the description, so please review them carefully.");
+  L.push("");
+  L.push("【 Frequently Asked Questions 】");
+  L.push("");
+  L.push("Q. Is this item authentic?");
+  L.push("A. Yes. It is 100% genuine and sourced in Japan. I never sell counterfeit items.");
+  L.push("");
+  L.push("Q. Where does it ship from, and how long does delivery take?");
+  L.push(
+    "A. It ships from Japan with a tracking number. Delivery usually takes about 1 to 3 weeks depending on your country and local customs processing."
+  );
+  L.push("");
+  L.push("Q. Are import duties or customs fees included?");
+  L.push(
+    "A. No. Any import duties, taxes, or customs fees are the buyer's responsibility and are NOT included in the item price or shipping. Please check your country's rules before buying."
+  );
+  L.push("");
+  L.push("Q. How will it be packaged?");
+  L.push("A. It will be packed carefully and securely to protect it during international shipping.");
+  L.push("");
+  L.push("Q. Do you provide tracking?");
+  L.push("A. Yes. Every order ships with a tracking number so you can follow your parcel.");
+  L.push("");
+  L.push("Q. What is your return policy?");
+  L.push(
+    "A. Returns are accepted in line with the return policy on this listing and eBay's Money Back Guarantee. If anything is wrong, please message me first and I will do my best to make it right."
+  );
+
+  // ジャンル別の注意（トラブル回避）。
+  if (category === "ゲーム" || category === "ゲーム機" || category === "カメラ") {
+    L.push("");
+    L.push("Q. Will it work in my country?");
+    L.push(
+      "A. This is the Japanese version. Games/consoles may be region-locked, and electronics are made for Japanese voltage (100V) and a Japanese plug. Please confirm region/voltage/plug compatibility before buying."
+    );
+  }
+  if (category === "コスメ") {
+    L.push("");
+    L.push("Q. Is the cosmetic item new and unused?");
+    L.push(
+      "A. Yes, unless otherwise noted. Please note that some countries restrict importing cosmetics, so check your local rules before buying."
+    );
+  }
+  if (category === "トレカ") {
+    L.push("");
+    L.push("Q. How are the cards packaged?");
+    L.push(
+      "A. Cards are protected with a sleeve and rigid packaging, then shipped with tracking. Please see the photos for the exact card and condition."
+    );
+  }
+
+  L.push("");
+  L.push("【 Important Notes 】");
+  L.push("- Please make sure your shipping address is complete and correct before ordering.");
+  L.push("- Feel free to message me with any questions before purchasing. I'm happy to help.");
+  L.push("- If there is any problem with your order, please contact me before opening a case. I respond quickly and will resolve it.");
+  L.push("");
+  L.push("Thank you, and happy shopping!");
+  return L.join("\n");
 }
 
 export async function POST(req: Request) {
@@ -118,7 +190,7 @@ export async function POST(req: Request) {
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
   const enTitle = (product.coreKeyword || product.title).slice(0, 80);
   const condition = detectCondition(product.title);
-  const description = buildDescription(enTitle, condition);
+  const description = buildDescription(enTitle, condition, product.category);
 
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
   // 送料サイズ（配送ポリシー）一覧も取得。

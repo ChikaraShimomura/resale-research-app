@@ -333,13 +333,24 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   // 出品個数（在庫数）。1〜30にクランプ。未指定/不正なら1。
   const qty = Math.min(30, Math.max(1, Math.floor(input.quantity || 1)));
 
+  // 説明文を eBay 用の簡易HTMLに整形（編集UIではプレーンのまま、公開時だけ変換）。
+  // & < > をエスケープ → 見出し(【…】)とQ.行を太字 → 改行を <br>。
+  const descHtml = (input.description || input.title)
+    .slice(0, 4000)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .split("\n")
+    .map((l) => (/^\s*(【|Q\.)/.test(l) ? `<b>${l}</b>` : l))
+    .join("<br>");
+
   // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
   const itemBody = {
     availability: { shipToLocationAvailability: { quantity: qty } },
     condition: input.condition,
     product: {
       title: input.title.slice(0, 80),
-      description: (input.description || input.title).slice(0, 4000),
+      description: descHtml,
       imageUrls: input.imageUrl ? [input.imageUrl] : [],
       aspects: input.aspects,
     },
@@ -376,7 +387,7 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     format: "FIXED_PRICE",
     availableQuantity: qty,
     categoryId: input.categoryId,
-    listingDescription: (input.description || input.title).slice(0, 4000),
+    listingDescription: descHtml,
     pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },
     listingPolicies: {
       fulfillmentPolicyId: usedFulfillmentId,
