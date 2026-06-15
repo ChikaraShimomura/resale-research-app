@@ -178,9 +178,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
             {/* 楽天仕入れ価格 */}
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[11px] text-gray-400">仕入れ</span>
+              <span className="text-[11px] text-gray-400">仕入れ{shippingJpy > 0 ? "(送料込)" : ""}</span>
               <span className="text-lg font-black text-[#BF0000]">
-                {formatJpy(source.price)}
+                {formatJpy(source.price + shippingJpy)}
               </span>
               {pointAmount > 0 && (
                 <span className="text-[11px] text-gray-400">／ {source.pointRate ?? 1}%還元</span>

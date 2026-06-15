@@ -180,9 +180,10 @@ const DOMESTIC_SHIP_JPY = {
   'トレカ': 350, 'コスメ': 500, 'ゲーム': 400, 'フィギュア': 800, 'ガンプラ': 800,
   'LEGO': 1000, '腕時計': 600, 'ゲーム機': 1100, 'カメラ': 1000, 'おもちゃ': 700, 'その他': 700,
 };
-function domesticShipping(category, postageFlag) {
-  if (Number(postageFlag) === 0) return 0;       // postageFlag=0 → 送料込み
-  return DOMESTIC_SHIP_JPY[category] ?? 700;     // 送料別 → カテゴリ別概算
+function domesticShipping(category) {
+  // ユーザー方針: 全商品の仕入れ原価に国内送料を算入する。楽天のpostageFlag=0は「送料込み」と
+  // 「送料不明」を区別できず、不明を無料扱いすると利益を過大表示してしまうため、常にカテゴリ別概算を足す（過小利益＝安全側）。
+  return DOMESTIC_SHIP_JPY[category] ?? 700;
 }
 
 // ========== カテゴリ推定 ==========
@@ -850,6 +851,22 @@ async function main() {
     if (dropped) console.log(`  🧹 番号不一致の誤マッチを除外: ${dropped}件`);
   }
 
+  // 既存カタログにも「国内送料を全商品の原価に算入」を遡及適用（ユーザー方針）。送料概算で利益を再計算し、
+  // 後段の利益率フィルタに反映させる（送料込みで10%以下になったものは除外される）。
+  {
+    let fixed = 0;
+    for (const p of dedupedProducts) {
+      if (!p.source || !(p.realAvgPrice > 0) || !(p.source.price > 0)) continue;
+      const ship = domesticShipping(p.category);
+      if (p.source.shippingJpy === ship) continue;
+      p.source.shippingJpy = ship;
+      const r = calcProfit(p.source.price, p.realAvgPrice, p.source.pointAmount ?? 0, ship);
+      p.realProfit = r.profit; p.realProfitRate = r.profitRate;
+      fixed++;
+    }
+    if (fixed) console.log(`  📦 国内送料を全商品の原価に算入し利益を再計算: ${fixed}件`);
+  }
+
   // 既存の別物アクセサリ(互換バンド/社外部品)・複数個セット・価格比異常 を除外（監査で腕時計の誤マッチ多数判明）。
   {
     const before = dedupedProducts.length;
@@ -951,7 +968,7 @@ async function main() {
       const pointRate = rakutenItem.pointRate ?? 1;
       const pointAmount = Math.floor(rakutenItem.itemPrice * pointRate / 100);
       const cat = guessCategory(rakutenItem.itemName);
-      const shipJpy = domesticShipping(cat, rakutenItem.postageFlag); // 送料別なら国内送料を原価に算入
+      const shipJpy = domesticShipping(cat); // 国内送料を全商品の原価に算入（過小利益＝安全側）
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
       if (profitRate <= PROFIT_RATE_FLOOR || profitRate > 300) continue; // 利益率10%以下/異常高は除外
       // ② カテゴリ整合: 楽天の推定ジャンルがeBay種ジャンルと明確に食い違う別物は除外（誤ジャンル混入防止）。
