@@ -313,6 +313,23 @@ CONFIDENCE: HIGH/MEDIUM/LOW
 REASON: <short>`;
 }
 
+// 【#6 確信ゲート】Sonnet確認用の「反証する」プロンプト。HaikuがYESと言った候補を、あえて別物の証拠を探して潰す。
+// 監査(audit_catalog)で 文字盤色違い/別セット/曖昧figma を捕捉できた敵対的判定を、本番の最終ゲートに組み込む。
+function adversarialMatchPrompt(rakutenTitle, ebayTitle, qty) {
+  return `You are an adversarial QA auditor confirming a Japan→eBay resale match for a price catalog. Two photos are shown.
+Image 1: Rakuten (Japan). Title: "${(rakutenTitle || '').slice(0, 140)}".${qty ? ` Quantity: ${qty}.` : ''}
+Image 2: eBay. Title: "${(ebayTitle || '').slice(0, 140)}".
+Your job is to find ANY reason these are NOT the exact same sellable product variant. Be skeptical; the default is NO. A wrong "same" misleads users about price.
+REJECT (answer NO) on any mismatch of: product/character name, series, model number, card number, set/expansion, edition/version, grade (HG/RG/MG/PG), dial or color, size/volume (ml,g), dosage form. A genuine item is NOT a compatible/aftermarket part. A single is NOT a set/box/lot. An accessory (case/sleeve/stand) is NOT the product itself.
+If a distinguishing identifier (number/grade/volume/color/edition) cannot be CONFIRMED in BOTH the image and the title, do NOT assume same — set CONFIDENCE: LOW.
+Reply EXACTLY in this format:
+ID1: <the specific variant in image 1>
+ID2: <the specific variant in image 2>
+SAME_VARIANT: YES/NO
+CONFIDENCE: HIGH/MEDIUM/LOW
+REASON: <short>`;
+}
+
 // Anthropic ビジョン呼び出し（2画像）。失敗時 null。共通レートゲートを通す。
 async function anthropicVision(model, maxTokens, promptText, img) {
   await haikuGate();
@@ -351,7 +368,8 @@ async function haikuStrict(img, rakutenTitle, ebayTitle, qty) {
 // Sonnet で同一判定（上位モデルでの確認用）。HaikuがYESと言った候補だけに使う。true/false、失敗時 null。
 async function sonnetStrict(img, rakutenTitle, ebayTitle, qty) {
   if (!ANTHROPIC_API_KEY) return null;
-  const t = await anthropicVision('claude-sonnet-4-6', 220, strictMatchPrompt(rakutenTitle, ebayTitle, qty), img);
+  // #6: Sonnet確認は「反証する」プロンプトで実施＝確信ゲート。LOW/反証ありは parseStrictSame で false→除外。
+  const t = await anthropicVision('claude-sonnet-4-6', 220, adversarialMatchPrompt(rakutenTitle, ebayTitle, qty), img);
   if (t === null) return null;
   sonnetCallsToday++;
   return parseStrictSame(t);
@@ -363,7 +381,7 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
 
   // キャッシュキーを v3 に更新。旧 img_match2 は「壊れたGemini→Haiku単独」時代の判定なので無効化し、
   // 新しい Haiku下調べ→Sonnet確認 の合議で全ペアを判定し直させる（BOX≠単品 等の取りこぼしを洗浄）。
-  const cacheKey = `img_match3:${ebayQueryHash(rakutenUrl + ebayUrl)}`;
+  const cacheKey = `img_match4:${ebayQueryHash(rakutenUrl + ebayUrl)}`; // #6 確信ゲート導入→全ペアを反証Sonnetで再判定
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
 
