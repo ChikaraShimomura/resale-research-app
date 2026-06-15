@@ -763,6 +763,114 @@ async function marketMedianPriceJpy(query) {
   return ebayMedianSinglePriceJpy(query);
 }
 
+// ========== ③ 楽天-first 発掘（フラグ制・eBay先が取りこぼす商品を楽天人気起点で拾う） ==========
+// 既定OFF。RAKUTEN_FIRST=1 で有効化。実験(A/B/C)でB(楽天先)がeBay先の取りこぼし(amiibo/トレカ等)を拾うと実証済み。
+// 照合ゲート(数量/番号/画像合議/利益率/禁制/中古/価格比)は eBay-first と完全共通＝品質は同水準。コストはRF_MAX_MATCHで上限固定。
+const RAKUTEN_FIRST_ENABLED = process.env.RAKUTEN_FIRST === '1';
+const RAKUTEN_SEED_QUERIES = [
+  { kw: 'ポケモンカード 未開封 BOX', name: 'ポケモンカード' },
+  { kw: 'ねんどろいど 新品 未開封', name: 'ねんどろいど' },
+  { kw: 'figma 新品', name: 'figma' },
+  { kw: 'S.H.Figuarts 新品', name: 'SHF' },
+  { kw: 'POP UP PARADE 新品', name: 'POP UP PARADE' },
+  { kw: 'ガンプラ RG 新品', name: 'ガンプラRG' },
+  { kw: 'G-SHOCK 新品', name: 'Gショック' },
+  { kw: 'セイコー 腕時計 新品', name: 'セイコー' },
+  { kw: '資生堂 スキンケア 新品', name: '資生堂' },
+  { kw: 'amiibo 新品 未開封', name: 'アミーボ' },
+  { kw: 'ベイブレードX 新品', name: 'ベイブレードX' },
+  { kw: 'ポケモンセンター ぬいぐるみ 新品', name: 'ポケセンぬいぐるみ' },
+];
+const RF_PER_GENRE = 4, RF_EBAY_CAND = 2, RF_MAX_MATCH = 80;
+
+// 汎用 eBay Browse 検索（NEW・Best Match）。{title, priceJpy, img, url}。禁制/セットは除外。
+async function ebayItemsByQuery(query, limit = 8) {
+  if (!query) return [];
+  const token = await getEbayToken();
+  if (!token) return [];
+  try {
+    const params = new URLSearchParams({ q: query.slice(0, 120), filter: 'conditions:{NEW|LIKE_NEW}', limit: String(limit), fieldgroups: 'COMPACT' });
+    const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return [];
+    const d = await res.json();
+    return (d?.itemSummaries ?? []).map(it => {
+      const v = parseFloat(it?.price?.value), c = it?.price?.currency;
+      let priceJpy = 0;
+      if (c === 'USD') priceJpy = Math.round(v * USD_TO_JPY);
+      else if (c === 'GBP') priceJpy = Math.round(v * GBP_TO_JPY);
+      else if (c === 'AUD') priceJpy = Math.round(v * AUD_TO_JPY);
+      else if (c === 'JPY') priceJpy = Math.round(v);
+      return { title: it?.title ?? '', priceJpy, img: it?.image?.imageUrl ?? it?.thumbnailImages?.[0]?.imageUrl ?? '', url: it?.itemWebUrl ?? '' };
+    }).filter(x => x.title && x.priceJpy > 0 && x.img && !PRICE_SET_RE.test(x.title) && !PROHIBITED_EXCLUDE.test(x.title));
+  } catch { return []; }
+}
+
+// 楽天人気品を起点に eBay相場を確認して利益商品を作る。haveIds(楽天itemCode集合)で重複排除。
+async function processRakutenFirst(haveIds) {
+  const out = [];
+  let matchBudget = RF_MAX_MATCH;
+  for (const { kw, name } of RAKUTEN_SEED_QUERIES) {
+    if (matchBudget <= 0) break;
+    let rItems = [];
+    try { rItems = (await fetchRakutenPage(kw, 1)).map(x => x.Item).filter(Boolean); } catch { continue; }
+    rItems = rItems.filter(it => it.itemPrice >= 1000
+      && !EXCLUDE_PATTERN.test(it.itemName) && !ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)
+      && !PART_EXCLUDE.test(it.itemName) && !SET_EXCLUDE.test(it.itemName)
+      && !USED_EXCLUDE.test(it.itemName) && !PROHIBITED_EXCLUDE.test(it.itemName)
+      && quantityOf(it.itemName) === 1 && !haveIds.has(it.itemCode));
+    for (const r of rItems.slice(0, RF_PER_GENRE)) {
+      if (matchBudget <= 0) break;
+      if (haveIds.has(r.itemCode)) continue;
+      const rakutenImg = r.mediumImageUrls?.[0]?.imageUrl || r.smallImageUrls?.[0]?.imageUrl || '';
+      if (!rakutenImg) continue;
+      const enKw = await rakutenTitleToEnglishKeyword(r.itemName);
+      if (!enKw) continue;
+      const eItems = await ebayItemsByQuery(enKw, RF_EBAY_CAND + 4);
+      for (const e of eItems.slice(0, RF_EBAY_CAND)) {
+        if (quantityOf(e.title) !== 1) continue;
+        if (codesConflict(r.itemName, e.title)) continue;
+        const pointRate = r.pointRate ?? 1;
+        const pointAmount = Math.floor(r.itemPrice * pointRate / 100);
+        const cat = guessCategory(r.itemName);
+        const shipJpy = domesticShipping(cat, r.postageFlag, r.itemName);
+        const { profit, profitRate } = calcProfit(r.itemPrice, e.priceJpy, pointAmount, shipJpy);
+        if (profitRate <= PROFIT_RATE_FLOOR || profitRate > 300) continue;
+        if (e.priceJpy > r.itemPrice * PRICE_RATIO_MAX) continue;
+        if (matchBudget <= 0) break;
+        matchBudget--;
+        if (!(await isImageMatch(rakutenImg, e.img, { rakutenTitle: r.itemName, ebayTitle: e.title, rakutenQuantity: 1 }))) continue;
+        const coreKeyword = isWeakKeyword(e.title) ? (enKw || e.title) : e.title;
+        let realAvgPrice = e.priceJpy, realMedianPrice = e.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
+        const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword));
+        if (med && med.count >= 5) {
+          const low = med.low ?? med.median;
+          realAvgPrice = Math.min(e.priceJpy, low); realMedianPrice = med.median; realCount = med.count;
+          const rr = calcProfit(r.itemPrice, realAvgPrice, pointAmount, shipJpy);
+          finalProfit = rr.profit; finalRate = rr.profitRate;
+          if (finalRate <= PROFIT_RATE_FLOOR || finalRate > 300) continue;
+        }
+        haveIds.add(r.itemCode);
+        out.push({
+          id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, category: cat,
+          source: { site: 'rakuten', siteName: '楽天', price: r.itemPrice, url: r.affiliateUrl || r.itemUrl, pointRate, pointAmount, shippingJpy: shipJpy, postageIncluded: Number(r.postageFlag) === 0 },
+          isNew: r.itemName.includes('新品') || r.itemName.includes('未開封'),
+          market: 'EBAY_US', coreKeyword,
+          ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
+          realAvgPrice, realMedianPrice, realProfit: finalProfit, realProfitRate: finalRate, realCount,
+          avgDaysToSell: null, addedAt: new Date().toISOString(),
+        });
+        console.log(`  🔁 [楽天先/${name}] ${finalRate}% | 楽天¥${r.itemPrice.toLocaleString()} → eBay¥${realAvgPrice.toLocaleString()} | ${r.itemName.slice(0, 30)}`);
+        break; // この楽天品は1件成立で次へ
+      }
+      await sleep(150);
+    }
+  }
+  return out;
+}
+
 // ========== メイン処理 ==========
 async function main() {
   console.log(`\n🚀 refresh.mjs 開始 ${new Date().toISOString()}`);
@@ -1096,6 +1204,17 @@ async function main() {
     if (i % 50 === 0 || i + CONCURRENCY >= toProcess.length) {
       console.log(`  進捗: ${Math.min(i + CONCURRENCY, toProcess.length)}/${toProcess.length}件（利益商品: ${profitableProducts.length - existingProducts.length}件）`);
     }
+  }
+
+  // ③ 楽天-first 発掘（フラグONのみ）。eBay先が取りこぼす商品を楽天人気起点で拾う。失敗しても本処理は継続。
+  if (RAKUTEN_FIRST_ENABLED) {
+    try {
+      const have = new Set(profitableProducts.map(p => p.id));
+      const rf = await processRakutenFirst(have);
+      let added = 0;
+      for (const prod of rf) { if (!have.has(prod.id)) { profitableProducts.push(prod); have.add(prod.id); added++; } }
+      console.log(`  🔁 楽天-first 追加: ${added}件`);
+    } catch (e) { console.error(`  [楽天-first ERROR] ${e.message}`); }
   }
 
   // 最終保存（登録順・新着が先頭。利益率ソートは将来の有料機能）
