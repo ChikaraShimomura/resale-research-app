@@ -299,9 +299,10 @@ function parseStrictSame(text) {
 }
 
 // Gemini(主軸・ほぼ無料)での同一判定。識別子重視プロンプトを使う。true/false、キー無し・失敗時は null。
-// モデルは環境変数で上書き可（無料枠の都合で 2.0-flash は枠ゼロ化→2.5-flash に移行）。
+// モデルは環境変数で上書き可。無料枠の実測: 2.0-flash=枠ゼロ / 2.5-flash=1日20回(実質不可) / 2.5-flash-lite=潤沢(≒1日1000回)。
+// → 無料運用は flash-lite 一択。精度優先なら課金を有効化のうえ GEMINI_MODEL=gemini-2.5-flash に切替可。
 // 2.5系は思考モデルのため thinkingConfig.thinkingBudget:0 で思考を無効化しないと出力が空になりうる。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash-lite';
 let geminiCallsToday = 0;
 // 観測フック: Geminiの成否を可視化する。無効鍵/モデル廃止で黙ってHaikuにフォールバック(=クレジット消費)するのを検知。
 let geminiFailToday = 0, geminiFirstError = null;

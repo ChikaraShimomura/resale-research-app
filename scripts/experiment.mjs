@@ -13,13 +13,16 @@ const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 無料枠の都合で 2.0-flash は枠ゼロ化→2.5-flash に移行（環境変数で上書き可）。2.5は思考モデルなので thinkingBudget:0 必須。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+// 無料枠の実測: 2.5-flash=1日20回(不可)/2.5-flash-lite=潤沢。無料運用は flash-lite 一択（環境変数で上書き可）。2.5は思考モデルなので thinkingBudget:0 必須。
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash-lite';
 const USD_TO_JPY = 155, GBP_TO_JPY = 197, AUD_TO_JPY = 100;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Gemini無料枠(2.5-flashは約10 RPM)対策：全Gemini呼び出しを直列化し最低6.5秒間隔に（429回避）。
+// Gemini無料枠(flash-lite 約15 RPM)対策：全Gemini呼び出しを直列化し最低4.5秒間隔に（429回避）。
 let _gq = Promise.resolve();
-function geminiGate() { const w = _gq; _gq = w.then(() => sleep(6500)); return w; }
+function geminiGate() { const w = _gq; _gq = w.then(() => sleep(4500)); return w; }
+// 楽天APIも約15 RPM。全rakutenSearchを直列化し最低4.2秒間隔に（楽天側429回避）。
+let _rq = Promise.resolve();
+function rakutenGate() { const w = _rq; _rq = w.then(() => sleep(4200)); return w; }
 
 // 弱点ジャンル中心の種（eBay英語クエリ＋楽天和キーワード）。
 const GENRES = [
@@ -102,6 +105,7 @@ async function rakutenSearch(keyword) {
   if (!keyword) return [];
   const params = new URLSearchParams({ applicationId: RAKUTEN_APP_ID, accessKey: RAKUTEN_ACCESS_KEY, affiliateId: RAKUTEN_AFFILIATE_ID, hits: '30', page: '1', sort: '-reviewCount', format: 'json', minPrice: '1000', maxPrice: '100000', keyword });
   try {
+    await rakutenGate();
     const res = await fetch(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`, {
       headers: { Referer: 'https://www.yushutsu-fukugyo.com/', Origin: 'https://www.yushutsu-fukugyo.com' },
       signal: AbortSignal.timeout(15000),

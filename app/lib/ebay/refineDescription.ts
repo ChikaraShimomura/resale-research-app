@@ -2,9 +2,9 @@
 // 方針/トラブル回避の文を削らせないよう厳格に指示し、呼び出し側で必須句の残存も検証する。
 // 失敗・キー無し・必須句欠落時は null を返し、呼び出し側で「作り込んだ定型文」にフォールバックさせる。
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 無料枠の都合で 2.0-flash は枠ゼロ化されたため 2.5-flash に移行（環境変数で上書き可）。
+// 無料枠の実測: 2.5-flash=1日20回(実質不可)/2.5-flash-lite=潤沢。無料運用は flash-lite 既定（環境変数で上書き可）。
 // 2.5系は思考モデルなので thinkingConfig.thinkingBudget:0 で思考を無効化しないと出力が空になりうる。
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
 
 export async function geminiRefineDescription(draft: string): Promise<string | null> {
   if (!GEMINI_API_KEY || !draft) return null;
