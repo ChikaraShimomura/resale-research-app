@@ -143,6 +143,8 @@ const EXPECTED_GENRE = {
 };
 // ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
 const PRICE_RATIO_MAX = 8;
+// 利益率(%)の下限。これ以下は一覧に出さない（ユーザー指定: 10%以下は除外）。新規・既存の両方に適用。
+const PROFIT_RATE_FLOOR = 10;
 
 // ========== eBayクエリハッシュ ==========
 function ebayQueryHash(query) {
@@ -820,6 +822,7 @@ async function main() {
       if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
       if (p.title && USED_EXCLUDE.test(p.title)) return false; // 中古品（新品相場と比較され利益過大の誤検知）
       if (p.title && quantityOf(p.title) > 1) return false;    // 複数パック(数量>1)＝単品相場と比較され価格が狂う
+      if (typeof p.realProfitRate === "number" && p.realProfitRate <= PROFIT_RATE_FLOOR) return false; // 利益率10%以下は出さない
       // ⑤ 価格比サニティ（既存にも適用）
       if (p.realAvgPrice > 0 && p.source?.price > 0 && p.realAvgPrice > p.source.price * PRICE_RATIO_MAX) return false;
       return true;
@@ -840,18 +843,18 @@ async function main() {
     const r = calcProfit(p.source.price, low, p.source.pointAmount ?? 0, p.source.shippingJpy ?? 0);
     repriced.push({ p, newAvg: low, median: med.median, count: med.count, profit: r.profit, rate: r.profitRate });
   }
-  const wouldDrop = repriced.filter(x => x.profit < 1).length;
+  const wouldDrop = repriced.filter(x => x.rate <= PROFIT_RATE_FLOOR).length;
   if (repriced.length && wouldDrop / dedupedProducts.length > 0.85) {
-    console.log(`  ⚠️ 最安再評価で${wouldDrop}/${dedupedProducts.length}件が利益消失(>85%)。取得異常の可能性があるため再評価を見送り。`);
+    console.log(`  ⚠️ 最安再評価で${wouldDrop}/${dedupedProducts.length}件が利益率${PROFIT_RATE_FLOOR}%以下(>85%)。取得異常の可能性があるため再評価を見送り。`);
   } else if (repriced.length) {
     const drop = new Set();
     let updated = 0;
     for (const x of repriced) {
       x.p.realAvgPrice = x.newAvg; x.p.realMedianPrice = x.median; x.p.realCount = x.count; x.p.realProfit = x.profit; x.p.realProfitRate = x.rate;
-      if (x.profit < 1) drop.add(x.p.id); else updated++;
+      if (x.rate <= PROFIT_RATE_FLOOR) drop.add(x.p.id); else updated++; // 利益率10%以下は一覧から除外
     }
     dedupedProducts = dedupedProducts.filter(p => !drop.has(p.id));
-    console.log(`  💹 相場をeBay最安値で是正: ${updated}件更新 / ${drop.size}件は利益消失で除外`);
+    console.log(`  💹 相場をeBay最安値で是正: ${updated}件更新 / ${drop.size}件は利益率${PROFIT_RATE_FLOOR}%以下で除外`);
   }
 
   const existingIds = new Set(dedupedProducts.map(p => p.id)); // 楽天itemCode
@@ -915,7 +918,7 @@ async function main() {
       const cat = guessCategory(rakutenItem.itemName);
       const shipJpy = domesticShipping(cat, rakutenItem.postageFlag); // 送料別なら国内送料を原価に算入
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
-      if (profit < 1 || profitRate > 300) continue;
+      if (profitRate <= PROFIT_RATE_FLOOR || profitRate > 300) continue; // 利益率10%以下/異常高は除外
       // ② カテゴリ整合: 楽天の推定ジャンルがeBay種ジャンルと明確に食い違う別物は除外（誤ジャンル混入防止）。
       const expectedGenre = EXPECTED_GENRE[ebayItem.category];
       if (expectedGenre && cat !== 'その他' && cat !== expectedGenre) continue;
@@ -958,7 +961,7 @@ async function main() {
         realCount = med.count;
         const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount, shipJpy);
         finalProfit = r.profit; finalRate = r.profitRate;
-        if (finalProfit < 1 || finalRate > 300) continue;
+        if (finalRate <= PROFIT_RATE_FLOOR || finalRate > 300) continue; // 利益率10%以下/異常高は除外
       }
 
       return {
