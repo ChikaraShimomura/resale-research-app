@@ -103,6 +103,12 @@ async function kvHdel(key, field) {
 // ========== 除外パターン ==========
 const EXCLUDE_PATTERN = /オリパ|ばら売り|パック売り|BOXくじ|ボックスくじ|くじ引き|ガチャ|オリジナルパック|アソート売り|\d+パック\s*(売り|のみ|セット)/i;
 const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ローダー|カードスリーブ|スリーブ\d+枚|デッキケース|カードファイル|バインダー|カードバインダー|BOX保管|保管用|保護ケース|スタンド|ディスプレイケース|展示ケース/i;
+// 互換バンド/社外ストラップ/交換部品 等の「別物アクセサリ」。純正本体を安い部品に誤マッチさせる事故を防ぐ
+// （監査で腕時計の互換バンド誤マッチが多発）。純正も「バンド/ベルト」と書くため、裸の語ではなく
+// “互換・社外・交換用・〇〇用ベルト・バネ棒/遊環”等のアフター品シグナルだけで弾く。
+const PART_EXCLUDE = /互換|社外|交換用|交換\s*(?:ベルト|バンド|ストラップ)|替え\s*(?:ベルト|バンド|ストラップ)|汎用|バネ棒|遊環|尾錠単体|NATO\s*(?:ベルト|ストラップ|バンド)|ZULU|(?:対応|適合|用)\s*(?:ベルト|バンド|ストラップ)/i;
+// 複数個セット/まとめ売り。単品のeBay出品と数量が食い違う誤マッチを防ぐ。
+const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|本|体)\s*まとめ|まとめ売り|セット売り|\d+\s*個入り|詰め合わせ/i;
 
 // ========== eBayクエリハッシュ ==========
 function ebayQueryHash(query) {
@@ -798,6 +804,14 @@ async function main() {
     if (dropped) console.log(`  🧹 番号不一致の誤マッチを除外: ${dropped}件`);
   }
 
+  // 既存の別物アクセサリ(互換バンド/社外部品)・複数個セット を除外（監査で腕時計の互換バンド誤マッチが多数判明）。
+  {
+    const before = dedupedProducts.length;
+    dedupedProducts = dedupedProducts.filter(p => !(p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))));
+    const dropped = before - dedupedProducts.length;
+    if (dropped) console.log(`  🧹 互換部品/セットの誤マッチを除外: ${dropped}件`);
+  }
+
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
   // 安全装置：万一ほぼ全件(>85%)が利益消失するなら取得異常を疑い適用を見送る（最安化で件数が減るのは想定内なので閾値は高め）。
   const repriced = [];
@@ -858,6 +872,8 @@ async function main() {
         if (!it || it.itemPrice < 1000) continue;
         if (EXCLUDE_PATTERN.test(it.itemName)) continue;
         if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
+        if (PART_EXCLUDE.test(it.itemName)) continue;     // 互換バンド/社外部品 等の別物アクセサリ
+        if (SET_EXCLUDE.test(it.itemName)) continue;       // 複数個セット/まとめ売り
         if (existingIds.has(it.itemCode)) continue;
         rakutenItems.push(it);
       }
