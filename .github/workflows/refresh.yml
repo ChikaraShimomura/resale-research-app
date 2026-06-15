@@ -29,7 +29,7 @@ jobs:
           ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
-          RAKUTEN_FIRST:        '1'   # ③楽天-first発掘を有効化（eBay先の取りこぼしを上乗せ）
+          RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
         run: node scripts/refresh.mjs
 
       - name: エラー通知メール
