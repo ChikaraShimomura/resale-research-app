@@ -659,9 +659,8 @@ export default function EbayListingModal({
 
               {/* 収益の複利イメージ（10万円→毎月+10%）。断定額ではなく「イメージ図」＋免責で誇大表現を回避。 */}
               <div className="bg-white border border-gray-100 rounded-xl px-3 pt-3 pb-2 mb-4">
-                <p className="text-[11px] font-bold text-gray-700 text-center mb-1">
-                  10万円から、毎月10%ずつ増やせたら…📈
-                </p>
+                <p className="text-[12px] font-black text-gray-800 text-center">🌍 海外輸出業のポテンシャル</p>
+                <p className="text-[10px] text-gray-500 text-center mb-1">10万円から、毎月10%ずつ増やせたら…📈</p>
                 <svg
                   viewBox="0 0 340 180"
                   className="w-full h-auto"
