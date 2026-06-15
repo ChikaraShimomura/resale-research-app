@@ -473,7 +473,7 @@ const EBAY_JP_QUERIES = [
 ];
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles_v2'; // recall拡張でクエリ群を更新→旧キャッシュを無効化して全クエリを再取得
+  const cacheKey = 'ebay_jp_sold_titles_v3'; // sort=Best Matchへ変更→seedが変わるため旧キャッシュを無効化
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached) && cached.length > 0) {
     console.log(`  [Phase0 cache] ${cached.length}件`);
@@ -491,7 +491,8 @@ async function fetchEbayJapanSoldItems() {
     const params = new URLSearchParams({
       q,
       filter: 'itemLocationCountry:JP,conditions:{NEW|LIKE_NEW}',
-      sort: 'price',
+      // sort指定なし＝Best Match(関連度/人気)。以前の price昇順は「最安出品=低利幅」ばかりをseedにして
+      // 初回利益判定で大量脱落させていた（取得多数でも新規が増えない主因）。表示価格は別途eBay最安ベースを維持。
       limit: '100',
       fieldgroups: 'COMPACT',
     });
@@ -540,7 +541,7 @@ async function fetchEbayJapanSoldItems() {
 // eBayタイトル → 楽天日本語キーワード変換（Haiku、KVキャッシュ168h）
 async function ebayTitleToRakutenKeyword(ebayTitle) {
   if (!ANTHROPIC_API_KEY) return null;
-  const cacheKey = `rakuten_kw:${ebayQueryHash(ebayTitle)}`;
+  const cacheKey = `rakuten_kw2:${ebayQueryHash(ebayTitle)}`; // 翻訳プロンプト強化に伴い旧キャッシュを無効化
   const cached = await kvGet(cacheKey);
   if (cached) return cached;
 
@@ -555,9 +556,14 @@ async function ebayTitleToRakutenKeyword(ebayTitle) {
         temperature: 0,
         messages: [{
           role: 'user',
-          content: `Convert this eBay listing title to a short Japanese Rakuten search keyword (max 4 words, Japanese only, no English).
+          content: `Convert this eBay listing title into a Japanese Rakuten search keyword that finds the SAME product.
+Rules:
+- Keep the specific product/character name, series, model number, card number, set name and size. These decide whether the same item is found.
+- Use the Japanese name for well-known brands/series (Nendoroid→ねんどろいど, Demon Slayer→鬼滅の刃, Dragon Ball→ドラゴンボール). amiibo/figma/LEGO/SK-II stay as-is. Model numbers and proper nouns may stay in latin letters.
+- Drop generic filler (japan, new, sealed, lot, authentic, US seller).
+- Max 6 words.
 eBay title: "${ebayTitle}"
-Output the Japanese keyword only, nothing else.`
+Output only the keyword.`
         }]
       }),
       signal: AbortSignal.timeout(10000),
@@ -960,7 +966,7 @@ async function main() {
 
     // 楽天上位5件: 先に利益計算（算術のみ・Haiku不要）→ 利益が出る候補だけ画像マッチ（Haiku）。
     // eBay価格は確定済みなので利益判定にHaikuは不要。これで無駄な画像マッチ呼び出しを大幅削減。
-    for (const rakutenItem of rakutenItems.slice(0, 5)) {
+    for (const rakutenItem of rakutenItems.slice(0, 10)) { // 候補を5→10に拡大（同一品の成立率=歩留まり向上）
       const rakutenImg = rakutenItem.mediumImageUrls?.[0]?.imageUrl
         || rakutenItem.smallImageUrls?.[0]?.imageUrl || '';
       if (!rakutenImg) continue; // 画像なしは商品表示にも使えないのでスキップ
