@@ -4,6 +4,7 @@ import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
 import AuthButton from "../components/AuthButton";
+import GrowthDashboard from "../components/GrowthDashboard";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -106,6 +107,9 @@ export default function SearchPage() {
       </header>
 
       <main className="max-w-2xl mx-auto">
+
+        {/* 育てるダッシュボード（出品実績のある人だけ表示・アプリ画面に配置） */}
+        <GrowthDashboard />
 
         {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (

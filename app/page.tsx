@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
-import GrowthDashboard from "./components/GrowthDashboard";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
@@ -33,9 +32,6 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
-
-      {/* 育てるダッシュボード（出品実績のある人だけ表示） */}
-      <GrowthDashboard />
 
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">
