@@ -1,0 +1,55 @@
+name: 輸出ラボ Xリプ候補レーダー
+
+# 「今リプすべきX投稿」を集めて運営者にメール通知する(送信は人手)。
+# Xの読み取り(recent search)が必要 = Basic以上 or 従量の読み取り権限。
+on:
+  schedule:
+    - cron: '0 23,3,11 * * *'   # JST 8時/12時/20時(活動時間)に1日3回。読み取りコスト節約
+  workflow_dispatch:
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install tweepy anthropic requests pytz
+
+      - name: Run reply radar
+        env:
+          TWITTER_API_KEY:             ${{ secrets.YUSHUTSU_TWITTER_API_KEY }}
+          TWITTER_API_SECRET:          ${{ secrets.YUSHUTSU_TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN:        ${{ secrets.YUSHUTSU_TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.YUSHUTSU_TWITTER_ACCESS_TOKEN_SECRET }}
+          TWITTER_BEARER_TOKEN:        ${{ secrets.YUSHUTSU_TWITTER_BEARER_TOKEN }}
+          TWITTER_SELF_USERNAME:       ${{ secrets.YUSHUTSU_TWITTER_SELF_USERNAME }}
+          ANTHROPIC_API_KEY:           ${{ secrets.ANTHROPIC_API_KEY }}
+          KV_REST_API_URL:             ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:           ${{ secrets.KV_REST_API_TOKEN }}
+          GMAIL_USERNAME:              ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD:          ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/sns_bot/reply_radar.py
+
+      - name: エラー通知メール
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "❌ 輸出ラボ Xリプ候補レーダー エラー"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <${{ secrets.GMAIL_USERNAME }}>"
+          body: |
+            Xリプ候補レーダーでエラーが発生しました。
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
