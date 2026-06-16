@@ -1,17 +1,19 @@
 """
 輸出ラボ 自動投稿 - 外部cronから workflow_dispatch でトリガー
 
-3タイプ運用:
-  ① recruit  副業誘致(初心者)
-  ② pro      eBay輸出経験者への認知
-  ③ newitem  新商品の追加告知(新着検知で最優先・フォロワー増)
+コンテンツ設計(柱モデル): 価値:宣伝=8:2 を投稿数で機械的に担保する。
+  柱(pillar):
+    - soba         「今日の相場 #N」日次(朝枠予約) … 商品の相場の読み解き(知識)
+    - pro          eBay輸出経験者向けの実利/相場の考え方
+    - recruit      副業初心者向けの不安解消・基礎
+    - howto        汎用ノウハウ(送料の電子申告/カテゴリ/英訳/危険物/利益計算)
+    - pitfall      「輸出の落とし穴 #N」週次(木) … 失敗→なぜ→回避
+    - buildinpublic 週次(月) … 運営のプロセス数字(出品数/相場一致率など・収入断定なし)
+    - announce     新商品告知(=直接宣伝) 1日2本まで。唯一URLを自己リプに付ける枠。
+  → announce以外はURLを本文にも自己リプにも付けない(リーチ重視・誘導はプロフィール)。
 
-リーチ最適化(2026年のXアルゴリズム/実測に基づく):
-  - 本文に外部URLを入れない(無課金アカでリンク付き投稿はエンゲージ率がほぼ0%に崩落するため)。
-    商品画像をXへネイティブ直アップし、URLは「最初の自己リプライ」に分離する。
-  - 末尾に問いかけ/保存CTAを入れ、いいね(軽)でなく返信・ブックマーク(重)を狙う。
-  - ハッシュタグは基本0個(2026年のXはタグで伸びない)。たまに1個だけニッチタグで界隈発見。
-  - 頻度はbot側で自動制御: JSTピーク時間帯のみ・1日上限・最小間隔(外部cronの頻度に依存せず安全化)。
+人格(ペルソナ)を全投稿に固定注入。リーチ最適化(本文URL回避/画像ネイティブ直アップ/低頻度/
+保存・問いかけCTA/ハッシュタグ基本0)は従来どおり。収入の断定・誇大はゼロ(景表法/特商法)。
 """
 import os
 import re
@@ -31,20 +33,39 @@ import pytz
 
 JST = pytz.timezone('Asia/Tokyo')
 SITE_URL = "https://www.yushutsu-fukugyo.com"
-SITE_SEARCH_URL = "https://www.yushutsu-fukugyo.com/search"
 MAX_CHARS = 280
 
-SEEN_KEY = "tweet_seen_pids"     # 既出商品ID(新着検知用)
+SEEN_KEY = "tweet_seen_pids"
 SEEN_CAP = 1200
-LOG_KEY = "tweet_post_log"       # 直近投稿のepoch秒リスト(頻度制御用)
-LASTTYPE_KEY = "tweet_last_type" # 直近のタイプ(連投回避)
+LOG_KEY = "tweet_post_log"        # 直近投稿 [{"t":epoch,"k":kind}, ...]
+LASTKIND_KEY = "tweet_last_kind"
+SOBA_N_KEY = "tweet_soba_n"        # 「今日の相場」連番
+PITFALL_N_KEY = "tweet_pitfall_n"  # 「輸出の落とし穴」連番
 
-# 頻度制御(リーチ最適化): JSTのピーク時間帯のみ・1日上限・最小間隔
+# 頻度制御
 PEAK_HOURS_JST = {7, 8, 12, 18, 19, 20, 21, 22}
+MORNING_HOURS = {7, 8}
 DAILY_CAP = 8
 MIN_GAP_MIN = 50
+ANNOUNCE_CAP = 2            # 直接宣伝(announce)は1日2本まで=価値:宣伝8:2
+PITFALL_WEEKDAY = 3        # 木曜(Mon=0)
+BUILDINPUBLIC_WEEKDAY = 0  # 月曜
 
 _URL_RE = re.compile(r'https?://\S+')
+
+# ── 人格(ペルソナ): 全投稿の生成プロンプトに固定注入 ──
+PERSONA = (
+    "あなたは『輸出ラボ』運営者“本人”の人格で書く。元会社員で、独学で楽天→eBay輸出を始めた等身大の個人。"
+    "ブランド広告のような無機質さを避け、自分の言葉で・地に足のついたトーンで。上から目線にならない。"
+    "一人称や断定は控えめに、読み手に寄り添う。絵文字は使わない。"
+    "収入・利益額の断定や保証、『必ず/確実/誰でも◯円/簡単/即金/不労所得』は禁止(景表法・特商法)。利益や相場は必ず『想定・目安』とわかる書き方。"
+)
+
+# ── 共通: 末尾の問いかけ/保存CTA(返信・ブックマークを狙う) ──
+ENGAGE = (
+    "末尾に「読み手が思わず返信したくなる軽い問いかけ」か「気になる人は保存を、のような一言」を、押し付けず自然に1つ入れる。"
+    "言い切りで終わらせず、会話のきっかけ・続きを読みたくなる余白を残す。"
+)
 
 
 def send_alert_email(subject: str, body: str):
@@ -60,12 +81,11 @@ def send_alert_email(subject: str, body: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(gmail_user, gmail_pass)
             smtp.send_message(msg)
-        print("  通知メール送信完了")
     except Exception as e:
         print(f"  メール送信失敗: {e}")
 
 
-# ── Twitter文字数カウント ─────────────────────────────────────
+# ── Twitter文字数カウント ──
 def tw_len(text: str) -> int:
     text = _URL_RE.sub("A" * 23, text)
     count = 0
@@ -82,7 +102,7 @@ def tw_len(text: str) -> int:
     return count
 
 
-# ── KV (Upstash REST) 読み書き ────────────────────────────────
+# ── KV (Upstash REST) ──
 def _kv_env():
     return os.environ.get("KV_REST_API_URL", ""), os.environ.get("KV_REST_API_TOKEN", "")
 
@@ -107,8 +127,7 @@ def kv_set_raw(key: str, value: str) -> bool:
         resp = requests.post(
             f"{kv_url}/set/{key}",
             headers={"Authorization": f"Bearer {kv_token}"},
-            data=value.encode("utf-8"),
-            timeout=10,
+            data=value.encode("utf-8"), timeout=10,
         )
         return resp.ok
     except Exception as e:
@@ -127,6 +146,14 @@ def _load_list(key: str) -> list:
         return []
 
 
+def kv_get_int(key: str) -> int:
+    raw = kv_get_raw(key)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 def load_seen() -> list:
     return [str(x) for x in _load_list(SEEN_KEY)]
 
@@ -139,16 +166,14 @@ def merge_seen(seen: list, current_ids: list) -> list:
     s, sset = list(seen), set(seen)
     for i in current_ids:
         if i not in sset:
-            s.append(i)
-            sset.add(i)
+            s.append(i); sset.add(i)
     return s[-SEEN_CAP:]
 
 
-# ── 商品取得 ──────────────────────────────────────────────────
+# ── 商品取得 ──
 def fetch_products() -> list:
     raw = kv_get_raw("profitable_products")
     if not raw:
-        print("  商品データなし(KV)")
         return []
     try:
         products = json.loads(raw)
@@ -166,104 +191,27 @@ def pick_product(products: list) -> dict | None:
     return random.choice(top)
 
 
-def product_url(product: dict | None) -> str:
-    if product and product.get("id"):
-        return f"{SITE_URL}/product/{quote(str(product['id']), safe='')}"
-    return SITE_SEARCH_URL
+def product_url(product: dict) -> str:
+    return f"{SITE_URL}/product/{quote(str(product['id']), safe='')}"
 
 
-# ── 3タイプの設計(ワークフロー yushutsu-x-copy の最終版) ──
-TYPES = {
-    "recruit": {
-        "label": "副業誘致(初心者)",
-        "voice": (
-            "やさしく背中をそっと押す先輩の口調。専門用語(越境EC/出品上限等)は使わない。"
-            "まず『難しそう・英語が無理・怖い』という不安に共感し、それを溶かす形で強みを1〜2点だけ自然に織り込む"
-            "(完全無料/写真だけほぼ自動出品で英語ほぼ不要/手数料・送料を引いた手取りで利益が分かる/パスワードを渡さない安全設計 のいずれか)。"
-            "円安と日本商品の海外人気は前向きな追い風として軽く添える。文末は柔らかく。絵文字なし。"
-        ),
-        "must": [
-            "輸出=難しそう/英語が無理/怖い、という不安を溶かす一言",
-            "完全無料・初期費用ゼロ・スマホのスキマ時間で始められること",
-            "強みを1〜2点だけ(利益率順に自動発見/手取りまで自動計算/写真だけほぼ自動出品で英語ほぼ不要 のいずれか)",
-        ],
-        "avoid": [
-            "『必ず』『確実』『誰でも◯円稼げる』などの収入断定・保証",
-            "『簡単』『即金』『すぐ稼げる』『ほったらかし』などの手軽さ煽り",
-            "無在庫転売や『仕入れずに売れる』系の訴求",
-            "公式(eBay/楽天)を装う表現",
-            "表示利益を確定利益のように見せる断定",
-        ],
-        "samples": [
-            "輸出は英語が要りそうで難しそう…と思ってた私へ。でも{商品名}は楽天{楽天価格}→eBay{eBay相場}。写真1枚でほぼ自動出品、手取りで利益も分かる。完全無料、スマホでまず1品から。あなたは何から始めてみたい？",
-            "海外に売るなんて自分には無理、と決めつけてた。でも{商品名}が利益率{利益率%}で候補に並んで驚いた。英語タイトルは自動、初期費用ゼロ。まず1品から。気になった人は保存しておくと後で見返せます。",
-        ],
-    },
-    "pro": {
-        "label": "eBay輸出経験者への認知",
-        "voice": (
-            "現役eBayセラー同士のピア目線。同業の“あるある”をフックに落ち着いた口調で。教える上から目線・初心者煽りは絶対にしない。"
-            "『〜しませんか』『〜要らないかも』など軽い問いかけ/独り言ベースで距離を詰める。"
-            "専門用語(Terapeak/実利/出品上限/13.25%+¥47/最安〜中央値/PWA)はそのまま使ってよい——通じる相手という合図。"
-            "誇張・絵文字・感嘆符連打なし。利益は『想定』『目安』の温度感。"
-        ),
-        "must": [
-            "現役eBayセラーの実作業の悩み(リサーチ時間/実利計算/値付け/出品作業/出品上限 のいずれか)をフックにする",
-            "実利(realProfit)=eBay手数料13.25%+¥47・国内送料・楽天ポイント還元まで引いた手取りで利益率順に並ぶこと",
-            "相場はeBayの現行の最安〜中央値ベース(高く出して寝かせるより早く回す値付け)",
-        ],
-        "avoid": [
-            "必ず/確実/誰でも◯円などの収入断定・誇大表現",
-            "簡単/すぐ/即金などの手軽さ煽り",
-            "無在庫転売をにおわせる表現",
-            "公式/eBay公認を装う表現",
-            "初心者を見下す・煽るトーン",
-            "『売れた商品を自動検知』など実売確定の断定(実態は出品者数による飽和サイン)",
-        ],
-        "samples": [
-            "リサーチに何時間溶かしてますか。Terapeakで相場を叩いて楽天と往復、手数料13.25%+¥47と国内送料を毎回手計算…。そこを全部引いた“実利”で利益率順に並べました。粗利でなく手取り派、どう思います？",
-            "高く出して寝かせるより早く回したい派へ。相場はeBay現行の最安〜中央値ベース。例:{商品名} 楽天{楽天価格}→相場{eBay相場}・想定利益率{利益率%}。あなたなら、この回転をどう値付けしますか？",
-        ],
-    },
-    "newitem": {
-        "label": "新商品告知(フォロワー増)",
-        "voice": (
-            "速報感とお得感のある軽快なトーン。冒頭に『本日の新着』『いま追加』『速報』など“今このタイミング”が伝わる一言を置く。"
-            "商品名・利益率・楽天価格・eBay相場を、ニュース速報のように短くテンポよく。"
-            "利益率や相場は必ず『想定/目安』とわかる書き方にし、『稼げる』『確実』『必ず』は不可。"
-            "eBay相場は『現行の最安値ベースの想定売値』と伝わる表現で。絵文字なし。"
-        ),
-        "must": [
-            "『本日の新着』『いま追加』『速報』など速報感を出す冒頭の一言",
-            "商品名(具体名)",
-            "想定利益率(%)を“目安/想定”とわかる形で",
-            "楽天の仕入れ価格 と eBayの想定売値(現行の最安値ベースの相場)",
-            "6時間ごとに新着が出るのでフォローして毎日チェック、という誘導",
-        ],
-        "avoid": [
-            "『稼げる』『必ず』『確実』『誰でも◯円』などの収入の断定・保証",
-            "『即金』『不労所得』『ノーリスク』など誇大表現",
-            "『無在庫』『仕入れずに売れる』系の訴求",
-            "表示利益を確定利益のように見せること(必ず“想定/目安”とわかるように)",
-            "eBay/楽天の公式サービスであるかのような表現",
-        ],
-        "samples": [
-            "【本日の新着・利益商品】{商品名}\n楽天{楽天価格} → eBay想定売値{eBay相場}、想定利益率およそ{利益率%}(手数料・送料・ポイント還元まで引いた手取りベース)。\n海外でいくらで売れると思いますか？新着は6時間ごと、フォローで毎日チェックを。",
-            "速報、新着候補:{商品名}\n楽天{楽天価格}→eBay想定売値{eBay相場}、手取り想定でおよそ{利益率%}。\n※あくまで想定で相場や状態で変わります。気になる人は保存を。新着は毎日6時間ごとに更新。",
-        ],
-    },
-}
-
-# ハッシュタグは基本0個(2026年のXはタグ照合でなくAIが本文の意味を読むため、タグでは伸びない)。
-# たまに1個だけ、界隈の検索/フォローからのゆるい発見用にニッチタグを付ける(固定使い回し回避でプールから選ぶ)。
+# ── ハッシュタグ: 基本0個(2026年のXはタグで伸びない)。たまに1個だけニッチタグ ──
 TAG_POOLS = {
+    "default": ["#eBay輸出", "#越境EC"],
     "recruit": ["#eBay輸出", "#副業"],
-    "pro": ["#eBay輸出", "#越境EC"],
-    "newitem": ["#eBay輸出", "#輸出ラボ"],
+    "soba": ["#eBay輸出", "#物販"],
+    "pitfall": ["#eBay輸出", "#輸出ビジネス"],
+    "announce": ["#eBay輸出", "#輸出ラボ"],
 }
-TAG_PROBABILITY = 0.25  # 1投稿あたりタグを1個付ける確率(残り約75%は0個)
+TAG_PROBABILITY = 0.25
 
-# URLは本文に入れず「最初の自己リプ」に置く。リード文も毎回ランダムで散らす。
+
+def pick_tags(kind: str) -> list:
+    if random.random() < TAG_PROBABILITY:
+        return [random.choice(TAG_POOLS.get(kind, TAG_POOLS["default"]))]
+    return []
+
+
 REPLY_LEADS = [
     "▼ 相場・利益の詳細（楽天→eBay）はこちら",
     "この商品の相場・利益を見る →",
@@ -271,24 +219,23 @@ REPLY_LEADS = [
     "詳しい相場・利益（手取りベース）はこちら ↓",
 ]
 
+HOWTO_TOPICS = [
+    "国際郵便は2024年から内容品の英語電子申告が必須(国際郵便マイページで送り状)。手書きラベルは原則不可、という基礎",
+    "eBayのカテゴリ選びでつまずかないコツ(タイトルを具体的にすると自動判定が通りやすい)",
+    "英語タイトル・説明は身構えなくていい(定型＋商品名で十分。やり取りもテンプレで回る)という話",
+    "手取りの考え方: 売値からeBay手数料13.25%+¥47・国内送料・楽天ポイント還元まで引いて初めて『実利』。粗利で判断しない",
+    "発送できない物に注意(モバイルバッテリー/リチウム電池単体/香水/スプレー等は航空危険物で国際発送不可)。仕入れ前の確認が肝",
+    "新規セラーは売上が一時保留・出品上限があるのは『正常』。これを知らずに不安になる人が多い、という基礎",
+]
 
-def pick_tags(tkey: str) -> list:
-    # 基本0個。たまに(約25%)だけニッチタグ1本。
-    if random.random() < TAG_PROBABILITY:
-        return [random.choice(TAG_POOLS.get(tkey, ["#eBay輸出"]))]
-    return []
-
-
-def _fill(text: str, product: dict) -> str:
-    src = product.get("source", {}).get("price", 0)
-    avg = product.get("realAvgPrice", 0)
-    rate = product.get("realProfitRate", 0)
-    return (
-        text.replace("{商品名}", product.get("title", ""))
-            .replace("{楽天価格}", f"{src:,}円")
-            .replace("{eBay相場}", f"{avg:,}円")
-            .replace("{利益率%}", f"{rate}%")
-    )
+PITFALL_TOPICS = [
+    "売れてから『これ国際郵便で送れない物だった』と気づくミス(電池/香水/スプレー等の航空危険物)。仕入れ前に発送可否を確認",
+    "粗利は出てるのに実は薄利…手数料13.25%+¥47と国内送料・ポイント還元を入れ忘れる値付けのミス",
+    "高く出して在庫を寝かせ続けるミス。早く回すなら相場(現行の最安〜中央値)に寄せる",
+    "カテゴリ誤り/タイトルが曖昧で検索に埋もれるミス。具体的なタイトルにする",
+    "無在庫で出してしまうミス(在庫を持つ前提・トラブルの元)。先に仕入れてから出す",
+    "追跡番号の登録漏れで売上保留・未着クレームになるミス。発送後は必ず登録",
+]
 
 
 def cap_body(body: str, limit: int) -> str:
@@ -302,68 +249,69 @@ def cap_body(body: str, limit: int) -> str:
     return out.rstrip() + "…"
 
 
-# ── 投稿本文生成(タイプ別・URLなし・問いかけ/保存CTA入り) ──
-def generate_body(product: dict, tkey: str, ai_client: anthropic.Anthropic, body_limit: int) -> str | None:
-    cfg = TYPES[tkey]
+def _prod_lines(product: dict | None) -> str:
+    if not product:
+        return ""
     src = product.get("source", {}).get("price", 0)
-    must = "\n".join(f"- {m}" for m in cfg["must"])
-    avoid = "\n".join(f"- {a}" for a in cfg["avoid"])
-    # お手本は商品名が長いと冗長になるため表示用に短縮(実際の商品名は見出しで渡す)
-    title = product.get("title", "")
-    sample_prod = dict(product)
-    sample_prod["title"] = (title[:28] + "…") if len(title) > 30 else title
-    samples = "\n\n".join(_fill(s, sample_prod) for s in cfg["samples"])
+    return (
+        f"商品名: {product.get('title','')}\n"
+        f"楽天仕入れ価格: {src:,}円\n"
+        f"eBay想定売値(相場・現行の最安〜中央値ベース): {product.get('realAvgPrice',0):,}円\n"
+        f"想定利益率: {product.get('realProfitRate',0)}%\n"
+    )
 
-    prompt = f"""以下の商品情報をもとに、X(Twitter)の投稿本文を生成してください。
 
-商品名: {title}
-楽天仕入れ価格: {src:,}円
-eBay想定売値(相場・現行の最安〜中央値ベース): {product.get('realAvgPrice', 0):,}円
-想定利益率: {product.get('realProfitRate', 0)}%
+# ── 柱(kind)別の生成指示 ──
+def kind_brief(kind: str, product: dict | None, extra: str = "") -> str:
+    B = {
+        "soba": "テーマ=『今日の相場』(知識/エバーグリーン)。個別商品の宣伝でなく、この商品を題材に『なぜ海外で評価されるか/相場の読み方/需要が動く条件』を解説。商品名を消しても“相場の見方”として成立する知識に。売り込まない。",
+        "pro": "読者=現役eBay輸出セラー。ピア目線で、リサーチ時短/実利(手数料・送料・ポイント還元まで引いた手取りで利益率順)/相場=現行の最安〜中央値、を“あるある”や軽い問いかけで。教える上から目線・初心者煽りはしない。専門用語OK。",
+        "recruit": "読者=これから副業を始めたい初心者。『難しそう/英語が無理/怖い』を溶かす。完全無料・写真だけほぼ自動出品で英語ほぼ不要・手取りで利益が分かる、を1〜2点だけ自然に。専門用語は使わない。",
+        "howto": f"テーマ=輸出の基礎ノウハウ(知識)。次の論点を1つ、初心者にやさしく解説: {extra}。商品の宣伝はしない。",
+        "pitfall": f"テーマ=『輸出の落とし穴』(失敗回避の知識)。次の“やりがちなミス”を『ミス→なぜダメ→どう回避』の3段でコンパクトに: {extra}。共感を呼ぶ書き出しで。",
+        "buildinpublic": f"テーマ=運営の“プロセスの数字”を等身大に共有(build in public)。次の事実だけ使う(収入額は出さない): {extra}。『どう考えてどう動いているか』を見せる。淡々と、でも人間味を。",
+        "announce": "テーマ=新着の利益商品の速報告知。商品名・想定利益率・楽天仕入れ→eBay想定売値を短くテンポよく。『新着は6時間ごと、フォローを』に自然に繋ぐ。",
+    }
+    return B.get(kind, "")
 
-【投稿タイプ】{cfg['label']}
 
-【口調・方針】
-{cfg['voice']}
+def generate_body(kind: str, product: dict | None, ai_client, body_limit: int, extra: str = "") -> str | None:
+    prod = _prod_lines(product)
+    prod_block = ("【商品情報】\n" + prod) if prod else ""
+    prompt = f"""{PERSONA}
 
-【必ず触れる】
-{must}
+X(Twitter)の投稿本文を1つ生成してください。
 
-【エンゲージの工夫(重要)】
-- 末尾に「軽い問いかけ(読み手が思わず返信したくなる一言)」か「気になる人は保存を、のような一言」を、押し付けずに自然に1つ入れる
-- 言い切りの宣伝で終わらせない。会話のきっかけ・続きを読みたくなる余白を残す
+{prod_block}【この投稿の狙い】
+{kind_brief(kind, product, extra)}
 
-【禁止】
-{avoid}
-
-【お手本(雰囲気を真似る／そのままコピーはしない・毎回 書き出しと構成を変える)】
-{samples}
+【エンゲージの工夫】
+{ENGAGE}
 
 【絶対ルール】
 - 本文のみ出力(前置き・「見出し:」等の注釈は不要)
-- URL・ハッシュタグ・絵文字は含めない(画像・ハッシュタグ・URLはこちらで付けます)
+- URL・ハッシュタグ・絵文字は含めない(必要な画像・タグ・URLはこちらで付けます)
 - 本文はTwitterウェイト{body_limit}以内(日本語1字=2・英数字=1)
-- 数字(利益率・価格)は上の商品情報のものを使う。利益率・相場は「想定/目安」とわかる書き方にする
-- 適度に改行して読みやすく
+- 数字(利益率・価格)は上の商品情報のものを使い、利益率・相場は「想定/目安」とわかる書き方
+- 毎回 書き出しと構成を変える。適度に改行して読みやすく
 
 本文のみ出力してください。"""
-
     try:
-        msg = ai_client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=320,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        body = msg.content[0].text.strip()
-        return _URL_RE.sub("", body).strip()  # 念のため誤URLは除去
+        msg = ai_client.messages.create(model="claude-haiku-4-5", max_tokens=360,
+                                         messages=[{"role": "user", "content": prompt}])
+        return _URL_RE.sub("", msg.content[0].text.strip()).strip()
     except Exception as e:
-        print(f"  AI生成エラー({tkey}): {e}")
+        print(f"  AI生成エラー({kind}): {e}")
         return None
 
 
-# ── 画像をXへネイティブ直アップ(リーチ最適化。失敗しても画像なしで続行) ──
+# ── 画像をXへネイティブ直アップ(失敗時は画像なしで続行) ──
 def upscale_image(url: str) -> str:
-    return re.sub(r'_ex=\d+x\d+', '_ex=600x600', url or "")
+    if not url:
+        return ""
+    if "thumbnail.image.rakuten.co.jp/@0_mall/" in url:
+        return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").split("?")[0]
+    return re.sub(r'_ex=\d+x\d+', '_ex=600x600', url)
 
 
 def upload_image(api_v1, image_url: str):
@@ -381,43 +329,59 @@ def upload_image(api_v1, image_url: str):
         return None
 
 
-# ── 頻度制御(ピーク時間帯のみ・1日上限・最小間隔) ──
-def frequency_gate(now: datetime) -> tuple[bool, str, list]:
-    log = [float(x) for x in _load_list(LOG_KEY) if isinstance(x, (int, float))]
+# ── 頻度ゲート ──
+def frequency_gate(now: datetime, log: list) -> tuple[bool, str]:
     today = now.strftime("%Y-%m-%d")
-    today_count = sum(1 for ts in log if datetime.fromtimestamp(ts, JST).strftime("%Y-%m-%d") == today)
-    last_ts = max(log) if log else 0.0
+    times = [float(e["t"]) for e in log if isinstance(e, dict) and "t" in e]
+    today_count = sum(1 for t in times if datetime.fromtimestamp(t, JST).strftime("%Y-%m-%d") == today)
+    last_ts = max(times) if times else 0.0
     gap_min = (now.timestamp() - last_ts) / 60 if last_ts else 1e9
-
     if now.hour not in PEAK_HOURS_JST:
-        return False, f"ピーク時間外(JST {now.hour}時)", log
+        return False, f"ピーク時間外(JST {now.hour}時)"
     if today_count >= DAILY_CAP:
-        return False, f"本日の上限({DAILY_CAP}本)に到達", log
+        return False, f"本日の上限({DAILY_CAP}本)に到達"
     if gap_min < MIN_GAP_MIN:
-        return False, f"前回から{gap_min:.0f}分(<{MIN_GAP_MIN}分)", log
-    return True, f"OK(本日{today_count}本/{DAILY_CAP}・前回{gap_min:.0f}分前)", log
+        return False, f"前回から{gap_min:.0f}分(<{MIN_GAP_MIN}分)"
+    return True, f"OK(本日{today_count}本/{DAILY_CAP}・前回{gap_min:.0f}分前)"
 
 
-# ── メイン ────────────────────────────────────────────────────
+def _count_today(log: list, kind: str, now: datetime) -> int:
+    today = now.strftime("%Y-%m-%d")
+    return sum(1 for e in log if isinstance(e, dict) and e.get("k") == kind
+               and datetime.fromtimestamp(float(e["t"]), JST).strftime("%Y-%m-%d") == today)
+
+
+# ── 柱の選択(価値:宣伝=8:2を機械的に担保＋シリーズ枠予約) ──
+def choose_kind(now: datetime, log: list, has_new: bool) -> str:
+    if has_new and _count_today(log, "announce", now) < ANNOUNCE_CAP:
+        return "announce"  # 直接宣伝は1日2本まで(=8:2)。新着の速報性を優先
+    if now.hour in MORNING_HOURS and _count_today(log, "soba", now) == 0:
+        return "soba"      # 朝枠は『今日の相場』を予約
+    if now.weekday() == PITFALL_WEEKDAY and _count_today(log, "pitfall", now) == 0:
+        return "pitfall"   # 木曜は『輸出の落とし穴』
+    if now.weekday() == BUILDINPUBLIC_WEEKDAY and _count_today(log, "buildinpublic", now) == 0:
+        return "buildinpublic"  # 月曜は運営の数字
+    # 残りは価値の柱を加重ランダム(直近と同じは避ける)
+    last = kv_get_raw(LASTKIND_KEY) or ""
+    weighted = ["pro", "pro", "recruit", "recruit", "howto", "soba"]
+    pool = [k for k in weighted if k != last] or weighted
+    return random.choice(pool)
+
+
 def main():
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ANTHROPIC_API_KEY 未設定 - スキップ")
-        sys.exit(0)
+        print("ANTHROPIC_API_KEY 未設定 - スキップ"); sys.exit(0)
 
     ai_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     twitter_client = tweepy.Client(
-        consumer_key=os.environ["TWITTER_API_KEY"],
-        consumer_secret=os.environ["TWITTER_API_SECRET"],
-        access_token=os.environ["TWITTER_ACCESS_TOKEN"],
-        access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
+        consumer_key=os.environ["TWITTER_API_KEY"], consumer_secret=os.environ["TWITTER_API_SECRET"],
+        access_token=os.environ["TWITTER_ACCESS_TOKEN"], access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
     )
-    # 画像のネイティブ直アップ用(v1.1)。初期化失敗時は画像なしで続行。
     api_v1 = None
     try:
         auth = tweepy.OAuth1UserHandler(
             os.environ["TWITTER_API_KEY"], os.environ["TWITTER_API_SECRET"],
-            os.environ["TWITTER_ACCESS_TOKEN"], os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
-        )
+            os.environ["TWITTER_ACCESS_TOKEN"], os.environ["TWITTER_ACCESS_TOKEN_SECRET"])
         api_v1 = tweepy.API(auth)
     except Exception as e:
         print(f"  v1.1 API初期化失敗(画像なしで続行): {e}")
@@ -425,23 +389,17 @@ def main():
     now = datetime.now(JST)
     print("輸出ラボ 自動投稿 開始")
 
-    # 頻度ゲート(AI生成の前に判定してコストを節約)
-    ok, reason, log = frequency_gate(now)
+    log = _load_list(LOG_KEY)
+    ok, reason = frequency_gate(now, log)
     print(f"  頻度ゲート: {reason}")
     if not ok:
-        print("  → 今回は投稿しない")
-        return
+        print("  → 今回は投稿しない"); return
 
     products = fetch_products()
     if not products:
         print("商品なし - スキップ")
-        send_alert_email(
-            "⚠️ 輸出ラボBot 商品データなし",
-            "商品データがKVに存在しないため、自動投稿をスキップしました。\n"
-            "refresh.yml を確認してください。\n"
-            "https://github.com/ChikaraShimomura/resale-research-app/actions/workflows/refresh.yml\n\n"
-            f"実行時刻: {now.strftime('%Y-%m-%d %H:%M')} JST",
-        )
+        send_alert_email("⚠️ 輸出ラボBot 商品データなし",
+                         f"商品データがKVに無いため投稿をスキップ。refresh.yml を確認。\n{now.strftime('%Y-%m-%d %H:%M')} JST")
         return
 
     current_ids = [str(p["id"]) for p in products if p.get("id")]
@@ -449,50 +407,67 @@ def main():
     seen_set = set(seen)
     first_run = len(seen) == 0
     new_products = [p for p in products if str(p.get("id")) not in seen_set]
+    has_new = (not first_run) and len(new_products) > 0
+    if first_run:
+        save_seen(current_ids)  # 初回は基準記録のみ(全件“新着”誤爆を防ぐ)
 
-    # タイプ選択: 新着があれば③newitem最優先。無ければ①/②を直近と違うものにして連投回避。
+    kind = choose_kind(now, log, has_new)
+
+    # 柱ごとの素材(商品/画像/URL/連番)を準備
+    product = None
+    extra = ""
+    use_image = False
+    add_url = False
     mark_seen = False
-    if (not first_run) and new_products:
-        tkey = "newitem"
+    series_prefix = ""
+
+    if kind == "announce":
         product = max(new_products, key=lambda p: p.get("realProfitRate", 0))
-        mark_seen = True
-    else:
-        last_type = kv_get_raw(LASTTYPE_KEY) or ""
-        choices = [c for c in ("recruit", "pro") if c != last_type] or ["recruit", "pro"]
-        tkey = random.choice(choices)
+        use_image = True; add_url = True; mark_seen = True
+    elif kind == "soba":
         product = pick_product(products)
-        if first_run:
-            save_seen(current_ids)  # 初回は基準記録のみ(全件“新着”誤爆を防ぐ)
+        n = kv_get_int(SOBA_N_KEY) + 1
+        series_prefix = f"【今日の相場 #{n}】"
+        use_image = True
+    elif kind in ("pro", "recruit"):
+        product = pick_product(products); use_image = True
+    elif kind == "howto":
+        extra = random.choice(HOWTO_TOPICS)
+    elif kind == "pitfall":
+        n = kv_get_int(PITFALL_N_KEY) + 1
+        series_prefix = f"【輸出の落とし穴 #{n}】"
+        extra = random.choice(PITFALL_TOPICS)
+    elif kind == "buildinpublic":
+        rates = [p.get("realProfitRate", 0) for p in products]
+        avg = round(sum(rates) / len(rates)) if rates else 0
+        extra = (f"今このアプリが追跡している“利益率30%以上の利益商品”は約{len(products)}件、"
+                 f"想定利益率の平均は約{avg}%。相場の自動判定の一致率は実測で約82%。"
+                 f"危険物・国際発送不可の物はカタログから自動除外している。")
 
-    tags = pick_tags(tkey)
+    tags = pick_tags(kind)
     tags_str = " ".join(tags)
-    body_limit = MAX_CHARS - tw_len(tags_str) - 4  # 本文末にタグのみ(URLは自己リプへ)
-
-    print(f"  {now.strftime('%-H:%M')} / type={tkey}({TYPES[tkey]['label']}) / 新着={len(new_products)}件 / tags={tags_str}")
-    print(f"  商品: {product['title'][:30] if product else 'なし'}")
+    # series_prefix と タグ の分を引いた本文ウェイト上限
+    body_limit = MAX_CHARS - tw_len(tags_str) - tw_len(series_prefix) - 4
+    print(f"  {now.strftime('%-H:%M')} / kind={kind} / 新着={len(new_products)} / 画像={use_image} URL={add_url} tags={tags_str}")
+    if product:
+        print(f"  商品: {product['title'][:30]}")
 
     body = None
     for attempt in range(1, 4):
-        print(f"  AI生成 {attempt}/3...")
-        b = generate_body(product, tkey, ai_client, body_limit)
+        b = generate_body(kind, product, ai_client, body_limit, extra)
         if b:
-            body = cap_body(b, body_limit)
-            break
+            body = cap_body(b, body_limit); break
     if not body:
-        print("投稿文生成失敗 - スキップ")
-        return
+        print("投稿文生成失敗 - スキップ"); return
 
-    main_text = f"{body}\n\n{tags_str}" if tags_str else body
-    card_url = product_url(product)
+    main_text = f"{series_prefix}{body}"
+    if tags_str:
+        main_text = f"{main_text}\n\n{tags_str}"
 
-    # 等間隔投稿を避けるための軽いジッター(ジョブのタイムアウト内)
-    time.sleep(random.randint(0, 90))
+    time.sleep(random.randint(0, 90))  # 等間隔を避ける軽いジッター
 
-    # 画像をネイティブ直アップ
-    media_id = upload_image(api_v1, product.get("imageUrl", ""))
-    print(f"  画像: {'直アップ成功' if media_id else 'なし(テキスト+自己リプ)'}")
+    media_id = upload_image(api_v1, product.get("imageUrl", "")) if (use_image and product) else None
 
-    # 本投稿(本文+ハッシュタグ+画像、URLなし)
     print(f"\n投稿本文 ({tw_len(main_text)}w):\n{main_text}\n")
     tweet_id = None
     for attempt in range(1, 4):
@@ -505,30 +480,33 @@ def main():
             print(f"本投稿成功: ID={tweet_id}")
             break
         except tweepy.errors.TwitterServerError as e:
-            print(f"サーバーエラー ({attempt}/3): {e} - 10秒後リトライ")
+            print(f"サーバーエラー ({attempt}/3): {e}")
             if attempt < 3:
                 time.sleep(10)
             else:
                 raise
         except Exception as e:
-            print(f"エラー: {type(e).__name__}: {e}")
-            raise
-
+            print(f"エラー: {type(e).__name__}: {e}"); raise
     if not tweet_id:
         return
 
-    # URLを自己リプに分離(リーチ最適化)。失敗しても本投稿は成立しているので致命的でない。
-    try:
-        reply_text = f"{random.choice(REPLY_LEADS)}\n{card_url}"
-        twitter_client.create_tweet(text=reply_text, in_reply_to_tweet_id=tweet_id)
-        print("自己リプ(URL)成功")
-    except Exception as e:
-        print(f"自己リプ失敗(本投稿は成功済み): {type(e).__name__}: {e}")
+    # announce のみ URL を自己リプに分離(リーチ最適化)
+    if add_url and product:
+        try:
+            twitter_client.create_tweet(text=f"{random.choice(REPLY_LEADS)}\n{product_url(product)}",
+                                        in_reply_to_tweet_id=tweet_id)
+            print("自己リプ(URL)成功")
+        except Exception as e:
+            print(f"自己リプ失敗(本投稿は成功済み): {type(e).__name__}: {e}")
 
-    # 状態を更新: 投稿ログ(頻度制御)・直近タイプ(連投回避)・既出ID(新着検知)
-    save_seen_log = log + [now.timestamp()]
-    kv_set_raw(LOG_KEY, json.dumps(save_seen_log[-200:]))
-    kv_set_raw(LASTTYPE_KEY, tkey)
+    # 状態更新
+    log.append({"t": now.timestamp(), "k": kind})
+    kv_set_raw(LOG_KEY, json.dumps(log[-200:]))
+    kv_set_raw(LASTKIND_KEY, kind)
+    if kind == "soba":
+        kv_set_raw(SOBA_N_KEY, str(kv_get_int(SOBA_N_KEY) + 1))
+    if kind == "pitfall":
+        kv_set_raw(PITFALL_N_KEY, str(kv_get_int(PITFALL_N_KEY) + 1))
     if mark_seen:
         save_seen(merge_seen(seen, current_ids))
         print("  既出ID更新(新着検知の基準を更新)")
