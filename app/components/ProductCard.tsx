@@ -92,7 +92,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
   // 「楽天で仕入れる」を押した端末(=仕入れ中)には SOLD を出さない。仕入れ途中で他人の出品が増えて
   // SOLD化すると、買ったのに出品導線が消えてかわいそうなため、本人にはそのまま表示する。
-  const sold = isSold(product, listingCount) && !rakutenClicked;
+  // 自分がeBayで売った商品(ebaySold)もぼかさない（発送のため中身を見られるように）。
+  const sold = isSold(product, listingCount) && !rakutenClicked && !ebaySold;
 
   const shareOnX = () => {
     const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay #輸出副業`;

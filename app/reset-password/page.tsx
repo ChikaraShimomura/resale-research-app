@@ -16,7 +16,12 @@ export default function ResetPasswordPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">パスワード再設定</h1>
         <p className="text-sm text-gray-500 mb-5">登録メールアドレスに再設定リンクを送ります。</p>
         {state.message ? (
-          <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
+          <>
+            <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
+            <p className="mt-3 text-[12px] text-gray-500 leading-relaxed">
+              メールが届かないときは<b>迷惑メールフォルダ</b>もご確認ください。
+            </p>
+          </>
         ) : (
           <form action={action} className="space-y-3">
             <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
