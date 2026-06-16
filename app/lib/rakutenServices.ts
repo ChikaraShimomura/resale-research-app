@@ -22,13 +22,17 @@ export const RAKUTEN_SERVICES: RakutenSvc[] = [
     key: "card", name: "楽天カード", short: "カード", tag: "まずこれ（土台）", chipTag: "土台",
     benefit: "仕入れの支払いを楽天カードにするだけで楽天市場が+1倍（通常分は上限なし）。準備の土台です。",
     primary: true, official: "https://www.rakuten-card.co.jp/",
-    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_CARD_AFF_URL || "", rakutenAffi: true,
+    // 楽天アフィリのグループ広告 正規リンク(サービス専用ID・hsc形式)。env未設定時はこれを使用。
+    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_CARD_AFF_URL || "https://hb.afl.rakuten.co.jp/hsc/54f5d1a7.a32daa20.1deca9b4.e6f7a9be/?link_type=text&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJ0ZXh0IiwiY29sIjoxLCJjYXQiOjEsImJhbiI6Im5hbWUiLCJhbXAiOmZhbHNlfQ%3D%3D",
+    rakutenAffi: true,
   },
   {
     key: "mobile", name: "楽天モバイル", short: "モバイル", tag: "仕入れが増えたら", chipTag: "+4倍",
     benefit: "スマホを楽天モバイルにすると楽天市場が+4倍（月5万円ぶんまで）。月額がかかるので無理のない範囲で。",
     primary: true, official: "https://network.mobile.rakuten.co.jp/",
-    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_MOBILE_AFF_URL || "", rakutenAffi: true,
+    // 楽天アフィリのグループ広告 正規リンク(サービス専用ID・hsc形式)。A8に替えるなら env を設定。
+    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_MOBILE_AFF_URL || "https://hb.afl.rakuten.co.jp/hsc/54f5c4f3.dd48333e.1deca9b4.e6f7a9be/?link_type=text&rafst=rmn&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJ0ZXh0IiwiY29sIjoxLCJjYXQiOjEsImJhbiI6Im5hbWUiLCJhbXAiOmZhbHNlfQ%3D%3D",
+    rakutenAffi: true,
   },
   {
     key: "bank", name: "楽天銀行", short: "銀行", tag: "ノーコストで+0.3倍", chipTag: "+0.3倍",
