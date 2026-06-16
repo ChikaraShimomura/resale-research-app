@@ -10,10 +10,15 @@ export const MARKETPLACE = "EBAY_US";
 export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
 export const USD_JPY = 155; // realAvgPrice の換算に使った固定レート（refresh.mjs と一致）
 
-// 楽天のmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠で小さく表示されるため、
-// 出品時は高解像度(_ex=1200x1200)に差し替える。元画像が小さければ楽天側が縮小無しで返すだけ＝無害。
+// 楽天のmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠でボケるため、出品時は最大解像度に差し替える。
+// ★ thumbnail.image.rakuten.co.jp(リサイズCDN・_ex=1200でも1200頭打ち)ではなく image.rakuten.co.jp(原寸オリジナル)を使う。
+//   高解像度をアップしている店ほど鮮明になる。元画像が小さい店はそのサイズが上限(=これ以上は鮮明化不能)。
 function upscaleListingImage(url: string): string {
-  return (url || "").replace(/_ex=\d+x\d+/, "_ex=1200x1200");
+  if (!url) return "";
+  if (/thumbnail\.image\.rakuten\.co\.jp\/@0_mall\//.test(url)) {
+    return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").replace(/\?_ex=\d+x\d+/, "");
+  }
+  return url.replace(/_ex=\d+x\d+/, "_ex=1200x1200"); // 別形式は従来どおりサイズ指定を上げる
 }
 
 // SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
