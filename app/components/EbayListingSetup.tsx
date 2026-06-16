@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
@@ -62,6 +62,21 @@ export default function EbayListingSetup() {
   const firstIncomplete = dones.findIndex((d) => !d); // 全完了なら -1
   const openIdx = override ?? firstIncomplete;
 
+  // STEPが1つ完了したら、次にやるカード(または完了CTA)を画面に映す。
+  // モバイルで「画面が変わらず次の操作を見失う」迷子を防ぐ。
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const ctaRef = useRef<HTMLDivElement | null>(null);
+  const prevDone = useRef<number | null>(null);
+  useEffect(() => {
+    if (loading || r == null) return;
+    // 初回計測時はスクロールしない（突然動くと驚くため）。完了数が増えた時だけ動かす。
+    if (prevDone.current != null && doneCount > prevDone.current) {
+      const target = allDone ? ctaRef.current : stepRefs.current[firstIncomplete];
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevDone.current = doneCount;
+  }, [doneCount, allDone, firstIncomplete, loading, r]);
+
   // 準備完了後の導線。自動遷移は「画面が勝手に変わって迷子」の原因になるため、
   // 明示ボタンで出品画面へ戻す。来歴(listId)があればその商品へ、無ければ検索へ。
   const continueToListing = useCallback(() => {
@@ -96,7 +111,7 @@ export default function EbayListingSetup() {
       </div>
 
       {allDone && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
+        <div ref={ctaRef} className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
           <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-2">
             <BadgeCheck size={16} /> eBay連携・出品の準備が完了しました！
           </p>
@@ -121,12 +136,24 @@ export default function EbayListingSetup() {
         </p>
       )}
 
+      {/* 全STEPを閉じて手詰まりに見える状態を解消。次にやるSTEPを開き直すボタン。 */}
+      {!allDone && override === -1 && (
+        <button
+          type="button"
+          onClick={() => setOverride(null)}
+          className="w-full h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+        >
+          次にやること（STEP {firstIncomplete + 1}）を開く →
+        </button>
+      )}
+
       {steps.map((s, i) => {
         const done = dones[i];
         const isOpen = openIdx === i;
         return (
           <div
             key={i}
+            ref={(el) => { stepRefs.current[i] = el; }}
             className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-colors ${
               isOpen ? "border-[#BF0000]/40" : "border-gray-100"
             }`}

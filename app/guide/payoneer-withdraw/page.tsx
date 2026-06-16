@@ -135,6 +135,12 @@ export default function PayoneerWithdrawGuide() {
             eBayで売れたお金は、まず<b>Payoneer</b>に入ります。そこから<b>日本の銀行口座へ「出金（引き出し）」</b>して、
             やっと手元のお金になります。やり方を一歩ずつ案内します（初回の口座登録だけ少し待ちます）。
           </p>
+          <div className="mt-2.5 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-[12px] text-amber-800 leading-relaxed">
+              <b>このページは、すでにPayoneerの口座がある人向け</b>です。Payoneerの口座は、<b>eBayのセラー登録（売上の受け取り設定）</b>のときに作られます。まだの人は先にセラー登録を済ませてください。
+            </p>
+          </div>
           <div className="mt-2.5 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
             <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-blue-800 leading-relaxed">

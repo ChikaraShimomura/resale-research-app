@@ -167,6 +167,28 @@ export default async function ProductPage({
       <main className="max-w-2xl mx-auto p-3">
         <ProductCard product={product} autoOpenListing={autoListing} />
         <ShippingHelper help={shippingHelp(product)} />
+
+        {/* 初めて来た人向けの3ステップ。Xリンク等で単品ページに直接来ても流れが分かるように。 */}
+        <section className="mt-3 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <p className="text-[13px] font-black text-gray-800 mb-3">この商品で稼ぐ3ステップ</p>
+          <div className="flex items-start justify-between gap-1">
+            {[
+              { n: "①", t: "楽天で仕入れる", s: "上のボタンから" },
+              { n: "②", t: "eBayで出品", s: "写真だけでOK" },
+              { n: "③", t: "発送する", s: "国際郵便で" },
+            ].map((x, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center text-center">
+                <div className="w-8 h-8 rounded-full bg-[#BF0000] text-white flex items-center justify-center text-sm font-black mb-1.5">{x.n}</div>
+                <p className="text-[12px] font-bold text-gray-700 leading-tight">{x.t}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{x.s}</p>
+              </div>
+            ))}
+          </div>
+          <Link href="/guide" className="mt-3 block text-center text-[12px] font-bold text-[#BF0000] underline underline-offset-2">
+            画像つきの始め方ガイドを見る →
+          </Link>
+        </section>
+
         <Link href="/search"
           className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-xl active:bg-red-50">
           他の利益商品を見る →
