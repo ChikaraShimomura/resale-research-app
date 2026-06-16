@@ -60,11 +60,11 @@ export function toEbayMarketUrl(keyword: string, market?: string): string {
     .trim()
     .split(" ")
     .filter(Boolean);
-  // 名前語(最大4)＋識別子(最大2)。識別子を必ず残すことで「同じ商品」が上位に出る。
-  // 価格フロア(_udlo)は付けない：実物が表示相場より安いと隠れてしまい逆効果だったため。
+  // 識別子(最大2)＋名前語。型番がある時は識別子を先頭にし一般名詞を2語に絞る＝別変種が混ざりにくい。
+  // 型番が無い時は名前語を4語まで。価格フロア(_udlo)は付けない（実物が安いと隠れて逆効果だったため）。
   const ids = tokens.filter(isIdToken).slice(0, 2);
-  const names = tokens.filter((t) => !isIdToken(t)).slice(0, 4);
-  const picked = [...names, ...ids];
+  const names = tokens.filter((t) => !isIdToken(t)).slice(0, ids.length > 0 ? 2 : 4);
+  const picked = ids.length > 0 ? [...ids, ...names] : [...names, ...ids];
   const q = (picked.length ? picked : tokens.slice(0, 6)).join(" ") || (keyword || "").slice(0, 40);
   return `${base}?${new URLSearchParams({ _nkw: q }).toString()}`;
 }

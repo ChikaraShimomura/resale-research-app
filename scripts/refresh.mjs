@@ -234,11 +234,12 @@ function isWeakKeyword(title) {
 }
 
 // カード番号・型番の抽出（ST13-002 / P-028 / DW-5600E / GWG-1000-1A3 等）。年号や容量の裸数字は拾わない。
+// 数字直後の「くっついた英字サフィックス」も拾う（DW-5600E と DW-5600F を別物として区別するため）。
 function extractCodes(s) {
   const up = (s || '').toUpperCase();
-  const m = up.match(/\b[A-Z]{1,4}-?\d{1,4}(?:[-/][A-Z0-9]{1,6})*\b/g) || [];
+  const m = up.match(/\b[A-Z]{1,4}-?\d{1,4}[A-Z]{0,2}(?:[-/][A-Z0-9]{1,6})*\b/g) || [];
   return [...new Set(
-    m.filter(c => /\d/.test(c) && (/[-/]/.test(c) || /[A-Z]{2,}\d/.test(c)))
+    m.filter(c => /\d/.test(c) && (/[-/]/.test(c) || /[A-Z]{2,}\d/.test(c) || /\d[A-Z]/.test(c)))
       .map(c => c.replace(/[^A-Z0-9]/g, ''))
   )];
 }
@@ -248,6 +249,29 @@ function codesConflict(a, b) {
   const ca = extractCodes(a), cb = extractCodes(b);
   if (!ca.length || !cb.length) return false;
   return !ca.some(x => cb.some(y => x === y || x.startsWith(y) || y.startsWith(x)));
+}
+
+// 相場用：比較品をアンカー(画像照合済み)と同一商品に絞る判定。
+// null=どちらかに型番が無い(=判定保留＝残す。型番を省いた安い同一品を消さないため)。
+// true=型番が一致(前方一致含む・同サブ変種は同一扱い)／false=両方に型番ありで一致なし(=別物・落とす)。
+function priceCodeCompat(anchorTitle, compTitle) {
+  const a = extractCodes(anchorTitle), c = extractCodes(compTitle);
+  if (!a.length || !c.length) return null;
+  return a.some(x => c.some(y => x === y || x.startsWith(y) || y.startsWith(x)));
+}
+// 容量/スケールの抽出（200ml / 1/7 等）。相場の別容量・別スケール混入を弾くのに使う。
+function extractSize(s) {
+  const t = (s || '').toLowerCase();
+  const vol = (t.match(/\b\d+(?:\.\d+)?\s?(?:ml|g|kg|l|cm|mm|inch|")\b/g) || []).map(x => x.replace(/\s/g, ''));
+  const scale = (t.match(/\b1\/\d{1,2}\b/g) || []);
+  return { vol, scale };
+}
+// 容量orスケールが両方にあって一致しなければ別物（型番が無い商品＝コスメ/フィギュア等の保険）。
+function sizeMismatch(a, b) {
+  const A = extractSize(a), B = extractSize(b);
+  if (A.vol.length && B.vol.length && !A.vol.some(x => B.vol.includes(x))) return true;
+  if (A.scale.length && B.scale.length && !A.scale.some(x => B.scale.includes(x))) return true;
+  return false;
 }
 
 // ========== 楽天商品取得 ==========
@@ -293,6 +317,12 @@ let haikuFailToday = 0; // 観測フック: Haiku不通(Anthropic到達不可)�
 // Sonnet確認の実行あたり上限回数（巨大リビルド時のコスト暴走を防ぐブレーキ）。既定300=通常運用は常に確認。
 // 最小コストで回したい時は IMG_MATCH_SONNET_BUDGET=0 で Haiku 単独運用に落とせる。
 const MAX_SONNET_PER_RUN = Number(process.env.IMG_MATCH_SONNET_BUDGET ?? 300);
+
+// 相場の「最安」を決める比較品の画像照合（有料）の予算。最安がアンカーよりかなり安い(=別の安い商品の疑い)
+// 時だけ発火。1商品あたり PRICE_VERIFY_PER_ITEM 件まで・1実行 PRICE_VERIFY_BUDGET 件まで（コスト上限）。
+const PRICE_VERIFY_BUDGET = Number(process.env.PRICE_VERIFY_BUDGET ?? 150);
+const PRICE_VERIFY_PER_ITEM = Number(process.env.PRICE_VERIFY_PER_ITEM ?? 4);
+let priceVerifyToday = 0;
 
 // 楽天サムネは _ex=128x128 等で型番/容量の文字が読めない→拡大。eBayの s-l{N} も大判化。
 function upscaleRakuten(url) { return (url || '').replace(/_ex=\d+x\d+/, '_ex=600x600'); }
@@ -679,10 +709,55 @@ function trimmedMedianJpy(pricesJpy) {
   return { median: use[Math.floor(use.length / 2)], low: use[0], count: use.length };
 }
 
-// eBay現在出品の「単品中央値(JPY)」。セット除外＋外れ値トリム。24hキャッシュ。失敗/少数時はnull。
-async function ebayMedianSinglePriceJpy(query) {
+// 比較品のタイトル/画像/価格を1件に整形。通貨はJPY換算。
+function compFromSummary(it) {
+  const v = parseFloat(it?.price?.value); const c = it?.price?.currency;
+  const price = !v || v <= 0 ? 0
+    : c === 'USD' ? Math.round(v * USD_TO_JPY)
+    : c === 'GBP' ? Math.round(v * GBP_TO_JPY)
+    : c === 'AUD' ? Math.round(v * AUD_TO_JPY)
+    : c === 'JPY' ? Math.round(v) : 0;
+  return { title: it?.title ?? '', img: it?.image?.imageUrl ?? it?.thumbnailImages?.[0]?.imageUrl ?? '', price };
+}
+
+// 比較品を「アンカー(画像照合済み)と同一商品」に絞る。型番が明確に違う/容量orスケール違い/本体↔付属品/
+// 多機種混載 を落とす。型番が無い側は保留(残す)＝型番を省いた安い同一品を消さない。
+function sameProductComps(comps, anchorTitle) {
+  return comps.filter(c =>
+    priceCodeCompat(anchorTitle, c.title) !== false &&
+    !sizeMismatch(anchorTitle, c.title) &&
+    !accessoryMismatch(anchorTitle, c.title) &&
+    !isMultiModelListing(c.title)
+  );
+}
+
+// 価格を決める「最安」をアンカー画像で確定する。最安がアンカー価格よりかなり安い(=別の安い商品の疑い)時だけ、
+// 安い順に画像照合し、別物(false)を落としてやり直す。予算/件数上限つき。同一or判定不能(fail-open)で確定。
+async function verifyCheapestComps(kept, anchor) {
+  if (!anchor?.rakutenImg || !anchor?.anchorPriceJpy || !kept.length) return kept;
+  const sorted = kept.slice().sort((a, b) => a.price - b.price);
+  let n = 0;
+  while (sorted.length && n < PRICE_VERIFY_PER_ITEM && priceVerifyToday < PRICE_VERIFY_BUDGET) {
+    const cheapest = sorted[0];
+    if (cheapest.price >= anchor.anchorPriceJpy * 0.7) break; // 安すぎない＝妥当→確定
+    if (!cheapest.img) break;
+    priceVerifyToday++; n++;
+    const same = await isImageMatch(anchor.rakutenImg, cheapest.img, {
+      rakutenTitle: anchor.rakutenTitle || '', ebayTitle: cheapest.title, rakutenQuantity: anchor.rakutenQuantity ?? null,
+    });
+    if (same) break;       // 最安が同一品(or判定不能)→採用
+    sorted.shift();        // 別物→落として次の最安へ
+  }
+  return sorted;
+}
+
+// eBay現在出品の「単品中央値(JPY)」。アンカーと同一商品に絞り、最安は画像で確定。外れ値トリム。
+// キャッシュはアンカーの型番/容量も鍵に含める（別商品の汚染相場を配らないため）。24hキャッシュ。少数/失敗時null。
+async function ebayMedianSinglePriceJpy(query, anchor = {}) {
   if (!query) return null;
-  const cacheKey = `median_jpy2:${ebayQueryHash(query)}`; // アクセサリ除外を追加→相場を再計算
+  const anchorTitle = anchor.title || '';
+  const idKey = extractCodes(anchorTitle)[0] || extractSize(anchorTitle).vol[0] || extractSize(anchorTitle).scale[0] || 'noid';
+  const cacheKey = `median_jpy3:${ebayQueryHash(query)}:${idKey}`; // v3: 同一商品絞り込み＋アンカー鍵
   const cached = await kvGet(cacheKey);
   if (cached && typeof cached === 'object' && cached.median > 0) return cached;
   const token = await getEbayToken();
@@ -695,19 +770,11 @@ async function ebayMedianSinglePriceJpy(query) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const prices = (data?.itemSummaries ?? [])
-      .filter(it => !PRICE_SET_RE.test(it?.title ?? '') && !PRICE_ACCESSORY_RE.test(it?.title ?? ''))
-      .map(it => {
-        const v = parseFloat(it?.price?.value); const c = it?.price?.currency;
-        if (!v || v <= 0) return 0;
-        if (c === 'USD') return Math.round(v * USD_TO_JPY);
-        if (c === 'GBP') return Math.round(v * GBP_TO_JPY);
-        if (c === 'AUD') return Math.round(v * AUD_TO_JPY);
-        if (c === 'JPY') return Math.round(v);
-        return 0;
-      })
-      .filter(p => p > 0);
-    const result = trimmedMedianJpy(prices);
+    const comps = (data?.itemSummaries ?? [])
+      .map(compFromSummary)
+      .filter(c => c.price > 0 && c.title && !PRICE_SET_RE.test(c.title) && !PRICE_ACCESSORY_RE.test(c.title));
+    const kept = await verifyCheapestComps(sameProductComps(comps, anchorTitle), anchor);
+    const result = trimmedMedianJpy(kept.map(c => c.price));
     if (result) await kvSet(cacheKey, result, 24 * 3600);
     return result;
   } catch { return null; }
@@ -755,9 +822,11 @@ async function getEbayInsightsToken() {
 
 // eBay「落札(実売)中央値(JPY)」。Marketplace Insights の item_sales/search を叩く。
 // セット除外＋外れ値トリムは現在出品版と同じ。24hキャッシュ。失敗/少数時は null。
-async function ebaySoldMedianPriceJpy(query) {
+async function ebaySoldMedianPriceJpy(query, anchor = {}) {
   if (!query || !INSIGHTS_ENABLED) return null;
-  const cacheKey = `sold_jpy:${ebayQueryHash(query)}`;
+  const anchorTitle = anchor.title || '';
+  const idKey = extractCodes(anchorTitle)[0] || extractSize(anchorTitle).vol[0] || 'noid';
+  const cacheKey = `sold_jpy2:${ebayQueryHash(query)}:${idKey}`; // 同一商品絞り込み＋アンカー鍵
   const cached = await kvGet(cacheKey);
   if (cached && typeof cached === 'object' && cached.median > 0) return { ...cached, soldBased: true };
   const token = await getEbayInsightsToken();
@@ -770,20 +839,18 @@ async function ebaySoldMedianPriceJpy(query) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const prices = (data?.itemSales ?? [])
-      .filter(it => !PRICE_SET_RE.test(it?.title ?? '') && !PRICE_ACCESSORY_RE.test(it?.title ?? ''))
-      .map(it => {
-        const p = it?.lastSoldPrice ?? it?.price; // Insights は lastSoldPrice（実売価格）
-        const v = parseFloat(p?.value); const c = p?.currency;
-        if (!v || v <= 0) return 0;
-        if (c === 'USD') return Math.round(v * USD_TO_JPY);
-        if (c === 'GBP') return Math.round(v * GBP_TO_JPY);
-        if (c === 'AUD') return Math.round(v * AUD_TO_JPY);
-        if (c === 'JPY') return Math.round(v);
-        return 0;
-      })
-      .filter(p => p > 0);
-    const result = trimmedMedianJpy(prices);
+    const comps = (data?.itemSales ?? []).map(it => {
+      const p = it?.lastSoldPrice ?? it?.price; // Insights は lastSoldPrice（実売価格）
+      const v = parseFloat(p?.value); const c = p?.currency;
+      const price = !v || v <= 0 ? 0
+        : c === 'USD' ? Math.round(v * USD_TO_JPY)
+        : c === 'GBP' ? Math.round(v * GBP_TO_JPY)
+        : c === 'AUD' ? Math.round(v * AUD_TO_JPY)
+        : c === 'JPY' ? Math.round(v) : 0;
+      return { title: it?.title ?? '', img: it?.image?.imageUrl ?? '', price };
+    }).filter(c => c.price > 0 && c.title && !PRICE_SET_RE.test(c.title) && !PRICE_ACCESSORY_RE.test(c.title));
+    // 実売も同一商品に絞る（型番/容量/付属品/多機種）。画像検証は現在出品側で実施済みのためここでは行わない。
+    const result = trimmedMedianJpy(sameProductComps(comps, anchorTitle).map(c => c.price));
     if (result) await kvSet(cacheKey, result, 24 * 3600);
     return result ? { ...result, soldBased: true } : null;
   } catch { return null; }
@@ -791,12 +858,12 @@ async function ebaySoldMedianPriceJpy(query) {
 
 // 相場の中央値(JPY)。承認後(INSIGHTS_ENABLED=1)は「実売中央値」を優先し、取れない/サンプル
 // 僅少なら「現在出品の単品中央値」にフォールバック。フラグOFF時は完全に従来挙動。
-async function marketMedianPriceJpy(query) {
+async function marketMedianPriceJpy(query, anchor = {}) {
   if (INSIGHTS_ENABLED) {
-    const sold = await ebaySoldMedianPriceJpy(query);
+    const sold = await ebaySoldMedianPriceJpy(query, anchor);
     if (sold && sold.count >= 3) { console.log('  💱 実売中央値を採用'); return sold; }
   }
-  return ebayMedianSinglePriceJpy(query);
+  return ebayMedianSinglePriceJpy(query, anchor);
 }
 
 // ========== ③ 楽天-first 発掘（フラグ制・eBay先が取りこぼす商品を楽天人気起点で拾う） ==========
@@ -882,7 +949,7 @@ async function processRakutenFirst(haveIds) {
         if (!(await isImageMatch(rakutenImg, e.img, { rakutenTitle: r.itemName, ebayTitle: e.title, rakutenQuantity: 1 }))) continue;
         const coreKeyword = isWeakKeyword(e.title) ? (enKw || e.title) : e.title;
         let realAvgPrice = e.priceJpy, realMedianPrice = e.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
-        const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword));
+        const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword), { title: e.title, rakutenImg, rakutenTitle: r.itemName, anchorPriceJpy: e.priceJpy });
         if (med && med.count >= 5) {
           const low = med.low ?? med.median;
           realAvgPrice = Math.min(e.priceJpy, low); realMedianPrice = med.median; realCount = med.count;
@@ -1051,7 +1118,7 @@ async function main() {
   const repriced = [];
   for (const p of dedupedProducts) {
     if (!p.coreKeyword || !p.source || !(p.realAvgPrice > 0)) continue;
-    const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword));
+    const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword), { title: p.matchedEbayTitle || p.coreKeyword, rakutenImg: p.imageUrl, rakutenTitle: p.title, anchorPriceJpy: p.realAvgPrice });
     if (!med || med.count < 5) continue;
     const low = med.low ?? med.median;                 // ★eBay最安ベース（旧キャッシュ対策で中央値フォールバック）
     if (low >= p.realAvgPrice) { p.realCount = med.count; p.realMedianPrice = med.median; continue; } // 下がらないなら件数/中央値だけ反映
@@ -1173,7 +1240,7 @@ async function main() {
       // 相場は「eBay最安値」ベース。早く売る前提なので、最安で売ったときの利益で見せる（過大表示を防ぐ正直版）。
       // 中央値(realMedianPrice)は併記用に保持。外れ値(別物/破損/まとめ売り)は trimmedMedianJpy で除外済み。
       let realAvgPrice = ebayItem.priceJpy, realMedianPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
-      const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword));
+      const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword), { title: ebayItem.title, rakutenImg, rakutenTitle: rakutenItem.itemName, anchorPriceJpy: ebayItem.priceJpy, rakutenQuantity: rQty });
       if (med && med.count >= 5) {
         const low = med.low ?? med.median;                 // ロバストな最安（旧キャッシュ対策で中央値フォールバック）
         realAvgPrice = Math.min(ebayItem.priceJpy, low);   // ★相場＝eBay最安値ベース
@@ -1282,6 +1349,7 @@ async function main() {
     haikuCalls: haikuCallsToday,
     haikuFail: haikuFailToday,
     sonnetCalls: sonnetCallsToday,
+    priceVerify: priceVerifyToday, // 相場の最安を画像確定した回数（コスト観測・予算PRICE_VERIFY_BUDGET内）
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
