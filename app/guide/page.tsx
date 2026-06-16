@@ -3,6 +3,7 @@ import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, type Lucid
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import GuideVideo from "../components/GuideVideo";
+import RakutenPrepCard from "../components/RakutenPrepCard";
 
 export const metadata = {
   alternates: { canonical: "/guide" },
@@ -178,6 +179,12 @@ export default function GuidePage() {
             durationLabel="約1分"
             note="※ 仕入れ→出品→発送→入金までの流れを、やさしい音声ナレーションつきでまとめています。"
           />
+        </div>
+
+        {/* 始める前の準備（楽天経済圏でポイント＝利益を底上げ） */}
+        <div className="mb-6">
+          <SectionTitle>始める前の準備</SectionTitle>
+          <RakutenPrepCard />
         </div>
 
         {/* ステップ */}
