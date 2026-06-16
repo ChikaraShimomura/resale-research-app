@@ -10,7 +10,7 @@ const EBAY_FEE_FIXED = 47;
 const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
 // SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。
 const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
-const TTL_SECONDS = 365 * 24 * 60 * 60;
+const TTL_SECONDS = 730 * 24 * 60 * 60; // 取引履歴は2年保持（出品/出荷の都度 expire を再延長）
 
 // 「実際に出品できた商品」だけを通す判定を返す。
 // 旧仕様では下書き/本人確認待ちでも deal を記録していたため、SKU対応表に載っているものだけを
@@ -30,6 +30,7 @@ export interface Deal {
   purchase: number; // 楽天仕入れ値(JPY)
   points: number; // 基本ポイント
   title: string;
+  imageUrl?: string; // 楽天画像（一覧のサムネ用。新規出品から保存）
   listedAt: string;
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
@@ -39,7 +40,7 @@ export interface Deal {
 export async function recordListed(
   actor: string,
   productId: string,
-  d: { purchase: number; points: number; title: string; listedAt: string }
+  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string }
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
@@ -79,19 +80,70 @@ export interface LiveDeal {
   title: string;
   listedAt: string;
   purchase: number; // 楽天仕入れ(送料込・JPY)
+  imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
 }
-export async function listLiveDeals(actor: string): Promise<LiveDeal[]> {
+export interface SoldDeal {
+  id: string;
+  title: string;
+  imageUrl: string;
+  soldAt: string;
+  soldJpy: number; // 売れた金額(JPY換算)
+  profitJpy: number; // 利益(手数料・仕入れ・ポイント込み)
+  purchase: number; // 楽天仕入れ(送料込・JPY)
+}
+
+// マイページ用：出品中(未売却・公開済み)と輸出した(売却済み)の取引一覧をまとめて返す。
+// deals ハッシュ1回・SKU対応表1回・画像補完カタログ1回で両方を組み立てる。
+export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[]; sold: SoldDeal[] }> {
   let deals: Record<string, Deal> = {};
   try {
     deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
   } catch {
-    return [];
+    return { live: [], sold: [] };
   }
   const isPublished = await publishedFilter(actor);
-  return Object.entries(deals)
-    .filter(([id, d]) => d.soldUsd == null && isPublished(id)) // 未売却 かつ 実際に出品できたものだけ
-    .map(([id, d]) => ({ id, title: d.title || "", listedAt: d.listedAt || "", purchase: d.purchase ?? 0 }))
+  const entries = Object.entries(deals);
+  const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && isPublished(id)); // 未売却かつ公開済み
+  const soldEntries = entries.filter(([, d]) => d.soldUsd != null); // 売却済み（実取引なので全部有効）
+
+  // 画像未保存の古いdealは、現行カタログ(profitable_products)から画像を補完する。
+  const catImg: Record<string, string> = {};
+  if (liveEntries.some(([, d]) => !d.imageUrl) || soldEntries.some(([, d]) => !d.imageUrl)) {
+    try {
+      const products = (await kv.get<{ id: string; imageUrl?: string }[]>("profitable_products")) ?? [];
+      for (const p of products) if (p?.id && p.imageUrl) catImg[p.id] = p.imageUrl;
+    } catch {
+      /* noop */
+    }
+  }
+
+  const live: LiveDeal[] = liveEntries
+    .map(([id, d]) => ({
+      id,
+      title: d.title || "",
+      listedAt: d.listedAt || "",
+      purchase: d.purchase ?? 0,
+      imageUrl: d.imageUrl || catImg[id] || "",
+    }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
+
+  const sold: SoldDeal[] = soldEntries
+    .map(([id, d]) => {
+      const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
+      const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
+      return {
+        id,
+        title: d.title || "",
+        imageUrl: d.imageUrl || catImg[id] || "",
+        soldAt: d.soldAt || "",
+        soldJpy: saleJpy,
+        profitJpy: saleJpy - fee - (d.purchase ?? 0) + (d.points ?? 0),
+        purchase: d.purchase ?? 0,
+      };
+    })
+    .sort((a, b) => (b.soldAt || "").localeCompare(a.soldAt || "")); // 新しい順
+
+  return { live, sold };
 }
 
 // 「出品をやめた」：成績から取引を削除する（hdel）。

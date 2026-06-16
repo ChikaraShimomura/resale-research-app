@@ -136,6 +136,7 @@ export async function POST(req: Request) {
       purchase: product.source.price + (product.source.shippingJpy ?? 0),
       points: product.source.pointAmount ?? 0,
       title: product.title,
+      imageUrl: product.imageUrl,
       listedAt: new Date().toISOString(),
     });
   }

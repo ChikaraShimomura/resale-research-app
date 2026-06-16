@@ -23,9 +23,10 @@ function upscaleListingImage(url: string): string {
 
 // SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
 export const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
-// 逆引き表のTTL（365日）。長期在庫の出品が売れる前に失効しないよう、出品時に設定し
+// 逆引き表のTTL（2年）。長期在庫の出品が売れる前に失効しないよう、出品時に設定し
 // 売却同期のたびに再延長する（skuForProduct は非可逆＝復元不能のため失効＝取りこぼし）。
-export const SKU_MAP_TTL = 365 * 24 * 60 * 60;
+// 取引履歴(ebay_deals)の2年保持と揃える（出品中の公開判定に使うため）。
+export const SKU_MAP_TTL = 730 * 24 * 60 * 60;
 
 // ── 低レベル fetch（詳細エラー抽出つき） ──
 interface EbayError {
