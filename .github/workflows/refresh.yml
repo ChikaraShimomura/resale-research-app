@@ -30,6 +30,7 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
           RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
+          IMG_MATCH_SONNET_BUDGET: '600'  # ②精度保護: Sonnet確認の予算(既定300)を引き上げ、予算切れでHaiku単独承認(フェイルオープン)に落ちるのを防ぐ
         run: node scripts/refresh.mjs
 
       - name: エラー通知メール

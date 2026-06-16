@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // scripts/audit_catalog.mjs — 本番カタログの精度を「独立した強い審判(Sonnet)」で実測監査する。
 // カタログはHaiku→Sonnet合議の出力なので、同じ照合を再実行しても追認になるだけ。そこで:
-//  各商品の coreKeyword で eBay現行最安を引き直し、楽天画像 ⇄ eBay画像 を Sonnet が
+//  本番で実際にマッチさせたeBay商品(matchedEbay*)に対し、楽天画像 ⇄ eBay画像 を Sonnet が
 //  「むしろ別物である証拠を探す」敵対的プロンプトで再判定する。YES=同一/NO=別物。
+//  matchedEbay* が無い旧データだけ、coreKeyword で eBay現行最安を引き直してフォールバック判定する。
+//  サンプルは層別（新着 / realCount==1 / 全体・各40件）で、増数で増える尾も必ず測る。
 // 結果は stdout の AUDIT_RESULTS_START/END の間にJSONで出す（CIログから回収）。本番KVには触れない。
 
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
@@ -87,27 +89,66 @@ async function judge(rImg, eImg, rTitle, eTitle) {
   } catch (e) { return { same: null, text: `ERR ${e.message}` }; }
 }
 
+// SAME/(SAME+DIFFERENT) を % で。母数(判定できた数)が0なら null。
+function precisionOf(rows) {
+  const same = rows.filter((x) => x.verdict === "SAME").length;
+  const diff = rows.filter((x) => x.verdict === "DIFFERENT").length;
+  const denom = same + diff;
+  return { same, diff, denom, pct: denom ? Math.round((same / denom) * 1000) / 10 : null };
+}
+
+const SAMPLE_N = 40; // 各層の最低サンプル数
+
 (async () => {
   const cat = await fetch(PRODUCTS_URL).then((r) => r.json()).catch(() => null);
-  const products = (cat?.products ?? cat ?? []).slice(0, 40);
-  console.error(`catalog: ${products.length} products`);
+  const all = cat?.products ?? cat ?? [];
+  console.error(`catalog: ${all.length} products total`);
+
+  // 層別サンプリング：①新着(addedAt降順) ②realCount==1(増数で増える尾) ③全体先頭、を各40件。重複はID統合。
+  // 件数を増やすと realCount==1 と新着が増えるので、そこを必ず測れるようにする（slice(0,40)の穴を塞ぐ）。
+  const recent = [...all].sort((a, b) => String(b.addedAt || "").localeCompare(String(a.addedAt || ""))).slice(0, SAMPLE_N);
+  const rc1 = all.filter((p) => Number(p.realCount) === 1).slice(0, SAMPLE_N);
+  const general = all.slice(0, SAMPLE_N);
+  const recentIds = new Set(recent.map((p) => p.id));
+  const byId = new Map();
+  for (const p of [...recent, ...rc1, ...general]) if (!byId.has(p.id)) byId.set(p.id, p);
+  const sample = [...byId.values()];
+  console.error(`sample: ${sample.length} (recent=${recent.length}, realCount1=${rc1.length}, general=${general.length})`);
+
   const out = [];
-  for (const p of products) {
-    const top = await ebayTop(p.coreKeyword || p.title);
-    if (!top) { out.push({ id: p.id, cat: p.category, title: p.title, coreKeyword: p.coreKeyword, verdict: "NO_EBAY", reason: "eBay候補なし(現行)", realCount: p.realCount }); console.error(`[${p.category}] ${(p.title||"").slice(0,30)} -> no ebay`); continue; }
-    const v = await judge(p.imageUrl, top.img, p.title, top.title);
+  for (const p of sample) {
+    // 本番で実際にマッチさせた組(matchedEbay*)を優先して採点。無い(旧)商品だけ現行eBayから引き直す。
+    let eImg = p.matchedEbayImageUrl, eTitle = p.matchedEbayTitle || "", eUrl = p.matchedEbayUrl || "", src = "matched";
+    if (!eImg) {
+      const top = await ebayTop(p.coreKeyword || p.title);
+      if (!top) {
+        out.push({ id: p.id, cat: p.category, title: p.title, verdict: "NO_EBAY", reason: "eBay候補なし(現行)", realCount: p.realCount, addedAt: p.addedAt, src: "none" });
+        console.error(`[${p.category}] ${(p.title || "").slice(0, 28)} -> no ebay`);
+        continue;
+      }
+      eImg = top.img; eTitle = top.title; eUrl = top.url; src = "ebayTop";
+    }
+    const v = await judge(p.imageUrl, eImg, p.title, eTitle);
     out.push({
       id: p.id, cat: p.category, title: p.title, coreKeyword: p.coreKeyword,
-      ebayTitle: top.title, ebayPriceJpy: top.priceJpy, realAvgPrice: p.realAvgPrice, realCount: p.realCount,
+      ebayTitle: eTitle, ebayUrl: eUrl, src, realCount: p.realCount, addedAt: p.addedAt, realAvgPrice: p.realAvgPrice,
       verdict: v.same === null ? "UNKNOWN" : v.same ? "SAME" : "DIFFERENT", reason: v.text,
     });
-    console.error(`[${p.category}] ${(p.title||"").slice(0,28)} -> ${v.same === null ? "?" : v.same ? "SAME" : "DIFF"}`);
+    console.error(`[${p.category}] ${(p.title || "").slice(0, 26)} -> ${v.same === null ? "?" : v.same ? "SAME" : "DIFF"} (${src})`);
   }
+
   console.log("AUDIT_RESULTS_START");
   console.log(JSON.stringify(out));
   console.log("AUDIT_RESULTS_END");
-  const same = out.filter((x) => x.verdict === "SAME").length;
-  const diff = out.filter((x) => x.verdict === "DIFFERENT").length;
+
+  const overall = precisionOf(out);
+  const rc1P = precisionOf(out.filter((x) => Number(x.realCount) === 1));
+  const recentP = precisionOf(out.filter((x) => recentIds.has(x.id)));
+  const matchedP = precisionOf(out.filter((x) => x.src === "matched"));
   const noeb = out.filter((x) => x.verdict === "NO_EBAY" || x.verdict === "UNKNOWN").length;
-  console.error(`\nPRECISION: SAME=${same} DIFFERENT=${diff} NO_EBAY/UNKNOWN=${noeb} / total=${out.length}`);
+  console.error(`\nPRECISION overall: SAME=${overall.same} DIFFERENT=${overall.diff} -> ${overall.pct}% (NO_EBAY/UNKNOWN=${noeb}, n=${out.length})`);
+  console.error(`PRECISION realCount==1: ${rc1P.pct}% (n=${rc1P.denom})`);
+  console.error(`PRECISION recent(addedAt): ${recentP.pct}% (n=${recentP.denom})`);
+  console.error(`PRECISION matched-pair(stored): ${matchedP.pct}% (n=${matchedP.denom}) ／ ebayTop再取得(旧): ${precisionOf(out.filter((x) => x.src === "ebayTop")).pct}%`);
+  console.error(`\n合格ライン: overall・realCount==1・recent すべて >=95%（2回連続）`);
 })().catch((e) => { console.error("FATAL", e.message); process.exit(1); });

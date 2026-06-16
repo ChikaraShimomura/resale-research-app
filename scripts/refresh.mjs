@@ -21,10 +21,14 @@ const SHIPPING_COST_JPY   = 0; // 送料は購入者負担
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ========== Haiku レート制限ゲート ==========
-// 実際のAPI呼び出し（キャッシュミス時のみ）を最低 HAIKU_MIN_INTERVAL_MS 間隔に直列化し、
-// 1分あたりの呼び出しを Tier1 の 50 RPM 以内（≈43回/分）に抑える。キャッシュヒットは通らない。
-const HAIKU_MIN_INTERVAL_MS = 1400;
+// ========== Anthropic レート制限ゲート ==========
+// 実際のAPI呼び出し（キャッシュミス時のみ）の「開始」を最低 HAIKU_MIN_INTERVAL_MS 間隔に空ける。
+// API遅延自体は重なる（開始だけ律速）ので、速度の天井＝1分あたりの呼び出し上限(ANTHROPIC_RPM)。
+// 既定43/分＝Tier1(50RPM)の安全側。上位ティアなら refresh.yml で ANTHROPIC_RPM を実RPMの約8割に
+// 上げると、件数拡大時もタイムアウト内に収まる。上げ過ぎは429→フェイルオープン(精度低下)なので注意。
+const ANTHROPIC_RPM = Math.max(1, Number(process.env.ANTHROPIC_RPM) || 43);
+const HAIKU_MIN_INTERVAL_MS = Math.round(60000 / ANTHROPIC_RPM);
+console.log(`[rate] Anthropic ${ANTHROPIC_RPM} RPM (開始間隔 ${HAIKU_MIN_INTERVAL_MS}ms)`);
 let _haikuQueue = Promise.resolve();
 function haikuGate() {
   const wait = _haikuQueue;
@@ -895,6 +899,8 @@ async function processRakutenFirst(haveIds) {
           ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
           realAvgPrice, realMedianPrice, realProfit: finalProfit, realProfitRate: finalRate, realCount,
           avgDaysToSell: null, addedAt: new Date().toISOString(),
+          // 監査が本番でマッチさせたeBay商品を採点できるよう保存。
+          matchedEbayImageUrl: e.img || '', matchedEbayUrl: e.url || '', matchedEbayTitle: e.title || '',
         });
         console.log(`  🔁 [楽天先/${name}] ${finalRate}% | 楽天¥${r.itemPrice.toLocaleString()} → eBay¥${realAvgPrice.toLocaleString()} | ${r.itemName.slice(0, 30)}`);
         break; // この楽天品は1件成立で次へ
@@ -1209,6 +1215,10 @@ async function main() {
           realCount,
           avgDaysToSell: null, // eBay Finding API(落札データ)が廃止のため現状取得不可。Marketplace Insights API(要承認)が必要
           addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
+          // 監査(audit_catalog.mjs)が「本番で実際にマッチさせたeBay商品」を採点できるよう保存（精度計測の信頼性）。
+          matchedEbayImageUrl: ebayImg || '',
+          matchedEbayUrl: ebayItem.itemUrl || '',
+          matchedEbayTitle: ebayItem.title || '',
         },
       };
     }
