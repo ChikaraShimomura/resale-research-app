@@ -37,7 +37,9 @@ function defaultAspect(a: RequiredAspect): string {
   if (/brand/i.test(a.name)) return "Unbranded";
   // 型番(MPN)不明時の公式表記。必須MPNの未入力(#25002)ブロックを防ぐ。
   if (/^mpn$|manufacturer part/i.test(a.name)) return "Does Not Apply";
-  // 候補があれば（自由入力タイプでも）先頭を既定に。必須Item Specific の未入力(#25002)を防ぐ。
+  // 推奨項目は誤データ防止のため自動補完しない（ユーザーが任意入力。空でも公開は通る）。
+  if (!a.required) return "";
+  // 必須の選択式は先頭候補を既定に。必須Item Specific の未入力(#25002)を防ぐ。
   if (a.values.length > 0) return a.values[0];
   return "";
 }
@@ -277,7 +279,7 @@ export async function POST(req: Request) {
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 
-  let requiredAspects: { name: string; values: string[]; free: boolean; value: string }[] = [];
+  let requiredAspects: { name: string; values: string[]; free: boolean; required: boolean; value: string }[] = [];
   if (cat?.categoryId) {
     const aspects = await getRequiredAspects(taxoToken, cat.categoryTreeId, cat.categoryId);
     requiredAspects = aspects.map((a) => {

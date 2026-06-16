@@ -147,11 +147,12 @@ export interface RequiredAspect {
   name: string;
   values: string[]; // 選択肢（あれば）
   free: boolean; // 自由入力可か
+  required: boolean; // true=必須(空だと#25002で公開不可) / false=推奨(任意・埋めると検索に出やすい)
 }
 
 interface AspectDef {
   localizedAspectName?: string;
-  aspectConstraint?: { aspectRequired?: boolean; aspectMode?: string };
+  aspectConstraint?: { aspectRequired?: boolean; aspectMode?: string; aspectUsage?: string };
   aspectValues?: { localizedValue?: string }[];
 }
 
@@ -166,12 +167,15 @@ export async function getRequiredAspects(
     `/commerce/taxonomy/v1/category_tree/${treeId}/get_item_aspects_for_category?category_id=${categoryId}`
   );
   const aspects = (r.data as { aspects?: AspectDef[] } | null)?.aspects ?? [];
+  // 必須(aspectRequired)＋推奨(aspectUsage=RECOMMENDED)を返す。任意(OPTIONAL)は雑然とするので除外。
+  // ★必須判定は aspectRequired のみで行う（eBay仕様: 必須項目でも aspectUsage は RECOMMENDED を返すため）。
   return aspects
-    .filter((a) => a.aspectConstraint?.aspectRequired)
+    .filter((a) => a.aspectConstraint?.aspectRequired || a.aspectConstraint?.aspectUsage === "RECOMMENDED")
     .map((a) => ({
       name: a.localizedAspectName ?? "",
       values: (a.aspectValues ?? []).map((v) => v.localizedValue ?? "").filter(Boolean).slice(0, 30),
       free: a.aspectConstraint?.aspectMode !== "SELECTION_ONLY",
+      required: !!a.aspectConstraint?.aspectRequired,
     }))
     .filter((a) => a.name);
 }

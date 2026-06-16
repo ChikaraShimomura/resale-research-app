@@ -7,7 +7,7 @@ import { formatJpy } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
-interface RequiredAspect { name: string; values: string[]; free: boolean; value: string }
+interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
 interface PrepareData {
   product: { id: string; jaTitle: string; imageUrl: string; rakutenPrice: number; ebayAvgJpy: number };
@@ -266,7 +266,8 @@ export default function EbayListingModal({
   };
 
   // 必須Item Specifics（Type等）が全て埋まっているか。未入力だと公開が #25002 で弾かれるため出品をブロック。
-  const aspectsFilled = (data?.requiredAspects ?? []).every((a) => (aspects[a.name] ?? "").trim() !== "");
+  // 推奨(任意)項目は空でも公開できるのでブロック対象外。
+  const aspectsFilled = (data?.requiredAspects ?? []).filter((a) => a.required).every((a) => (aspects[a.name] ?? "").trim() !== "");
   const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled;
 
   // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
@@ -551,17 +552,18 @@ export default function EbayListingModal({
                 )}
               </div>
 
-              {/* 必須Item Specifics */}
+              {/* Item Specifics（必須＋推奨） */}
               {data.requiredAspects.length > 0 && (
                 <div className="space-y-2.5">
-                  <label className="block text-[11px] text-gray-500">商品の詳細（必須）</label>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">eBayの必須項目です。未入力だと出品できません（候補から選べばOK）。</p>
+                  <label className="block text-[11px] text-gray-500">商品の詳細</label>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">※必須は未入力だと出品できません。「任意」は埋めると検索に出やすくなります（候補から選べばOK）。</p>
                   {data.requiredAspects.map((a) => {
                     const empty = (aspects[a.name] ?? "").trim() === "";
-                    const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${empty ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
+                    const showRed = a.required && empty; // 推奨は空でも赤くしない（出品はブロックしない）
+                    const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${showRed ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
                     return (
                       <div key={a.name}>
-                        <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{empty && <span className="text-[#BF0000]"> ※必須</span>}</span>
+                        <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#BF0000]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
                         {a.values.length > 0 ? (
                           <select
                             value={aspects[a.name] ?? ""}
