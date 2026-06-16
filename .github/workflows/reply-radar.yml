@@ -4,7 +4,7 @@ name: 輸出ラボ Xリプ候補レーダー
 # Xの読み取り(recent search)が必要 = Basic以上 or 従量の読み取り権限。
 on:
   schedule:
-    - cron: '0 23,3,11 * * *'   # JST 8時/12時/20時(活動時間)に1日3回。読み取りコスト節約
+    - cron: '0 11 * * *'   # JST 20時(夜のゴールデン帯)に1日1回。倹約モード(読み取りコスト最小)
   workflow_dispatch:
 
 jobs:
