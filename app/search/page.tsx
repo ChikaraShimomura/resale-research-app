@@ -67,7 +67,7 @@ export default function SearchPage() {
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [sortOrder, hideSold]);
+  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder, hideSold]);
   const pageCount = Math.ceil(sortedProducts.length / PAGE_SIZE);
   const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
   const pageItems = sortedProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);

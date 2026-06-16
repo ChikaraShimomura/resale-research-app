@@ -36,7 +36,7 @@ export default function RakutenGuidePage() {
     <div className="min-h-dvh bg-[#F5F7FA]">
       <header className="bg-[#BF0000] px-3 py-2.5 shadow-sm sticky top-0 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
-          <Link href="/" aria-label="戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
+          <Link href="/guide" aria-label="はじめてガイドに戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
             <ArrowLeft size={18} />
           </Link>
           <span className="text-white font-black text-[15px]">楽天で仕入れる</span>

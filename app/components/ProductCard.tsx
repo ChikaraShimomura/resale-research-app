@@ -128,8 +128,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
           <span className="rotate-[-12deg] bg-[#BF0000] text-white text-2xl font-black px-6 py-1.5 rounded-xl tracking-[0.2em] shadow-lg">SOLD</span>
           <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-xl px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
-            ライバルが増えてきたので、この商品は一旦SOLDにしたよ<br />
-            他にも狙い目はいっぱいあるよ！早い者勝ちだよ。
+            売り切れではなく、出品者が増えて競争が激しくなった商品だよ<br />
+            他にも狙い目はいっぱい。早い者勝ち！
           </p>
         </div>
       )}
@@ -193,7 +193,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-gray-100">
           {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-400">eBay最安値</span>
+            <span className="text-xs text-gray-400">eBay最安値<span className="text-[10px] text-gray-300 ml-0.5">（あなたの想定売値）</span></span>
             <span className="text-lg font-bold text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</span>
           </div>
           {product.realMedianPrice != null && product.realMedianPrice > product.realAvgPrice && (

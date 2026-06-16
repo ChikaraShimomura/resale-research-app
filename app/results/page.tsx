@@ -93,7 +93,8 @@ function ResultsContent() {
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [sortOrder, hideSold, keyword]);
+  // 並び替え/SOLD除外/検索を変えたら先頭へ戻す（2ページ目での切替が予告なく跳ぶのを防ぐ）
+  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder, hideSold, keyword]);
   const pageCount = Math.ceil(sorted.length / PAGE_SIZE);
   const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
   const pageItems = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -174,12 +175,19 @@ function ResultsContent() {
             </p>
             {allProducts.length === 0
               ? <p className="text-gray-400 text-xs">時間をおいて、もう一度開いてみてください。</p>
-              : <p className="text-gray-400 text-xs">別のキーワードで検索してみてください</p>
+              : <p className="text-gray-400 text-xs leading-relaxed px-4">ここは楽天全体の検索ではなく、<b className="text-gray-500">厳選した利益商品リスト</b>からの絞り込みです。別の言葉や、下のボタンで全件から探してみてください。</p>
             }
-            <Link href="/search"
-              className="mt-5 inline-block text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2 rounded-full">
-              ← ホームに戻る
-            </Link>
+            <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+              {allProducts.length > 0 && (
+                <Link href="/results"
+                  className="inline-block text-sm font-bold text-white bg-[#BF0000] px-5 py-2 rounded-full active:bg-[#9E0000]">
+                  すべての利益商品を見る
+                </Link>
+              )}
+              <Link href="/search" className="inline-block text-sm font-bold text-gray-500 px-5 py-2">
+                ← ホームに戻る
+              </Link>
+            </div>
           </div>
         ) : (
           <>

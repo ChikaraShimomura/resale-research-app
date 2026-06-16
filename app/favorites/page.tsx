@@ -53,6 +53,7 @@ export default function FavoritesPage() {
             <span className="font-black text-[#BF0000] text-base">{loading ? "-" : favorites.length}</span>
             <span className="ml-0.5">件</span>
           </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">あとで仕入れたい商品の保存リストです（この端末のみ・機種変で消えます）</p>
         </div>
 
         {loading ? (
