@@ -1,0 +1,51 @@
+name: Link Liveness Check (楽天リンク死活)
+
+on:
+  schedule:
+    - cron: '45 18 * * *'   # 毎日 18:45 UTC = 03:45 JST（6hごとの refresh は 18:00 UTC=03:00 JST。被らないよう45分ずらす）
+  workflow_dispatch:          # 手動実行ボタン
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run link check script
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/checkLinks.mjs
+
+      - name: エラー通知メール
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "❌ 輸出ラボ リンク死活チェック(check-links)エラー"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <${{ secrets.GMAIL_USERNAME }}>"
+          body: |
+            リンク死活チェック(checkLinks.mjs)でエラー、または安全ブレーキ(大量dead判定で書き戻し中止)が発生しました。
+
+            ▼ ログを確認
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ─────────────────────────────
+            ワークフロー : ${{ github.workflow }}
+            トリガー     : ${{ github.event_name }}
