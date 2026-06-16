@@ -35,6 +35,8 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
 // 必須Item Specifics の初期値（選択式は先頭候補、それ以外は空）。Brand はジャンル別に別途整える。
 function defaultAspect(a: RequiredAspect): string {
   if (/brand/i.test(a.name)) return "Unbranded";
+  // 型番(MPN)不明時の公式表記。必須MPNの未入力(#25002)ブロックを防ぐ。
+  if (/^mpn$|manufacturer part/i.test(a.name)) return "Does Not Apply";
   // 候補があれば（自由入力タイプでも）先頭を既定に。必須Item Specific の未入力(#25002)を防ぐ。
   if (a.values.length > 0) return a.values[0];
   return "";

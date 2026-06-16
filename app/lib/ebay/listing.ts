@@ -280,6 +280,9 @@ export interface PublishInput {
   fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
   handlingDays?: number; // 発送までの日数（落札後）。未指定ならポリシーの既定値のまま。
   quantity?: number; // 出品個数（在庫数）。1〜30。未指定なら1。
+  bestOffer?: boolean; // Best Offer(値下げ交渉)を有効化するか
+  autoAcceptUsd?: string; // 自動承諾の下限。これ以上のオファーは自動承諾。例 "22.49"
+  autoDeclineUsd?: string; // 自動拒否の上限。これ以下のオファーは自動拒否(損益分岐)。例 "17.00"
 }
 
 export interface StepResult {
@@ -470,6 +473,22 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
   }
 
   // 3) オファー（作成 or 更新）
+  // 配送/支払い/返品ポリシー。Best Offer 有効時は bestOfferTerms で自動承諾/自動拒否の価格を設定する
+  // （Sell Inventory API の正式機能。Trading API 不要）。
+  const listingPolicies: Record<string, unknown> = {
+    fulfillmentPolicyId: usedFulfillmentId,
+    paymentPolicyId: pol.paymentPolicyId,
+    returnPolicyId: pol.returnPolicyId,
+  };
+  if (input.bestOffer && input.autoAcceptUsd) {
+    listingPolicies.bestOfferTerms = {
+      bestOfferEnabled: true,
+      autoAcceptPrice: { value: input.autoAcceptUsd, currency: "USD" },
+      ...(input.autoDeclineUsd
+        ? { autoDeclinePrice: { value: input.autoDeclineUsd, currency: "USD" } }
+        : {}),
+    };
+  }
   const offerBody: Record<string, unknown> = {
     sku,
     marketplaceId: MARKETPLACE,
@@ -478,14 +497,16 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     categoryId: input.categoryId,
     listingDescription: descHtml,
     pricingSummary: { price: { value: input.priceUsd, currency: "USD" } },
-    listingPolicies: {
-      fulfillmentPolicyId: usedFulfillmentId,
-      paymentPolicyId: pol.paymentPolicyId,
-      returnPolicyId: pol.returnPolicyId,
-    },
+    listingPolicies,
     merchantLocationKey: SHIP_LOCATION_KEY,
   };
-  const offerId = await upsertOffer(token, sku, offerBody, steps);
+  let offerId = await upsertOffer(token, sku, offerBody, steps);
+  // Best Offer 設定が原因で失敗した可能性に備え、bestOfferTerms を外して1回だけ再試行（出品自体は通す＝フェイルオープン）。
+  if (!offerId && input.bestOffer) {
+    delete listingPolicies.bestOfferTerms;
+    steps.push({ step: "Best Offer無しで再試行", ok: true });
+    offerId = await upsertOffer(token, sku, offerBody, steps);
+  }
   if (!offerId) {
     return { ok: false, sku, steps, error: steps[steps.length - 1]?.error || "オファー作成に失敗しました" };
   }

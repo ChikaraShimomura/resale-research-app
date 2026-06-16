@@ -85,6 +85,7 @@ export default function EbayListingModal({
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
+  const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -185,6 +186,8 @@ export default function EbayListingModal({
         fulfillmentPolicyId: shippingId,
         handlingDays,
         quantity,
+        bestOffer,
+        floorUsd: data?.floorUsd,
       }),
     })
       .then((r) => r.json())
@@ -454,6 +457,27 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
+              </div>
+
+              {/* 値下げ交渉（Best Offer）の自動対応 */}
+              <div className="rounded-xl border border-gray-200 p-2.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bestOffer}
+                    onChange={(e) => setBestOffer(e.target.checked)}
+                    className="accent-[#BF0000] w-4 h-4"
+                  />
+                  <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける</span>
+                </label>
+                {bestOffer && Number(priceUsd) > 0 && (
+                  <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                    ${(Number(priceUsd) * 0.9).toFixed(2)} 以上のオファーは<b>自動承諾</b>（10%引きまで即売）
+                    {floorUsd > 0 && floorUsd < Number(priceUsd) * 0.9 && (
+                      <>／ 損益分岐 ${floorUsd.toFixed(2)} 未満は<b>自動拒否</b></>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* 出品する個数（在庫数） */}

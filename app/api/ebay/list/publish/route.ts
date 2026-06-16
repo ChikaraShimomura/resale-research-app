@@ -25,6 +25,8 @@ interface Payload {
   fulfillmentPolicyId?: string; // 選んだ送料サイズ
   handlingDays?: number; // 発送までの日数（落札後）
   quantity?: number; // 出品個数（在庫数）。1〜30
+  bestOffer?: boolean; // 値下げ交渉(Best Offer)を受け付けるか（既定ON）
+  floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
 }
 
 async function getProduct(id: string): Promise<ProfitProduct | null> {
@@ -70,6 +72,19 @@ export async function POST(req: Request) {
   const gallery = product.images?.length ? product.images : [product.imageUrl];
   const images = await filterProductImages(gallery);
 
+  // Best Offer（値下げ交渉）: 既定ON。出品価格の90%以上は自動承諾、損益分岐(floor)未満は自動拒否。
+  const bestOffer = body.bestOffer !== false;
+  let autoAcceptUsd: string | undefined;
+  let autoDeclineUsd: string | undefined;
+  if (bestOffer) {
+    autoAcceptUsd = (price * 0.9).toFixed(2); // 10%引きまで即承諾
+    const floor = Number(body.floorUsd);
+    // eBay制約: 自動拒否価格は自動承諾価格より低いこと。損益分岐がそれを満たす時だけ設定。
+    if (Number.isFinite(floor) && floor > 0 && floor < price * 0.9) {
+      autoDeclineUsd = floor.toFixed(2); // 損益分岐未満の赤字オファーは自動拒否
+    }
+  }
+
   const result = await createAndPublish(token, {
     productId: product.id,
     title,
@@ -83,6 +98,9 @@ export async function POST(req: Request) {
     fulfillmentPolicyId: body.fulfillmentPolicyId,
     handlingDays: Number(body.handlingDays) > 0 ? Number(body.handlingDays) : undefined,
     quantity: Number(body.quantity) > 0 ? Number(body.quantity) : 1,
+    bestOffer,
+    autoAcceptUsd,
+    autoDeclineUsd,
   });
 
   // 出品（下書き含む＝オファー作成）できたら、出品者数を計上（SOLD判定の元・乱立防止）。
