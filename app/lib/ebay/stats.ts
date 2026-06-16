@@ -79,6 +79,16 @@ export function rankFor(profit: number): { rank: Rank; nextRank: Rank | null } {
   return { rank, nextRank: idx < RANKS.length - 1 ? RANKS[idx + 1] : null };
 }
 
+// 月別(売却月)集計。マイページの「利益の推移」グラフ用。
+export interface MonthPoint {
+  month: string; // "2026-06"
+  label: string; // "6月"
+  profit: number;
+  sales: number;
+  purchase: number;
+  count: number;
+}
+
 export interface Stats {
   soldCount: number;
   listedCount: number;
@@ -86,6 +96,10 @@ export interface Stats {
   totalSales: number; // 売上合計(JPY換算)
   totalProfit: number; // 利益(売上-仕入れ-手数料+基本ポイント)
   totalPoints: number; // 基本ポイント累計(売れたもの)
+  totalFees: number; // eBay手数料合計(JPY)
+  avgProfit: number; // 1件あたり平均利益(売れたもの)
+  bestProfit: number; // 最も稼いだ1取引の利益
+  monthly: MonthPoint[]; // 月別集計(売却月・昇順)
   rank: Rank;
   nextRank: Rank | null;
   toNext: number; // 次の称号まで(円)
@@ -105,14 +119,32 @@ export async function getStats(actor: string): Promise<Stats> {
   let totalSales = 0;
   let totalProfit = 0;
   let totalPoints = 0;
+  let totalFees = 0;
+  let bestProfit = 0;
+  const byMonth = new Map<string, MonthPoint>();
   for (const d of sold) {
     const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
     const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
+    const profit = saleJpy - fee - d.purchase + (d.points ?? 0);
     totalPurchase += d.purchase;
     totalSales += saleJpy;
-    totalProfit += saleJpy - fee - d.purchase + (d.points ?? 0);
+    totalFees += fee;
+    totalProfit += profit;
     totalPoints += d.points ?? 0;
+    if (profit > bestProfit) bestProfit = profit;
+    // 売却月で集計（soldAt が "YYYY-MM..." のときだけ）
+    const ym = (d.soldAt ?? "").slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym)) {
+      const cur =
+        byMonth.get(ym) ?? { month: ym, label: `${Number(ym.slice(5, 7))}月`, profit: 0, sales: 0, purchase: 0, count: 0 };
+      cur.profit += profit;
+      cur.sales += saleJpy;
+      cur.purchase += d.purchase;
+      cur.count += 1;
+      byMonth.set(ym, cur);
+    }
   }
+  const monthly = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
 
   const { rank, nextRank } = rankFor(totalProfit);
   return {
@@ -122,6 +154,10 @@ export async function getStats(actor: string): Promise<Stats> {
     totalSales,
     totalProfit,
     totalPoints,
+    totalFees,
+    avgProfit: sold.length ? Math.round(totalProfit / sold.length) : 0,
+    bestProfit,
+    monthly,
     rank,
     nextRank,
     toNext: nextRank ? Math.max(0, nextRank.min - totalProfit) : 0,

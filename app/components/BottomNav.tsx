@@ -41,6 +41,19 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function UserIcon({ filled }: { filled: boolean }) {
+  return filled ? (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z" />
+    </svg>
+  ) : (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20v-1c0-3.31 3.58-5 8-5s8 1.69 8 5v1" />
+    </svg>
+  );
+}
+
 function BookIcon({ filled }: { filled: boolean }) {
   return filled ? (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -58,6 +71,7 @@ const NAV_ITEMS = [
   { href: "/",          Icon: HomeIcon,   label: "ホーム",     match: ["/"] },
   { href: "/search",    Icon: SearchIcon, label: "さがす",     match: ["/search", "/results"] },
   { href: "/favorites", Icon: HeartIcon,  label: "お気に入り", match: ["/favorites"] },
+  { href: "/mypage",    Icon: UserIcon,   label: "マイページ", match: ["/mypage"] },
   { href: "/guide",     Icon: BookIcon,   label: "ガイド",     match: ["/guide"] },
 ] as const;
 
@@ -83,7 +97,7 @@ export default function BottomNav() {
             }`}
           >
             <item.Icon filled={isActive} />
-            <span className={`text-[11px] ${isActive ? "font-bold text-[#BF0000]" : "font-normal"}`}>
+            <span className={`text-[10px] whitespace-nowrap ${isActive ? "font-bold text-[#BF0000]" : "font-normal"}`}>
               {item.label}
             </span>
           </Link>
