@@ -657,6 +657,14 @@ const PRICE_SET_RE = /\b(lot of \d|set of \d|\d+\s*pcs|\d+\s*pieces|bundle|\d+\s
 // 別売りアクセサリ/部品（本体でない安い同キーワード品）を相場計算から除外。本体をLEDユニット等の安値と比較して
 // 価格が狂う/別物判定になる事故を防ぐ（監査でPG Unleashedの最安がアクセサリだった）。本体名に出にくい語に限定。
 const PRICE_ACCESSORY_RE = /\b(led unit|led set|action base|display base|stand only|expansion set|option parts|parts only|water[\s-]?decal|decal set|sticker sheet|photo[\s-]?etch|metal parts|conversion kit|garage kit|empty box|box only|outer box|manual only|instruction manual)\b/i;
+// 片方だけが「別売アクセサリ/部品」なら別物。本体↔LEDユニット等の誤マッチを弾く（両方アクセサリ/両方本体は通す）。
+function accessoryMismatch(a, b) {
+  return PRICE_ACCESSORY_RE.test(a || '') !== PRICE_ACCESSORY_RE.test(b || '');
+}
+// 複数機種を1ページに混載した曖昧リスト(例: 腕時計でSBTR005〜SBTR029を列挙)。買い手が変種を選ぶ必要があり単品特定不可なので除外。
+function isMultiModelListing(title) {
+  return extractCodes(title || '').length >= 4;
+}
 function trimmedMedianJpy(pricesJpy) {
   const xs = pricesJpy.filter(p => p > 0).sort((a, b) => a - b);
   if (xs.length < 3) return null;
@@ -845,7 +853,7 @@ async function processRakutenFirst(haveIds) {
       && !EXCLUDE_PATTERN.test(it.itemName) && !ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)
       && !PART_EXCLUDE.test(it.itemName) && !SET_EXCLUDE.test(it.itemName)
       && !USED_EXCLUDE.test(it.itemName) && !PREORDER_EXCLUDE.test(it.itemName) && !PROHIBITED_EXCLUDE.test(it.itemName)
-      && quantityOf(it.itemName) === 1 && !haveIds.has(it.itemCode));
+      && quantityOf(it.itemName) === 1 && !isMultiModelListing(it.itemName) && !haveIds.has(it.itemCode));
     for (const r of rItems.slice(0, RF_PER_GENRE)) {
       if (matchBudget <= 0) break;
       if (haveIds.has(r.itemCode)) continue;
@@ -857,6 +865,7 @@ async function processRakutenFirst(haveIds) {
       for (const e of eItems.slice(0, RF_EBAY_CAND)) {
         if (quantityOf(e.title) !== 1) continue;
         if (codesConflict(r.itemName, e.title)) continue;
+        if (accessoryMismatch(r.itemName, e.title)) continue; // 本体↔別売アクセサリ(LEDユニット等)の誤マッチ防止
         const pointRate = r.pointRate ?? 1;
         const pointAmount = Math.floor(r.itemPrice * pointRate / 100);
         const cat = guessCategory(r.itemName);
@@ -1019,6 +1028,7 @@ async function main() {
       if (p.title && (PART_EXCLUDE.test(p.title) || SET_EXCLUDE.test(p.title))) return false;
       if (p.title && USED_EXCLUDE.test(p.title)) return false; // 中古品（新品相場と比較され利益過大の誤検知）
       if (p.title && PREORDER_EXCLUDE.test(p.title)) return false; // 予約/発売前/受注/取り寄せ＝即発送できないので既存からも除去
+      if (p.title && isMultiModelListing(p.title)) return false; // 複数機種混載リスト=単品特定不可（誤マッチ源）既存からも除去
       if (p.title && PROHIBITED_EXCLUDE.test(p.title)) return false; // 【厳命】国際発送不可・関税問題ジャンルは既存からも除去
       if (p.title && quantityOf(p.title) > 1) return false;    // 複数パック(数量>1)＝単品相場と比較され価格が狂う
       if (typeof p.realProfitRate === "number" && p.realProfitRate <= PROFIT_RATE_FLOOR) return false; // 利益率10%以下は出さない
@@ -1089,6 +1099,7 @@ async function main() {
         const it = raw.Item;
         if (!it || it.itemPrice < 1000) continue;
         if (Number(it.availability) === 0) continue;       // 在庫切れ(売り切れ)＝今は仕入れられないので対象外
+        if (isMultiModelListing(it.itemName)) continue;    // 複数機種混載リスト＝単品特定不可で誤マッチ源
         if (EXCLUDE_PATTERN.test(it.itemName)) continue;
         if (ACCESSORY_EXCLUDE_PATTERN.test(it.itemName)) continue;
         if (PART_EXCLUDE.test(it.itemName)) continue;     // 互換バンド/社外部品 等の別物アクセサリ
@@ -1130,6 +1141,7 @@ async function main() {
       // カード番号/型番が食い違う候補は別商品なので除外（同キャラ別番号カード等の誤マッチ防止）。
       // 画像マッチ前に弾くことで Haiku も節約できる。
       if (codesConflict(rakutenItem.itemName, ebayItem.title)) continue;
+      if (accessoryMismatch(rakutenItem.itemName, ebayItem.title)) continue; // 本体↔別売アクセサリ(LEDユニット等)の誤マッチ防止
 
       // 数量(個数)が食い違う候補は除外（楽天=2本パック vs eBay=単品 等。価格基準が狂うのを防ぐ）。
       // 画像では複数パックも1個に見えるため、タイトルから数値抽出して決定論的に弾く。

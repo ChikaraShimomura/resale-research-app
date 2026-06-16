@@ -30,6 +30,8 @@ async function ebayToken() {
   tok = { t: d.access_token, exp: Date.now() + (d.expires_in - 60) * 1000 };
   return d.access_token;
 }
+// 本体でない別売アクセサリ/部品・セットは比較対象にしない（最安に紛れるLEDユニット等で誤DIFFを防ぐ）。
+const AUDIT_SKIP_RE = /\b(led unit|led set|action base|display base|stand only|expansion set|option parts|parts only|water[\s-]?decal|decal set|sticker sheet|photo[\s-]?etch|metal parts|conversion kit|garage kit|empty box|box only|outer box|manual only|instruction manual|lot of \d|set of \d|\d+\s*pcs|bundle|joblot)\b/i;
 async function ebayTop(keyword) {
   const t = await ebayToken();
   const params = new URLSearchParams({ q: (keyword || "").slice(0, 120), filter: "conditions:{NEW|LIKE_NEW}", sort: "price", limit: "5" });
@@ -40,7 +42,7 @@ async function ebayTop(keyword) {
   const d = await res.json();
   for (const it of d.itemSummaries ?? []) {
     const img = it.image?.imageUrl ?? it.thumbnailImages?.[0]?.imageUrl;
-    if (img && it.title) return { title: it.title, img, priceJpy: toJpy(parseFloat(it.price?.value), it.price?.currency), url: it.itemWebUrl };
+    if (img && it.title && !AUDIT_SKIP_RE.test(it.title)) return { title: it.title, img, priceJpy: toJpy(parseFloat(it.price?.value), it.price?.currency), url: it.itemWebUrl };
   }
   return null;
 }
