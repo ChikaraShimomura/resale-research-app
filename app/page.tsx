@@ -157,7 +157,12 @@ export default function LandingPage() {
           className="inline-block bg-[#BF0000] hover:bg-[#9E0000] active:bg-[#9E0000] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
           すべての利益商品を見る →
         </Link>
-        <p className="mt-4 text-sm text-gray-400">たくさんの利益商品を掲載中</p>
+        <div className="mt-4">
+          <Link href="/ranking" className="text-[13px] font-bold text-[#BF0000] underline underline-offset-2">
+            🔥 いま稼げる利益商品ランキングを見る →
+          </Link>
+        </div>
+        <p className="mt-3 text-sm text-gray-400">たくさんの利益商品を掲載中</p>
       </section>
 
       {/* フッター */}
@@ -167,6 +172,8 @@ export default function LandingPage() {
           実際の利益は状態・競合・為替等により異なります。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">
+          <Link href="/ranking" className="text-gray-500 hover:text-[#BF0000]">ランキング</Link>
+          <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/guide" className="text-gray-500 hover:text-[#BF0000]">ガイド</Link>
           <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/privacy" className="text-gray-500 hover:text-[#BF0000]">プライバシーポリシー</Link>

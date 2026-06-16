@@ -15,6 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 固定ページ。コンテンツ資産（ガイド）は必ず載せて発見性を確保する。
   const staticEntries: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
+    { url: `${SITE_URL}/ranking`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/search`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE_URL}/results`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${SITE_URL}/guide`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },

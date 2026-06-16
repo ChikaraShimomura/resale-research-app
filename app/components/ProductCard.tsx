@@ -1,6 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenAffiliateUrl, toEbayMarketUrl } from "../lib/utils";
-import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package, Users } from "lucide-react";
+import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -124,16 +124,21 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="h-1 bg-gradient-to-r from-[#BF0000] to-[#FF4466]" />
       )}
 
-      {/* 飽和(出品者が増えた)商品の目隠し。「SOLD」だと売り切れと誤解されるため「ライバル多数」と明示し、見た目もグレーで“見送り”を示す。 */}
+      {/* 飽和＝輸出ラボから規定数が出品された商品。「枠が埋まった＋他は早い者勝ち」で次の商品へ前向きに誘導する。 */}
       {sold && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
-          <span className="inline-flex items-center gap-1.5 rotate-[-6deg] bg-gray-700 text-white text-base font-black px-4 py-1.5 rounded-xl tracking-wide shadow-lg">
-            <Users size={16} aria-hidden="true" /> ライバル多数
+          <span className="inline-flex items-center gap-1.5 rotate-[-5deg] bg-gray-900 text-white text-[17px] font-black px-4 py-1.5 rounded-xl tracking-wide shadow-lg ring-2 ring-white/80">
+            <Flame size={17} aria-hidden="true" /> 出品枠 満了
           </span>
-          <p className="mt-3 text-[11px] font-bold text-gray-700 bg-white/95 rounded-xl px-3 py-2 max-w-[290px] leading-relaxed shadow-sm border border-gray-100">
-            出品者が増えて、今から出しても売れにくい商品です。<br />
-            下に、もっと狙い目の商品がたくさんあります。
-          </p>
+          <div className="mt-3 max-w-[290px] bg-white/95 rounded-xl px-3.5 py-2.5 shadow-sm border border-gray-100">
+            <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
+              輸出ラボから<b className="text-gray-900">規定数が出品</b>され、この商品の枠は埋まりました。
+            </p>
+            <p className="mt-1.5 text-[13px] font-black text-[#BF0000] leading-snug">
+              商品は早い者勝ち！<br />
+              <span className="text-[12px]">下の商品を今すぐ先取りしよう👇</span>
+            </p>
+          </div>
         </div>
       )}
 
