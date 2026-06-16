@@ -24,9 +24,16 @@ interface Stats {
 }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
-// グラフの値ラベルは短く（¥12,300 → ¥12.3k）
-const yenShort = (n: number) =>
-  Math.abs(n) >= 10000 ? "¥" + (Math.round(n / 100) / 10).toLocaleString("ja-JP") + "k" : yen(n);
+// 符号は ¥ の前に出す（−¥3,000 のように・UI全体で統一）
+const signedYen = (n: number) => (n < 0 ? "− " : "") + "¥" + Math.round(Math.abs(n)).toLocaleString("ja-JP");
+// グラフの値ラベルは短く（¥12,300 → ¥12.3k）。負値も符号を前に（−¥10k）。
+const yenShort = (n: number) => {
+  const sign = n < 0 ? "−" : "";
+  const a = Math.abs(n);
+  return a >= 10000
+    ? sign + "¥" + (Math.round(a / 100) / 10).toLocaleString("ja-JP") + "k"
+    : sign + "¥" + Math.round(a).toLocaleString("ja-JP");
+};
 
 // 売上の内訳バー（仕入れ・手数料・利益）。「いくら仕入れて・いくらで売れて・利益がいくらか」を一目で。
 function MoneyFlow({ s }: { s: Stats }) {
@@ -34,7 +41,8 @@ function MoneyFlow({ s }: { s: Stats }) {
   if (sales <= 0) return null;
   const cost = s.totalPurchase;
   const fee = s.totalFees;
-  const gross = Math.max(0, sales - cost - fee); // 売上ベースの利益（ポイント除く）
+  const grossTrue = sales - cost - fee; // 手数料まで引いた残り（ポイント除く・赤字なら負）
+  const grossBar = Math.max(0, grossTrue); // バー幅にだけクランプ（表示金額はクランプしない）
   const w = (v: number) => `${Math.max(0, Math.min(100, (v / sales) * 100))}%`;
   const loss = s.totalProfit < 0;
 
@@ -51,24 +59,26 @@ function MoneyFlow({ s }: { s: Stats }) {
       <div className="flex h-7 w-full rounded-lg overflow-hidden bg-gray-100">
         <div style={{ width: w(cost) }} className="bg-gray-400" title="仕入れ" />
         <div style={{ width: w(fee) }} className="bg-[#F0A0A0]" title="eBay手数料" />
-        <div style={{ width: w(gross) }} className="bg-emerald-500" title="利益" />
+        <div style={{ width: w(grossBar) }} className="bg-emerald-500" title="手数料を引いた残り" />
       </div>
 
-      {/* 凡例＋金額 */}
+      {/* 凡例＋金額（「利益」という語は最後の着地行だけに使い、混同を避ける） */}
       <div className="mt-3 space-y-1.5">
         <Legend color="bg-gray-400" label="仕入れ（楽天で払った額）" value={`− ${yen(cost)}`} />
         <Legend color="bg-[#F0A0A0]" label="eBay手数料" value={`− ${yen(fee)}`} />
-        <Legend color="bg-emerald-500" label="利益（売れて残った額）" value={`${yen(gross)}`} bold />
+        <Legend color="bg-emerald-500" label="手数料を引いた残り" value={signedYen(grossTrue)} bold />
         {s.totalPoints > 0 && (
-          <Legend color="bg-[#FF4466]" label="楽天ポイント（おまけで上乗せ）" value={`+ ${yen(s.totalPoints)}`} />
+          <Legend color="bg-[#FF4466]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
         )}
       </div>
 
-      {/* 着地の利益 */}
+      {/* 着地の利益（このカードで「利益」を名乗るのはここだけ） */}
       <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-[12px] font-bold text-gray-700">あなたの利益（ポイント込み）</span>
+        <span className="text-[12px] font-bold text-gray-700">
+          あなたの利益{s.totalPoints > 0 ? "（ポイント込み）" : ""}
+        </span>
         <span className={`text-xl font-black ${loss ? "text-[#BF0000]" : "text-emerald-600"}`}>
-          {loss ? "−" : ""}{yen(Math.abs(s.totalProfit))}
+          {signedYen(s.totalProfit)}
         </span>
       </div>
       {loss && (
@@ -91,9 +101,11 @@ function Legend({ color, label, value, bold }: { color: string; label: string; v
 }
 
 // 月別の利益推移（直近6ヶ月）。CSS の高さ比で描く軽量バーチャート。
-function MonthlyChart({ data }: { data: MonthPoint[] }) {
+function MonthlyChart({ data, soldCount }: { data: MonthPoint[]; soldCount: number }) {
   const pts = data.slice(-6);
   const max = Math.max(...pts.map((p) => p.profit), 1);
+  const charted = data.reduce((a, p) => a + p.count, 0); // 月別に集計できた件数
+  const unknown = Math.max(0, soldCount - charted); // 売却日が不明で月別に出せない件数
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
       <p className="text-[13px] font-black text-gray-800 mb-3">月ごとの利益</p>
@@ -115,6 +127,9 @@ function MonthlyChart({ data }: { data: MonthPoint[] }) {
           );
         })}
       </div>
+      {unknown > 0 && (
+        <p className="mt-2 text-[10px] text-gray-400">※ 売却日が不明な{unknown}件はこのグラフに含みません（累計には含みます）</p>
+      )}
     </div>
   );
 }
@@ -255,11 +270,11 @@ export default function MyDashboard() {
         {nudge}
         <RankBlock s={s} />
         <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
-          <span className="text-2xl" aria-hidden="true">🌱</span>
+          <Package size={22} className="text-gray-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-gray-800">出品中です（{s.listedCount}件）</p>
             <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-              売れると、ここに<b>仕入れ・売上・利益</b>が図で出ます。新規のうちは売上が保留されますが、正常です。
+              売れると、ここに<b>仕入れ・売上・利益</b>が図で出ます。まだ売れていないだけなので、出品しただけで成績が下がることはありません。
             </p>
           </div>
         </div>
@@ -276,20 +291,20 @@ export default function MyDashboard() {
       {/* 累計利益のヒーロー */}
       <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm text-center">
         <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計）</p>
-        <p className="mt-1 text-4xl font-black text-[#BF0000] tracking-tight">{yen(s.totalProfit)}</p>
-        <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました 🎉</p>
+        <p className="mt-1 text-4xl font-black text-[#BF0000] tracking-tight">{signedYen(s.totalProfit)}</p>
+        <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}</p>
       </div>
 
       <RankBlock s={s} />
 
       <MoneyFlow s={s} />
 
-      {s.monthly.length >= 2 && <MonthlyChart data={s.monthly} />}
+      {s.monthly.length >= 2 && <MonthlyChart data={s.monthly} soldCount={s.soldCount} />}
 
       {/* 数値タイル */}
       <div className="grid grid-cols-3 gap-2">
         <Tile label="売れた数" value={`${s.soldCount}件`} />
-        <Tile label="1件あたり利益" value={yen(s.avgProfit)} sub="平均" />
+        <Tile label="1件あたり利益" value={signedYen(s.avgProfit)} sub="平均" />
         <Tile label="最高利益" value={yen(s.bestProfit)} sub="1取引" />
       </div>
 

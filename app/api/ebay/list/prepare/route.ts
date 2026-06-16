@@ -32,14 +32,21 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
   }
 }
 
-// 必須Item Specifics の初期値（選択式は先頭候補、それ以外は空）。Brand はジャンル別に別途整える。
+// Item Specifics の初期値。Brand はジャンル別に別途整える。
+// 必須も推奨(任意)も「選択肢が多すぎる」ため、無難な既定を自動で入れておく（ユーザーは画面で変更可）。
+// 推奨項目を埋めると検索に出やすくなる(SEO)＋空のドロップダウンを潰せるので、選ぶ手間を減らせる。
 function defaultAspect(a: RequiredAspect): string {
   if (/brand/i.test(a.name)) return "Unbranded";
   // 型番(MPN)不明時の公式表記。必須MPNの未入力(#25002)ブロックを防ぐ。
   if (/^mpn$|manufacturer part/i.test(a.name)) return "Does Not Apply";
-  // 推奨項目は誤データ防止のため自動補完しない（ユーザーが任意入力。空でも公開は通る）。
-  if (!a.required) return "";
-  // 必須の選択式は先頭候補を既定に。必須Item Specific の未入力(#25002)を防ぐ。
+  // 製造国は日本仕入れ前提。候補にJapanがあればそれを、自由入力でもJapanを既定に。
+  if (/country.*manufacture|country of origin/i.test(a.name)) {
+    const jp = a.values.find((v) => /japan/i.test(v));
+    if (jp) return jp;
+    if (a.values.length === 0) return "Japan";
+  }
+  // 選択式は先頭候補を既定に（必須=未入力#25002回避／推奨=空ドロップダウンを減らす）。
+  // eBayの候補は概ね定番順なので先頭が無難。自由入力の推奨は推測が外れやすいので空のまま。
   if (a.values.length > 0) return a.values[0];
   return "";
 }

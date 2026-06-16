@@ -87,6 +87,7 @@ export default function EbayListingModal({
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
   const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
   const [aspects, setAspects] = useState<Record<string, string>>({});
+  const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
   const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
@@ -557,42 +558,60 @@ export default function EbayListingModal({
                 )}
               </div>
 
-              {/* Item Specifics（必須＋推奨） */}
-              {data.requiredAspects.length > 0 && (
-                <div className="space-y-2.5">
-                  <label className="block text-[11px] text-gray-500">商品の詳細</label>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">※必須は未入力だと出品できません。「任意」は埋めると検索に出やすくなります（候補から選べばOK）。</p>
-                  {data.requiredAspects.map((a) => {
-                    const empty = (aspects[a.name] ?? "").trim() === "";
-                    const showRed = a.required && empty; // 推奨は空でも赤くしない（出品はブロックしない）
-                    const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${showRed ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
-                    return (
-                      <div key={a.name}>
-                        <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#BF0000]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
-                        {a.values.length > 0 ? (
-                          <select
-                            value={aspects[a.name] ?? ""}
-                            onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
-                            className={`${base} bg-white`}
-                          >
-                            <option value="">選択してください</option>
-                            {a.values.map((v) => (
-                              <option key={v} value={v}>{v}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={aspects[a.name] ?? ""}
-                            onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
-                            className={base}
-                          />
-                        )}
+              {/* Item Specifics（必須＝常時表示／推奨＝自動入力ずみで折りたたみ） */}
+              {data.requiredAspects.length > 0 && (() => {
+                const required = data.requiredAspects.filter((a) => a.required);
+                const optional = data.requiredAspects.filter((a) => !a.required);
+                const renderField = (a: RequiredAspect) => {
+                  const empty = (aspects[a.name] ?? "").trim() === "";
+                  const showRed = a.required && empty; // 推奨は空でも赤くしない（出品はブロックしない）
+                  const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${showRed ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
+                  return (
+                    <div key={a.name}>
+                      <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#BF0000]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
+                      {a.values.length > 0 ? (
+                        <select
+                          value={aspects[a.name] ?? ""}
+                          onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
+                          className={`${base} bg-white`}
+                        >
+                          <option value="">選択してください</option>
+                          {a.values.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={aspects[a.name] ?? ""}
+                          onChange={(e) => setAspects((s) => ({ ...s, [a.name]: e.target.value }))}
+                          className={base}
+                        />
+                      )}
+                    </div>
+                  );
+                };
+                return (
+                  <div className="space-y-2.5">
+                    <label className="block text-[11px] text-gray-500">商品の詳細</label>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">※必須だけ確認すればOK。それ以外は検索に出やすい値を自動入力ずみです（必要なら下で編集）。</p>
+                    {required.map(renderField)}
+                    {optional.length > 0 && (
+                      <div className="border-t border-gray-100 pt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowOptional((v) => !v)}
+                          className="flex items-center justify-between w-full text-[11px] text-gray-500"
+                        >
+                          <span>おすすめ項目（自動入力ずみ・{optional.length}件）</span>
+                          <span className="text-gray-400">{showOptional ? "閉じる ▲" : "編集する ▼"}</span>
+                        </button>
+                        {showOptional && <div className="space-y-2.5 mt-2.5">{optional.map(renderField)}</div>}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 無在庫の抑止：先に楽天で注文したことを必須チェック */}
               <label className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-3 cursor-pointer">
