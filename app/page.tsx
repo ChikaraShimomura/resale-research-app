@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
-import OnboardingChecklist from "./components/OnboardingChecklist";
+import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
@@ -24,17 +24,18 @@ export default function LandingPage() {
             </div>
             <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
           </div>
-          <Link href="/guide"
-            className="inline-flex items-center min-h-[44px] text-white/90 text-sm border border-white/40 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm active:bg-white/20">
-            ガイド
-          </Link>
+          <div className="flex items-center gap-2">
+            <AuthButton />
+            <Link href="/guide"
+              className="inline-flex items-center min-h-[44px] text-white/90 text-sm border border-white/40 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm active:bg-white/20">
+              ガイド
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* 育てるダッシュボード（出品実績のある人だけ表示） */}
       <GrowthDashboard />
-      {/* はじめてガイド（新規＝現在地と次の一手を可視化。全完了/出品済み/閉じたら自動で非表示） */}
-      <OnboardingChecklist />
 
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">
