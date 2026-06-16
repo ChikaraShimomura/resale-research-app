@@ -67,8 +67,10 @@ def main():
     ai = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]) if os.environ.get("ANTHROPIC_API_KEY") else None
 
     try:
+        # user_auth=True で OAuth1.0a ユーザー認証を使う(既存の access token で検索)。
+        # 既定(False)はアプリ専用Bearerを要求し、未設定だと 401 になるため。
         resp = client.search_recent_tweets(
-            QUERY, max_results=MAX_RESULTS,
+            QUERY, max_results=MAX_RESULTS, user_auth=True,
             tweet_fields=["created_at", "public_metrics", "lang"],
             expansions=["author_id"], user_fields=["public_metrics", "username", "name"])
     except Exception as e:
