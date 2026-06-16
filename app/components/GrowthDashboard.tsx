@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchSoldIds } from "../lib/ebaySold";
+import SignInPrompt from "./SignInPrompt";
 
 interface Rank { name: string; icon: string; min: number }
 interface Stats {
@@ -55,6 +56,7 @@ export default function GrowthDashboard() {
   if (stats.soldCount === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 pt-4">
+        <SignInPrompt className="mb-2" />
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
           <span className="text-3xl" aria-hidden="true">{stats.rank.icon}</span>
           <div className="flex-1 min-w-0">
@@ -72,6 +74,7 @@ export default function GrowthDashboard() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-4">
+      <SignInPrompt className="mb-2" />
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center gap-3">
           <span className="text-3xl" aria-hidden="true">{stats.rank.icon}</span>

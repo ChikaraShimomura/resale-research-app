@@ -3,6 +3,7 @@ import Link from "next/link";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
+import AuthButton from "../components/AuthButton";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -88,6 +89,7 @@ export default function SearchPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <AuthButton />
             <Link href="/favorites" className="w-11 h-11 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95" aria-label="お気に入り">
               <Heart16 />
             </Link>
