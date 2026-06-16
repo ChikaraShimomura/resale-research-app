@@ -41,6 +41,8 @@ LOG_KEY = "tweet_post_log"        # 直近投稿 [{"t":epoch,"k":kind}, ...]
 LASTKIND_KEY = "tweet_last_kind"
 SOBA_N_KEY = "tweet_soba_n"        # 「今日の相場」連番
 PITFALL_N_KEY = "tweet_pitfall_n"  # 「輸出の落とし穴」連番
+POLL_PENDING_KEY = "tweet_poll_pending"  # 投票の答え合わせ待ち [{id,t,e,r,p}, ...]
+POLL_DURATION_MIN = 1440           # 投票期間(24時間)
 
 # 頻度制御
 PEAK_HOURS_JST = {7, 8, 12, 18, 19, 20, 21, 22}
@@ -195,6 +197,39 @@ def product_url(product: dict) -> str:
     return f"{SITE_URL}/product/{quote(str(product['id']), safe='')}"
 
 
+# ── 投票(価格当て)の選択肢: eBay相場(円)を含む4つの価格帯 ──
+def poll_options(avg) -> list:
+    try:
+        avg = int(avg)
+    except (TypeError, ValueError):
+        avg = 0
+    if avg <= 0:
+        return ["〜5千円", "5千〜1万円", "1万〜3万円", "3万円〜"]
+    if avg < 5000:
+        e = [3000, 6000, 10000]
+    elif avg < 10000:
+        e = [5000, 10000, 20000]
+    elif avg < 30000:
+        e = [10000, 20000, 40000]
+    elif avg < 80000:
+        e = [20000, 40000, 80000]
+    else:
+        e = [50000, 100000, 200000]
+
+    def m(v):
+        return f"{v // 10000}万円" if v >= 10000 else f"{v // 1000}千円"
+
+    return [f"〜{m(e[0])}", f"{m(e[0])}〜{m(e[1])}", f"{m(e[1])}〜{m(e[2])}", f"{m(e[2])}〜"]
+
+
+# ── データカード画像のURL(/api/card)。botがこれを直アップする ──
+def build_card_url(title: str, product: dict) -> str:
+    src = product.get("source", {}).get("price", 0)
+    return (f"{SITE_URL}/api/card?t={quote(title)}"
+            f"&n={quote(str(product.get('title', ''))[:50])}"
+            f"&r={src}&e={product.get('realAvgPrice', 0)}&p={product.get('realProfitRate', 0)}")
+
+
 # ── ハッシュタグ: 基本0個(2026年のXはタグで伸びない)。たまに1個だけニッチタグ ──
 TAG_POOLS = {
     "default": ["#eBay輸出", "#越境EC"],
@@ -305,6 +340,35 @@ X(Twitter)の投稿本文を1つ生成してください。
         return None
 
 
+# ── 投票ポストの本文(eBay相場・利益率は伏せる=投票の答えになるため) ──
+def generate_poll_body(product: dict, ai_client, body_limit: int) -> str | None:
+    src = product.get("source", {}).get("price", 0)
+    prompt = f"""{PERSONA}
+
+X(Twitter)の「投票ポスト」の本文を1つ生成してください(投票の選択肢は別で付けます)。
+
+商品名: {product.get('title', '')}
+楽天仕入れ価格: {src:,}円
+
+【狙い】この商品が「eBay(海外)でいくらで売れそうか」を読者に当ててもらう投票。楽天の仕入れ値をヒントに『海外だといくらだと思う?』と当てたくなる導線にする。答え合わせは後日する、と一言添えてよい。
+【厳守】eBayの想定売値・利益率・具体的な売値の数字は絶対に書かない(投票の答えになるため)。
+
+【ルール】
+- 本文のみ出力(前置き不要)
+- URL・ハッシュタグ・絵文字は含めない
+- 本文はTwitterウェイト{body_limit}以内(日本語1字=2)
+- 改行で読みやすく
+
+本文のみ出力してください。"""
+    try:
+        msg = ai_client.messages.create(model="claude-haiku-4-5", max_tokens=300,
+                                        messages=[{"role": "user", "content": prompt}])
+        return _URL_RE.sub("", msg.content[0].text.strip()).strip()
+    except Exception as e:
+        print(f"  AI生成エラー(poll): {e}")
+        return None
+
+
 # ── 画像をXへネイティブ直アップ(失敗時は画像なしで続行) ──
 def upscale_image(url: str) -> str:
     if not url:
@@ -363,9 +427,39 @@ def choose_kind(now: datetime, log: list, has_new: bool) -> str:
         return "buildinpublic"  # 月曜は運営の数字
     # 残りは価値の柱を加重ランダム(直近と同じは避ける)
     last = kv_get_raw(LASTKIND_KEY) or ""
-    weighted = ["pro", "pro", "recruit", "recruit", "howto", "soba"]
+    weighted = ["pro", "pro", "recruit", "recruit", "howto", "soba", "poll", "poll"]
     pool = [k for k in weighted if k != last] or weighted
     return random.choice(pool)
+
+
+# ── 投票の答え合わせ(期限が来たもの)を自己リプで投稿。頻度ゲートとは独立に処理 ──
+def reveal_pending_polls(now: datetime, client) -> None:
+    pend = _load_list(POLL_PENDING_KEY)
+    if not pend:
+        return
+    keep, revealed = [], 0
+    for e in pend:
+        if not isinstance(e, dict) or "id" not in e:
+            continue
+        try:
+            age_h = (now.timestamp() - float(e.get("t", 0))) / 3600
+        except Exception:
+            age_h = 999
+        if revealed == 0 and age_h >= 20:
+            try:
+                txt = (f"答え合わせ：eBayの想定売値は約{int(e.get('e', 0)):,}円"
+                       f"（現行の最安〜中央値ベース・あくまで想定）。"
+                       f"楽天{int(e.get('r', 0)):,}円→想定利益率{e.get('p', 0)}%。当たってましたか？")
+                client.create_tweet(text=txt, in_reply_to_tweet_id=e["id"])
+                print("  投票の答え合わせを投稿")
+                revealed += 1
+            except Exception as ex:
+                print(f"  答え合わせ失敗: {ex}")
+                keep.append(e)
+        else:
+            keep.append(e)
+    if revealed:
+        kv_set_raw(POLL_PENDING_KEY, json.dumps(keep[-20:]))
 
 
 def main():
@@ -388,6 +482,9 @@ def main():
 
     now = datetime.now(JST)
     print("輸出ラボ 自動投稿 開始")
+
+    # 投票の答え合わせ(期限到来分)を先に処理(返信なので頻度ゲートとは独立)
+    reveal_pending_polls(now, twitter_client)
 
     log = _load_list(LOG_KEY)
     ok, reason = frequency_gate(now, log)
@@ -413,24 +510,28 @@ def main():
 
     kind = choose_kind(now, log, has_new)
 
-    # 柱ごとの素材(商品/画像/URL/連番)を準備
+    # 柱ごとの素材を準備
     product = None
     extra = ""
-    use_image = False
-    add_url = False
+    image_url = ""        # ネイティブ直アップする画像(商品写真 or データカード)のURL
+    add_url = False       # URLを自己リプに付けるか(announceのみ)
     mark_seen = False
     series_prefix = ""
+    poll_opts = None      # 投票の選択肢(pollのみ)
 
     if kind == "announce":
         product = max(new_products, key=lambda p: p.get("realProfitRate", 0))
-        use_image = True; add_url = True; mark_seen = True
+        image_url = product.get("imageUrl", ""); add_url = True; mark_seen = True
     elif kind == "soba":
         product = pick_product(products)
         n = kv_get_int(SOBA_N_KEY) + 1
         series_prefix = f"【今日の相場 #{n}】"
-        use_image = True
+        image_url = build_card_url(f"今日の相場 #{n}", product)  # 相場データカード(保存される情報型)
     elif kind in ("pro", "recruit"):
-        product = pick_product(products); use_image = True
+        product = pick_product(products); image_url = product.get("imageUrl", "")
+    elif kind == "poll":
+        product = pick_product(products)
+        poll_opts = poll_options(product.get("realAvgPrice", 0))
     elif kind == "howto":
         extra = random.choice(HOWTO_TOPICS)
     elif kind == "pitfall":
@@ -446,15 +547,15 @@ def main():
 
     tags = pick_tags(kind)
     tags_str = " ".join(tags)
-    # series_prefix と タグ の分を引いた本文ウェイト上限
     body_limit = MAX_CHARS - tw_len(tags_str) - tw_len(series_prefix) - 4
-    print(f"  {now.strftime('%-H:%M')} / kind={kind} / 新着={len(new_products)} / 画像={use_image} URL={add_url} tags={tags_str}")
+    print(f"  {now.strftime('%-H:%M')} / kind={kind} / 新着={len(new_products)} / poll={bool(poll_opts)} / 画像={'card' if kind == 'soba' else bool(image_url)} / URL={add_url} / tags={tags_str}")
     if product:
         print(f"  商品: {product['title'][:30]}")
 
     body = None
     for attempt in range(1, 4):
-        b = generate_body(kind, product, ai_client, body_limit, extra)
+        b = generate_poll_body(product, ai_client, body_limit) if kind == "poll" \
+            else generate_body(kind, product, ai_client, body_limit, extra)
         if b:
             body = cap_body(b, body_limit); break
     if not body:
@@ -466,14 +567,18 @@ def main():
 
     time.sleep(random.randint(0, 90))  # 等間隔を避ける軽いジッター
 
-    media_id = upload_image(api_v1, product.get("imageUrl", "")) if (use_image and product) else None
+    # 投票は画像と共存不可。画像枠(商品写真 or データカード)は poll 以外で使う。
+    media_id = upload_image(api_v1, image_url) if (image_url and not poll_opts) else None
 
     print(f"\n投稿本文 ({tw_len(main_text)}w):\n{main_text}\n")
     tweet_id = None
     for attempt in range(1, 4):
         try:
             kwargs = {"text": main_text}
-            if media_id:
+            if poll_opts:
+                kwargs["poll_options"] = poll_opts
+                kwargs["poll_duration_minutes"] = POLL_DURATION_MIN
+            elif media_id:
                 kwargs["media_ids"] = [media_id]
             resp = twitter_client.create_tweet(**kwargs)
             tweet_id = resp.data["id"]
@@ -498,6 +603,15 @@ def main():
             print("自己リプ(URL)成功")
         except Exception as e:
             print(f"自己リプ失敗(本投稿は成功済み): {type(e).__name__}: {e}")
+
+    # 投票は後日「答え合わせ」するため pending に積む
+    if kind == "poll" and product:
+        pend = _load_list(POLL_PENDING_KEY)
+        pend.append({"id": str(tweet_id), "t": now.timestamp(),
+                     "e": product.get("realAvgPrice", 0),
+                     "r": product.get("source", {}).get("price", 0),
+                     "p": product.get("realProfitRate", 0)})
+        kv_set_raw(POLL_PENDING_KEY, json.dumps(pend[-20:]))
 
     # 状態更新
     log.append({"t": now.timestamp(), "k": kind})
