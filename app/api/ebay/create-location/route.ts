@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
 import { upsertInventoryLocation, type ShipFromAddress } from "../../../lib/ebay/sellApi";
 
@@ -7,8 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const jar = await cookies();
-  const conn = jar.get("rr_did")?.value;
+  const conn = await getActorId();
   if (!conn) return Response.json({ ok: false, error: "device not identified" }, { status: 401 });
 
   const token = await getValidAccessToken(conn);

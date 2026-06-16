@@ -1,5 +1,5 @@
 import { kv } from "@vercel/kv";
-import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../lib/ebay/sellApi";
 import { SKU_MAP_KEY, SKU_MAP_TTL } from "../../../lib/ebay/listing";
@@ -25,7 +25,7 @@ async function storedIds(actor: string): Promise<string[]> {
 
 // GET: 保存済みの「売れた商品ID」を返す（eBayは叩かない・高速）。表示側が毎回呼ぶ。
 export async function GET() {
-  const actor = (await cookies()).get("rr_did")?.value;
+  const actor = await getActorId();
   if (!actor) return Response.json({ ids: [], connected: false });
   return Response.json(
     { ids: await storedIds(actor), connected: true },
@@ -35,7 +35,7 @@ export async function GET() {
 
 // POST: eBay getOrders で同期 → セットへ追加 → 最新の全IDを返す。
 export async function POST() {
-  const actor = (await cookies()).get("rr_did")?.value;
+  const actor = await getActorId();
   if (!actor) return Response.json({ ids: [], connected: false });
 
   const stored = await loadTokens(actor);

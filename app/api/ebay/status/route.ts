@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { ebayConfigured } from "../../../lib/ebay/oauth";
 import { loadTokens, tokenEncryptionReady } from "../../../lib/ebay/tokens";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const configured = ebayConfigured() && tokenEncryptionReady();
-  const conn = (await cookies()).get("rr_did")?.value;
+  const conn = await getActorId();
   if (!conn) {
     return Response.json({ connected: false, configured }, { headers: { "Cache-Control": "private, no-store" } });
   }

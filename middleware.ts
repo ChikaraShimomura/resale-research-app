@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const DEVICE_COOKIE = "rr_did";
 const isDev = process.env.NODE_ENV !== "production";
+// 認証(Supabase)を有効化したとき、ブラウザSupabaseクライアントのfetchをCSPで許可するためのオリジン。
+// 未設定なら connect-src は従来どおり（＝認証OFFでCSPは一切変わらない）。
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 // per-request nonce を使った CSP を組み立てる。
 // GA4 はホスト許可（googletagmanager）+ インラインスクリプトに nonce で対応する。
@@ -17,7 +20,7 @@ function buildCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https: data: blob:",
     "font-src 'self' data:",
-    `connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.upstash.io${isDev ? " ws: wss:" : ""}`,
+    `connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.upstash.io${SUPABASE_URL ? ` ${SUPABASE_URL}` : ""}${isDev ? " ws: wss:" : ""}`,
     "upgrade-insecure-requests",
   ].join("; ");
 }

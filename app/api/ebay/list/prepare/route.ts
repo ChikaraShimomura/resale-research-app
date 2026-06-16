@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActorId } from "../../../../lib/auth/actor";
 import { kv } from "@vercel/kv";
 import { kvReadOnly } from "../../../../lib/kv";
 import { aiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
@@ -212,7 +212,7 @@ function buildDescription(enTitle: string, condition: string, category?: string)
 }
 
 export async function POST(req: Request) {
-  const actor = (await cookies()).get("rr_did")?.value;
+  const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, connected: false });
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });

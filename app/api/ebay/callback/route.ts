@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { exchangeCode, EBAY_SCOPES } from "../../../lib/ebay/oauth";
 import { saveTokens, tokenEncryptionReady } from "../../../lib/ebay/tokens";
 
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   if (!tokenEncryptionReady()) return back(req, "error"); // 暗号鍵未設定なら保存しない
 
   // 暫定アクター識別子（middleware が発行するデバイス cookie）。本来の認証導入時に userId へ。
-  const conn = jar.get("rr_did")?.value;
+  const conn = await getActorId();
   if (!conn) return back(req, "error");
 
   const data = await exchangeCode(code);

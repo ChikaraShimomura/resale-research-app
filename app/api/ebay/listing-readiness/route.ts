@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
 import {
   countFulfillmentPolicies,
@@ -15,8 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const marketplace = new URL(req.url).searchParams.get("marketplace") || "EBAY_US";
 
-  const jar = await cookies();
-  const conn = jar.get("rr_did")?.value;
+  const conn = await getActorId();
   if (!conn) return Response.json({ connected: false });
 
   const token = await getValidAccessToken(conn);

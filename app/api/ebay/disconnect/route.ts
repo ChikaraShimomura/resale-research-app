@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActorId } from "../../../lib/auth/actor";
 import { kv } from "@vercel/kv";
 import { deleteTokens } from "../../../lib/ebay/tokens";
 import { SKU_MAP_KEY } from "../../../lib/ebay/listing";
@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const conn = (await cookies()).get("rr_did")?.value;
+  const conn = await getActorId();
   if (conn) {
     await deleteTokens(conn);
     // 売却検知の派生キーも削除（rr_did は端末固定なので、残すと同一端末で別アカ再連携時に

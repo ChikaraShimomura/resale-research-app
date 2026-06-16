@@ -1,5 +1,6 @@
 import { kv } from "@vercel/kv";
 import { cookies } from "next/headers";
+import { getActorId } from "../../../../lib/auth/actor";
 import { kvReadOnly } from "../../../../lib/kv";
 import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
@@ -36,8 +37,10 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
 }
 
 export async function POST(req: Request) {
-  const actor = (await cookies()).get("rr_did")?.value;
+  const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, connected: false });
+  // listing_actors（乱立防止のSOLD集計）は端末単位を維持。利益台帳/トークン/SKU対応表はアカウント単位(actor)。
+  const did = (await cookies()).get("rr_did")?.value ?? actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
@@ -86,7 +89,7 @@ export async function POST(req: Request) {
   // 1端末は何度出しても +0（SADDで冪等）。押下数ではなく実出品数で数える。
   if (result.offerId) {
     try {
-      await kv.sadd(`listing_actors:${product.id}`, actor);
+      await kv.sadd(`listing_actors:${product.id}`, did);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
       // 出品者数が飽和しきい値(SOLD_THRESHOLD)に達してSOLD化した瞬間を記録。30日後に refresh が
       // DBから削除＋カウントリセットし、再び新しい利益商品として検知できるようにする。
