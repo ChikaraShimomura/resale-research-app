@@ -42,11 +42,11 @@ def gen_draft(text: str, ai: anthropic.Anthropic) -> str:
         msg = ai.messages.create(
             model="claude-haiku-4-5", max_tokens=180,
             messages=[{"role": "user", "content": (
-                "あなたは『輸出ラボ』運営者(元会社員で独学のeBay輸出セラー)。次のXの投稿に対する"
-                "“価値あるリプライ”の下書きを1つ作る。\n"
+                "あなたは『輸出ラボ』運営者(大阪出身のITコンサルで、すごくフランクな人柄。楽天→eBay輸出も自分でやっている)。"
+                "次のXの投稿に対する“価値あるリプライ”の下書きを1つ作る。\n"
                 f"投稿:「{text[:280]}」\n"
                 "方針: 相手の投稿を主役に立てる。共感・具体的な質問・役立つ情報の付加 のいずれかで自然に。"
-                "自分の宣伝は一切しない(URLや『うちのアプリ』等は書かない)。敬意ある等身大の口調。"
+                "自分の宣伝は一切しない(URLや『うちのアプリ』等は書かない)。フランクで親しみやすい口調だが相手を立てる。"
                 "絵文字なし。100字以内。本文のみ出力。")}])
         return msg.content[0].text.strip()
     except Exception as e:
