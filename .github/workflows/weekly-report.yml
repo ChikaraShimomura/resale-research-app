@@ -1,0 +1,41 @@
+name: Weekly Report (週次ファネルメール)
+
+# 週次の行動ログ・ファネルレポートをメール送信する。
+# Vercel cron から GitHub Actions に一本化（スケジュールは全部 GitHub Actions に集約）。
+# route( /api/report/weekly )を CRON_SECRET 付きで叩くだけ。実際のメール送信は route 側が行う。
+on:
+  schedule:
+    - cron: "0 0 * * 1"   # 毎週月曜 00:00 UTC = 09:00 JST
+  workflow_dispatch: {}
+
+env:
+  SITE: https://www.yushutsu-fukugyo.com
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 週次レポートを送信（route をトリガー）
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/api/report/weekly?secret=${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"
+          test "$code" = "200"
+
+      - name: 失敗通知メール
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "❌ 輸出ラボ 週次レポート(weekly-report)エラー"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <${{ secrets.GMAIL_USERNAME }}>"
+          body: |
+            週次レポートのトリガーに失敗しました（HTTP 200以外）。
+
+            ▼ ログを確認
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
