@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
 import ResetListingCounts from "../components/ResetListingCounts";
@@ -27,6 +28,7 @@ export default async function SettingsPage({
             ‹
           </Link>
           <span className="text-white font-black text-base tracking-tight">設定</span>
+          <div className="ml-auto"><AuthButton /></div>
         </div>
       </header>
 
