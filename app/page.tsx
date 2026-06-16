@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck, BookOpen } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
+import RakutenPointChips from "./components/RakutenPointChips";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
 
@@ -118,6 +119,11 @@ export default function LandingPage() {
             はじめ方を画像つきガイドで見る →
           </Link>
         </div>
+      </section>
+
+      {/* 仕入れ前の楽天SPU準備（ポイント還元を底上げ・小さく横並び） */}
+      <section className="max-w-2xl mx-auto px-4 pt-4">
+        <RakutenPointChips />
       </section>
 
       {/* 利益計算の説明 */}
