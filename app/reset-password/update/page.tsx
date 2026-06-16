@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState } from "react";
 import { updatePasswordAction } from "../../auth/actions";
 import type { AuthState } from "../../auth/types";
@@ -21,6 +22,13 @@ export default function UpdatePasswordPage() {
             {pending ? "更新中..." : "パスワードを更新"}
           </button>
         </form>
+        {/* 行き止まり防止: リンク期限切れ等で更新できない時の出口を用意 */}
+        <p className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
+          うまくいかないときは、メールの「再設定リンク」から開き直すか、
+          <Link href="/reset-password" className="text-[#BF0000] underline underline-offset-2">パスワードを忘れた</Link>
+          からやり直してください。
+        </p>
+        <Link href="/login" className="block text-center mt-3 text-sm text-gray-500">ログインに戻る</Link>
       </div>
     </main>
   );

@@ -12,13 +12,24 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<"connected" | "error" | "disconnected" | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [connectHref, setConnectHref] = useState("/api/ebay/connect");
 
   useEffect(() => {
-    // コールバックからの ?ebay=connected / error を一度だけ表示
-    const p = new URLSearchParams(window.location.search).get("ebay");
+    const sp = new URLSearchParams(window.location.search);
+    // 出品から来た連携(?list= or storage)を連携リンクに引き継ぐ（OAuth往復で出品対象を失わないため）
+    try {
+      const list = sp.get("list") || sessionStorage.getItem("ebay_list_after") || localStorage.getItem("ebay_list_after");
+      if (list) setConnectHref(`/api/ebay/connect?list=${encodeURIComponent(list)}`);
+    } catch {
+      /* noop */
+    }
+    // コールバックからの ?ebay=connected / error を一度だけ表示（?list= は残す）
+    const p = sp.get("ebay");
     if (p === "connected" || p === "error") {
       setFlash(p);
-      window.history.replaceState(null, "", window.location.pathname);
+      sp.delete("ebay");
+      const qs = sp.toString();
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
     }
     fetch("/api/ebay/status")
       .then((r) => r.json())
@@ -71,7 +82,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
             <BadgeCheck size={16} /> eBay連携済み
           </span>
           <a
-            href="/api/ebay/connect"
+            href={connectHref}
             className="inline-flex items-center min-h-[44px] text-sm font-semibold text-gray-600 border border-gray-300 rounded-xl px-4 active:bg-gray-50"
           >
             再連携する
@@ -87,7 +98,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
       ) : (
         <div className="space-y-2.5">
           <a
-            href="/api/ebay/connect"
+            href={connectHref}
             className="inline-flex items-center justify-center gap-2 min-h-[44px] text-sm font-bold text-white bg-[#0064D2] rounded-xl px-5 active:bg-[#0053AE]"
           >
             <span className="inline-flex w-5 h-5 bg-white rounded-full items-center justify-center text-[#0064D2] font-black text-[10px]">

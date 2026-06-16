@@ -12,12 +12,18 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
     setKeyword(defaultKeyword);
   }, [defaultKeyword]);
 
+  function go(q: string) {
+    if (!q.trim()) return;
+    logEvent("search"); // 検索実行（ファネル計測）
+    router.push(`/results?q=${encodeURIComponent(q)}`);
+  }
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!keyword.trim()) return;
-    logEvent("search"); // 検索実行（ファネル計測）
-    router.push(`/results?q=${encodeURIComponent(keyword)}`);
+    go(keyword);
   }
+
+  // 「何を検索すればいいか分からない」を防ぐ人気ジャンルのサジェスト（タップで検索）
+  const GENRES = ["ポケモンカード", "レゴ", "ガンプラ", "フィギュア", "腕時計"];
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
@@ -42,6 +48,19 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
           <Search size={15} strokeWidth={2.5} />
           検索
         </button>
+      </div>
+      {/* 人気ジャンルのサジェスト（タップで検索）。検索しなくても下にスクロールで一覧も見られる。 */}
+      <div className="flex items-center gap-1.5 flex-wrap mt-2">
+        {GENRES.map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => go(g)}
+            className="text-[11px] font-bold text-white/95 bg-white/15 rounded-full px-2.5 py-1 active:bg-white/25"
+          >
+            {g}
+          </button>
+        ))}
       </div>
     </form>
   );

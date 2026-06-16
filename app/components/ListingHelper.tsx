@@ -83,12 +83,19 @@ export default function ListingHelper({ product, unlocked = true, autoOpen = fal
           {listed ? "出品済み" : !unlocked ? "先に楽天で仕入れ" : "eBay簡単出品"}
         </button>
 
-        {/* ロック時のヒント（数秒で消える吹き出し） */}
+        {/* ロック時のヒント（タップで強調・数秒で消える吹き出し） */}
         {hint && (
           <div className="absolute left-1/2 -translate-x-1/2 -top-10 z-20 whitespace-nowrap bg-gray-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-lg">
             先に「楽天で仕入れる」を押してね
             <span className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900" />
           </div>
+        )}
+
+        {/* ロック中は「なぜ押せないか」を常時表示（吹き出しは消えるため。出品済みは出さない） */}
+        {!unlocked && !listed && (
+          <p className="mt-1 text-[10px] leading-tight text-gray-400 text-center">
+            「楽天で仕入れる」を押すと出品できます
+          </p>
         )}
       </div>
 

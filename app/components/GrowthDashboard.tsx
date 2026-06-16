@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SignInPrompt from "./SignInPrompt";
 
@@ -61,7 +62,10 @@ export default function GrowthDashboard() {
           <span className="text-3xl" aria-hidden="true">{stats.rank.icon}</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-gray-800">{stats.rank.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">出品中。売れると利益と称号が育ちます🌱</p>
+            <p className="text-xs text-gray-500 mt-0.5">出品中。売れると利益と称号が育ちます🌱（新規のうち売上が保留されるのは正常です）</p>
+            <Link href="/guide/payoneer-withdraw" className="mt-1 inline-block text-[11px] font-bold text-[#0064D2] underline underline-offset-2">
+              売れた後の受け取り方を見る →
+            </Link>
           </div>
         </div>
       </div>
@@ -113,6 +117,16 @@ export default function GrowthDashboard() {
         <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">
           基本ポイントのみ集計。0と5のつく日などを使えば実際はもっと多くもらえています
         </p>
+
+        {/* 売れた後にやること（発送→受け取り）への常設導線 */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Link href="/guide#step-4" className="flex items-center justify-center gap-1 h-10 rounded-xl bg-[#F5F7FA] text-[12px] font-bold text-gray-700 active:bg-gray-100">
+            📦 発送のしかた
+          </Link>
+          <Link href="/guide/payoneer-withdraw" className="flex items-center justify-center gap-1 h-10 rounded-xl bg-[#F5F7FA] text-[12px] font-bold text-gray-700 active:bg-gray-100">
+            💴 売上の受け取り方
+          </Link>
+        </div>
       </div>
     </div>
   );

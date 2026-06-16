@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { signInAction } from "../auth/actions";
 import type { AuthState } from "../auth/types";
 
@@ -10,11 +10,24 @@ const field =
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(signInAction, initial);
+  // メール確認リンクの期限切れ等で /login?e=confirm に飛ばされた場合に説明を出す（沈黙させない）。
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    const e = new URLSearchParams(window.location.search).get("e");
+    if (e === "confirm") {
+      setNotice("確認リンクの有効期限が切れているか、すでに使用済みのようです。もう一度ログインするか、新規登録をやり直してください。");
+    }
+  }, []);
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">ログイン</h1>
         <p className="text-sm text-gray-500 mb-5">サインインすると、利益ダッシュボードが端末を跨いで保存されます。</p>
+        {notice && (
+          <p className="mb-4 text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 leading-relaxed">
+            {notice}
+          </p>
+        )}
         <form action={action} className="space-y-3">
           <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
           <input name="password" type="password" required placeholder="パスワード" autoComplete="current-password" className={field} />

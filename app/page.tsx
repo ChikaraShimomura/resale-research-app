@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import GrowthDashboard from "./components/GrowthDashboard";
+import OnboardingChecklist from "./components/OnboardingChecklist";
 import BottomNav from "./components/BottomNav";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
@@ -32,6 +33,8 @@ export default function LandingPage() {
 
       {/* 育てるダッシュボード（出品実績のある人だけ表示） */}
       <GrowthDashboard />
+      {/* はじめてガイド（新規＝現在地と次の一手を可視化。全完了/出品済み/閉じたら自動で非表示） */}
+      <OnboardingChecklist />
 
       {/* ヒーロー */}
       <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">

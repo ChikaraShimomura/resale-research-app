@@ -129,14 +129,14 @@ jobs:
         if: steps.fetch.outputs.has == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: smtp.gmail.com
+          server_address: smtp.resend.com
           server_port: 465
           secure: true
-          username: ${{ secrets.GMAIL_USERNAME }}
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          username: resend
+          password: ${{ secrets.RESEND_API_KEY }}
           subject: "🤖 自動修復ジョブ結果（報告${{ steps.fetch.outputs.count }}件）"
           to: chikara0323@gmail.com
-          from: "輸出ラボ自動修復 <${{ secrets.GMAIL_USERNAME }}>"
+          from: "輸出ラボ自動修復 <noreply@yushutsu-fukugyo.com>"
           body: |
             自動修復ジョブが走りました。
 

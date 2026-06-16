@@ -615,6 +615,13 @@ export default function EbayListingModal({
                 </p>
               )}
 
+              {/* 必須項目はOKだが注文チェック未済で押せない時の理由を明示 */}
+              {aspectsFilled && !ordered && (
+                <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  ⚠️ 上の「先に楽天で注文しました」にチェックすると出品できます。
+                </p>
+              )}
+
               {/* 出品ボタン */}
               <button
                 onClick={publish}

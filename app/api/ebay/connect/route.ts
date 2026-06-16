@@ -6,7 +6,7 @@ import { getAuthorizeUrl, ebayConfigured } from "../../../lib/ebay/oauth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!ebayConfigured()) {
     return new Response("eBay OAuth 未設定（EBAY_APP_ID / EBAY_CLIENT_SECRET / EBAY_RUNAME）", { status: 503 });
   }
@@ -15,12 +15,16 @@ export async function GET() {
   if (!url) return new Response("internal error", { status: 500 });
 
   const jar = await cookies();
-  jar.set("ebay_oauth_state", state, {
+  const cookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
-    maxAge: 600,
-  });
+  };
+  jar.set("ebay_oauth_state", state, { ...cookieOpts, maxAge: 600 });
+  // 出品から来た連携(?list=商品ID)を OAuth 往復で失わないよう cookie に退避（callback が復元）。
+  // アプリ内ブラウザ(X/LINE)は storage が揮発しやすいため、storage 復元より確実。
+  const list = new URL(req.url).searchParams.get("list");
+  if (list) jar.set("ebay_list_after", list, { ...cookieOpts, maxAge: 900 });
   return Response.redirect(url, 302);
 }

@@ -16,10 +16,17 @@ export default function SorryPage() {
       <h1 className="text-xl font-black text-gray-800 mb-2">ただいまメンテナンス中です</h1>
 
       <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
-        ご不便をおかけします。
+        これは一時的なメンテナンスです。ご不便をおかけします。
         <br />
-        少し経ってから、またのぞきに来てね。
+        少し経ってから、もう一度お試しください。
       </p>
+
+      <a
+        href="/"
+        className="mt-7 inline-flex items-center justify-center h-11 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+      >
+        再読み込みする
+      </a>
 
       <p className="mt-8 text-xs text-gray-400">輸出ラボ</p>
     </main>
