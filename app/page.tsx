@@ -23,12 +23,9 @@ export default function LandingPage() {
             </div>
             <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
           </div>
-          <div className="flex items-center gap-2">
+          {/* ガイドはヒーロー内のボタンに集約したのでヘッダーからは外す（ログイン時の混雑も解消） */}
+          <div className="flex items-center gap-2 min-w-0">
             <AuthButton />
-            <Link href="/guide"
-              className="inline-flex items-center min-h-[44px] text-white/90 text-sm border border-white/40 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm active:bg-white/20">
-              ガイド
-            </Link>
           </div>
         </div>
       </header>
