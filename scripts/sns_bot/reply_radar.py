@@ -13,6 +13,7 @@ import os
 import sys
 import json
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 import tweepy
 import anthropic
@@ -42,11 +43,11 @@ def gen_draft(text: str, ai: anthropic.Anthropic) -> str:
         msg = ai.messages.create(
             model="claude-haiku-4-5", max_tokens=180,
             messages=[{"role": "user", "content": (
-                "あなたは『輸出ラボ』運営者(大阪出身のITコンサルで、すごくフランクな人柄。楽天→eBay輸出も自分でやっている)。"
+                "あなたは『輸出ラボ』運営者(大阪出身・30歳くらいのITコンサルで、自然体でラフな人柄。楽天→eBay輸出も自分でやっている)。"
                 "次のXの投稿に対する“価値あるリプライ”の下書きを1つ作る。\n"
                 f"投稿:「{text[:280]}」\n"
                 "方針: 相手の投稿を主役に立てる。共感・具体的な質問・役立つ情報の付加 のいずれかで自然に。"
-                "自分の宣伝は一切しない(URLや『うちのアプリ』等は書かない)。フランクで親しみやすい口調だが相手を立てる。"
+                "自分の宣伝は一切しない(URLや『うちのアプリ』等は書かない)。ラフでカジュアルな口調だが相手を立てる(『ぶっちゃけ』等は使わない)。"
                 "絵文字なし。100字以内。本文のみ出力。")}])
         return msg.content[0].text.strip()
     except Exception as e:
@@ -122,7 +123,10 @@ def main():
         lines.append(url)
         lines.append(f"「{c['text'][:140]}」")
         if ai and i < DRAFT_TOP:
-            lines.append(f"  ▶ 下書き案（要編集して送信）: {gen_draft(c['text'], ai)}")
+            draft = gen_draft(c["text"], ai)
+            intent = f"https://twitter.com/intent/tweet?in_reply_to={c['id']}&text={quote(draft)}"
+            lines.append(f"  ▶ 下書き案（編集してから送ってください）: {draft}")
+            lines.append(f"     ↳ タップで返信欄に下書きを入れて開く: {intent}")
         lines.append("")
 
     send_alert_email(f"🗨️ Xリプ候補 {len(cands)}件（今すぐ反応推奨）", "\n".join(lines))
