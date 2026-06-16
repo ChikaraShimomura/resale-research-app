@@ -103,8 +103,9 @@ export async function POST(req: Request) {
     autoDeclineUsd,
   });
 
-  // 出品（下書き含む＝オファー作成）できたら、出品者数を計上（SOLD判定の元・乱立防止）。
+  // オファー作成（下書き含む）できたら、出品者数を計上（SOLD飽和判定の元・乱立防止）。
   // 1端末は何度出しても +0（SADDで冪等）。押下数ではなく実出品数で数える。
+  // ※これは「カタログの飽和検知」用。マイページの成績（件数・仕入れ額）は別で、公開完了(result.ok)だけを数える。
   if (result.offerId) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, did);
@@ -119,16 +120,11 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
-    // 下書き/本人確認待ちでも「出品着手」を記録（育てるダッシュボード・オンボーディング判定用）
-    await recordListed(actor, product.id, {
-      purchase: product.source.price,
-      points: product.source.pointAmount ?? 0,
-      title: product.title,
-      listedAt: new Date().toISOString(),
-    });
   }
 
-  // 公開できたら SKU→商品ID を保存（売却検知の逆引き用）
+  // 「出品完了」＝eBayに公開できたものだけ記録する。下書き/本人確認待ち(result.ok=false)は成績に数えない。
+  // ・SKU→商品ID（売却検知の逆引き）
+  // ・マイページ成績の出品（件数・仕入れ額）。仕入れは楽天価格＋国内送料（＝実際に払った額）。
   if (result.ok) {
     try {
       await kv.hset(SKU_MAP_KEY(actor), { [skuForProduct(product.id)]: product.id });
@@ -136,6 +132,12 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
+    await recordListed(actor, product.id, {
+      purchase: product.source.price + (product.source.shippingJpy ?? 0),
+      points: product.source.pointAmount ?? 0,
+      title: product.title,
+      listedAt: new Date().toISOString(),
+    });
   }
 
   return Response.json(result);

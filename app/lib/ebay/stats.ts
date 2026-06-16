@@ -92,6 +92,7 @@ export interface MonthPoint {
 export interface Stats {
   soldCount: number;
   listedCount: number;
+  listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・楽天価格+国内送料)
   totalPurchase: number; // 仕入れ合計(JPY・売れたもの)
   totalSales: number; // 売上合計(JPY換算)
   totalProfit: number; // 利益(売上-仕入れ-手数料+基本ポイント)
@@ -114,6 +115,8 @@ export async function getStats(actor: string): Promise<Stats> {
   }
   const all = Object.values(deals);
   const sold = all.filter((d) => d.soldUsd != null);
+  // 出品中（未売却）の仕入れ合計＝まだ寝ている仕入れ資金。出品完了したものだけ deals に入る。
+  const listedPurchase = all.filter((d) => d.soldUsd == null).reduce((a, d) => a + (d.purchase ?? 0), 0);
 
   let totalPurchase = 0;
   let totalSales = 0;
@@ -150,6 +153,7 @@ export async function getStats(actor: string): Promise<Stats> {
   return {
     soldCount: sold.length,
     listedCount: all.length,
+    listedPurchase,
     totalPurchase,
     totalSales,
     totalProfit,

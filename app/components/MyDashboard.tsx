@@ -10,6 +10,7 @@ interface MonthPoint { month: string; label: string; profit: number; sales: numb
 interface Stats {
   soldCount: number;
   listedCount: number;
+  listedPurchase: number;
   totalPurchase: number;
   totalSales: number;
   totalProfit: number;
@@ -273,6 +274,11 @@ export default function MyDashboard() {
           <Package size={22} className="text-gray-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-gray-800">出品中です（{s.listedCount}件）</p>
+            {s.listedPurchase > 0 && (
+              <p className="text-[12px] text-gray-600 mt-0.5">
+                仕入れ合計（楽天で払った額）<b className="text-gray-800">{yen(s.listedPurchase)}</b>
+              </p>
+            )}
             <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
               売れると、ここに<b>仕入れ・売上・利益</b>が図で出ます。まだ売れていないだけなので、出品しただけで成績が下がることはありません。
             </p>

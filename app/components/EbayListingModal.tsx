@@ -65,6 +65,17 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
 
+// ココナラ(他社)のセラー登録サポート導線。
+// アフィリエイトURLが設定されていればそれを使い、未設定ならアフィリエイト無しのココナラ検索にフォールバック。
+// A8.net等のインプレッション計測用1x1画像があれば NEXT_PUBLIC_COCONALA_AFFILIATE_IMG に入れると表示する。
+// NEXT_PUBLIC_* はビルド時にクライアントへ埋め込まれる（公開値）。
+const COCONALA_AFFILIATE_URL = process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_URL || "";
+const COCONALA_AFFILIATE_IMG = process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_IMG || "";
+const COCONALA_SEARCH_URL =
+  "https://coconala.com/search?keyword=" + encodeURIComponent("eBay セラー登録 サポート");
+const COCONALA_HREF = COCONALA_AFFILIATE_URL || COCONALA_SEARCH_URL;
+const COCONALA_IS_AD = !!COCONALA_AFFILIATE_URL; // アフィリエイト時のみ「広告」表記(ステマ規制対応)
+
 export default function EbayListingModal({
   product,
   onClose,
@@ -720,10 +731,29 @@ export default function EbayListingModal({
               <div className="bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-3 mb-4 text-left">
                 <p className="text-[12px] text-amber-900 leading-relaxed">
                   💪 ここが<b>最初の関門</b>。登録は<b>一度きり</b>です。自分で進めるのが不安なら、
-                  <b>ココナラ（スキル販売の他社サービス）</b>で「eBay セラー登録 サポート」を探すと、詳しい人に手伝ってもらえます。
+                  <b>ココナラ（スキル販売の他社サービス）</b>で詳しい人に手伝ってもらえます。
                   <br />
                   この壁さえ越えれば、あとは<b>アプリのワンタップ出品</b>で世界に売っていけます。応援しています！
                 </p>
+                <a
+                  href={COCONALA_HREF}
+                  target="_blank"
+                  rel="sponsored noopener noreferrer"
+                  onClick={() => track("coconala_click", { product_id: product.id })}
+                  className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 h-11 bg-white border border-amber-300 text-amber-800 font-bold text-[13px] rounded-xl active:bg-amber-100"
+                >
+                  ココナラでセラー登録のサポートを探す <ExternalLink size={14} />
+                </a>
+                {/* アフィリエイト時はステマ規制対応で「広告」を明示。A8.net等はインプレ計測の1x1画像も置く。 */}
+                {COCONALA_IS_AD && (
+                  <div className="mt-1 flex items-center justify-end">
+                    <span className="text-[10px] text-amber-700/70">広告（ココナラ）</span>
+                    {COCONALA_AFFILIATE_IMG && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={COCONALA_AFFILIATE_IMG} width={1} height={1} alt="" className="absolute opacity-0" />
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 収益の複利イメージ（10万円→毎月+10%）。断定額ではなく「イメージ図」＋免責で誇大表現を回避。 */}
