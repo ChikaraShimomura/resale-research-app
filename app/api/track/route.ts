@@ -1,7 +1,7 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { cookies, headers } from "next/headers";
-import { FUNNEL_EVENTS, FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../lib/funnel";
+import { TRACKED_EVENTS, FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../lib/funnel";
 
 // 行動ログ（離脱分析用）。ファネルの各イベントを「日次」で集計する。
 // キー設計とイベント定義は app/lib/funnel.ts に一元化（/api/report/weekly と共有）。
@@ -9,7 +9,7 @@ import { FUNNEL_EVENTS, FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../lib/fu
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set<string>(FUNNEL_EVENTS);
+const ALLOWED = new Set<string>(TRACKED_EVENTS);
 
 const rl = new Ratelimit({
   redis: kv,

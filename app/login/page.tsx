@@ -13,11 +13,14 @@ export default function LoginPage() {
   const [state, action, pending] = useActionState(signInAction, initial);
   // メール確認リンクの期限切れ等で /login?e=confirm に飛ばされた場合に説明を出す（沈黙させない）。
   const [notice, setNotice] = useState<string | null>(null);
+  const [from, setFrom] = useState(""); // どのナッジ経由で来たか（登録コンバージョンの帰属用）
   useEffect(() => {
-    const e = new URLSearchParams(window.location.search).get("e");
-    if (e === "confirm") {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("e") === "confirm") {
       setNotice("確認リンクの有効期限が切れているか、すでに使用済みのようです。もう一度ログインするか、新規登録をやり直してください。");
     }
+    const f = q.get("from");
+    if (f) setFrom(f);
   }, []);
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
@@ -31,6 +34,7 @@ export default function LoginPage() {
           </p>
         )}
         <form action={action} className="space-y-3">
+          <input type="hidden" name="from" value={from} />
           <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
           <input name="password" type="password" required placeholder="パスワード" autoComplete="current-password" className={field} />
           {state.error && <p className="text-sm text-[#BF0000]">{state.error}</p>}

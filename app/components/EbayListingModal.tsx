@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
-import { formatJpy } from "../lib/utils";
+import { formatJpy, toRakutenAffiliateUrl } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
+import SaveProgressNudge from "./SaveProgressNudge";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
@@ -103,7 +104,7 @@ export default function EbayListingModal({
   const [msg, setMsg] = useState("");
   const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
   const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
-  const [ordered, setOrdered] = useState(false); // 先に楽天で注文した（無在庫抑止のチェック）
+  const [purchaseBlocked, setPurchaseBlocked] = useState(false); // 楽天仕入れ実績なしで出品ブロック中
   const [cooldown, setCooldown] = useState(0); // 「登録完了」失敗後のクールダウン秒数
   const [reportState, setReportState] = useState<"idle" | "sending" | "done">("idle"); // 開発者に報告
 
@@ -213,7 +214,35 @@ export default function EbayListingModal({
     onListed?.();
   };
 
+  // 「楽天で仕入れる」を押した実績（rkt_）が無い商品は出品させない（無在庫の抑止）。
+  const hasRakutenPurchase = (): boolean => {
+    try {
+      return localStorage.getItem(`rkt_${product.id}`) === "1";
+    } catch {
+      return false;
+    }
+  };
+  // 出品ブロック表示から「楽天で仕入れる」を押したとき：実績を記録して楽天を開き、再出品できるようにする。
+  const goRakuten = () => {
+    try {
+      localStorage.setItem(`rkt_${product.id}`, "1");
+      window.dispatchEvent(new Event("rkt-changed"));
+    } catch {
+      /* noop */
+    }
+    setPurchaseBlocked(false);
+    logEvent("rakuten_buy");
+    if (typeof window !== "undefined") {
+      window.open(toRakutenAffiliateUrl(product.source.url), "_blank", "noopener,noreferrer");
+    }
+  };
+
   const publish = async () => {
+    if (!hasRakutenPurchase()) {
+      setPurchaseBlocked(true); // 楽天仕入れ実績なし → メッセージを出して出品しない
+      return;
+    }
+    setPurchaseBlocked(false);
     setPhase("publishing");
     setMsg("");
     const res = await postPublish();
@@ -624,20 +653,6 @@ export default function EbayListingModal({
                 );
               })()}
 
-              {/* 無在庫の抑止：先に楽天で注文したことを必須チェック */}
-              <label className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={ordered}
-                  onChange={(e) => setOrdered(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 accent-[#BF0000] shrink-0"
-                />
-                <span className="text-[12px] text-amber-800 leading-relaxed">
-                  先に楽天で<b>注文しました</b>（手元に在庫があります）。<br />
-                  <span className="text-[11px] text-amber-700">無在庫での出品はトラブルのもと。注文してからチェックしてね。</span>
-                </span>
-              </label>
-
               {/* 海外出品の不安をやわらげる一言 */}
               <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-gray-100 rounded-lg px-3 py-2 leading-relaxed">
                 🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>です。
@@ -650,17 +665,31 @@ export default function EbayListingModal({
                 </p>
               )}
 
-              {/* 必須項目はOKだが注文チェック未済で押せない時の理由を明示 */}
-              {aspectsFilled && !ordered && (
-                <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                  ⚠️ 上の「先に楽天で注文しました」にチェックすると出品できます。
-                </p>
+              {/* 無在庫の抑止：楽天仕入れ（「楽天で仕入れる」押下）の実績が無ければ出品をブロック */}
+              {purchaseBlocked && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-3.5 py-3 space-y-2.5">
+                  <p className="text-[12px] text-[#BF0000] font-bold leading-relaxed">
+                    楽天仕入れの実績が確認できませんでした。<br />
+                    楽天で先に仕入れてから、eBay出品を行ってください。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={goRakuten}
+                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+                  >
+                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
+                    楽天で仕入れる
+                  </button>
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    仕入れたら、もう一度下の「eBayに出品する」を押してください。
+                  </p>
+                </div>
               )}
 
               {/* 出品ボタン */}
               <button
                 onClick={publish}
-                disabled={!canPublish || !ordered}
+                disabled={!canPublish}
                 className="w-full h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] disabled:opacity-40"
               >
                 この内容でeBayに出品する
@@ -711,6 +740,14 @@ export default function EbayListingModal({
               >
                 🔎 eBayで出品した商品を見る <ExternalLink size={14} />
               </a>
+              {/* “勝ちの瞬間”の損失回避ナッジ。未ログイン時に1回だけ・閉じれるチップ（達成表示の最後に置く）。 */}
+              <div className="mb-2 text-left">
+                <SaveProgressNudge
+                  from="listing"
+                  once="rr_nudge_listing"
+                  message="🎉 初出品おめでとう！この出品と成績は“この端末だけ”に保存中。ログインしておくと機種変・別端末でも消えません。"
+                />
+              </div>
               <button onClick={onClose} className="w-full h-11 border border-gray-200 rounded-xl text-sm font-bold text-gray-600">
                 閉じる
               </button>

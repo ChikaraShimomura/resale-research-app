@@ -2,7 +2,8 @@ import { kvReadOnly } from "./kv";
 import {
   FUNNEL_EVENTS,
   FUNNEL_LABELS,
-  type FunnelEvent,
+  SIGNUP_EVENTS,
+  SIGNUP_LABELS,
   jstDate,
   evcKey,
   evuKey,
@@ -17,7 +18,7 @@ import {
 //     （日次SCARDの単純合計だと重複端末を二重計上してしまうため SUNION で取る）。
 
 export interface StepStat {
-  event: FunnelEvent;
+  event: string;
   label: string;
   count: number; // evc（延べ回数・期間合計）
   unique: number; // evu（ユニーク端末数・期間の和集合）
@@ -34,14 +35,20 @@ export interface WeeklyReport {
     visits: number;
     listed: number;
     sold: number;
+    signups: number;
     bottleneck: string | null;
   };
 }
 
 // 指定した日付群の「回数合計」と「ユニーク端末数（和集合）」をイベント別に集計。
-async function fetchRangeStats(dates: string[]): Promise<StepStat[]> {
+// events/labels を差し替えることで、線形ファネルにも会員登録などの別枠にも使える。
+async function fetchRangeStats(
+  dates: string[],
+  events: readonly string[],
+  labels: Record<string, string>
+): Promise<StepStat[]> {
   // 回数: 全 (event × date) のキーを一括 mget して、イベントごとに合算。
-  const countKeys = FUNNEL_EVENTS.flatMap((e) => dates.map((d) => evcKey(d, e)));
+  const countKeys = events.flatMap((e) => dates.map((d) => evcKey(d, e)));
   const counts = (await kvReadOnly
     .mget<(number | null)[]>(...countKeys)
     .catch(() => [])) as (number | null)[];
@@ -49,7 +56,7 @@ async function fetchRangeStats(dates: string[]): Promise<StepStat[]> {
   // ユニーク端末: イベントごとに対象日の evu 集合を和集合し、その濃度を取る。
   // 1日だけなら SCARD、複数日なら SUNION（重複端末を二重計上しない）。
   const uniques = await Promise.all(
-    FUNNEL_EVENTS.map((e) => {
+    events.map((e) => {
       const keys = dates.map((d) => evuKey(d, e));
       // sunion は [string, ...string[]]（1個以上）を要求するため、先頭を明示して残りを展開。
       return keys.length === 1
@@ -61,10 +68,10 @@ async function fetchRangeStats(dates: string[]): Promise<StepStat[]> {
     })
   );
 
-  return FUNNEL_EVENTS.map((e, i) => {
+  return events.map((e, i) => {
     const base = i * dates.length;
     const count = dates.reduce((s, _d, j) => s + Number(counts[base + j] ?? 0), 0);
-    return { event: e, label: FUNNEL_LABELS[e], count, unique: Number(uniques[i] ?? 0) };
+    return { event: e, label: labels[e] ?? e, count, unique: Number(uniques[i] ?? 0) };
   });
 }
 
@@ -107,13 +114,15 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   const periodEnd = thisDates[0]; // 新しい方
   const periodStart = thisDates[thisDates.length - 1]; // 古い方
 
-  const [steps, prevSteps] = await Promise.all([
-    fetchRangeStats(thisDates),
-    fetchRangeStats(prevDates),
+  const [steps, prevSteps, signupSteps] = await Promise.all([
+    fetchRangeStats(thisDates, FUNNEL_EVENTS, FUNNEL_LABELS),
+    fetchRangeStats(prevDates, FUNNEL_EVENTS, FUNNEL_LABELS),
+    fetchRangeStats(thisDates, SIGNUP_EVENTS, SIGNUP_LABELS), // 会員登録（線形ファネル外・別枠）
   ]);
 
-  const byEvent = (arr: StepStat[], ev: FunnelEvent): StepStat | undefined =>
+  const byEvent = (arr: StepStat[], ev: string): StepStat | undefined =>
     arr.find((s) => s.event === ev);
+  const signups = byEvent(signupSteps, "signup")?.unique ?? 0;
   const visits = byEvent(steps, "visit")?.unique ?? 0;
   const listed = byEvent(steps, "listed")?.count ?? 0;
   const sold = byEvent(steps, "sold")?.count ?? 0;
@@ -146,6 +155,19 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#111">${s.unique}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#6b7280">${stepConv}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#6b7280">${fromTop}</td>
+      </tr>`;
+    })
+    .join("");
+
+  // ── 会員登録の行（線形ファネルとは別枠。継続率は出さず、端末数/回数のみ） ──
+  const signupRows = signupSteps
+    .map((s, i) => {
+      const zebra = i % 2 === 0 ? "#ffffff" : "#fafafa";
+      return `
+      <tr style="background:${zebra}">
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#111">${s.label}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#111"><b>${s.unique}</b></td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#6b7280">${s.count}</td>
       </tr>`;
     })
     .join("");
@@ -194,6 +216,21 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
       <tbody>${rows}</tbody>
     </table>
 
+    <h3 style="color:#92400e;font-size:14px;margin:18px 0 6px">🔑 会員登録（ログイン）</h3>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #f0f0f0;border-radius:8px;overflow:hidden">
+      <thead>
+        <tr style="background:#FFFBEB">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#92400e;font-weight:600">きっかけ（ナッジ）</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#92400e;font-weight:600">端末数</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#92400e;font-weight:600">回数</th>
+        </tr>
+      </thead>
+      <tbody>${signupRows}</tbody>
+    </table>
+    <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;line-height:1.6">
+      ・「合計」＝期間内にログイン/登録した端末数。「└ ◯◯経由」＝そのナッジのリンクから登録に至った内訳。<br>
+    </p>
+
     <p style="font-size:11px;color:#9ca3af;margin:14px 0 0;line-height:1.6">
       ・「回数」＝直近7日の延べイベント数、「端末数」＝7日のユニーク端末（cookie・和集合）数。<br>
       ・「直前比」「訪問比」はユニーク端末ベースの継続率。<br>
@@ -211,6 +248,9 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
         `${i + 1}. ${s.label}: ${s.count}回 / ${s.unique}端末` +
         (i === 0 ? "" : ` (直前比 ${pct(s.unique, steps[i - 1].unique)})`)
     ),
+    "",
+    "会員登録（ログイン）",
+    ...signupSteps.map((s) => `・${s.label}: ${s.unique}端末 / ${s.count}回`),
   ]
     .filter(Boolean)
     .join("\n");
@@ -221,6 +261,6 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
     subject: `📊 行動ログ週次 ${periodStart}〜${periodEnd}｜訪問${visits}・出品${listed}・売却${sold}`,
     html,
     text,
-    summary: { visits, listed, sold, bottleneck },
+    summary: { visits, listed, sold, signups, bottleneck },
   };
 }

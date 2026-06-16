@@ -313,7 +313,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               楽天で仕入れる
             </a>
             {!sold && (
-              <ListingHelper product={product} unlocked={rakutenClicked} autoOpen={autoOpenListing} />
+              <ListingHelper product={product} autoOpen={autoOpenListing} />
             )}
           </div>
 

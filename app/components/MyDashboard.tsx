@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Package, Truck, Wallet, ArrowRight } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
-import { createSupabaseBrowserClient, supabaseEnabled } from "../lib/supabase/client";
+import SaveProgressNudge from "./SaveProgressNudge";
 
 interface Rank { name: string; icon: string; min: number }
 interface MonthPoint { month: string; label: string; profit: number; sales: number; purchase: number; count: number }
@@ -193,18 +193,8 @@ function AfterSaleLinks() {
 export default function MyDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // ログイン状態（端末跨ぎ保存のナッジ判定）。認証無効ならナッジは出さない。
-    if (!supabaseEnabled()) {
-      setLoggedIn(true);
-    } else {
-      createSupabaseBrowserClient()
-        .auth.getUser()
-        .then(({ data }) => setLoggedIn(!!data.user))
-        .catch(() => setLoggedIn(true));
-    }
     (async () => {
       try {
         await fetchSoldIds(); // 売却を同期して最新化
@@ -232,13 +222,13 @@ export default function MyDashboard() {
   }
 
   const s = stats;
+  // 成果がある（出品済み）ときだけ、損失回避コピーでログインを促す。保存対象ゼロの新規には出さない。
   const nudge =
-    supabaseEnabled() && loggedIn === false ? (
-      <Link href="/login" className="block bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-2.5 active:bg-amber-100">
-        <p className="text-[12px] text-amber-900 leading-relaxed">
-          💡 <b>ログイン</b>すると、スマホ・パソコンなど別の端末でも同じ成績を見られます。
-        </p>
-      </Link>
+    s && s.listedCount > 0 ? (
+      <SaveProgressNudge
+        from="dashboard"
+        message="💡 いまの成績はこの端末だけに保存中。ログインすれば、機種変や別の端末でも“育てた利益・称号”が消えません。"
+      />
     ) : null;
 
   // まだ1件も出品していない（新規）

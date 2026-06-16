@@ -33,6 +33,30 @@ export const FUNNEL_LABELS: Record<FunnelEvent, string> = {
   sold: "売れた",
 };
 
+// 会員登録(ログイン)コンバージョン。線形ファネルには乗せない（継続率/ボトルネック計算を歪めないため別枠）。
+// signup=ログイン/登録の合計、signup_from_*=どのナッジ経由で登録に至ったかの帰属。
+export const SIGNUP_EVENTS = [
+  "signup",
+  "signup_from_dashboard",
+  "signup_from_listing",
+  "signup_from_sold",
+  "signup_from_connect",
+  "signup_from_filter",
+] as const;
+export type SignupEvent = (typeof SIGNUP_EVENTS)[number];
+
+export const SIGNUP_LABELS: Record<SignupEvent, string> = {
+  signup: "ログイン/登録（合計）",
+  signup_from_dashboard: "└ 成績ナッジ経由",
+  signup_from_listing: "└ 出品成功ナッジ経由",
+  signup_from_sold: "└ 売却ナッジ経由",
+  signup_from_connect: "└ 連携ナッジ経由",
+  signup_from_filter: "└ 並び替え/絞り込み経由",
+};
+
+// /api/track と recordFunnelEvent が受け付けるイベントの allowlist（線形ファネル＋登録）。
+export const TRACKED_EVENTS: readonly string[] = [...FUNNEL_EVENTS, ...SIGNUP_EVENTS];
+
 // 集計キーの有効期間（100 日）。
 export const FUNNEL_TTL = 100 * 24 * 60 * 60;
 

@@ -40,13 +40,17 @@ export function sortProducts(products: ProfitProduct[], order: SortOrder): Profi
 }
 
 // モバイルではOSネイティブのピッカーが出るので <select> を採用。
+// locked=true（未ログイン）のときは「おすすめ順」以外に🔒を付け、選ぶとログイン誘導する（onChange側で制御）。
 export default function SortSelect({
   value,
   onChange,
+  locked = false,
 }: {
   value: SortOrder;
   onChange: (v: SortOrder) => void;
+  locked?: boolean;
 }) {
+  const lock = (label: string) => (locked ? `🔒 ${label}` : label);
   return (
     <div className="relative inline-flex items-center shrink-0">
       <select
@@ -56,12 +60,12 @@ export default function SortSelect({
         className="appearance-none h-7 pl-2.5 pr-7 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-gray-700 focus:outline-none focus:border-[#BF0000]"
       >
         <option value="recommended">おすすめ順</option>
-        <option value="default">新着順</option>
-        <option value="rate">利益率が高い順</option>
-        <option value="profit">利益金額が高い順</option>
-        <option value="cheap">仕入れが安い順</option>
-        <option value="demand">売れやすい順</option>
-        <option value="rival">ライバルの少ない順</option>
+        <option value="default">{lock("新着順")}</option>
+        <option value="rate">{lock("利益率が高い順")}</option>
+        <option value="profit">{lock("利益金額が高い順")}</option>
+        <option value="cheap">{lock("仕入れが安い順")}</option>
+        <option value="demand">{lock("売れやすい順")}</option>
+        <option value="rival">{lock("ライバルの少ない順")}</option>
       </select>
       <span aria-hidden="true" className="pointer-events-none absolute right-2 text-gray-400 text-[9px]">▼</span>
     </div>

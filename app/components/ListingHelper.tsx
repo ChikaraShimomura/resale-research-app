@@ -2,14 +2,12 @@
 import { useState, useEffect } from "react";
 import { Product } from "../types";
 import { ProfitProduct } from "../lib/profitFilter";
-import { Check, ExternalLink, Lock } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import EbayListingModal from "./EbayListingModal";
 import { track } from "../lib/analytics";
 
 interface Props {
   product: ProfitProduct | Product;
-  // 「楽天で仕入れる」を押した端末だけ解放する。false の間はロック表示。
-  unlocked?: boolean;
   // 設定完了→出品画面へ戻ってきた等で、最初から開く。
   autoOpen?: boolean;
 }
@@ -18,12 +16,11 @@ function isProfitProduct(p: ProfitProduct | Product): p is ProfitProduct {
   return "realAvgPrice" in p;
 }
 
-export default function ListingHelper({ product, unlocked = true, autoOpen = false }: Props) {
+export default function ListingHelper({ product, autoOpen = false }: Props) {
   const [open, setOpen] = useState(false);
   const [listed, setListed] = useState(false);
-  const [hint, setHint] = useState(false);
 
-  // 設定完了から戻ってきた場合は、ゲートに関係なく出品画面を開く。
+  // 設定完了から戻ってきた場合は出品画面を開く。
   useEffect(() => {
     if (autoOpen) setOpen(true);
   }, [autoOpen]);
@@ -49,59 +46,36 @@ export default function ListingHelper({ product, unlocked = true, autoOpen = fal
     setListed(true);
   };
 
+  // 誰でも押せる（楽天仕入れの有無は出品ボタン押下時にモーダル内でチェックする）。出品済みのみ非アクティブ。
   const onClick = () => {
-    if (listed) return; // 出品済みは非アクティブ
-    if (!unlocked) {
-      setHint(true);
-      setTimeout(() => setHint(false), 2600);
-      return;
-    }
+    if (listed) return;
     track("ebay_list_open", { product_id: product.id });
     setOpen(true);
   };
 
   return (
-    <>
-      <div className="relative flex-1">
-        <button
-          type="button"
-          onClick={onClick}
-          aria-disabled={!unlocked || listed}
-          disabled={listed}
-          className={`
-            w-full inline-flex items-center justify-center gap-1 h-11 whitespace-nowrap
-            text-[13px] font-bold rounded-xl transition-all
-            ${listed
-              ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-default"
-              : !unlocked
-              ? "bg-gray-100 text-gray-400 border border-gray-200"
-              : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 active:scale-[0.99]"
-            }
-          `}
-        >
-          {listed ? <Check size={14} /> : !unlocked ? <Lock size={13} /> : <ExternalLink size={14} />}
-          {listed ? "出品済み" : !unlocked ? "先に楽天で仕入れ" : "eBay簡単出品"}
-        </button>
-
-        {/* ロック時のヒント（タップで強調・数秒で消える吹き出し） */}
-        {hint && (
-          <div className="absolute left-1/2 -translate-x-1/2 -top-10 z-20 whitespace-nowrap bg-gray-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-lg">
-            先に「楽天で仕入れる」を押してね
-            <span className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900" />
-          </div>
-        )}
-
-        {/* ロック中は「なぜ押せないか」を常時表示（吹き出しは消えるため。出品済みは出さない） */}
-        {!unlocked && !listed && (
-          <p className="mt-1 text-[10px] leading-tight text-gray-400 text-center">
-            「楽天で仕入れる」を押すと出品できます
-          </p>
-        )}
-      </div>
+    <div className="flex-1">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-disabled={listed}
+        disabled={listed}
+        className={`
+          w-full inline-flex items-center justify-center gap-1 h-11 whitespace-nowrap
+          text-[13px] font-bold rounded-xl transition-all
+          ${listed
+            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-default"
+            : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 active:scale-[0.99]"
+          }
+        `}
+      >
+        {listed ? <Check size={14} /> : <ExternalLink size={14} />}
+        {listed ? "出品済み" : "eBay簡単出品"}
+      </button>
 
       {open && isProfitProduct(product) && (
         <EbayListingModal product={product} onClose={() => setOpen(false)} onListed={handleListed} />
       )}
-    </>
+    </div>
   );
 }

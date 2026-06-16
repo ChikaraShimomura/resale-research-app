@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { signUpAction } from "../auth/actions";
 import type { AuthState } from "../auth/types";
 import BrandHome from "../components/BrandHome";
@@ -11,6 +11,11 @@ const field =
 
 export default function RegisterPage() {
   const [state, action, pending] = useActionState(signUpAction, initial);
+  const [from, setFrom] = useState(""); // どのナッジ経由で来たか（登録コンバージョンの帰属用）
+  useEffect(() => {
+    const f = new URLSearchParams(window.location.search).get("from");
+    if (f) setFrom(f);
+  }, []);
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
       <BrandHome className="mb-5" />
@@ -26,6 +31,7 @@ export default function RegisterPage() {
           </>
         ) : (
           <form action={action} className="space-y-3">
+            <input type="hidden" name="from" value={from} />
             <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
             <input name="password" type="password" required minLength={8} placeholder="パスワード（8文字以上）" autoComplete="new-password" className={field} />
             {state.error && <p className="text-sm text-[#BF0000]">{state.error}</p>}

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../lib/supabase/server";
 import { migrateDeviceDataToAccount } from "../lib/auth/migrate";
+import { recordFunnelEvent } from "../lib/funnelServer";
 import type { AuthState } from "./types";
 
 async function origin(): Promise<string> {
@@ -30,6 +31,13 @@ async function migrateOnSignIn(userId: string): Promise<void> {
   if (did) await migrateDeviceDataToAccount(did, `acct:${userId}`);
 }
 
+// 会員登録(ログイン)コンバージョンを計上。from=どのナッジ経由かの帰属（不明/未知は無視）。
+async function recordSignup(formData: FormData): Promise<void> {
+  await recordFunnelEvent("signup");
+  const from = String(formData.get("from") ?? "").trim();
+  if (from) await recordFunnelEvent(`signup_from_${from}`); // allowlist 外は recordFunnelEvent 側で無視
+}
+
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!isSupabaseConfigured()) return { error: "現在ログイン機能は無効です。" };
   const email = String(formData.get("email") ?? "").trim();
@@ -39,7 +47,10 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: jpError(error.message) };
-  if (data.user) await migrateOnSignIn(data.user.id);
+  if (data.user) {
+    await migrateOnSignIn(data.user.id);
+    await recordSignup(formData);
+  }
   redirect("/search");
 }
 
@@ -50,16 +61,20 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   if (!email) return { error: "メールアドレスを入力してください。" };
   if (password.length < 8) return { error: "パスワードは8文字以上にしてください。" };
 
+  // 確認メール経由でも帰属を保てるよう、from を confirm リンクに引き継ぐ。
+  const from = String(formData.get("from") ?? "").trim();
+  const fromQ = from ? `&from=${encodeURIComponent(from)}` : "";
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/search` },
+    options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/search${fromQ}` },
   });
   if (error) return { error: jpError(error.message) };
-  // メール確認OFFなら即セッション → 移行してアプリへ。ONなら確認メール待ち。
+  // メール確認OFFなら即セッション → 移行してアプリへ。ONなら確認メール待ち（登録計上は confirm 側）。
   if (data.session && data.user) {
     await migrateOnSignIn(data.user.id);
+    await recordSignup(formData);
     redirect("/search");
   }
   return { message: "確認メールを送りました。メール内のリンクを開くと登録が完了します。" };
