@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, type LucideIcon } from "lucide-react";
+import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, ChevronRight, type LucideIcon } from "lucide-react";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import GuideVideo from "../components/GuideVideo";
 import RakutenPrepCard from "../components/RakutenPrepCard";
+import { ARTICLES } from "./articles";
 
 export const metadata = {
   alternates: { canonical: "/guide" },
@@ -232,6 +233,20 @@ export default function GuidePage() {
                   )}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 読み物・コラム（SEO大黒柱記事への内部リンク） */}
+        <div className="mb-6">
+          <SectionTitle>もっと詳しく（記事で読む）</SectionTitle>
+          <div className="flex flex-col gap-2">
+            {ARTICLES.map((a) => (
+              <Link key={a.slug} href={`/guide/${a.slug}`}
+                className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3.5 shadow-sm active:bg-gray-50">
+                <span className="text-[13px] font-bold text-gray-800 leading-snug flex-1 min-w-0">{a.title}</span>
+                <ChevronRight size={16} className="text-gray-400 shrink-0" />
+              </Link>
             ))}
           </div>
         </div>

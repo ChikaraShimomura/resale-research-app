@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
 import { kvReadOnly } from "./lib/kv";
 import { ProfitProduct } from "./lib/profitFilter";
+import { ARTICLES } from "./guide/articles";
 
 const SITE_URL = "https://www.yushutsu-fukugyo.com";
 
@@ -20,6 +21,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/results`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${SITE_URL}/guide`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/guide/payoneer-withdraw`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    // SEO大黒柱記事
+    ...ARTICLES.map((a) => ({
+      url: `${SITE_URL}/guide/${a.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     { url: `${SITE_URL}/pricing`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
   ];
