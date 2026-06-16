@@ -66,16 +66,19 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
 
-// ココナラ(他社)のセラー登録サポート導線。
-// アフィリエイトURLが設定されていればそれを使い、未設定ならアフィリエイト無しのココナラ検索にフォールバック。
-// A8.net等のインプレッション計測用1x1画像があれば NEXT_PUBLIC_COCONALA_AFFILIATE_IMG に入れると表示する。
-// NEXT_PUBLIC_* はビルド時にクライアントへ埋め込まれる（公開値）。
-const COCONALA_AFFILIATE_URL = process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_URL || "";
-const COCONALA_AFFILIATE_IMG = process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_IMG || "";
+// ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
+// env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
+const COCONALA_AFFILIATE_URL =
+  process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_URL || "https://px.a8.net/svt/ejp?a8mat=4B5X8G+C6720I+2PEO+1HP31U";
+const COCONALA_AFFILIATE_IMG =
+  process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_IMG || "https://www10.a8.net/0.gif?a8mat=4B5X8G+C6720I+2PEO+1HP31U";
+// アフィリ未設定時のフォールバック＝アフィリ無しのココナラ検索(「eBayセラー登録」結果)に着地。
 const COCONALA_SEARCH_URL =
-  "https://coconala.com/search?keyword=" + encodeURIComponent("eBay セラー登録 サポート");
+  "https://coconala.com/search?keyword=" + encodeURIComponent("eBayセラー登録");
 const COCONALA_HREF = COCONALA_AFFILIATE_URL || COCONALA_SEARCH_URL;
 const COCONALA_IS_AD = !!COCONALA_AFFILIATE_URL; // アフィリエイト時のみ「広告」表記(ステマ規制対応)
+// 着地先が既に検索結果(どこでもリンク等)なら「検索してね」の案内は不要。通常リンクの時だけ案内を出す。
+const COCONALA_PRESEARCHED = /search\?|a8ejpredirect/.test(COCONALA_HREF);
 
 export default function EbayListingModal({
   product,
@@ -781,6 +784,12 @@ export default function EbayListingModal({
                 >
                   ココナラでセラー登録のサポートを探す <ExternalLink size={14} />
                 </a>
+                {/* 通常リンクは検索済みで着地しないため、開いたあとの探し方を案内（検索着地リンクなら不要）。 */}
+                {!COCONALA_PRESEARCHED && (
+                  <p className="mt-1.5 text-[11px] text-amber-800/80 leading-relaxed">
+                    開いたら <b>「eBayセラー登録」で検索</b>すると、サポートしてくれる出品者が見つかります。
+                  </p>
+                )}
                 {/* アフィリエイト時はステマ規制対応で「広告」を明示。A8.net等はインプレ計測の1x1画像も置く。 */}
                 {COCONALA_IS_AD && (
                   <div className="mt-1 flex items-center justify-end">
