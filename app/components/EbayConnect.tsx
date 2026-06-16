@@ -106,6 +106,9 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
             </span>
             eBayアカウントと連携する
           </a>
+          <p className="text-[11px] text-gray-500 leading-relaxed px-1">
+            押すと <b>eBay公式のログイン画面（英語）</b> が開きます。<b>Agree（同意）</b>を押すと自動でこの画面に戻ります。
+          </p>
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5">
             <p className="text-[11px] text-gray-500 leading-relaxed">
               eBayアカウントをお持ちでない方は、先に

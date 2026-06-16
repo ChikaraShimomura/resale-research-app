@@ -458,6 +458,11 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
+                {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (
+                  <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
+                    ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
+                  </p>
+                )}
               </div>
 
               {/* 値下げ交渉（Best Offer）の自動対応 */}
@@ -634,7 +639,13 @@ export default function EbayListingModal({
           )}
 
           {phase === "publishing" && (
-            <div className="py-10 text-center text-sm text-gray-500">eBayに出品中...（10〜20秒ほど）</div>
+            <div className="py-10 flex flex-col items-center justify-center gap-3 text-center">
+              <span className="w-8 h-8 border-[3px] border-gray-200 border-t-[#0064D2] rounded-full animate-spin" aria-hidden="true" />
+              <p className="text-sm text-gray-500">
+                eBayに出品中...（10〜20秒ほど）<br />
+                <span className="text-[12px] text-gray-400">この画面は閉じないでください</span>
+              </p>
+            </div>
           )}
 
           {phase === "done" && (

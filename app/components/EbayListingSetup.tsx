@@ -114,6 +114,13 @@ export default function EbayListingSetup() {
         </div>
       )}
 
+      {/* セラー登録は3STEPと別物。完了できても出品で弾かれるため事前に予告する */}
+      {!allDone && (
+        <p className="text-[11px] text-gray-600 leading-relaxed bg-[#F5F7FA] rounded-xl px-3 py-2.5">
+          下の3つに加えて、出品の前に一度だけ <b>eBayのセラー登録（売上の受け取り設定）</b> も必要です（初回のみ・eBay側で行います）。
+        </p>
+      )}
+
       {steps.map((s, i) => {
         const done = dones[i];
         const isOpen = openIdx === i;
