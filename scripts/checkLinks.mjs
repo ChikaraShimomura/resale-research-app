@@ -2,15 +2,15 @@
 // scripts/checkLinks.mjs — 日次リンク死活チェック（GitHub Actions, 03:45 JST 想定）
 //
 // 目的: 利益商品カタログ(profitable_products)の各商品について、仕入れ元の楽天商品が
-//       まだ掲載されているか(リンクが生きているか)を1日1回確認し、掲載終了(出品取り下げ/
-//       商品削除)されたものをカタログから除外する。初心者が「楽天で仕入れる」を押して
-//       消えた商品ページに飛ぶ事故を防ぐ。
+//       まだ「買える」状態かを1日1回確認し、(A)掲載終了(出品取り下げ/商品削除)＝リンク切れ と
+//       (B)在庫切れ(売り切れ) の両方をカタログから除外する。初心者が「楽天で仕入れる」を押して
+//       消えた/買えない商品ページに飛ぶ事故を防ぐ。
 //
 // なぜHTTPステータスではなく楽天APIで判定するか:
 //   source.url は基本アフィリエイトURL(affiliateUrl)で、商品が消えてもアフィリゲートウェイは
 //   200を返しがち＝HTTP状態では死活を正しく判定できない。商品ID(=楽天itemCode)で
-//   Ichiba商品検索APIに問い合わせ、「商品が在るか/無いか」で権威的に判定する(ToS順守・構造化)。
-//   楽天仕様: 掲載終了/存在しない itemCode は 404 + {error:"not_found"} を返す。
+//   Ichiba商品検索APIに問い合わせ、「商品が在るか/買えるか」で権威的に判定する(ToS順守・構造化)。
+//   楽天仕様: 掲載終了/存在しない itemCode は 404 + {error:"not_found"}、在庫切れは availability=0 を返す。
 //
 // 安全側の原則(誤削除は復活しにくくコストが高いため徹底):
 //   ① not_found のみ dead。429/5xx/タイムアウト/その他エラーは「不明」として残す(fail-safe)。
@@ -73,8 +73,8 @@ async function kvHdel(key, field) {
   } catch (e) { console.error('kvHdel error:', e.message); }
 }
 
-// ========== 楽天 itemCode 死活判定 ==========
-// 戻り値: 'alive'（掲載中） | 'dead'（掲載終了） | 'unknown'（判定不能＝残す）
+// ========== 楽天 itemCode 死活＋在庫判定 ==========
+// 戻り値: 'alive'（買える） | 'dead'（掲載終了） | 'soldout'（在庫切れ） | 'unknown'（判定不能＝残す）
 async function checkRakutenItem(itemCode) {
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
@@ -101,9 +101,12 @@ async function checkRakutenItem(itemCode) {
 
     // 掲載終了/存在しない itemCode は 404 + {error:"not_found"}（楽天仕様）→ dead
     if (data && data.error === 'not_found') return 'dead';
-    // 正常応答: itemCode厳密一致で 0件 でも掲載終了扱い（防御的）
+    // 正常応答
     if (res.ok && data && Array.isArray(data.Items)) {
-      return data.Items.length > 0 ? 'alive' : 'dead';
+      if (data.Items.length === 0) return 'dead';                    // 0件＝掲載終了（防御的）
+      const item = data.Items[0]?.Item ?? data.Items[0];            // {Items:[{Item:{...}}]}
+      if (item && Number(item.availability) === 0) return 'soldout'; // availability=0＝在庫切れ(売り切れ)
+      return 'alive';
     }
     // それ以外（too_many_requests / wrong_parameter / 5xx / 非JSON 等）→ 不明（残す）
     return 'unknown';
@@ -112,13 +115,12 @@ async function checkRakutenItem(itemCode) {
   }
 }
 
-// dead は誤削除コストが高いので、1度だけ再確認してから確定する（揺れたら残す側に倒す）。
+// dead/soldout は誤削除コストが高い（在庫切れは一時的なこともある）ので、1度だけ再確認してから確定する。
 async function confirmStatus(itemCode) {
   const first = await checkRakutenItem(itemCode);
-  if (first !== 'dead') return first;
+  if (first === 'alive' || first === 'unknown') return first;
   await sleep(1500);
-  const second = await checkRakutenItem(itemCode);
-  return second; // 2回連続 dead のときだけ dead
+  return await checkRakutenItem(itemCode); // dead/soldout は2回連続のときだけ確定（揺れたら残す側に倒す）
 }
 
 // ========== メイン ==========
@@ -134,22 +136,25 @@ async function main() {
     console.log('カタログが空 or 取得失敗。何もしない。');
     return;
   }
-  console.log(`リンク死活チェック開始: ${products.length}件 (gap ${RAKUTEN_GAP_MS}ms)`);
+  console.log(`リンク死活＋在庫チェック開始: ${products.length}件 (gap ${RAKUTEN_GAP_MS}ms)`);
 
-  const deadIds = [];
+  const deadIds = [];     // 掲載終了（永続）
+  const soldoutIds = [];  // 在庫切れ（再入荷あり得る）
   let alive = 0, unknown = 0;
   for (const p of products) {
     const code = p?.id;
     if (!code) { unknown++; continue; } // IDなし=判定不能 → 残す
     const status = await confirmStatus(code);
     if (status === 'dead') deadIds.push(code);
+    else if (status === 'soldout') soldoutIds.push(code);
     else if (status === 'alive') alive++;
     else unknown++;
     await sleep(RAKUTEN_GAP_MS);
   }
 
-  const pruneRate = deadIds.length / products.length;
-  const aborted = deadIds.length > 0 && pruneRate > SAFETY_MAX_PRUNE_RATE;
+  const removeIds = [...deadIds, ...soldoutIds];
+  const pruneRate = removeIds.length / products.length;
+  const aborted = removeIds.length > 0 && pruneRate > SAFETY_MAX_PRUNE_RATE;
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
 
   // 観測用stats（常に書く）
@@ -158,8 +163,9 @@ async function main() {
     total: products.length,
     alive,
     dead: deadIds.length,
+    soldout: soldoutIds.length,
     unknown,
-    prunedIds: aborted ? [] : deadIds,
+    prunedIds: aborted ? [] : removeIds,
     pruneRate: Math.round(pruneRate * 1000) / 1000,
     aborted,
     elapsedSec,
@@ -167,35 +173,36 @@ async function main() {
 
   if (aborted) {
     console.error(
-      `⚠️ 安全ブレーキ作動: ${deadIds.length}/${products.length} (${Math.round(pruneRate * 100)}%) が dead 判定。` +
-      `楽天障害の可能性が高いため書き戻しを中止。`
+      `⚠️ 安全ブレーキ作動: ${removeIds.length}/${products.length} (${Math.round(pruneRate * 100)}%) が ` +
+      `除外対象(掲載終了${deadIds.length}/在庫切れ${soldoutIds.length})。楽天障害の可能性が高いため書き戻しを中止。`
     );
     process.exit(1); // ジョブを失敗扱いにしてメール通知させる
   }
 
-  if (deadIds.length === 0) {
-    console.log(`全件生存。alive ${alive} / unknown ${unknown}（変更なし, ${elapsedSec}s）`);
+  if (removeIds.length === 0) {
+    console.log(`全件生存・在庫あり。alive ${alive} / unknown ${unknown}（変更なし, ${elapsedSec}s）`);
     return;
   }
 
-  // 書き戻し直前に最新カタログを再取得し、dead だけを除外（チェック中の refresh と競合しても新商品を潰さない）
+  // 書き戻し直前に最新カタログを再取得し、除外対象だけを除く（チェック中の refresh と競合しても新商品を潰さない）
   const fresh = await kvGet('profitable_products');
   const base = (Array.isArray(fresh) && fresh.length) ? fresh : products;
-  const deadSet = new Set(deadIds);
-  const finalList = base.filter((p) => !deadSet.has(p?.id));
+  const removeSet = new Set(removeIds);
+  const finalList = base.filter((p) => !removeSet.has(p?.id));
   await kvSet('profitable_products', finalList, CATALOG_TTL_SEC);
 
-  // 付随KVの掃除（SOLDライフサイクルと同じ衛生）。失敗は無視。
+  // 付随KVの掃除。掲載終了(永続)は aux key も削除。在庫切れ(再入荷あり得る)は飽和カウント等を残す。
   for (const id of deadIds) {
     await kvDel(`listing_actors:${id}`);
     await kvHdel('sold_since', id);
   }
 
   console.log(
-    `掲載終了を除外: ${deadIds.length}件 → カタログ ${base.length} → ${finalList.length}件 ` +
+    `除外: 掲載終了 ${deadIds.length}件 / 在庫切れ ${soldoutIds.length}件 → カタログ ${base.length} → ${finalList.length}件 ` +
     `(alive ${alive} / unknown ${unknown}, ${elapsedSec}s)`
   );
-  console.log('除外ID:', deadIds.join(', '));
+  if (deadIds.length) console.log('掲載終了ID:', deadIds.join(', '));
+  if (soldoutIds.length) console.log('在庫切れID:', soldoutIds.join(', '));
 }
 
 main().catch((e) => { console.error('checkLinks fatal:', e); process.exit(1); });
