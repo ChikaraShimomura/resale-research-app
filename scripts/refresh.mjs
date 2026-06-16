@@ -651,6 +651,9 @@ function searchQueryFor(coreKeyword) {
 
 // セット/まとめ売り(複数個)の除外。中央値を「単品」に寄せる。
 const PRICE_SET_RE = /\b(lot of \d|set of \d|\d+\s*pcs|\d+\s*pieces|bundle|\d+\s*x\b|x\s*\d+|\d+\s*-?\s*pack|joblot|job lot|wholesale|\d+\s*set\b)\b/i;
+// 別売りアクセサリ/部品（本体でない安い同キーワード品）を相場計算から除外。本体をLEDユニット等の安値と比較して
+// 価格が狂う/別物判定になる事故を防ぐ（監査でPG Unleashedの最安がアクセサリだった）。本体名に出にくい語に限定。
+const PRICE_ACCESSORY_RE = /\b(led unit|led set|action base|display base|stand only|expansion set|option parts|parts only|water[\s-]?decal|decal set|sticker sheet|photo[\s-]?etch|metal parts|conversion kit|garage kit|empty box|box only|outer box|manual only|instruction manual)\b/i;
 function trimmedMedianJpy(pricesJpy) {
   const xs = pricesJpy.filter(p => p > 0).sort((a, b) => a - b);
   if (xs.length < 3) return null;
@@ -664,7 +667,7 @@ function trimmedMedianJpy(pricesJpy) {
 // eBay現在出品の「単品中央値(JPY)」。セット除外＋外れ値トリム。24hキャッシュ。失敗/少数時はnull。
 async function ebayMedianSinglePriceJpy(query) {
   if (!query) return null;
-  const cacheKey = `median_jpy:${ebayQueryHash(query)}`;
+  const cacheKey = `median_jpy2:${ebayQueryHash(query)}`; // アクセサリ除外を追加→相場を再計算
   const cached = await kvGet(cacheKey);
   if (cached && typeof cached === 'object' && cached.median > 0) return cached;
   const token = await getEbayToken();
@@ -678,7 +681,7 @@ async function ebayMedianSinglePriceJpy(query) {
     if (!res.ok) return null;
     const data = await res.json();
     const prices = (data?.itemSummaries ?? [])
-      .filter(it => !PRICE_SET_RE.test(it?.title ?? ''))
+      .filter(it => !PRICE_SET_RE.test(it?.title ?? '') && !PRICE_ACCESSORY_RE.test(it?.title ?? ''))
       .map(it => {
         const v = parseFloat(it?.price?.value); const c = it?.price?.currency;
         if (!v || v <= 0) return 0;
@@ -753,7 +756,7 @@ async function ebaySoldMedianPriceJpy(query) {
     if (!res.ok) return null;
     const data = await res.json();
     const prices = (data?.itemSales ?? [])
-      .filter(it => !PRICE_SET_RE.test(it?.title ?? ''))
+      .filter(it => !PRICE_SET_RE.test(it?.title ?? '') && !PRICE_ACCESSORY_RE.test(it?.title ?? ''))
       .map(it => {
         const p = it?.lastSoldPrice ?? it?.price; // Insights は lastSoldPrice（実売価格）
         const v = parseFloat(p?.value); const c = p?.currency;
@@ -822,7 +825,7 @@ async function ebayItemsByQuery(query, limit = 8) {
       else if (c === 'AUD') priceJpy = Math.round(v * AUD_TO_JPY);
       else if (c === 'JPY') priceJpy = Math.round(v);
       return { title: it?.title ?? '', priceJpy, img: it?.image?.imageUrl ?? it?.thumbnailImages?.[0]?.imageUrl ?? '', url: it?.itemWebUrl ?? '' };
-    }).filter(x => x.title && x.priceJpy > 0 && x.img && !PRICE_SET_RE.test(x.title) && !PROHIBITED_EXCLUDE.test(x.title));
+    }).filter(x => x.title && x.priceJpy > 0 && x.img && !PRICE_SET_RE.test(x.title) && !PRICE_ACCESSORY_RE.test(x.title) && !PROHIBITED_EXCLUDE.test(x.title));
   } catch { return []; }
 }
 
