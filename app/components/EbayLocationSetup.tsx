@@ -10,6 +10,8 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   const [ja, setJa] = useState<AddrJa | null>(null);
   const [en, setEn] = useState<AddrEn | null>(null);
   const [lookupMsg, setLookupMsg] = useState("");
+  const [lookupFailed, setLookupFailed] = useState(false); // 自動検索が失敗（手入力に切替可）
+  const [manual, setManual] = useState<AddrEn>({ stateOrProvince: "", city: "", town: "" });
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
   // 入力ごとに進める世代番号。最新リクエストの応答だけを反映し、順序前後/古い応答の混入を防ぐ。
@@ -26,11 +28,13 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       setJa(null);
       setEn(null);
       setLookupMsg("");
+      setLookupFailed(false);
     }
   };
 
   const lookup = async (digits: string, gen: number) => {
     setLookupMsg("住所を検索中...");
+    setLookupFailed(false);
     try {
       const r = await fetch(`/api/postal-lookup?zip=${digits}`, { cache: "no-store" }).then((x) => x.json());
       if (gen !== lookupGen.current) return; // 古い応答は破棄（zipとenの不一致を防ぐ）
@@ -38,10 +42,12 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         setJa(r.ja);
         setEn(r.en);
         setLookupMsg("");
+        setLookupFailed(false);
       } else {
         setJa(null);
         setEn(null);
         setLookupMsg(r.error || "住所が見つかりませんでした");
+        setLookupFailed(true); // 手入力に切替可能にする
       }
     } catch {
       if (gen !== lookupGen.current) return;
@@ -49,13 +55,20 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       setJa(null);
       setEn(null);
       setLookupMsg("住所検索に失敗しました");
+      setLookupFailed(true);
     }
   };
 
   const submit = async () => {
-    if (!en) {
+    // 自動検索の結果(en)優先。失敗時は手入力(manual)を使う。
+    const eff: AddrEn | null = en
+      ? en
+      : manual.stateOrProvince.trim() && manual.city.trim()
+        ? manual
+        : null;
+    if (!eff) {
       setState("error");
-      setMsg("先に郵便番号で住所を検索してください。");
+      setMsg(lookupFailed ? "都道府県・市区町村を英字で入力してください。" : "先に郵便番号で住所を検索してください。");
       return;
     }
     if (!addr.trim()) {
@@ -71,9 +84,9 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           postalCode: zip,
-          stateOrProvince: en.stateOrProvince,
-          city: en.city,
-          addressLine1: `${en.town} ${addr.trim()}`.trim(),
+          stateOrProvince: eff.stateOrProvince,
+          city: eff.city,
+          addressLine1: `${eff.town} ${addr.trim()}`.trim(),
         }),
       }).then((x) => x.json());
       if (r.ok) {
@@ -106,7 +119,35 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           placeholder="100-0005"
           className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
         />
-        {lookupMsg && <p className="text-[11px] text-gray-400 mt-1">{lookupMsg}</p>}
+        {lookupMsg && <p className={`text-[11px] mt-1 ${lookupFailed ? "text-[#BF0000]" : "text-gray-400"}`}>{lookupMsg}</p>}
+        {lookupFailed && (
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mt-1.5 space-y-2">
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              自動で見つかりませんでした。<b>都道府県・市区町村を英字（ローマ字）で手入力</b>すれば、このまま続けられます。
+            </p>
+            <input
+              type="text"
+              value={manual.stateOrProvince}
+              onChange={(e) => setManual((m) => ({ ...m, stateOrProvince: e.target.value }))}
+              placeholder="都道府県（例: Tokyo）"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+            />
+            <input
+              type="text"
+              value={manual.city}
+              onChange={(e) => setManual((m) => ({ ...m, city: e.target.value }))}
+              placeholder="市区町村（例: Chiyoda-ku）"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+            />
+            <input
+              type="text"
+              value={manual.town}
+              onChange={(e) => setManual((m) => ({ ...m, town: e.target.value }))}
+              placeholder="町名（例: Marunouchi）任意"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+            />
+          </div>
+        )}
         {ja && en && (
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2 mt-1.5">
             <span className="text-[10px] text-gray-400 block mb-0.5">自動入力された住所</span>

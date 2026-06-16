@@ -132,7 +132,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         </div>
       )}
 
-      <p className="text-[12px] text-gray-400">返品の設定：返品不可（No returns）で登録します。</p>
+      <p className="text-[12px] text-gray-400">返品の設定：返品不可（No returns）で登録します。<b className="text-gray-500">後からeBayの設定でいつでも変更できます。</b></p>
 
       <button
         onClick={submit}

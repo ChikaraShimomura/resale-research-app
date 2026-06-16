@@ -759,8 +759,17 @@ export default function EbayListingModal({
                   disabled={confirming || cooldown > 0}
                   className="w-full h-11 mb-2 bg-emerald-600 text-white font-bold text-sm rounded-xl active:bg-emerald-700 disabled:opacity-50"
                 >
-                  {confirming ? "確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "登録できた・もう一度試す"}
+                  {confirming ? "eBayに確認中..." : cooldown > 0 ? `もう一度（${cooldown}秒後）` : "登録できた・もう一度試す"}
                 </button>
+                {cooldown > 0 && !confirmErr ? (
+                  <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
+                    eBayへの確認は数十秒おきに行えます。少し待ってからもう一度押してください。
+                  </p>
+                ) : !confirmErr ? (
+                  <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
+                    eBayから〈アカウントの準備ができました〉のメールが届いたら押してください。準備ができていればそのまま出品に進めます。
+                  </p>
+                ) : null}
                 {confirmErr && (
                   <p className="mb-2 text-[11px] text-[#BF0000] leading-relaxed">
                     まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
@@ -786,6 +795,15 @@ export default function EbayListingModal({
                   ))}
                 </ul>
               )}
+              {/* まず自分で試せる対処。大半は再試行か画像差し替えで解決するため、報告の前に提示する。 */}
+              <div className="mb-3 bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-2.5 text-left">
+                <p className="text-[11px] font-bold text-amber-800 mb-1">まず試してみてください</p>
+                <ul className="text-[11px] text-amber-900/80 leading-relaxed list-disc pl-4 space-y-0.5">
+                  <li>少し時間をおいて<b>もう一度出品</b>（一時的な通信エラーのことがあります）</li>
+                  <li>写真が暗い・小さいときは<b>別の写真</b>に差し替える</li>
+                  <li>それでも直らなければ、下のボタンで報告してください</li>
+                </ul>
+              </div>
               {/* 予期せぬエラーを開発者に報告（自動修復のための情報を送る） */}
               <button
                 type="button"

@@ -1,7 +1,7 @@
 "use client";
 import SortSelect, { SortOrder } from "./SortSelect";
 
-// 並び替えプルダウン + 「SOLDを除外」チェックを右寄せ・上下に並べるコントロール。
+// 並び替えプルダウン + 「ライバル多数を隠す」チェックを右寄せ・上下に並べるコントロール。
 // チェックボックスは appearance:none の影響を受けないよう自前で描画（□＋レ点）。
 export default function ListControls({
   sortOrder,
@@ -32,7 +32,7 @@ export default function ListControls({
         >
           {hideSold ? "✓" : ""}
         </span>
-        SOLDを除外
+        ライバル多数を隠す
       </label>
     </div>
   );
