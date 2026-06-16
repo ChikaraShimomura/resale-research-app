@@ -88,15 +88,13 @@ export default function SearchPage() {
               <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          {/* ログイン時はメールで横幅を食うため、ヘッダーは要点だけに絞る。
+              お気に入りは下部ナビ、ガイドはホーム/バナーの「使い方」で到達できる。 */}
+          <div className="flex items-center gap-1.5 min-w-0">
             <AuthButton />
-            <Link href="/favorites" className="w-11 h-11 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95" aria-label="お気に入り">
-              <Heart16 />
-            </Link>
-            <Link href="/settings" className="w-11 h-11 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95" aria-label="設定">
+            <Link href="/settings" className="w-10 h-10 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95 shrink-0" aria-label="設定">
               <Gear16 />
             </Link>
-            <Link href="/guide" className="inline-flex items-center min-h-[36px] text-[11px] text-white/90 border border-white/40 px-3.5 py-1.5 rounded-full active:bg-white/10">ガイド</Link>
           </div>
         </div>
         {/* 検索バー */}
@@ -204,14 +202,6 @@ export default function SearchPage() {
 
       <BottomNav />
     </div>
-  );
-}
-
-function Heart16() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
   );
 }
 
