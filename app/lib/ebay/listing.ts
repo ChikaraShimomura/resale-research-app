@@ -274,6 +274,7 @@ export interface PublishInput {
   imageUrl: string;
   priceUsd: string; // 例 "24.99"
   condition: string; // "NEW" など
+  images?: string[]; // 複数出品画像（フィルタ済み・原寸）。未指定/空なら imageUrl 単体を使う
   categoryId: string;
   aspects: Record<string, string[]>; // { Brand: ["Unbranded"], ... }
   fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
@@ -437,7 +438,9 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     product: {
       title: input.title.slice(0, 80),
       description: descHtml,
-      imageUrls: input.imageUrl ? [upscaleListingImage(input.imageUrl)] : [],
+      imageUrls: (input.images?.length ? input.images : input.imageUrl ? [input.imageUrl] : [])
+        .map(upscaleListingImage)
+        .slice(0, 12), // eBayは最大12〜24枚。複数の商品写真で信頼度UP（原寸化は適用済みでも冪等）
       aspects: input.aspects,
     },
   };

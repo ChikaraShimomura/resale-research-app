@@ -4,6 +4,7 @@ import { kvReadOnly } from "../../../../lib/kv";
 import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
+import { filterProductImages } from "../../../../lib/ebay/imageFilter";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { recordListed } from "../../../../lib/ebay/stats";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
@@ -62,11 +63,16 @@ export async function POST(req: Request) {
     (body.description && body.description.trim()) ||
     `${title}\n\nShipped directly from Japan with tracking. Carefully packaged. Please check the photo.`;
 
+  // 複数画像: 楽天ギャラリー(最大3)から「商品写真だけ」を選び原寸で出品。空なら代表画像にフォールバック。
+  const gallery = product.images?.length ? product.images : [product.imageUrl];
+  const images = await filterProductImages(gallery);
+
   const result = await createAndPublish(token, {
     productId: product.id,
     title,
     description,
     imageUrl: product.imageUrl,
+    images,
     priceUsd: price.toFixed(2),
     condition: body.condition || "NEW",
     categoryId: body.categoryId,

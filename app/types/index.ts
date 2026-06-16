@@ -12,7 +12,8 @@ export interface SourceInfo {
 export interface Product {
   id: string;
   title: string;
-  imageUrl: string;
+  imageUrl: string;        // 代表画像（楽天ギャラリー先頭）
+  images?: string[];       // 楽天ギャラリー画像（最大3・複数画像出品用）
   category: string;
   source: SourceInfo;
   soldOut?: boolean;

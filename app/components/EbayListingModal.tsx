@@ -622,6 +622,12 @@ export default function EbayListingModal({
                   💴 売上の受け取り方を見る
                 </a>
               </div>
+              {/* 実物写真の追加を促す。楽天の画像だけより、実物写真があると信頼され売れやすい。 */}
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left">
+                <p className="text-[12px] text-amber-800 leading-relaxed">
+                  <b>📸 楽天から商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>しましょう。実物写真があると<b>信頼されて売れやすく</b>なります（下の「出品した商品を見る」→ 写真の編集から追加できます）。
+                </p>
+              </div>
               {/* eBayで出品した商品を確認。listingIdがあれば直リンク、無ければ自分の出品一覧へ（必ず確認できる）。 */}
               <a
                 href={result?.listingId ? `https://www.ebay.com/itm/${result.listingId}` : "https://www.ebay.com/sh/lst/active"}

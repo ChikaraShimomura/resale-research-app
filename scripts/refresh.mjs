@@ -872,7 +872,7 @@ async function processRakutenFirst(haveIds) {
         }
         haveIds.add(r.itemCode);
         out.push({
-          id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, category: cat,
+          id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, images: (r.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), category: cat,
           source: { site: 'rakuten', siteName: '楽天', price: r.itemPrice, url: r.affiliateUrl || r.itemUrl, pointRate, pointAmount, shippingJpy: shipJpy, postageIncluded: Number(r.postageFlag) === 0 },
           isNew: r.itemName.includes('新品') || r.itemName.includes('未開封'),
           market: 'EBAY_US', coreKeyword,
@@ -1164,6 +1164,7 @@ async function main() {
           id: rakutenItem.itemCode,
           title: rakutenItem.itemName,
           imageUrl: rakutenImg,
+          images: (rakutenItem.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), // 複数画像出品用ギャラリー(最大3)
           category: cat,
           source: {
             site: 'rakuten',
