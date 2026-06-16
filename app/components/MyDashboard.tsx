@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Package, Truck, Wallet, ArrowRight } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
+import ActiveListings from "./ActiveListings";
 
 interface Rank { name: string; icon: string; min: number }
 interface MonthPoint { month: string; label: string; profit: number; sales: number; purchase: number; count: number }
@@ -194,6 +195,16 @@ export default function MyDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // 集計の取得（出品中リストでの手動調整後にも呼んで最新化する）。
+  const loadStats = useCallback(async () => {
+    try {
+      const j = await fetch("/api/ebay/stats", { cache: "no-store" }).then((r) => r.json());
+      if (j.ok) setStats(j.stats);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -201,15 +212,10 @@ export default function MyDashboard() {
       } catch {
         /* noop */
       }
-      try {
-        const j = await fetch("/api/ebay/stats", { cache: "no-store" }).then((r) => r.json());
-        if (j.ok) setStats(j.stats);
-      } catch {
-        /* noop */
-      }
+      await loadStats();
       setLoaded(true);
     })();
-  }, []);
+  }, [loadStats]);
 
   if (!loaded) {
     return (
@@ -274,6 +280,7 @@ export default function MyDashboard() {
             </p>
           </div>
         </div>
+        <ActiveListings onChanged={loadStats} />
         <AfterSaleLinks />
       </div>
     );
@@ -307,6 +314,8 @@ export default function MyDashboard() {
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
         ※ 利益は eBay手数料(13.25%+¥47)・仕入れ値・基本ポイントから計算（為替 $1=¥155）。0と5のつく日など実際のポイントはこれより多い場合があります。
       </p>
+
+      <ActiveListings onChanged={loadStats} />
 
       <AfterSaleLinks />
     </div>

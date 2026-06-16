@@ -1,13 +1,30 @@
 // 「育てるダッシュボード」用：アプリ出品→売れた取引の集計と称号(ランク)。サーバー専用。
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
+import { skuForProduct } from "./sellApi";
 
 export const USD_JPY = 155; // listing.ts と一致
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
 
 const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
+// SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。
+const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 const TTL_SECONDS = 365 * 24 * 60 * 60;
+
+// 「実際に出品できた商品」だけを通す判定を返す。
+// 旧仕様では下書き/本人確認待ちでも deal を記録していたため、SKU対応表に載っているものだけを
+// 「出品中/出品実績」として扱う（公開できなかった取りこぼしを集計から除外する）。
+async function publishedFilter(actor: string): Promise<(productId: string) => boolean> {
+  let skuMap: Record<string, string> = {};
+  try {
+    skuMap = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
+  } catch {
+    /* noop */
+  }
+  const publishedSkus = new Set(Object.keys(skuMap));
+  return (productId: string) => publishedSkus.has(skuForProduct(productId));
+}
 
 export interface Deal {
   purchase: number; // 楽天仕入れ値(JPY)
@@ -51,6 +68,36 @@ export async function recordSold(
     const base: Deal = existing ?? { purchase: 0, points: 0, title: "", listedAt: soldAt };
     await kv.hset(DEALS_KEY(actor), { [productId]: { ...base, soldUsd, soldAt } });
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
+  } catch {
+    /* noop */
+  }
+}
+
+// 出品中（未売却）の取引一覧。マイページで個別に「やめた/売れた」を手動調整するため。
+export interface LiveDeal {
+  id: string;
+  title: string;
+  listedAt: string;
+  purchase: number; // 楽天仕入れ(送料込・JPY)
+}
+export async function listLiveDeals(actor: string): Promise<LiveDeal[]> {
+  let deals: Record<string, Deal> = {};
+  try {
+    deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
+  } catch {
+    return [];
+  }
+  const isPublished = await publishedFilter(actor);
+  return Object.entries(deals)
+    .filter(([id, d]) => d.soldUsd == null && isPublished(id)) // 未売却 かつ 実際に出品できたものだけ
+    .map(([id, d]) => ({ id, title: d.title || "", listedAt: d.listedAt || "", purchase: d.purchase ?? 0 }))
+    .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
+}
+
+// 「出品をやめた」：成績から取引を削除する（hdel）。
+export async function removeDeal(actor: string, productId: string): Promise<void> {
+  try {
+    await kv.hdel(DEALS_KEY(actor), productId);
   } catch {
     /* noop */
   }
@@ -113,10 +160,12 @@ export async function getStats(actor: string): Promise<Stats> {
   } catch {
     /* noop */
   }
-  const all = Object.values(deals);
-  const sold = all.filter((d) => d.soldUsd != null);
-  // 出品中（未売却）の仕入れ合計＝まだ寝ている仕入れ資金。出品完了したものだけ deals に入る。
-  const listedPurchase = all.filter((d) => d.soldUsd == null).reduce((a, d) => a + (d.purchase ?? 0), 0);
+  const isPublished = await publishedFilter(actor);
+  const entries = Object.entries(deals);
+  const sold = entries.filter(([, d]) => d.soldUsd != null).map(([, d]) => d); // 売却済み（実取引なので全部有効）
+  // 出品中＝未売却 かつ 実際に出品できた（SKU対応表にある）ものだけ。旧仕様の下書き/本人確認待ちは除外。
+  const live = entries.filter(([id, d]) => d.soldUsd == null && isPublished(id)).map(([, d]) => d);
+  const listedPurchase = live.reduce((a, d) => a + (d.purchase ?? 0), 0);
 
   let totalPurchase = 0;
   let totalSales = 0;
@@ -152,7 +201,7 @@ export async function getStats(actor: string): Promise<Stats> {
   const { rank, nextRank } = rankFor(totalProfit);
   return {
     soldCount: sold.length,
-    listedCount: all.length,
+    listedCount: sold.length + live.length, // 実際に出品できたもの（出品中＋売却済み）。下書き等は含めない
     listedPurchase,
     totalPurchase,
     totalSales,
