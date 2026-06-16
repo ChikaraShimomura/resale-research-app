@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { signInAction } from "../auth/actions";
 import type { AuthState } from "../auth/types";
+import BrandHome from "../components/BrandHome";
 
 const initial: AuthState = {};
 const field =
@@ -19,7 +20,8 @@ export default function LoginPage() {
     }
   }, []);
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
+      <BrandHome className="mb-5" />
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">ログイン</h1>
         <p className="text-sm text-gray-500 mb-5">サインインすると、利益ダッシュボードが端末を跨いで保存されます。</p>
