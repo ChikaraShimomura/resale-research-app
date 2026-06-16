@@ -6,6 +6,7 @@ import { ProfitProduct } from "../lib/profitFilter";
 import { formatJpy, toRakutenAffiliateUrl } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
+import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
@@ -72,9 +73,10 @@ const COCONALA_AFFILIATE_URL =
   process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_URL || "https://px.a8.net/svt/ejp?a8mat=4B5X8G+C6720I+2PEO+1HP31U";
 const COCONALA_AFFILIATE_IMG =
   process.env.NEXT_PUBLIC_COCONALA_AFFILIATE_IMG || "https://www10.a8.net/0.gif?a8mat=4B5X8G+C6720I+2PEO+1HP31U";
+// ココナラで探してもらう検索ワード（コピー誘導＆フォールバック検索URLで共通利用）。
+const COCONALA_KEYWORD = "eBayセラー登録";
 // アフィリ未設定時のフォールバック＝アフィリ無しのココナラ検索(「eBayセラー登録」結果)に着地。
-const COCONALA_SEARCH_URL =
-  "https://coconala.com/search?keyword=" + encodeURIComponent("eBayセラー登録");
+const COCONALA_SEARCH_URL = "https://coconala.com/search?keyword=" + encodeURIComponent(COCONALA_KEYWORD);
 const COCONALA_HREF = COCONALA_AFFILIATE_URL || COCONALA_SEARCH_URL;
 const COCONALA_IS_AD = !!COCONALA_AFFILIATE_URL; // アフィリエイト時のみ「広告」表記(ステマ規制対応)
 // 着地先が既に検索結果(どこでもリンク等)なら「検索してね」の案内は不要。通常リンクの時だけ案内を出す。
@@ -779,16 +781,23 @@ export default function EbayListingModal({
                   href={COCONALA_HREF}
                   target="_blank"
                   rel="sponsored noopener noreferrer"
-                  onClick={() => track("coconala_click", { product_id: product.id })}
+                  onClick={() => {
+                    track("coconala_click", { product_id: product.id });
+                    // 押した時点で検索ワードをコピーしておく（ココナラの検索窓にすぐ貼れる）。
+                    if (!COCONALA_PRESEARCHED) { try { navigator.clipboard.writeText(COCONALA_KEYWORD); } catch { /* noop */ } }
+                  }}
                   className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 h-11 bg-white border border-amber-300 text-amber-800 font-bold text-[13px] rounded-xl active:bg-amber-100"
                 >
                   ココナラでセラー登録のサポートを探す <ExternalLink size={14} />
                 </a>
-                {/* 通常リンクは検索済みで着地しないため、開いたあとの探し方を案内（検索着地リンクなら不要）。 */}
+                {/* 通常リンクは検索済みで着地しないため、検索ワードを貼り付けて探すよう明確に誘導（検索着地リンクなら不要）。 */}
                 {!COCONALA_PRESEARCHED && (
-                  <p className="mt-1.5 text-[11px] text-amber-800/80 leading-relaxed">
-                    開いたら <b>「eBayセラー登録」で検索</b>すると、サポートしてくれる出品者が見つかります。
-                  </p>
+                  <div className="mt-2 bg-white/60 border border-amber-200 rounded-lg px-3 py-2.5">
+                    <p className="text-[11px] text-amber-900 leading-relaxed mb-1.5">
+                      ココナラが開いたら、<b>検索まどに下のワードを貼り付けて検索</b>してください👇（このボタンを押すと自動でコピーされます）
+                    </p>
+                    <CopyKeyword value={COCONALA_KEYWORD} />
+                  </div>
                 )}
                 {/* アフィリエイト時はステマ規制対応で「広告」を明示。A8.net等はインプレ計測の1x1画像も置く。 */}
                 {COCONALA_IS_AD && (
