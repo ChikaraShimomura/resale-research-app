@@ -62,21 +62,32 @@ function parseItemCode(input) {
   return null;
 }
 
+const RKT_HEADERS = { Referer: 'https://www.yushutsu-fukugyo.com/', Origin: 'https://www.yushutsu-fukugyo.com', 'User-Agent': 'Mozilla/5.0' };
+
+async function rktTry(url, label) {
+  try {
+    const res = await fetch(url, { headers: RKT_HEADERS, signal: AbortSignal.timeout(15000) });
+    const text = await res.text();
+    if (!res.ok) { console.warn(`  [Rakuten ${label}] HTTP ${res.status}: ${text.slice(0, 200)}`); return null; }
+    const items = (JSON.parse(text).Items) ?? [];
+    return items[0]?.Item ?? items[0] ?? null;
+  } catch (e) { console.warn(`  [Rakuten ${label}] ${e.message}`); return null; }
+}
+
 async function fetchRakutenByItemCode(itemCode) {
-  const params = new URLSearchParams({
-    applicationId: RAKUTEN_APP_ID,
-    accessKey: RAKUTEN_ACCESS_KEY,
-    affiliateId: RAKUTEN_AFFILIATE_ID,
-    itemCode,
-    format: 'json',
-  });
-  const res = await fetch(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`, {
-    headers: { Referer: 'https://www.yushutsu-fukugyo.com/', Origin: 'https://www.yushutsu-fukugyo.com', 'User-Agent': 'Mozilla/5.0' },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error(`Rakuten HTTP ${res.status}`);
-  const items = (await res.json()).Items ?? [];
-  return items[0]?.Item ?? items[0] ?? null;
+  // ① 新エンドポイント(ichibams・accessKey)で itemCode 検索。
+  const p1 = new URLSearchParams({ applicationId: RAKUTEN_APP_ID, accessKey: RAKUTEN_ACCESS_KEY, affiliateId: RAKUTEN_AFFILIATE_ID, itemCode, format: 'json' });
+  let item = await rktTry(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${p1}`, 'ichibams itemCode');
+  if (item) return item;
+  // ② レガシーエンドポイント(app.rakuten・applicationIdのみ)で itemCode 検索。itemCode 単体検索はこちらが確実。
+  const p2 = new URLSearchParams({ applicationId: RAKUTEN_APP_ID, affiliateId: RAKUTEN_AFFILIATE_ID, itemCode, format: 'json' });
+  item = await rktTry(`https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?${p2}`, 'legacy itemCode');
+  if (item) return item;
+  // ③ 最後の手段：shopCode + itemCode の末尾を keyword にして検索（完全一致でなくても候補を拾う）。
+  const kw = itemCode.split(':').pop();
+  const p3 = new URLSearchParams({ applicationId: RAKUTEN_APP_ID, affiliateId: RAKUTEN_AFFILIATE_ID, keyword: kw, hits: '1', format: 'json' });
+  item = await rktTry(`https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?${p3}`, 'legacy keyword');
+  return item;
 }
 
 let ebayTok = null;
