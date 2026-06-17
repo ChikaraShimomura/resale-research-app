@@ -9,6 +9,10 @@ on:
 
 jobs:
   tweet:
+    # 🛑 自動投稿を一時停止中（2026-06-17・ユーザー指示）。
+    # 外部cronがworkflow_dispatchを叩いてもこのジョブはskipされ、Xには投稿されない。
+    # 再開するには下の「if: false」の行を削除するだけ（またはActions UIで操作）。
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
