@@ -5,6 +5,7 @@ import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
 import ResetListingCounts from "../components/ResetListingCounts";
 import TrustBadges from "../components/TrustBadges";
+import PushSettings from "../components/PushSettings";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -36,6 +37,11 @@ export default async function SettingsPage({
         {/* eBay・Payoneerの信頼バッジ（連携/登録の不安をその場でケア） */}
         <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
           <TrustBadges />
+        </section>
+
+        {/* プッシュ通知（オン/オフ＋受け取る種類を本人が選べる） */}
+        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+          <PushSettings />
         </section>
 
         <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">

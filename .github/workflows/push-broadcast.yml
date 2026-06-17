@@ -1,0 +1,43 @@
+name: Push broadcast (manual)
+
+# 全購読者へ手動でプッシュ通知を送る（アップデート/キャンペーン告知）。
+# 要 GitHub Secrets: VAPID_PRIVATE_KEY / VAPID 公開鍵(NEXT_PUBLIC_VAPID_PUBLIC_KEY or VAPID_PUBLIC_KEY) / VAPID_SUBJECT / KV_*
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: '通知タイトル'
+        required: true
+        type: string
+      body:
+        description: '本文'
+        required: false
+        type: string
+      url:
+        description: 'タップ時に開くパス（既定 /search）'
+        required: false
+        type: string
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install web-push
+        run: npm install web-push --no-save
+      - name: Send broadcast
+        env:
+          KV_REST_API_URL:             ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:           ${{ secrets.KV_REST_API_TOKEN }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PUBLIC_KEY:            ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:           ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:               ${{ secrets.VAPID_SUBJECT }}
+          PUSH_TITLE:                  ${{ inputs.title }}
+          PUSH_BODY:                   ${{ inputs.body }}
+          PUSH_URL:                    ${{ inputs.url }}
+        run: node scripts/push_broadcast.mjs

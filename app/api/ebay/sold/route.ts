@@ -4,6 +4,7 @@ import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../lib/ebay/sellApi";
 import { SKU_MAP_KEY, SKU_MAP_TTL } from "../../../lib/ebay/listing";
 import { recordSold } from "../../../lib/ebay/stats";
+import { sendToActor } from "../../../lib/push";
 import { FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../../lib/funnel";
 
 // 「自分がeBayで売れた商品」の自動検知。
@@ -94,6 +95,13 @@ export async function POST() {
           kv.sadd(evuKey(date, "sold"), actor),
           kv.expire(evuKey(date, "sold"), FUNNEL_TTL),
         ]);
+        // 新規に検知した売却を本人へプッシュ通知（「売れたとき」をONにしている購読のみ）。VAPID未設定なら無視。
+        await sendToActor(actor, "sold", {
+          title: "🎉 売れたかも！",
+          body: `${added}件の出品が売れた可能性があります。マイページで確認しましょう。`,
+          url: "/mypage",
+          tag: "sold",
+        });
       }
     } catch {
       /* noop */
