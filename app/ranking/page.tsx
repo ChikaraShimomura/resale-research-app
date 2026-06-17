@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { kvReadOnly } from "../lib/kv";
-import { ProfitProduct } from "../lib/profitFilter";
-import { isSold } from "../lib/sold";
+import { getTopProfitProducts } from "../lib/topProducts";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import { Flame, ArrowRight } from "lucide-react";
@@ -24,30 +22,8 @@ export const metadata: Metadata = {
 
 const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 
-async function getRanked(n = 30): Promise<ProfitProduct[]> {
-  try {
-    const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
-    if (!Array.isArray(products)) return [];
-    // 出品者数(listing_actors)を付与してSOLD(=市場の飽和)を除外し、純粋な「狙い目」だけを並べる。
-    try {
-      const pipe = kvReadOnly.pipeline();
-      products.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
-      const counts = (await pipe.exec()) as number[];
-      products.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
-    } catch {
-      products.forEach((p) => { p.listingCount = 0; });
-    }
-    return products
-      .filter((p) => !isSold(p))
-      .sort((a, b) => (b.realProfitRate || 0) - (a.realProfitRate || 0))
-      .slice(0, n);
-  } catch {
-    return [];
-  }
-}
-
 export default async function RankingPage() {
-  const items = await getRanked(30);
+  const items = await getTopProfitProducts(30);
 
   const itemListLd = {
     "@context": "https://schema.org",

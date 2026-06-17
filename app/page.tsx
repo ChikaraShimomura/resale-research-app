@@ -176,6 +176,8 @@ export default function LandingPage() {
           <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/guide" className="text-gray-500 hover:text-[#BF0000]">ガイド</Link>
           <span aria-hidden="true" className="text-gray-300">·</span>
+          <Link href="/press" className="text-gray-500 hover:text-[#BF0000]">プレスキット</Link>
+          <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/privacy" className="text-gray-500 hover:text-[#BF0000]">プライバシーポリシー</Link>
         </div>
         <p className="mt-4 text-[10px] text-gray-400">輸出ラボは eBay・楽天とは独立した非公式サービスです。</p>

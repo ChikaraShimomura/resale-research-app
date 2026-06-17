@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og";
 
-// X自動投稿の「相場データカード」画像（保存される情報型）。商品の 楽天→eBay相場・想定利益率を
-// 1080x1080 のカードPNGで返す。bot がこれをネイティブ直アップして投稿する（外部リンク回避＋ブックマーク狙い）。
-// 生成に失敗した場合 bot 側は画像なしで投稿を続行する（best-effort）。
+// 相場データカード画像。商品の 楽天→eBay相場・想定利益率を PNG で返す。
+// 既定=1080x1080(X自動投稿用・ネイティブ直アップ)。?v=1 で 1080x1920 の縦型(Shorts/TikTok/Reels の動画素材)。
+// 生成失敗時、呼び出し側は画像なしで続行する想定(best-effort)。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,8 @@ function yen(v: string | null): string {
 
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
-  const title = (sp.get("t") || "今日の相場").slice(0, 24);
+  const vertical = sp.get("v") === "1";
+  const title = (sp.get("t") || (vertical ? "今日の利益商品" : "今日の相場")).slice(0, 24);
   const name = (sp.get("n") || "").slice(0, 56);
   const raku = sp.get("r");
   const ebay = sp.get("e");
@@ -41,9 +42,57 @@ export async function GET(req: Request) {
   const glyphs =
     title + name +
     "輸出ラボ楽天eBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
+    "今日の利益商品日本でこれが海外だと無料で他の商品もプロフィールのリンクから見れますやってみた" +
     "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + "0123456789,%→¥〜";
   const font = await loadJpFont(glyphs);
   const ff = font ? "Noto Sans JP" : "sans-serif";
+  const fonts = font ? [{ name: "Noto Sans JP", data: font, weight: 700 as const, style: "normal" as const }] : [];
+
+  if (vertical) {
+    return new ImageResponse(
+      (
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#ffffff", fontFamily: ff }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", background: CRIMSON, color: "#ffffff", padding: "56px", fontSize: 66, fontWeight: 700 }}>
+            {title}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "80px 72px", justifyContent: "center" }}>
+            {name ? (
+              <div style={{ display: "flex", fontSize: 44, color: "#444444", lineHeight: 1.35, marginBottom: 64 }}>{name}</div>
+            ) : null}
+
+            <div style={{ display: "flex", alignItems: "center", fontSize: 52, color: "#777777", marginBottom: 8 }}>日本で</div>
+            <div style={{ display: "flex", alignItems: "baseline", fontSize: 96, fontWeight: 700, color: "#111111", marginBottom: 56 }}>
+              ¥{yen(raku)}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", fontSize: 52, color: CRIMSON, marginBottom: 8 }}>海外だと</div>
+            <div style={{ display: "flex", alignItems: "baseline", fontSize: 132, fontWeight: 700, color: "#111111", marginBottom: 64 }}>
+              約¥{yen(ebay)}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", background: "#FFF0F4", borderRadius: 32, padding: "40px 48px" }}>
+              <span style={{ display: "flex", fontSize: 52, color: "#444444", marginRight: 28 }}>想定利益率</span>
+              <span style={{ display: "flex", fontSize: 150, fontWeight: 700, color: CRIMSON }}>{rate || "—"}%</span>
+            </div>
+
+            <div style={{ display: "flex", fontSize: 30, color: "#999999", marginTop: 56 }}>
+              ※ 相場は現行の最安〜中央値ベースの想定・目安です
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", background: CRIMSON, color: "#ffffff", padding: "56px 72px" }}>
+            <div style={{ display: "flex", fontSize: 48, fontWeight: 700, marginBottom: 12 }}>無料で他の利益商品も見れます</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 40 }}>
+              <span style={{ display: "flex", fontWeight: 700 }}>輸出ラボ</span>
+              <span style={{ display: "flex", opacity: 0.9 }}>yushutsu-fukugyo.com</span>
+            </div>
+          </div>
+        </div>
+      ),
+      { width: 1080, height: 1920, fonts }
+    );
+  }
 
   return new ImageResponse(
     (
@@ -79,10 +128,6 @@ export async function GET(req: Request) {
         </div>
       </div>
     ),
-    {
-      width: 1080,
-      height: 1080,
-      fonts: font ? [{ name: "Noto Sans JP", data: font, weight: 700 as const, style: "normal" as const }] : [],
-    }
+    { width: 1080, height: 1080, fonts }
   );
 }
