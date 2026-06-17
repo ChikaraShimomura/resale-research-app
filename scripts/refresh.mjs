@@ -212,16 +212,16 @@ function domesticShipping(category, postageFlag, title) {
 function guessCategory(title) {
   const t = title || '';
   // コスメ・美容を先に（資生堂MG5・専科クレンズ等の誤判定を防ぐ）
-  if (/コスメ|香水|スキンケア|資生堂|花王|ランコム|シャネル|専科|アネッサ|ウーノ|\bUNO\b|イハダ|MG5|エムジー5|化粧水|乳液|美容液|洗顔|クレンジング|日焼け止め|\bSPF|ボディミルク|ハンドクリーム/i.test(t)) return 'コスメ';
+  if (/コスメ|香水|スキンケア|資生堂|花王|ランコム|シャネル|専科|アネッサ|ウーノ|\bUNO\b|イハダ|MG5|エムジー5|化粧水|乳液|美容液|洗顔|クレンジング|日焼け止め|\bSPF|ボディミルク|ハンドクリーム|キャンメイク|CANMAKE|SK-?II|SK-?2\b|SKII|肌ラボ|ハダラボ|チーク|ファンデ|化粧下地|フィニッシュパウダー/i.test(t)) return 'コスメ';
   if (/ポケモン|遊戯王|デュエルマスターズ|トレカ|カードゲーム|ワンピースカード|カードバトル/i.test(t)) return 'トレカ';
-  if (/ガンプラ|ガンダム|\bMG\b|\bHG\b|\bRG\b|\bPG\b|1\/100|1\/144|BANDAI SPIRITS/i.test(t)) return 'ガンプラ';
+  if (/ガンプラ|ガンダム|\bMG\b|\bHG\b|\bRG\b|\bPG\b|1\/100|1\/144|BANDAI SPIRITS|30MM|30 ?MINUTES/i.test(t)) return 'ガンプラ';
   if (/LEGO|レゴ/i.test(t)) return 'LEGO';
-  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE/i.test(t)) return 'フィギュア';
+  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE|S\.?H\.?\s?Figuarts|フィギュアーツ|POP UP PARADE|超合金/i.test(t)) return 'フィギュア';
   if (/Nintendo Switch|PS5|PlayStation|Xbox/i.test(t)) return 'ゲーム機';
   if (/amiibo|アミーボ|ゲームソフト/i.test(t)) return 'ゲーム';
   if (/腕時計|Watch|Seiko|セイコー|Citizen|シチズン|Casio|カシオ|Gショック|G-SHOCK/i.test(t)) return '腕時計';
   if (/カメラ|レンズ|Canon|Nikon|Fujifilm|一眼レフ/i.test(t)) return 'カメラ';
-  if (/トミカ|プラレール|シルバニア/i.test(t)) return 'おもちゃ';
+  if (/トミカ|プラレール|シルバニア|ベイブレード|BEYBLADE/i.test(t)) return 'おもちゃ';
   return 'その他';
 }
 
@@ -1179,6 +1179,19 @@ async function main() {
     });
     const dropped = before - dedupedProducts.length;
     if (dropped) console.log(`  🧹 互換部品/セット/中古/数量違い/価格比異常の誤マッチを除外: ${dropped}件`);
+  }
+
+  // 既存商品のジャンルを最新の guessCategory で再分類する（ブランド/シリーズ語の追加を反映）。
+  // 「その他」に取りこぼしていたコスメ/フィギュア/模型を正しいジャンルへ直し、下の確信ゲート再判定の
+  // 対象に乗せる（誤分類で確信ゲートをすり抜けていた誤マッチを拾うため。ジャンル別精度も正確になる）。
+  {
+    let recat = 0;
+    for (const p of dedupedProducts) {
+      if (!p.title) continue;
+      const c = guessCategory(p.title);
+      if (c !== p.category) { p.category = c; recat++; }
+    }
+    if (recat) console.log(`  🏷️ 既存ジャンルを最新の分類で再判定: ${recat}件`);
   }
 
   // 既存のコスメ/フィギュアを確信ゲートで再判定し、別物と確定したものだけ除去する。
