@@ -20,7 +20,7 @@ export default function EbayListingSetup() {
   const [loading, setLoading] = useState(true);
   // null = STEP自動開閉、数値 = そのSTEPを手動で開く、-1 = すべて閉じる
   const [override, setOverride] = useState<number | null>(null);
-  // 「eBay簡単出品」から来た場合、商品IDが ?list= に入っている。全完了したら出品画面へ戻す。
+  // 「eBay自動出品」から来た場合、商品IDが ?list= に入っている。全完了したら出品画面へ戻す。
   const [listId, setListId] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -116,7 +116,7 @@ export default function EbayListingSetup() {
             <BadgeCheck size={16} /> eBay連携・出品の準備が完了しました！
           </p>
           <p className="text-[11px] text-emerald-800 leading-relaxed">
-            あとは商品を選んで「eBay簡単出品」を押すだけ。<br />
+            あとは商品を選んで「eBay自動出品」を押すだけ。<br />
             ※ まだeBayの<b>セラー登録（売上の受け取り）</b>が済んでいない場合は、出品しようとしたときにお知らせします（登録は<b>初回だけ</b>・eBay側で行います）。
           </p>
           <button

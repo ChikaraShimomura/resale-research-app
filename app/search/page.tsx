@@ -21,7 +21,7 @@ export default function SearchPage() {
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended"); // 既定=総合おすすめ順
   const [hideSold, setHideSold] = useState(false);
-  // 「楽天で仕入れる」を押した（=eBay簡単出品アクティブ）商品ID。先頭固定に使う。
+  // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function SearchPage() {
   // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在。
   // 「SOLD除外」でも自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない）。
   const baseList = hideSold ? products.filter(p => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(products);
-  // 「楽天で仕入れる」を押した商品（eBay簡単出品アクティブ）を先頭に固定
+  // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
   const sortedProducts = pinUnlockedFirst(sortProducts(baseList, sortOrder), unlockedIds);
   // ヘッダー件数は実表示数に合わせる（SOLD除外時の過大表示を防ぐ）
   const visibleCount = hideSold ? baseList.length : products.length;

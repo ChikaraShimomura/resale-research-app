@@ -19,7 +19,7 @@ export default function ResetListingCounts() {
     <section className="bg-white rounded-2xl p-4 border border-amber-200 shadow-sm">
       <h2 className="text-sm font-black text-gray-800 mb-1">テスト用：出品カウントのリセット</h2>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        この端末で「eBay簡単出品（出品成功）」した分を、全商品から取り消します。他の人のデータには影響しません。
+        この端末で「eBay自動出品（出品成功）」した分を、全商品から取り消します。他の人のデータには影響しません。
       </p>
       <button
         onClick={run}

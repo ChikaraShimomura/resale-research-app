@@ -70,7 +70,7 @@ export default function ListingHelper({ product, autoOpen = false }: Props) {
         `}
       >
         {listed ? <Check size={14} /> : <ExternalLink size={14} />}
-        {listed ? "出品済み" : "eBay簡単出品"}
+        {listed ? "出品済み" : "eBay自動出品"}
       </button>
 
       {open && isProfitProduct(product) && (

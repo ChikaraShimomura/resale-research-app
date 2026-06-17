@@ -28,7 +28,7 @@ function ResultsContent() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   // 自分がeBayで売れた商品ID（端末単位）。最下部化/非表示に使う。
   const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
-  // 「楽天で仕入れる」を押した（=eBay簡単出品アクティブ）商品ID。先頭固定に使う。
+  // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -87,7 +87,7 @@ function ResultsContent() {
       const sold = arr.filter((p) => soldIds.has(p.id));
       ordered = [...live, ...sold];
     }
-    // 「楽天で仕入れる」を押した商品（eBay簡単出品アクティブ）を先頭に固定
+    // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
     return pinUnlockedFirst(ordered, unlockedIds, soldIds);
   }, [filtered, sortOrder, hideSold, soldIds, unlockedIds]);
 

@@ -32,7 +32,7 @@ export function sortProducts(products: ProfitProduct[], order: SortOrder): Profi
       return [...products].sort((a, b) => buyCost(a) - buyCost(b));
     case "demand": // 需要(売れやすさ)順＝eBay同等出品数の多い順
       return [...products].sort((a, b) => (b.realCount ?? 0) - (a.realCount ?? 0));
-    case "rival": // ライバルの少ない順（eBay簡単出品が押された回数の少ない順）
+    case "rival": // ライバルの少ない順（eBay自動出品が押された回数の少ない順）
       return [...products].sort((a, b) => (a.listingCount ?? 0) - (b.listingCount ?? 0));
     default: // 新着順（登録順）
       return products;

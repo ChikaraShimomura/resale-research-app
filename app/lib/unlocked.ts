@@ -1,4 +1,4 @@
-// 「楽天で仕入れる」を押した端末では eBay簡単出品 がアクティブになる（localStorage rkt_{id}="1"）。
+// 「楽天で仕入れる」を押した端末では eBay自動出品 がアクティブになる（localStorage rkt_{id}="1"）。
 // その商品は一覧の先頭に固定したいので、ID取得と先頭固定のユーティリティをここに集約する。
 
 export function readUnlockedIds(): Set<string> {

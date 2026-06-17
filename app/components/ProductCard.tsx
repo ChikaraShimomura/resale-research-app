@@ -79,7 +79,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const listingCount = product.listingCount ?? 0;
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  // 「楽天で仕入れる」を押した端末だけ「eBay簡単出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
+  // 「楽天で仕入れる」を押した端末だけ「eBay自動出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
   const [rakutenClicked, setRakutenClicked] = useState(false);
   useEffect(() => {
     try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
@@ -150,7 +150,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           {/* 画像 */}
           <div className="shrink-0 relative">
             {/* 画像タップ＝楽天で商品を見る（アフィリ付き・新規タブ）。
-                ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けず、eBay簡単出品は解放しない。 */}
+                ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けず、eBay自動出品は解放しない。 */}
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="楽天市場でこの商品を見る">
@@ -312,7 +312,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
         {/* アクションボタン：楽天 と eBay を横並び・等幅。補助(お気に入り/シェア)は下段 */}
         <div className="space-y-2.5">
-          {/* 主要CTA — 楽天で仕入れる / eBay簡単出品 を横並び（flex-1で等幅） */}
+          {/* 主要CTA — 楽天で仕入れる / eBay自動出品 を横並び（flex-1で等幅） */}
           <div className="flex gap-2.5">
             <a href={sourceUrl} target="_blank" rel="noopener noreferrer" onClick={markRakutenClicked}
               className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
