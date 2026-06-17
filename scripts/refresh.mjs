@@ -68,6 +68,26 @@ async function kvSetPermanent(key, value) {
   } catch (e) { console.error('kvSetPermanent error:', e.message); }
 }
 
+// 出品アーカイブ：カタログ各商品を psnap:{id} に2年保存する。
+// 利益商品カタログ(profitable_products)は入れ替わるが、仕入れた人が出品(prepare/publish)するときに
+// カタログから外れていても、ここから商品データを読めるようにする＝「仕入れたのに出品できない」を防ぐ。
+// カタログに居続ける商品は毎回TTLが延び、外れた商品も最後に載っていた時点から2年は出品可能。
+async function kvArchiveProducts(products) {
+  if (!products?.length) return;
+  const TTL = String(730 * 24 * 3600); // 2年（ebay_deals/仕入れ中と揃える）
+  try {
+    for (let i = 0; i < products.length; i += 200) {
+      const cmds = products.slice(i, i + 200).map(p => ['SET', `psnap:${p.id}`, JSON.stringify(p), 'EX', TTL]);
+      await fetch(`${KV_URL}/pipeline`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmds),
+      });
+    }
+    console.log(`  🗄️ 出品アーカイブ(psnap)を更新: ${products.length}件（カタログ落ち後も出品可能に）`);
+  } catch (e) { console.error('kvArchiveProducts error:', e.message); }
+}
+
 // ハッシュ全取得（{field: value} で返す）。SOLDライフサイクルの sold_since 読み出しに使う。
 async function kvHgetall(key) {
   try {
@@ -1443,6 +1463,7 @@ async function main() {
   profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);
   await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+  await kvArchiveProducts(profitableProducts); // 出品アーカイブを更新（カタログ落ち後も仕入れた人が出品できるように）
   await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
   await kvSet('refresh_stats', {
     ebayJpCount: ebayJpItems.length,

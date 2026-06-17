@@ -62,12 +62,12 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   const relist = async (productId: string) => {
     setRelistBusy(productId);
     try {
-      const j = await fetch("/api/products", { cache: "no-store" }).then((r) => r.json());
-      const found = (j?.products as ProfitProduct[] | undefined)?.find((p) => p.id === productId);
-      if (found) setRelistProduct(found);
-      else window.alert("この商品はいまカタログにないため、ここからは再出品できません。「商品をさがす」から同じ商品を探して出品してください。");
+      // 単一商品取得（カタログ→出品アーカイブの順）。カタログから外れた商品でも出品できるようにする。
+      const j = await fetch(`/api/ebay/product?id=${encodeURIComponent(productId)}`, { cache: "no-store" }).then((r) => r.json());
+      if (j?.ok && j.product) setRelistProduct(j.product as ProfitProduct);
+      else window.alert("この商品の情報が見つかりませんでした。時間をおいて、もう一度お試しください。");
     } catch {
-      window.alert("再出品の準備に失敗しました。通信環境を確認してもう一度お試しください。");
+      window.alert("出品の準備に失敗しました。通信環境を確認してもう一度お試しください。");
     }
     setRelistBusy(null);
   };

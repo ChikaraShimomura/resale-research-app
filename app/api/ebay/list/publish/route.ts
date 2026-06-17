@@ -1,8 +1,7 @@
 import { kv } from "@vercel/kv";
 import { cookies } from "next/headers";
 import { getActorId } from "../../../../lib/auth/actor";
-import { kvReadOnly } from "../../../../lib/kv";
-import { ProfitProduct } from "../../../../lib/profitFilter";
+import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
 import { filterProductImages } from "../../../../lib/ebay/imageFilter";
@@ -30,15 +29,6 @@ interface Payload {
   floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
 }
 
-async function getProduct(id: string): Promise<ProfitProduct | null> {
-  try {
-    const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
-    return products?.find((p) => p.id === id) ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(req: Request) {
   const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, connected: false });
@@ -55,7 +45,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "価格(USD)を入力してください。" }, { status: 400 });
   }
 
-  const product = await getProduct(body.productId);
+  const product = await getProductById(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
   const title = (body.title || product.coreKeyword || product.title).slice(0, 80);

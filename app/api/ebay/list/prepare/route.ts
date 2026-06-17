@@ -1,8 +1,7 @@
 import { getActorId } from "../../../../lib/auth/actor";
 import { kv } from "@vercel/kv";
-import { kvReadOnly } from "../../../../lib/kv";
+import { getProductById } from "../../../../lib/ebay/productStore";
 import { aiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
-import { ProfitProduct } from "../../../../lib/profitFilter";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getAppAccessToken } from "../../../../lib/ebay/oauth";
 import {
@@ -22,15 +21,6 @@ const EBAY_FEE_FIXED_JPY = 47;
 // 楽天画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function getProduct(id: string): Promise<ProfitProduct | null> {
-  try {
-    const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
-    return products?.find((p) => p.id === id) ?? null;
-  } catch {
-    return null;
-  }
-}
 
 // Item Specifics の初期値。Brand はジャンル別に別途整える。
 // 必須も推奨(任意)も「選択肢が多すぎる」ため、無難な既定を自動で入れておく（ユーザーは画面で変更可）。
@@ -231,7 +221,7 @@ export async function POST(req: Request) {
   const { productId } = (await req.json().catch(() => ({}))) as { productId?: string };
   if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  const product = await getProduct(productId);
+  const product = await getProductById(productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
   // 既定の表示価格＝eBay最安ベース(realAvgPrice)。売り方「相場/はやく」は中央値を基準にするため medianUsd も返す。
