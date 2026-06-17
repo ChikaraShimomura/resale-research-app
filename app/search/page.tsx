@@ -69,11 +69,12 @@ export default function SearchPage() {
 
   // 自分が出品済みの商品は本人の一覧から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
   // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
-  const visible = products.filter(p => !listedIds.has(p.id) && !accountListedIds.has(p.id));
+  // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
+  const visible = products.filter(p => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
   const hotCount = visible.filter(p => p.realProfitRate >= 30).length;
   // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在。
   // 「SOLD除外」でも自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない）。
-  const baseList = hideSold ? visible.filter(p => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(visible);
+  const baseList = hideSold ? visible.filter(p => !isSold(p) || unlockedIds.has(p.id) || p.restored) : withSoldDummies(visible);
   // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
   const sortedProducts = pinUnlockedFirst(sortProducts(baseList, sortOrder), unlockedIds);
   // ヘッダー件数は実表示数に合わせる（SOLD除外時の過大表示を防ぐ）

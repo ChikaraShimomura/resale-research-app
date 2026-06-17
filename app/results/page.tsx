@@ -89,16 +89,17 @@ function ResultsContent() {
   const sorted = useMemo(() => {
     // 自分が出品済みの商品は本人の検索結果から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
     // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
-    const visible = filtered.filter((p) => !listedIds.has(p.id) && !accountListedIds.has(p.id));
+    // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
+    const visible = filtered.filter((p) => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
     // 「SOLD除外」でも、自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない。ProductCardのsold判定と一致）
-    const base = hideSold ? visible.filter((p) => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(visible);
+    const base = hideSold ? visible.filter((p) => !isSold(p) || unlockedIds.has(p.id) || p.restored) : withSoldDummies(visible);
     const arr = sortProducts(base, sortOrder);
     // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
     let ordered: ProfitProduct[];
     if (soldIds.size === 0) {
       ordered = arr;
     } else if (hideSold) {
-      ordered = arr.filter((p) => !soldIds.has(p.id));
+      ordered = arr.filter((p) => !soldIds.has(p.id) || p.restored);
     } else {
       const live = arr.filter((p) => !soldIds.has(p.id));
       const sold = arr.filter((p) => soldIds.has(p.id));
