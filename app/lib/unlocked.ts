@@ -35,14 +35,14 @@ export function readListedIds(): Set<string> {
   return ids;
 }
 
-// アクティブ（仕入れ中）の商品を先頭へ固定する。売却済みは対象外、それ以外の並びは維持。
-export function pinUnlockedFirst<T extends { id: string }>(
+// アクティブ（仕入れ中）の商品＋運営が手動復活した商品を先頭へ固定する。売却済みは対象外、それ以外の並びは維持。
+// 復活商品(restored)はニッチ等でおすすめ順だと埋もれるため、確実に見つかるよう先頭に出す。
+export function pinUnlockedFirst<T extends { id: string; restored?: boolean }>(
   products: T[],
   unlockedIds: Set<string>,
   soldIds?: Set<string>
 ): T[] {
-  if (unlockedIds.size === 0) return products;
-  const isPinned = (p: T) => unlockedIds.has(p.id) && !soldIds?.has(p.id);
+  const isPinned = (p: T) => (unlockedIds.has(p.id) || p.restored === true) && !soldIds?.has(p.id);
   const pinned = products.filter(isPinned);
   if (pinned.length === 0) return products;
   return [...pinned, ...products.filter((p) => !isPinned(p))];

@@ -11,4 +11,5 @@ export interface ProfitProduct extends Product {
   matchedEbayUrl?: string;      // 画像照合で一致したeBay出品のURL（「相場を確認」を確実に同一商品へ）
   matchedEbayImageUrl?: string; // 同・画像（監査用）
   matchedEbayTitle?: string;    // 同・タイトル（監査・相場絞り込み用）
+  restored?: boolean;           // 運営が手動で復活させた商品（一覧の先頭に固定して見つけやすくする）
 }
