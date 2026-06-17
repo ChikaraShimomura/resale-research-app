@@ -1,0 +1,26 @@
+name: Diagnose product (read-only KV)
+
+# 1商品IDが本番KVのどこに在るか（sourcing/deals/restored）を調べる読み取り専用の診断。書き込みなし。
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: '楽天itemCode（例: moon-f:10000033）'
+        required: true
+        type: string
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Diagnose
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          DIAG_ID:           ${{ inputs.id }}
+        run: node scripts/diag_product.mjs
