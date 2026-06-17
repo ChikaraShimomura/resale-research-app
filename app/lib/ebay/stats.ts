@@ -170,13 +170,18 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
   return { live, sold };
 }
 
-// 「自分が出品/販売した商品ID」をまとめて返す（ebay_deals の全キー＝カタログ非依存）。
-// 検索一覧で本人の出品済みを隠す（出品中一覧へ"移す"）のに使う。ログイン時は actor=acct:{uuid} なので
-// アカウントに紐づき、別端末でも同じIDが返る。
+// 「実際に出品中(公開済み) or 売却済みの商品ID」を返す。検索一覧で本人の出品済みを隠す／仕入れ中一覧から
+// 除外する、の両方で使う。ログイン時は actor=acct:{uuid} なのでアカウントに紐づき別端末でも同じIDが返る。
+// 重要: deal のキーがあっても sku_map が無く未売却の“幽霊deal”(eBay連携の解除等で sku_map だけ消えた状態)は
+// 「出品済み」とみなさない。みなすと、その商品が検索からも仕入れ中からも消えてどのリストにも出なくなるため
+// （実際にはまた仕入れ/出品できる状態）。出品中(isPublished) か 売却済み(soldUsd) のものだけを返す。
 export async function listListedProductIds(actor: string): Promise<string[]> {
   try {
     const deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
-    return Object.keys(deals);
+    const isPublished = await publishedFilter(actor);
+    return Object.entries(deals)
+      .filter(([id, d]) => d?.soldUsd != null || isPublished(id))
+      .map(([id]) => id);
   } catch {
     return [];
   }
