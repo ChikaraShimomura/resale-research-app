@@ -90,20 +90,29 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
     logEvent("rakuten_buy");
-    // 仕入れ中としてアカウントに記録（別端末でもマイページの仕入れ中一覧に出る／カタログ非依存のスナップショット保存）。
+    recordSourcing();
+  };
+
+  // 仕入れ中としてアカウントに記録（別端末でもマイページの仕入れ中一覧に出る／カタログ非依存のスナップショット保存）。
+  // スマホで楽天アプリへ遷移するとブラウザがバックグラウンド化し通常の fetch は中断されるため、
+  // ページ離脱でも確実に送れる sendBeacon を使う（不可なら keepalive 付き fetch にフォールバック）。
+  const recordSourcing = () => {
+    const body = JSON.stringify({
+      action: "add",
+      productId: product.id,
+      title: product.title,
+      imageUrl: product.imageUrl,
+      purchase: (source.price ?? 0) + (source.shippingJpy ?? 0),
+      points: source.pointAmount ?? 0,
+    });
     try {
-      fetch("/api/ebay/sourcing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "add",
-          productId: product.id,
-          title: product.title,
-          imageUrl: product.imageUrl,
-          purchase: (source.price ?? 0) + (source.shippingJpy ?? 0),
-          points: source.pointAmount ?? 0,
-        }),
-      }).catch(() => {});
+      if (typeof navigator !== "undefined" && navigator.sendBeacon &&
+          navigator.sendBeacon("/api/ebay/sourcing", new Blob([body], { type: "application/json" }))) {
+        return; // 送信キューに入った
+      }
+    } catch { /* fall through to fetch */ }
+    try {
+      fetch("/api/ebay/sourcing", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
     } catch { /* noop */ }
   };
 
