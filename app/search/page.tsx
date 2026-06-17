@@ -12,6 +12,7 @@ import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
 import { fetchListedIds } from "../lib/ebayListed";
+import { readSort, writeSort, readHideSold, writeHideSold } from "../lib/prefs";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
@@ -31,6 +32,8 @@ export default function SearchPage() {
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
+    setSortOrder(readSort());        // 前回の並び替えを復元（ページ移動で初期化されないように）
+    setHideSold(readHideSold());     // 前回のSOLD除外も復元
     setUnlockedIds(readUnlockedIds());
     setListedIds(readListedIds());
     fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
@@ -159,7 +162,12 @@ export default function SearchPage() {
               <p className="text-[11px] text-gray-400 mt-0.5">{updatedLabel}</p>
             )}
           </div>
-          <ListControls sortOrder={sortOrder} onSortChange={setSortOrder} hideSold={hideSold} onHideSoldChange={setHideSold} />
+          <ListControls
+            sortOrder={sortOrder}
+            onSortChange={(v) => { setSortOrder(v); writeSort(v); }}
+            hideSold={hideSold}
+            onHideSoldChange={(v) => { setHideSold(v); writeHideSold(v); }}
+          />
         </div>
 
         <div className="px-0">

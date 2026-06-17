@@ -60,6 +60,17 @@ textarea {
   font-size: 16px;
 }
 
+/* タップの反応を速く：ダブルタップ・ズーム由来の遅延(約300ms)を無効化し、押下が即座に反映されるように。
+   操作対象に限定して付ける（本文の通常スクロール/ピンチズームには影響させない）。 */
+a, button, select, label, summary, [role="button"],
+input[type="checkbox"], input[type="radio"], input[type="submit"] {
+  touch-action: manipulation;
+}
+/* タップハイライトを消している分、押した瞬間の視覚フィードバックを補う（個別の active: 指定があれば併用される）。 */
+button:active, [role="button"]:active, a:active, label:active {
+  opacity: 0.88;
+}
+
 /* スクロール可能なコンテナに慣性スクロール */
 .overflow-y-auto,
 .overflow-y-scroll {

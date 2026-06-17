@@ -13,6 +13,7 @@ import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
 import { fetchListedIds } from "../lib/ebayListed";
+import { readSort, writeSort, readHideSold, writeHideSold } from "../lib/prefs";
 import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
@@ -64,6 +65,8 @@ function ResultsContent() {
     const refreshUnlocked = () => setUnlockedIds(readUnlockedIds());
     const refreshAll = () => { setUnlockedIds(readUnlockedIds()); setListedIds(readListedIds()); };
     refreshAll();
+    setSortOrder(readSort());     // 前回の並び替えを復元（ページ移動で初期化されないように）
+    setHideSold(readHideSold());  // 前回のSOLD除外も復元
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     window.addEventListener("rkt-changed", refreshUnlocked); // 同一タブの仕入れ/出品
     window.addEventListener("storage", refreshAll); // 別タブ
@@ -164,7 +167,12 @@ function ResultsContent() {
           {updatedLabel && <p className="text-[10px] text-gray-400 mt-0.5">{updatedLabel}</p>}
         </div>
 
-        <ListControls sortOrder={sortOrder} onSortChange={setSortOrder} hideSold={hideSold} onHideSoldChange={setHideSold} />
+        <ListControls
+          sortOrder={sortOrder}
+          onSortChange={(v) => { setSortOrder(v); writeSort(v); }}
+          hideSold={hideSold}
+          onHideSoldChange={(v) => { setHideSold(v); writeHideSold(v); }}
+        />
       </div>
 
       <main className="max-w-2xl mx-auto">
