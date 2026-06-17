@@ -21,13 +21,11 @@ import sys
 import json
 import time
 import random
-import smtplib
 import tweepy
 import requests
 import anthropic
 from io import BytesIO
 from datetime import datetime
-from email.mime.text import MIMEText
 from urllib.parse import quote
 import pytz
 
@@ -82,18 +80,22 @@ READABILITY = (
 
 
 def send_alert_email(subject: str, body: str):
-    gmail_user = os.environ.get("GMAIL_USERNAME", "")
-    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD", "")
-    if not gmail_user or not gmail_pass:
+    # メール送信は Resend に一本化（app/lib/email.ts と同じ経路・差出人）。
+    # RESEND_API_KEY 未設定の環境では送信せずスキップ（非破壊）。
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
         return
+    mail_from = os.environ.get("MAIL_FROM") or "輸出ラボ <noreply@yushutsu-fukugyo.com>"
+    mail_to = os.environ.get("REPORT_TO") or "chikara0323@gmail.com"
     try:
-        msg = MIMEText(body, "plain", "utf-8")
-        msg["Subject"] = subject
-        msg["From"] = f"輸出ラボBot <{gmail_user}>"
-        msg["To"] = "chikara0323@gmail.com"
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(gmail_user, gmail_pass)
-            smtp.send_message(msg)
+        res = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": mail_from, "to": mail_to, "subject": subject, "text": body},
+            timeout=15,
+        )
+        if res.status_code >= 300:
+            print(f"  メール送信失敗: {res.status_code} {res.text[:200]}")
     except Exception as e:
         print(f"  メール送信失敗: {e}")
 

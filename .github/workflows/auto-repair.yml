@@ -7,7 +7,7 @@ name: Auto-repair (Claude self-heal)
 #  ③ 毎回メール通知（結果・差分・元に戻すコマンド）。
 #  ④ 報告は consume で取り込み済みにし二重修正を防止／Claudeは最小変更・git/secret/CIに触れない。
 #
-# 必要シークレット: ANTHROPIC_API_KEY / GMAIL_USERNAME / GMAIL_APP_PASSWORD（既存）＋
+# 必要シークレット: ANTHROPIC_API_KEY / RESEND_API_KEY（メール通知・既存）＋
 #   CRON_SECRET（GitHub Secret に追加。値は Vercel の CRON_SECRET と同一にする）。
 #   ※ CRON_SECRET 未設定なら報告APIが401→何もせず終了（安全な無効状態）。
 
