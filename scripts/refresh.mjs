@@ -482,6 +482,37 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
   } catch { return true; }
 }
 
+// 既存商品(コスメ/フィギュア)を確信ゲートで再判定する。'same'(HIGH一致)/'different'(別物確定)/'unknown'(不通/予算切れ/取得不可)。
+// 'different' の時だけ呼び出し側で除去する。'unknown' は落とさない＝確認できないものを誤って消さない(安全側)。
+// existingIdsスキップで新規時しか効かないゲートを、保存済みの照合先画像で既存にも適用するために使う。
+async function revalidateStrict(rakUrl, ebayUrl, rTitle, eTitle) {
+  if (!rakUrl || !ebayUrl) return 'unknown';
+  const cacheKey = `img_match5:${ebayQueryHash(rakUrl + ebayUrl)}`;
+  const cached = await kvGet(cacheKey);
+  if (cached !== null) return (cached === true || cached === 'true') ? 'same' : 'different';
+  let img;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(upscaleRakuten(rakUrl), { signal: AbortSignal.timeout(6000) }),
+      fetch(upscaleEbay(ebayUrl), { signal: AbortSignal.timeout(6000) }),
+    ]);
+    if (!r1.ok || !r2.ok) return 'unknown';
+    const [a1, a2] = await Promise.all([r1.arrayBuffer(), r2.arrayBuffer()]);
+    img = {
+      b1: Buffer.from(a1).toString('base64'), mt1: r1.headers.get('content-type') ?? 'image/jpeg',
+      b2: Buffer.from(a2).toString('base64'), mt2: r2.headers.get('content-type') ?? 'image/jpeg',
+    };
+  } catch { return 'unknown'; }
+  const hai = await haikuStrict(img, rTitle, eTitle, null);
+  if (hai === null) return 'unknown';                                    // Anthropic不通→落とさない
+  if (hai === false) { await kvSet(cacheKey, false, 720 * 3600); return 'different'; }
+  if (sonnetCallsToday >= MAX_SONNET_PER_RUN) return 'unknown';          // 予算切れ→落とさない(次回再判定)
+  const son = await sonnetStrict(img, rTitle, eTitle, null, true);       // requireHigh
+  if (son === null) return 'unknown';                                    // 不通→落とさない
+  await kvSet(cacheKey, son, 720 * 3600);
+  return son ? 'same' : 'different';
+}
+
 // ========== eBay OAuth トークン（Browse API用） ==========
 let ebayTokenCache = null;
 async function getEbayToken() {
@@ -1148,6 +1179,24 @@ async function main() {
     });
     const dropped = before - dedupedProducts.length;
     if (dropped) console.log(`  🧹 互換部品/セット/中古/数量違い/価格比異常の誤マッチを除外: ${dropped}件`);
+  }
+
+  // 既存のコスメ/フィギュアを確信ゲートで再判定し、別物と確定したものだけ除去する。
+  // (existingIdsスキップで新規時しか効かないゲートを、保存済み照合先画像で既存にも適用。リセット不要)
+  // 'unknown'(確認不能)は落とさない＝安全側。判定はv5キャッシュに残るので次回以降は無料。
+  {
+    const before = dedupedProducts.length;
+    const kept = [];
+    for (const p of dedupedProducts) {
+      if ((p.category === 'コスメ' || p.category === 'フィギュア') && p.imageUrl && p.matchedEbayImageUrl) {
+        const v = await revalidateStrict(p.imageUrl, p.matchedEbayImageUrl, p.title || '', p.matchedEbayTitle || '');
+        if (v === 'different') continue; // 別物確定→除去（確信HIGHで同一と取れなかったコスメ/フィギュア）
+      }
+      kept.push(p);
+    }
+    dedupedProducts = kept;
+    const dropped = before - dedupedProducts.length;
+    if (dropped) console.log(`  🧹 コスメ/フィギュアを確信ゲートで再判定し別物を除去: ${dropped}件`);
   }
 
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
