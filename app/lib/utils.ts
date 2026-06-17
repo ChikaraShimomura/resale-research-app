@@ -1,8 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-const RAKUTEN_AFFILIATE_ID = "1dd48768.9ee55924.1dd48769.68843b7c";
-
 // http/https のURLのみ許可。javascript:/data: 等のスキームは空文字を返す（DOM-XSS対策）。
 // スクレイピング由来の値が href/src に入るため全ての外部リンクをこれでゲートする。
 export function safeHttpUrl(url: string | undefined | null): string {
@@ -15,11 +13,24 @@ export function safeHttpUrl(url: string | undefined | null): string {
   }
 }
 
-export function toRakutenAffiliateUrl(productUrl: string): string {
+// 楽天商品ページへの「非アフィリエイトの直リンク」を返す。
+// 【方針】当サービスは転売支援のため、楽天アフィリエイト規約（せどり・転売促進サイトへのアフィリリンク掲載禁止）
+// に抵触しないよう、楽天アフィリエイトから撤退。リンクは成果報酬の付かない直リンクにする。
+// 既存データの source.url はアフィリ中継URL(hb.afl.rakuten.co.jp/.../?pc=<直URL>)なので、pc= の直URLを取り出す。
+export function toRakutenProductUrl(productUrl: string): string {
   const safe = safeHttpUrl(productUrl);
   if (!safe) return "";
-  const encoded = encodeURIComponent(safe);
-  return `https://hb.afl.rakuten.co.jp/hgc/${RAKUTEN_AFFILIATE_ID}/?pc=${encoded}&link_type=text`;
+  try {
+    const u = new URL(safe);
+    // 楽天アフィリ中継(hb.afl 等の /hgc, /hsc) → pc= に入っている元の商品URL(直リンク)を返す。
+    if (/(^|\.)rakuten\.co\.jp$/i.test(u.hostname) && (u.pathname.startsWith("/hgc") || u.pathname.startsWith("/hsc"))) {
+      const pc = u.searchParams.get("pc");
+      if (pc) return safeHttpUrl(pc) || safe;
+    }
+    return safe; // 既に直リンク（item.rakuten.co.jp 等）
+  } catch {
+    return safe;
+  }
 }
 
 export function cn(...inputs: ClassValue[]) {

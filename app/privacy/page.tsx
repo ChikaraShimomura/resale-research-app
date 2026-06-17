@@ -7,7 +7,7 @@ import { PRIVACY_MD } from "./content";
 export const metadata: Metadata = {
   title: "プライバシーポリシー",
   description:
-    "輸出ラボのプライバシーポリシー。取得する情報・Cookie・アクセス解析(Google Analytics)・eBay連携・楽天アフィリエイト・第三者提供・外部送信などの取り扱いについて。",
+    "輸出ラボのプライバシーポリシー。取得する情報・Cookie・アクセス解析(Google Analytics)・eBay連携・第三者提供・外部送信などの取り扱いについて。",
   alternates: { canonical: "https://www.yushutsu-fukugyo.com/privacy" },
 };
 

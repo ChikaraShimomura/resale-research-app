@@ -1,9 +1,6 @@
-import { toRakutenAffiliateUrl } from "./utils";
-
 // 楽天SPU対象サービスの共有設定（ガイドの「始める前の準備」とホームのチップ両方で使う）。
-// リンク優先順位: env(他ASPの差し替え用) > 楽天アフィリのグループ広告(既存ID自動生成) > 公式ページ(成果なしフォールバック)。
-// rakutenAffi=true は楽天アフィリエイトのグループ広告対象(カード/モバイル/トラベル/ブックス/Kobo)。
-// 銀行/証券/ひかり/ラクマは楽天アフィリのグループ広告に無い→env(A8/JANet等)が入るまで公式リンク。
+// 【方針】楽天アフィリエイトから撤退（転売支援サイトへのアフィリリンク掲載は楽天規約で禁止のため）。
+// リンクはすべて成果報酬の付かない「公式ページへの直リンク」にする＝情報提供のみ。envやrakutenAffiは未使用。
 export interface RakutenSvc {
   key: string;
   name: string; // 楽天カード
@@ -22,17 +19,13 @@ export const RAKUTEN_SERVICES: RakutenSvc[] = [
     key: "card", name: "楽天カード", short: "カード", tag: "まずこれ（土台）", chipTag: "土台",
     benefit: "仕入れの支払いを楽天カードにするだけで楽天市場が+1倍（通常分は上限なし）。準備の土台です。",
     primary: true, official: "https://www.rakuten-card.co.jp/",
-    // 楽天アフィリのグループ広告 正規リンク(サービス専用ID・hsc形式)。env未設定時はこれを使用。
-    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_CARD_AFF_URL || "https://hb.afl.rakuten.co.jp/hsc/54f5d1a7.a32daa20.1deca9b4.e6f7a9be/?link_type=text&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJ0ZXh0IiwiY29sIjoxLCJjYXQiOjEsImJhbiI6Im5hbWUiLCJhbXAiOmZhbHNlfQ%3D%3D",
-    rakutenAffi: true,
+    envUrl: "", rakutenAffi: false,
   },
   {
     key: "mobile", name: "楽天モバイル", short: "モバイル", tag: "仕入れが増えたら", chipTag: "+4倍",
     benefit: "スマホを楽天モバイルにすると楽天市場が+4倍（月5万円ぶんまで）。月額がかかるので無理のない範囲で。",
     primary: true, official: "https://network.mobile.rakuten.co.jp/",
-    // 楽天アフィリのグループ広告 正規リンク(サービス専用ID・hsc形式)。A8に替えるなら env を設定。
-    envUrl: process.env.NEXT_PUBLIC_RAKUTEN_MOBILE_AFF_URL || "https://hb.afl.rakuten.co.jp/hsc/54f5c4f3.dd48333e.1deca9b4.e6f7a9be/?link_type=text&rafst=rmn&ut=eyJwYWdlIjoic2hvcCIsInR5cGUiOiJ0ZXh0IiwiY29sIjoxLCJjYXQiOjEsImJhbiI6Im5hbWUiLCJhbXAiOmZhbHNlfQ%3D%3D",
-    rakutenAffi: true,
+    envUrl: "", rakutenAffi: false,
   },
   {
     key: "bank", name: "楽天銀行", short: "銀行", tag: "ノーコストで+0.3倍", chipTag: "+0.3倍",
@@ -78,9 +71,7 @@ export const RAKUTEN_SERVICES: RakutenSvc[] = [
   },
 ];
 
-// リンクと「広告」表記の要否を解決。
+// リンクと「広告」表記の要否を解決。楽天アフィリ撤退により、常に公式ページへの直リンク（成果報酬なし＝広告表記不要）。
 export function resolveRakutenLink(s: RakutenSvc): { url: string; ad: boolean } {
-  if (s.envUrl) return { url: s.envUrl, ad: true };
-  if (s.rakutenAffi) return { url: toRakutenAffiliateUrl(s.official), ad: true };
   return { url: s.official, ad: false };
 }

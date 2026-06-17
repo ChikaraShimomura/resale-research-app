@@ -1392,7 +1392,7 @@ async function main() {
             site: 'rakuten',
             siteName: '楽天',
             price: rakutenItem.itemPrice,
-            url: rakutenItem.affiliateUrl || rakutenItem.itemUrl,
+            url: rakutenItem.itemUrl || rakutenItem.affiliateUrl, // 楽天アフィリ撤退：直リンク(itemUrl)を保存
             pointRate,
             pointAmount,
             shippingJpy: shipJpy,                               // 利益計算に算入済みの国内送料概算

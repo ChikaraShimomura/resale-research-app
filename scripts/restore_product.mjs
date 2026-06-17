@@ -211,7 +211,7 @@ async function kvPipeline(cmds) {
     category,
     source: {
       site: 'rakuten', siteName: '楽天', price: it.itemPrice,
-      url: it.affiliateUrl || it.itemUrl,
+      url: it.itemUrl || it.affiliateUrl, // 楽天アフィリ撤退：直リンク(itemUrl)を保存
       pointRate, pointAmount, shippingJpy: shipJpy,
       postageIncluded: Number(it.postageFlag) === 0,
     },

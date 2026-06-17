@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
-import { formatJpy, toRakutenAffiliateUrl } from "../lib/utils";
+import { formatJpy, toRakutenProductUrl } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
@@ -238,7 +238,7 @@ export default function EbayListingModal({
     setPurchaseBlocked(false);
     logEvent("rakuten_buy");
     if (typeof window !== "undefined") {
-      window.open(toRakutenAffiliateUrl(product.source.url), "_blank", "noopener,noreferrer");
+      window.open(toRakutenProductUrl(product.source.url), "_blank", "noopener,noreferrer");
     }
   };
 
