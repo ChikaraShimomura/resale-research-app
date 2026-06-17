@@ -43,7 +43,6 @@ export default function RegisterPage() {
         <div className="mt-4 text-sm text-center">
           <Link href="/login" className="text-[#BF0000] font-medium">すでにアカウントをお持ちの方</Link>
         </div>
-        <Link href="/search" className="block text-center mt-4 text-xs text-gray-400">登録せずに使う（ゲスト）</Link>
       </div>
     </main>
   );

@@ -46,7 +46,6 @@ export default function LoginPage() {
           <Link href="/register" className="text-[#BF0000] font-medium">新規登録</Link>
           <Link href="/reset-password" className="text-gray-500">パスワードを忘れた</Link>
         </div>
-        <Link href="/search" className="block text-center mt-4 text-xs text-gray-400">登録せずに使う（ゲスト）</Link>
       </div>
     </main>
   );

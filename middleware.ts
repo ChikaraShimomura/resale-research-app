@@ -5,6 +5,18 @@ const isDev = process.env.NODE_ENV !== "production";
 // 認証(Supabase)を有効化したとき、ブラウザSupabaseクライアントのfetchをCSPで許可するためのオリジン。
 // 未設定なら connect-src は従来どおり（＝認証OFFでCSPは一切変わらない）。
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// 全サイト ログインゲート（会員登録必須）。Supabase が設定済みの時だけ有効化する＝
+// 未設定だと登録/ログインが動かないため、ゲートすると全員締め出し（サイト死亡）になる。それを防ぐ安全装置。
+const LOGIN_GATE = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
+// 未ログインでも到達できる公開パス（認証・法務・PWA資産・紹介リンク）。これ以外は会員登録へ誘導。
+function isPublicPath(pathname: string): boolean {
+  if (pathname === "/login" || pathname === "/register" || pathname === "/reset-password") return true;
+  if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
+  if (pathname === "/privacy" || pathname === "/sorry") return true;
+  if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
+  return false;
+}
 
 // per-request nonce を使った CSP を組み立てる。
 // GA4 はホスト許可（googletagmanager）+ インラインスクリプトに nonce で対応する。
@@ -37,6 +49,18 @@ export function middleware(req: NextRequest) {
     pathname !== "/sorry"
   ) {
     return NextResponse.rewrite(new URL("/sorry", req.url));
+  }
+
+  // 全サイト ログインゲート：会員登録(=Supabaseセッション)が無ければ /register へ。
+  // ページ(HTML)のみ対象。APIは各自で認証/CSRFを処理。Supabase未設定時は LOGIN_GATE=false で無効（ロックアウト防止）。
+  if (LOGIN_GATE && !pathname.startsWith("/api/") && !isPublicPath(pathname)) {
+    const hasSession = req.cookies.getAll().some((c) => c.name.startsWith("sb-"));
+    if (!hasSession) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/register";
+      url.search = "?from=gate";
+      return NextResponse.redirect(url);
+    }
   }
 
   // API への状態変更リクエストは同一オリジン必須（CSRF / 外部からの spam 対策）。
