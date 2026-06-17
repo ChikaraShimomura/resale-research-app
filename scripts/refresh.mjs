@@ -1188,7 +1188,7 @@ async function main() {
     const before = dedupedProducts.length;
     const kept = [];
     for (const p of dedupedProducts) {
-      if ((p.category === 'コスメ' || p.category === 'フィギュア') && p.imageUrl && p.matchedEbayImageUrl) {
+      if ((p.category === 'コスメ' || p.category === 'フィギュア' || p.category === 'ガンプラ') && p.imageUrl && p.matchedEbayImageUrl) {
         const v = await revalidateStrict(p.imageUrl, p.matchedEbayImageUrl, p.title || '', p.matchedEbayTitle || '');
         if (v === 'different') continue; // 別物確定→除去（確信HIGHで同一と取れなかったコスメ/フィギュア）
       }
@@ -1196,7 +1196,7 @@ async function main() {
     }
     dedupedProducts = kept;
     const dropped = before - dedupedProducts.length;
-    if (dropped) console.log(`  🧹 コスメ/フィギュアを確信ゲートで再判定し別物を除去: ${dropped}件`);
+    if (dropped) console.log(`  🧹 コスメ/フィギュア/ガンプラを確信ゲートで再判定し別物を除去: ${dropped}件`);
   }
 
   // 既存商品の相場を「eBay最安値ベース」に再評価（早く売る前提の正直な利益表示）。中央値は併記用に保持。
@@ -1308,7 +1308,7 @@ async function main() {
       if (rQty !== quantityOf(ebayItem.title)) continue;
 
       // コスメ/フィギュアは誤マッチが多い(世代/容量/バリエ/プライズ)。確定除外＋画像は確信HIGHのみ採用(確信ゲート)。
-      const risky = (cat === 'コスメ' || cat === 'フィギュア');
+      const risky = (cat === 'コスメ' || cat === 'フィギュア' || cat === 'ガンプラ');
       if (risky && sizeMismatch(rakutenItem.itemName, ebayItem.title)) continue; // 容量/サイズ/スケール違いは別物
       if (cat === 'フィギュア' && PRIZE_RE.test(rakutenItem.itemName)) continue;   // プライズ/景品/一番くじ(非可動の安物)を除外
 
