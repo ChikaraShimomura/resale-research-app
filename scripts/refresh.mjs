@@ -1146,7 +1146,7 @@ async function main() {
   console.log(`  既存DB: ${existingProducts.length}件 / チェック済み: ${checkedIds.size}件`);
 
   // 未処理のeBayアイテムに絞り込み（eBayタイトルハッシュをIDとして管理）
-  const MAX_PROCESS = 400;
+  const MAX_PROCESS = Number(process.env.MAX_PROCESS) || 400; // 1実行あたり処理するeBay新規件数。poolの埋め戻し時はenvで一時的に上げる。
   const CONCURRENCY = 5;
 
   const toProcess = ebayJpItems.filter(item => {
