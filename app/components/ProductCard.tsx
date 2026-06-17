@@ -90,6 +90,21 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
     logEvent("rakuten_buy");
+    // 仕入れ中としてアカウントに記録（別端末でもマイページの仕入れ中一覧に出る／カタログ非依存のスナップショット保存）。
+    try {
+      fetch("/api/ebay/sourcing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add",
+          productId: product.id,
+          title: product.title,
+          imageUrl: product.imageUrl,
+          purchase: (source.price ?? 0) + (source.shippingJpy ?? 0),
+          points: source.pointAmount ?? 0,
+        }),
+      }).catch(() => {});
+    } catch { /* noop */ }
   };
 
   // 「楽天で仕入れる」を押した端末(=仕入れ中)には SOLD を出さない。仕入れ途中で他人の出品が増えて

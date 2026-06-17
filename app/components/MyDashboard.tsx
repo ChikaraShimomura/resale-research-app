@@ -256,6 +256,8 @@ export default function MyDashboard() {
             画像つきの始め方ガイドを見る →
           </Link>
         </div>
+        {/* まだ出品はしていなくても、仕入れ中の商品があれば一覧で操作できるようにする（無ければ自動で非表示） */}
+        <MyListings onChanged={loadStats} />
       </div>
     );
   }

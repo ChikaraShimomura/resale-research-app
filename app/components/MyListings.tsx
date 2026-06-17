@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp, ImagePlus, RotateCw } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, ImagePlus, RotateCw, ExternalLink, Check } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import EbayListingModal from "./EbayListingModal";
 
+interface SourcingDeal { id: string; title: string; imageUrl: string; purchase: number; purchased: boolean }
 interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
@@ -44,8 +45,10 @@ function Section({ title, count, open, onToggle, children }: { title: string; co
 // マイページの「出品中の商品」と「輸出した商品（売れた）」。どちらもクリックで開閉、既定は閉じる。
 // 出品をやめた → 成績から外す／実は売れていた → 売れた金額(円)で記録（→輸出した側へ移動）。
 export default function MyListings({ onChanged }: { onChanged?: () => void }) {
+  const [sourcing, setSourcing] = useState<SourcingDeal[] | null>(null);
   const [live, setLive] = useState<LiveDeal[] | null>(null);
   const [sold, setSold] = useState<SoldDeal[] | null>(null);
+  const [openSourcing, setOpenSourcing] = useState(false);
   const [openLive, setOpenLive] = useState(false);
   const [openSold, setOpenSold] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,17 +73,34 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   };
 
   const load = () =>
-    fetch("/api/ebay/deals", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        setLive(j.ok ? j.live : []);
-        setSold(j.ok ? j.sold : []);
-      })
-      .catch(() => {
-        setLive([]);
-        setSold([]);
-      });
+    Promise.all([
+      fetch("/api/ebay/deals", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => { setLive(j.ok ? j.live : []); setSold(j.ok ? j.sold : []); })
+        .catch(() => { setLive([]); setSold([]); }),
+      fetch("/api/ebay/sourcing", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((s) => setSourcing(s.ok ? s.items : []))
+        .catch(() => setSourcing([])),
+    ]);
   useEffect(() => { load(); }, []);
+
+  // 仕入れ中の操作：仕入れた（購入済みの印を付けて残す）／やめた（仕入れ中から外す）。
+  const srcAct = async (productId: string, action: "purchased" | "remove") => {
+    setBusy(productId);
+    try {
+      await fetch("/api/ebay/sourcing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, productId }),
+      });
+      await load();
+      onChanged?.();
+    } catch {
+      /* noop */
+    }
+    setBusy(null);
+  };
 
   const act = async (productId: string, action: "remove" | "sold", extra?: { soldJpy: number }) => {
     setBusy(productId);
@@ -102,13 +122,65 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
     setBusy(null);
   };
 
-  if (live === null || sold === null) return null; // 読み込み中
+  if (sourcing === null || live === null || sold === null) return null; // 読み込み中
+  const hasSourcing = sourcing.length > 0;
   const hasLive = live.length > 0;
   const hasSold = sold.length > 0;
-  if (!hasLive && !hasSold) return null;
+  if (!hasSourcing && !hasLive && !hasSold) return null;
 
   return (
     <div className="space-y-3">
+      {hasSourcing && (
+        <Section title="仕入れ中の商品" count={sourcing.length} open={openSourcing} onToggle={() => setOpenSourcing((v) => !v)}>
+          <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+            「楽天で仕入れる」を押した商品です。買ったら<b className="text-gray-600">仕入れた</b>を、eBayに出すなら<b className="text-gray-600">出品</b>を押してください。
+          </p>
+          <ul className="divide-y divide-gray-100">
+            {sourcing.map((d) => (
+              <li key={d.id} className="py-1.5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Thumb url={d.imageUrl} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                      <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                        仕入れ {yen(d.purchase)}
+                        {d.purchased && <span className="ml-1.5 text-emerald-600 font-bold">✓ 仕入れ済み・出品待ち</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap pl-11">
+                    <button
+                      disabled={relistBusy === d.id}
+                      onClick={() => relist(d.id)}
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[10px] font-bold disabled:opacity-40 active:scale-[0.99]"
+                    >
+                      <ExternalLink size={12} /> {relistBusy === d.id ? "準備中…" : "出品"}
+                    </button>
+                    {!d.purchased && (
+                      <button
+                        disabled={busy === d.id}
+                        onClick={() => srcAct(d.id, "purchased")}
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-40"
+                      >
+                        <Check size={12} /> 仕入れた
+                      </button>
+                    )}
+                    <button
+                      disabled={busy === d.id}
+                      onClick={() => { if (window.confirm("この商品を「仕入れ中」から外しますか？")) srcAct(d.id, "remove"); }}
+                      className="h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                    >
+                      やめた
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {hasLive && (
         <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
           <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">

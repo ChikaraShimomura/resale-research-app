@@ -8,6 +8,7 @@ import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay
 import { filterProductImages } from "../../../../lib/ebay/imageFilter";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { recordListed } from "../../../../lib/ebay/stats";
+import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
@@ -140,6 +141,12 @@ export async function POST(req: Request) {
       listedAt: new Date().toISOString(),
       listingId: result.listingId, // 「写真追加」でその出品へ直リンクするため公開IDを保存（再出品で変わったら更新）
     });
+    // 出品できたら「仕入れ中」からは外す（→ 出品中一覧へ移る）。
+    try {
+      await removeSourcing(actor, product.id);
+    } catch {
+      /* noop */
+    }
   }
 
   return Response.json(result);
