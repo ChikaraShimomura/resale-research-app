@@ -1,4 +1,5 @@
 import { kvReadOnly } from "./kv";
+import { getReferralStats } from "./referralServer";
 import {
   FUNNEL_EVENTS,
   FUNNEL_LABELS,
@@ -114,10 +115,11 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   const periodEnd = thisDates[0]; // 新しい方
   const periodStart = thisDates[thisDates.length - 1]; // 古い方
 
-  const [steps, prevSteps, signupSteps] = await Promise.all([
+  const [steps, prevSteps, signupSteps, referrals] = await Promise.all([
     fetchRangeStats(thisDates, FUNNEL_EVENTS, FUNNEL_LABELS),
     fetchRangeStats(prevDates, FUNNEL_EVENTS, FUNNEL_LABELS),
     fetchRangeStats(thisDates, SIGNUP_EVENTS, SIGNUP_LABELS), // 会員登録（線形ファネル外・別枠）
+    getReferralStats(), // 紹介経由（インフルエンサー）＝コード別の累計クリック/登録
   ]);
 
   const byEvent = (arr: StepStat[], ev: string): StepStat | undefined =>
@@ -172,6 +174,23 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
     })
     .join("");
 
+  // ── 紹介経由（インフルエンサー）＝コード別の累計クリック/登録（成果報酬の精算用） ──
+  const referralTotalSignups = referrals.reduce((a, r) => a + r.signups, 0);
+  const referralTotalClicks = referrals.reduce((a, r) => a + r.clicks, 0);
+  const referralRows = referrals.length
+    ? referrals
+        .map((r, i) => {
+          const zebra = i % 2 === 0 ? "#ffffff" : "#f8fafc";
+          return `
+      <tr style="background:${zebra}">
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-family:monospace;color:#111">${r.code}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#6b7280">${r.clicks}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#1d4ed8"><b>${r.signups}</b></td>
+      </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="3" style="padding:12px;text-align:center;font-size:12px;color:#9ca3af">まだ紹介経由の登録はありません</td></tr>`;
+
   const periodLabel = `${withWeekday(periodStart)} 〜 ${withWeekday(periodEnd)}`;
 
   const html = `
@@ -179,19 +198,23 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
     <h2 style="color:#BF0000;font-size:18px;margin:0 0 4px">📊 行動ログ週次レポート</h2>
     <p style="color:#6b7280;font-size:13px;margin:0 0 16px">${periodLabel}（日本時間・直近7日間）</p>
 
-    <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px 0;margin:0 -8px 16px">
+    <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 16px">
       <tr>
-        <td style="width:33%;background:#FFF5F5;border:1px solid #FEE2E2;border-radius:10px;padding:10px 12px;vertical-align:top">
-          <div style="font-size:11px;color:#991b1b">訪問（端末）</div>
-          <div style="font-size:22px;font-weight:800;color:#BF0000">${visits}</div>
+        <td style="width:25%;background:#FFF5F5;border:1px solid #FEE2E2;border-radius:10px;padding:10px;vertical-align:top">
+          <div style="font-size:10px;color:#991b1b">訪問（端末）</div>
+          <div style="font-size:20px;font-weight:800;color:#BF0000">${visits}</div>
         </td>
-        <td style="width:33%;background:#F0FDF4;border:1px solid #DCFCE7;border-radius:10px;padding:10px 12px;vertical-align:top">
-          <div style="font-size:11px;color:#166534">出品完了</div>
-          <div style="font-size:22px;font-weight:800;color:#16a34a">${listed}</div>
+        <td style="width:25%;background:#F5F3FF;border:1px solid #EDE9FE;border-radius:10px;padding:10px;vertical-align:top">
+          <div style="font-size:10px;color:#5b21b6">登録（端末）</div>
+          <div style="font-size:20px;font-weight:800;color:#7c3aed">${signups}</div>
         </td>
-        <td style="width:33%;background:#EFF6FF;border:1px solid #DBEAFE;border-radius:10px;padding:10px 12px;vertical-align:top">
-          <div style="font-size:11px;color:#1e40af">売れた</div>
-          <div style="font-size:22px;font-weight:800;color:#1d4ed8">${sold}</div>
+        <td style="width:25%;background:#F0FDF4;border:1px solid #DCFCE7;border-radius:10px;padding:10px;vertical-align:top">
+          <div style="font-size:10px;color:#166534">出品完了</div>
+          <div style="font-size:20px;font-weight:800;color:#16a34a">${listed}</div>
+        </td>
+        <td style="width:25%;background:#EFF6FF;border:1px solid #DBEAFE;border-radius:10px;padding:10px;vertical-align:top">
+          <div style="font-size:10px;color:#1e40af">売れた</div>
+          <div style="font-size:20px;font-weight:800;color:#1d4ed8">${sold}</div>
         </td>
       </tr>
     </table>
@@ -231,6 +254,21 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
       ・「合計」＝期間内にログイン/登録した端末数。「└ ◯◯経由」＝そのナッジのリンクから登録に至った内訳。<br>
     </p>
 
+    <h3 style="color:#1d4ed8;font-size:14px;margin:18px 0 6px">🔗 紹介経由（インフルエンサー・累計）</h3>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #f0f0f0;border-radius:8px;overflow:hidden">
+      <thead>
+        <tr style="background:#EFF6FF">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#1e40af;font-weight:600">コード</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#1e40af;font-weight:600">クリック</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#1e40af;font-weight:600">登録(成果)</th>
+        </tr>
+      </thead>
+      <tbody>${referralRows}</tbody>
+    </table>
+    <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;line-height:1.6">
+      ・<b>累計</b>の値です（/r/コード のクリックと、その後の新規登録）。成果報酬は「登録(成果)」基準で、前回支払い済みの分を差し引いて精算してください。
+    </p>
+
     <p style="font-size:11px;color:#9ca3af;margin:14px 0 0;line-height:1.6">
       ・「回数」＝直近7日の延べイベント数、「端末数」＝7日のユニーク端末（cookie・和集合）数。<br>
       ・「直前比」「訪問比」はユニーク端末ベースの継続率。<br>
@@ -251,6 +289,11 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
     "",
     "会員登録（ログイン）",
     ...signupSteps.map((s) => `・${s.label}: ${s.unique}端末 / ${s.count}回`),
+    "",
+    `紹介経由（累計）: 登録${referralTotalSignups}件 / クリック${referralTotalClicks}`,
+    ...(referrals.length
+      ? referrals.map((r) => `・${r.code}: 登録${r.signups}件 / クリック${r.clicks}`)
+      : ["・まだ紹介経由の登録はありません"]),
   ]
     .filter(Boolean)
     .join("\n");
@@ -258,7 +301,7 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   return {
     periodStart,
     periodEnd,
-    subject: `📊 行動ログ週次 ${periodStart}〜${periodEnd}｜訪問${visits}・出品${listed}・売却${sold}`,
+    subject: `📊 行動ログ週次 ${periodStart}〜${periodEnd}｜訪問${visits}・登録${signups}・出品${listed}・売却${sold}`,
     html,
     text,
     summary: { visits, listed, sold, signups, bottleneck },
