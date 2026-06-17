@@ -112,6 +112,8 @@ const ACCESSORY_EXCLUDE_PATTERN = /クリアケース|カードローダー|ロ�
 const PART_EXCLUDE = /互換|社外|交換用|交換\s*(?:ベルト|バンド|ストラップ)|替え\s*(?:ベルト|バンド|ストラップ)|汎用|バネ棒|遊環|尾錠単体|NATO\s*(?:ベルト|ストラップ|バンド)|ZULU|(?:対応|適合|用)\s*(?:ベルト|バンド|ストラップ)/i;
 // 複数個セット/まとめ売り。単品のeBay出品と数量が食い違う誤マッチを防ぐ。
 const SET_EXCLUDE = /\d+\s*(?:点|個|本|体|枚)\s*セット|\d+\s*(?:点|個|本|体)\s*まとめ|まとめ売り|セット売り|\d+\s*個入り|詰め合わせ/i;
+// プライズ/景品/一番くじ等の非プレミアム品。可動S.H.Figuartsやスケール品と誤マッチしやすいので、フィギュアでは除外する。
+const PRIZE_RE = /プライズ|景品|一番くじ|一番クジ|アミューズメント|クレーンゲーム|ナムコ限定|セガ限定|ラッキーくじ|みんなのくじ/i;
 // 中古/ユーズド/ジャンク。新品eBay相場と比較すると利益が過大に見える誤検知の温床（精度監査で確認）。
 // 初心者向け・低リスク方針に合わせ、中古の楽天品はカタログから除外する。detectCondition と同じ語で判定。
 const USED_EXCLUDE = /中古|ユーズド|used|ジャンク/i;
@@ -395,8 +397,11 @@ async function anthropicVision(model, maxTokens, promptText, img) {
 }
 
 // strictMatchPrompt の応答を「同一(YES)かつ確信がLOWでない」かで判定。
-function parseStrictSame(text) {
-  return /SAME_VARIANT:\s*YES/i.test(text) && !/CONFIDENCE:\s*LOW/i.test(text);
+function parseStrictSame(text, requireHigh = false) {
+  if (!/SAME_VARIANT:\s*YES/i.test(text) || /CONFIDENCE:\s*LOW/i.test(text)) return false;
+  // 確信ゲート: コスメ/フィギュア等は MEDIUM も除外し HIGH のみ採用（世代/バリエ/容量違いの曖昧マッチを落とす）。
+  if (requireHigh && !/CONFIDENCE:\s*HIGH/i.test(text)) return false;
+  return true;
 }
 
 // Haiku で同一判定（下調べ・主軸）。識別子重視プロンプト。true/false、キー無し・失敗時 null。
@@ -409,22 +414,24 @@ async function haikuStrict(img, rakutenTitle, ebayTitle, qty) {
 }
 
 // Sonnet で同一判定（上位モデルでの確認用）。HaikuがYESと言った候補だけに使う。true/false、失敗時 null。
-async function sonnetStrict(img, rakutenTitle, ebayTitle, qty) {
+async function sonnetStrict(img, rakutenTitle, ebayTitle, qty, requireHigh = false) {
   if (!ANTHROPIC_API_KEY) return null;
   // #6: Sonnet確認は「反証する」プロンプトで実施＝確信ゲート。LOW/反証ありは parseStrictSame で false→除外。
+  // requireHigh のジャンル(コスメ/フィギュア)は HIGH のみ採用。
   const t = await anthropicVision('claude-sonnet-4-6', 220, adversarialMatchPrompt(rakutenTitle, ebayTitle, qty), img);
   if (t === null) return null;
   sonnetCallsToday++;
-  return parseStrictSame(t);
+  return parseStrictSame(t, requireHigh);
 }
 
 async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
   if (!rakutenUrl || !ebayUrl) return true;
-  const { rakutenTitle = '', ebayTitle = '', rakutenQuantity = null } = opts;
+  // strict=true(コスメ/フィギュア): Sonnetの確信HIGHが取れた時だけ採用。確認できない(不通/予算切れ)なら採用しない＝確信ゲート。
+  const { rakutenTitle = '', ebayTitle = '', rakutenQuantity = null, strict = false } = opts;
 
   // キャッシュキーを v3 に更新。旧 img_match2 は「壊れたGemini→Haiku単独」時代の判定なので無効化し、
   // 新しい Haiku下調べ→Sonnet確認 の合議で全ペアを判定し直させる（BOX≠単品 等の取りこぼしを洗浄）。
-  const cacheKey = `img_match4:${ebayQueryHash(rakutenUrl + ebayUrl)}`; // #6 確信ゲート導入→全ペアを反証Sonnetで再判定
+  const cacheKey = `img_match5:${ebayQueryHash(rakutenUrl + ebayUrl)}`; // v5: コスメ/フィギュアの確信HIGHゲート導入→再処理時に再判定させる(v4の暫定一致を無効化)
   const cached = await kvGet(cacheKey);
   if (cached !== null) return cached === true || cached === 'true';
 
@@ -454,11 +461,12 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
       return false;
     }
 
-    // hai === true。B: Sonnetで確認（誤検知を上位モデルで潰す）。
+    // hai === true。B: Sonnetで確認（誤検知を上位モデルで潰す）。strict は HIGH のみ採用。
     if (sonnetCallsToday < MAX_SONNET_PER_RUN) {
-      const son = await sonnetStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
-      if (son === null) {                           // Sonnet不通→Haiku単独で短期採用(復旧後に再評価)
-        await kvSet(cacheKey, true, 24 * 3600);
+      const son = await sonnetStrict(img, rakutenTitle, ebayTitle, rakutenQuantity, strict);
+      if (son === null) {                           // Sonnet不通
+        if (strict) return false;                   // コスメ/フィギュア: 確認不能なら採用しない(キャッシュせず=復旧後に再評価)
+        await kvSet(cacheKey, true, 24 * 3600);     // 通常: Haiku単独で短期採用
         return true;
       }
       if (son === false) console.log('  [img NG/Sonnet否決]');
@@ -466,7 +474,8 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
       return son;
     }
 
-    // Sonnet予算切れ(巨大リビルド等)→ Haiku単独で短期採用＋ログ（次回/予算復活で再確認）。
+    // Sonnet予算切れ。strict は採用しない(確信ゲート優先)。通常は Haiku単独で短期採用＋ログ。
+    if (strict) return false;
     console.log('  [img Sonnet予算切れ→Haiku単独で暫定採用]');
     await kvSet(cacheKey, true, 24 * 3600);
     return true;
@@ -1249,9 +1258,14 @@ async function main() {
       const rQty = quantityOf(rakutenItem.itemName);
       if (rQty !== quantityOf(ebayItem.title)) continue;
 
-      // ② 利益が出る候補だけ画像マッチ（Haiku）で同一商品か検証
+      // コスメ/フィギュアは誤マッチが多い(世代/容量/バリエ/プライズ)。確定除外＋画像は確信HIGHのみ採用(確信ゲート)。
+      const risky = (cat === 'コスメ' || cat === 'フィギュア');
+      if (risky && sizeMismatch(rakutenItem.itemName, ebayItem.title)) continue; // 容量/サイズ/スケール違いは別物
+      if (cat === 'フィギュア' && PRIZE_RE.test(rakutenItem.itemName)) continue;   // プライズ/景品/一番くじ(非可動の安物)を除外
+
+      // ② 利益が出る候補だけ画像マッチ（Haiku→Sonnet）で同一商品か検証。risky は確信HIGHのみ採用。
       if (ebayImg) {
-        const matched = await isImageMatch(rakutenImg, ebayImg, { rakutenTitle: rakutenItem.itemName, ebayTitle: ebayItem.title, rakutenQuantity: rQty });
+        const matched = await isImageMatch(rakutenImg, ebayImg, { rakutenTitle: rakutenItem.itemName, ebayTitle: ebayItem.title, rakutenQuantity: rQty, strict: risky });
         if (!matched) continue;
       }
 
