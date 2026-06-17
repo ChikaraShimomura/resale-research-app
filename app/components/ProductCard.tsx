@@ -138,7 +138,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </p>
             <p className="mt-1.5 text-[13px] font-black text-[#BF0000] leading-snug">
               商品は早い者勝ち！<br />
-              <span className="text-[12px]">下の商品を今すぐ先取りしよう👇</span>
+              <span className="text-[12px]">他の商品を早く出品しよう👇</span>
             </p>
           </div>
         </div>
