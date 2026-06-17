@@ -1462,6 +1462,20 @@ async function main() {
     } catch (e) { console.error(`  [楽天-first ERROR] ${e.message}`); }
   }
 
+  // 手動復活した商品(restored_products)を必ずカタログへ戻す。リフレッシュは毎回カタログを作り直すため、
+  // これが無いと運営が手動復活した商品が次のrefreshで消える（出品はpsnapで可能だが検索に出なくなる）。
+  // 維持処理の後・保存の直前にマージ＝復活品は除外フィルタを通さず常に残す（運営が意図して戻した商品）。
+  try {
+    const restored = await kvHgetall('restored_products');
+    const have = new Set(profitableProducts.map(p => p.id));
+    let merged = 0;
+    for (const v of Object.values(restored || {})) {
+      let prod; try { prod = typeof v === 'string' ? JSON.parse(v) : v; } catch { continue; }
+      if (prod && prod.id && !have.has(prod.id)) { profitableProducts.push(prod); have.add(prod.id); merged++; }
+    }
+    if (merged) console.log(`  ♻️ 手動復活商品(restored_products)をマージ: ${merged}件`);
+  } catch (e) { console.error('restored merge error:', e.message); }
+
   // 最終保存（登録順・新着が先頭。利益率ソートは将来の有料機能）
   profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);

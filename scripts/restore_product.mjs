@@ -241,6 +241,8 @@ async function kvPipeline(cmds) {
 
   await kvPipeline([['SET', 'profitable_products', JSON.stringify(filtered), 'EX', String(480 * 3600)]]);
   await kvPipeline([['SET', `psnap:${product.id}`, JSON.stringify(product), 'EX', String(730 * 24 * 3600)]]);
+  // 永続の手動復活台帳。リフレッシュが毎回ここから商品をカタログへ戻すので、再び消えない。
+  await kvPipeline([['HSET', 'restored_products', product.id, JSON.stringify(product)]]);
 
-  console.log(`✅ 復活完了: ${product.id} をカタログ(${filtered.length}件)＋出品アーカイブ(psnap)へ追加しました。`);
+  console.log(`✅ 復活完了: ${product.id} をカタログ(${filtered.length}件)＋出品アーカイブ(psnap)＋手動復活台帳(restored_products)へ追加しました。`);
 })().catch((e) => { console.error('FATAL', e.message); process.exit(1); });
