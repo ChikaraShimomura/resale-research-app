@@ -1102,6 +1102,9 @@ async function main() {
     if (!p.addedAt) p.addedAt = '2020-01-01T00:00:00.000Z';
     return p;
   });
+  // 現行カタログを先に出品アーカイブへ退避。このrunの維持処理で入れ替わって落ちる商品も、
+  // 仕入れた人が出品し続けられるようにする（最後に保存後、末尾でも更新してTTLを延ばす）。
+  await kvArchiveProducts(loadedProducts);
   // id重複を毎回自動で排除（過去のバグ由来の残存重複を定期クリーンアップ）。最初の出現を優先。
   const seenIds = new Set(); // 楽天itemCode
   let dedupedProducts = loadedProducts.filter(p => {
