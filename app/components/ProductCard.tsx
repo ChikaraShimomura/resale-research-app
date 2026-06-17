@@ -175,7 +175,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           <div className="shrink-0 relative">
             {/* 画像タップ＝楽天で商品を見る（アフィリ付き・新規タブ）。
                 ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けず、eBay自動出品は解放しない。 */}
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+            <a href={sourceUrl} rel="noopener noreferrer"
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="楽天市場でこの商品を見る">
               {product.imageUrl ? (
@@ -338,7 +338,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="space-y-2.5">
           {/* 主要CTA — 楽天で仕入れる / eBay自動出品 を横並び（flex-1で等幅） */}
           <div className="flex gap-2.5">
-            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" onClick={markRakutenClicked}
+            {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
+                中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
+            <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
               className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
               <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
               楽天で仕入れる
