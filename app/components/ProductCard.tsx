@@ -134,7 +134,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           </span>
           <div className="mt-3 max-w-[290px] bg-white/95 rounded-xl px-3.5 py-2.5 shadow-sm border border-gray-100">
             <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
-              輸出ラボから<b className="text-gray-900">規定数が出品</b>され、この商品の枠は埋まりました。
+              輸出ラボから出品された数が、<b className="text-gray-900">規定に到達</b>しました。
             </p>
             <p className="mt-1.5 text-[13px] font-black text-[#BF0000] leading-snug">
               商品は早い者勝ち！<br />
