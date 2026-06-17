@@ -4,28 +4,52 @@ import { ProfitProduct } from "../../lib/profitFilter";
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
 
+// 手動復活した商品(restored_products)を取り出す。リフレッシュが処理中にカタログを何度も上書きしても、
+// 復活商品が検索から消えないよう、配信のたびにここで必ず合流させる（恒久対応・タイミング非依存）。
+async function getRestoredProducts(): Promise<ProfitProduct[]> {
+  try {
+    const h = (await kvReadOnly.hgetall<Record<string, unknown>>("restored_products")) ?? {};
+    const out: ProfitProduct[] = [];
+    for (const v of Object.values(h)) {
+      let p: unknown = v;
+      if (typeof p === "string") {
+        try { p = JSON.parse(p); } catch { continue; }
+      }
+      if (p && typeof p === "object" && (p as ProfitProduct).id) out.push(p as ProfitProduct);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export async function GET() {
   try {
-    const [profitable, lastUpdated, stats] = await Promise.all([
+    const [profitable, lastUpdated, stats, restored] = await Promise.all([
       kvReadOnly.get<ProfitProduct[]>("profitable_products"),
       kvReadOnly.get<string>("last_updated"),
       kvReadOnly.get<Record<string, unknown>>("refresh_stats"),
+      getRestoredProducts(),
     ]);
 
-    if (profitable && profitable.length > 0) {
+    // 復活商品をカタログへ合流（カタログに既にあるidは重複させない）。復活分は先頭側（新着扱い）。
+    const base = Array.isArray(profitable) ? profitable : [];
+    const haveIds = new Set(base.map((p) => p?.id));
+    const merged = [...restored.filter((p) => p?.id && !haveIds.has(p.id)), ...base];
+
+    if (merged.length > 0) {
       // 各商品の出品クリック回数（ライバル数の目安）を pipeline でまとめて付与。
-      // これでカード側の個別 fetch を省き、「ライバルの少ない順」ソートも可能に。
       try {
         const pipe = kvReadOnly.pipeline();
-        profitable.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
+        merged.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
         const counts = (await pipe.exec()) as number[];
-        profitable.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
+        merged.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
       } catch {
-        profitable.forEach((p) => { p.listingCount = 0; });
+        merged.forEach((p) => { p.listingCount = 0; });
       }
 
       return Response.json(
-        { products: profitable, lastUpdated, stats },
+        { products: merged, lastUpdated, stats },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）
         { headers: { "Cache-Control": "private, no-store" } }
       );
