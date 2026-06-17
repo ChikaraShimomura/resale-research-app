@@ -160,6 +160,12 @@ const EXPECTED_GENRE = {
   'オシアナス': '腕時計', 'アテッサ': '腕時計', 'オリエント バンビーノ': '腕時計',
   'アネッサ': 'コスメ', 'ハダラボ極潤': 'コスメ', 'キャンメイク': 'コスメ', 'SK-II': 'コスメ',
   'ベイブレードX': 'おもちゃ', 'ミニ四駆': 'おもちゃ', 'ポケセンぬいぐるみ': 'トレカ',
+  // ── バッチ1拡張(2026-06-17): 100件@98%へ。Switch系は guessCategory が「ゲーム機」を返すため値もゲーム機。
+  //    その他(ちいかわ/TFマスターピース/超合金魂)は意図的に未登録＝ジャンル整合ゲートをskip(設計どおり)。
+  'ポケカ151': 'トレカ', 'ポケカETB': 'トレカ', 'ポケカハイクラス': 'トレカ', '遊戯王ストラク': 'トレカ', 'ワンピーススタートデッキ': 'トレカ', 'ユニオンアリーナ': 'トレカ',
+  'SHF悟空': 'フィギュア', 'SHFルフィ': 'フィギュア', 'SHFナルト': 'フィギュア', 'SHF仮面ライダー': 'フィギュア', 'ねんどミク': 'フィギュア', 'GSC1/7スケール': 'フィギュア',
+  'GショックGA2100': '腕時計', 'GショックDW5600': '腕時計', 'セイコー5SRPD': '腕時計', 'セイコープロスペックスSRPE': '腕時計',
+  'スプラ3SW': 'ゲーム機', 'ゼノブレ3SW': 'ゲーム機',
 };
 // ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
 const PRICE_RATIO_MAX = 8;
@@ -444,7 +450,7 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
     const hai = await haikuStrict(img, rakutenTitle, ebayTitle, rakutenQuantity);
     if (hai === null) { haikuFailToday++; return true; }  // Anthropic不通→保留(キャッシュしない=次回再評価)
     if (hai === false) {                            // Haikuが別物→確定で除外
-      await kvSet(cacheKey, false, 168 * 3600);
+      await kvSet(cacheKey, false, 720 * 3600);
       return false;
     }
 
@@ -456,7 +462,7 @@ async function isImageMatch(rakutenUrl, ebayUrl, opts = {}) {
         return true;
       }
       if (son === false) console.log('  [img NG/Sonnet否決]');
-      await kvSet(cacheKey, son, 168 * 3600);
+      await kvSet(cacheKey, son, 720 * 3600);
       return son;
     }
 
@@ -528,6 +534,28 @@ const EBAY_JP_QUERIES = [
   { q: 'beyblade x takara tomy booster japan new sealed',                      name: 'ベイブレードX' },
   { q: 'tamiya mini 4wd model kit japan new sealed',                          name: 'ミニ四駆' },
   { q: 'pokemon center plush japan exclusive new with tag',                    name: 'ポケセンぬいぐるみ' },
+  // ── バッチ1拡張(2026-06-17): 100件@98%へ。輸出可・単品・需要ありを多エージェント研究で厳選(78候補→) ──
+  { q: 'pokemon card 151 booster box japanese sealed sv2a',                      name: 'ポケカ151' },
+  { q: 'pokemon card elite trainer box japanese sealed',                        name: 'ポケカETB' },
+  { q: 'pokemon card high class pack shiny treasure japanese sealed box',        name: 'ポケカハイクラス' },
+  { q: 'yu-gi-oh structure deck japanese sealed konami',                        name: '遊戯王ストラク' },
+  { q: 'one piece card game starter deck japanese sealed bandai',                name: 'ワンピーススタートデッキ' },
+  { q: 'union arena booster box japanese sealed bandai',                         name: 'ユニオンアリーナ' },
+  { q: 's.h.figuarts dragon ball son goku super saiyan figure japan new sealed', name: 'SHF悟空' },
+  { q: 's.h.figuarts one piece monkey d luffy figure japan new sealed',          name: 'SHFルフィ' },
+  { q: 's.h.figuarts naruto uzumaki figure japan new sealed',                    name: 'SHFナルト' },
+  { q: 's.h.figuarts kamen rider figure japan new sealed',                       name: 'SHF仮面ライダー' },
+  { q: 'nendoroid hatsune miku figure good smile japan new sealed',              name: 'ねんどミク' },
+  { q: 'good smile company 1/7 scale figure anime japan new sealed',             name: 'GSC1/7スケール' },
+  { q: 'casio g-shock GA-2100 carbon core guard japan new',                      name: 'GショックGA2100' },
+  { q: 'casio g-shock DW-5600 japan new',                                        name: 'GショックDW5600' },
+  { q: 'seiko 5 sports SRPD automatic watch japan new',                          name: 'セイコー5SRPD' },
+  { q: 'seiko prospex turtle SRPE diver automatic watch japan new',              name: 'セイコープロスペックスSRPE' },
+  { q: 'splatoon 3 nintendo switch japanese version new sealed',                 name: 'スプラ3SW' },
+  { q: 'xenoblade chronicles 3 nintendo switch japanese version new sealed',     name: 'ゼノブレ3SW' },
+  { q: 'chiikawa plush japan new with tag',                                      name: 'ちいかわぬいぐるみ' },
+  { q: 'transformers takara tomy masterpiece figure japan new sealed',           name: 'TFマスターピース' },
+  { q: 'soul of chogokin bandai diecast figure japan new sealed',                name: '超合金魂' },
 ];
 
 async function fetchEbayJapanSoldItems() {
@@ -632,7 +660,7 @@ Output only the keyword.`
     const data = await res.json();
     const kw = data?.content?.[0]?.text?.trim() ?? '';
     if (!kw || kw.length < 2) return null;
-    await kvSet(cacheKey, kw, 168 * 3600);
+    await kvSet(cacheKey, kw, 720 * 3600);
     return kw;
   } catch { return null; }
 }
@@ -667,7 +695,7 @@ Output only the English query, nothing else.`,
     const data = await res.json();
     const kw = data?.content?.[0]?.text?.trim() ?? '';
     if (!kw || kw.length < 3) return null;
-    await kvSet(cacheKey, kw, 168 * 3600);
+    await kvSet(cacheKey, kw, 720 * 3600);
     return kw;
   } catch { return null; }
 }
