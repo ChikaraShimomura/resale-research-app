@@ -77,28 +77,39 @@ async function rktSearch(extra, label) {
   } catch (e) { console.warn(`  [Rakuten ${label}] ${e.message}`); return []; }
 }
 
-// URLスラッグは itemCode 番号と一致しないため、keyword+shopCode で検索し itemUrl が一致する1点を選ぶ。
+// 商品ページHTMLから本当のitemCode(=shopCode:数字)を取り出す。URLスラッグはitemCode番号と一致しないため。
+async function scrapeItemCode(shop, slug) {
+  try {
+    const res = await fetch(`https://item.rakuten.co.jp/${shop}/${slug}/`, { headers: RKT_HEADERS, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    const html = await res.text();
+    let m = html.match(/"itemId"\s*:\s*(\d+)/);
+    if (m) return `${shop}:${m[1]}`;
+    m = html.match(new RegExp(`${shop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`));
+    if (m) return `${shop}:${m[1]}`;
+    return null;
+  } catch { return null; }
+}
+
 async function fetchRakutenByUrl({ shop, slug }) {
-  const matches = (items) => items.find(it => {
-    const u = (it.itemUrl || '').toLowerCase();
-    return u.includes(`/${shop.toLowerCase()}/${slug.toLowerCase()}`);
-  });
-  // ① スラッグ(型番)をkeyword＋shopCodeで絞る
-  let items = await rktSearch({ keyword: slug, shopCode: shop }, 'slug+shop');
-  let hit = matches(items);
-  if (hit) return hit;
-  // ② スラッグのみで広く検索
-  items = await rktSearch({ keyword: slug }, 'slug');
-  hit = matches(items);
-  if (hit) return hit;
-  // ③ 指定キーワード(あれば)＋shopCode
-  if (RESTORE_KEYWORD) {
-    items = await rktSearch({ keyword: RESTORE_KEYWORD, shopCode: shop }, 'keyword+shop');
-    hit = matches(items) || items[0];
+  // ① 商品ページから実itemCodeを取得 → itemCode検索（有効なitemCodeなら確実）。
+  const realCode = await scrapeItemCode(shop, slug);
+  if (realCode) {
+    console.log('  ページから実itemCode取得:', realCode);
+    const items = await rktSearch({ itemCode: realCode }, 'itemCode');
+    if (items[0]) return items[0];
+  }
+  // ② フォールバック: keyword(=指定/スラッグ)＋shopCode で検索し itemUrl 一致の1点を選ぶ。
+  const matches = (items) => items.find(it => (it.itemUrl || '').toLowerCase().includes(`/${shop.toLowerCase()}/${slug.toLowerCase()}`));
+  for (const kw of [RESTORE_KEYWORD, slug].filter(Boolean)) {
+    let items = await rktSearch({ keyword: kw, shopCode: shop }, `kw:${kw.slice(0, 12)}+shop`);
+    let hit = matches(items);
+    if (hit) return hit;
+    items = await rktSearch({ keyword: kw }, `kw:${kw.slice(0, 12)}`);
+    hit = matches(items);
     if (hit) return hit;
   }
-  // ④ どうしても一致しなければ shopCode 内の先頭（最後の保険）
-  return items[0] || null;
+  return null;
 }
 
 let ebayTok = null;
