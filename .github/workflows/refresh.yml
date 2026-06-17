@@ -1,9 +1,11 @@
 name: Background Refresh (Rakuten + eBay + Claude Haiku)
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # 24時間ごと(利用者が少ない間。増えたら 0 */6 * * * に戻す)
-  workflow_dispatch:          # 手動実行ボタン
+  # 🛑 コスト停止中（2026-06-17・ユーザー指示）: 自動実行(schedule)を一時停止。
+  #    Anthropic(Haiku/Sonnet)課金が発生するため。再開は下記 cron のコメントを外すだけ。
+  # schedule:
+  #   - cron: '0 0 * * *'   # 24時間ごと(利用者が少ない間。増えたら 0 */6 * * * に戻す)
+  workflow_dispatch:          # 手動実行ボタン（必要な時だけ手動でカタログ更新）
 
 jobs:
   refresh:

@@ -4,8 +4,10 @@ name: Catalog precision audit
 # 毎週日曜 03:45 JST に自動実行＋手動も可。精度が基準(95%)を割るとジョブが赤になりアラートメールが飛ぶ。
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: '45 18 * * 6'   # 毎週日曜 03:45 JST (= 土 18:45 UTC)
+  # 🛑 コスト停止中（2026-06-17・ユーザー指示）: 週次の自動監査(schedule)を一時停止。
+  #    独立審判(Sonnet)でAnthropic課金が発生するため。再開は下記 cron のコメントを外すだけ。
+  # schedule:
+  #   - cron: '45 18 * * 6'   # 毎週日曜 03:45 JST (= 土 18:45 UTC)
 
 jobs:
   audit:

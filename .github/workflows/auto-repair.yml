@@ -12,8 +12,11 @@ name: Auto-repair (Claude self-heal)
 #   ※ CRON_SECRET 未設定なら報告APIが401→何もせず終了（安全な無効状態）。
 
 on:
-  schedule:
-    - cron: "0 */2 * * *"   # 2時間ごと。報告が無ければ即終了＝低コスト
+  # 🛑 コスト停止中（2026-06-17・ユーザー指示）: 自動修復の定期実行(schedule)を一時停止。
+  #    報告があると Claude(Sonnet) 修正でAnthropic課金が発生するため。再開は下記 cron のコメントを外すだけ。
+  #    ※手動(workflow_dispatch)は残す＝報告が溜まった時だけ手動で回せる。
+  # schedule:
+  #   - cron: "0 */2 * * *"   # 2時間ごと。報告が無ければ即終了＝低コスト
   workflow_dispatch: {}
 
 permissions:
