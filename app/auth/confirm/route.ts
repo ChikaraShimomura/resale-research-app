@@ -5,6 +5,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "../../lib/supabase/server";
 import { migrateDeviceDataToAccount } from "../../lib/auth/migrate";
 import { recordFunnelEvent } from "../../lib/funnelServer";
+import { captureSignupReferral } from "../../lib/referralServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,8 @@ export async function GET(request: Request) {
       await recordFunnelEvent("signup");
       const from = url.searchParams.get("from")?.trim();
       if (from) await recordFunnelEvent(`signup_from_${from}`);
+      await captureSignupReferral(); // 紹介コード(ref cookie)があれば成果1件を計上
+
     }
     return Response.redirect(new URL(next, request.url), 302);
   }

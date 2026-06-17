@@ -77,6 +77,22 @@ export function middleware(req: NextRequest) {
     });
   }
 
+  // 紹介(リファラル)コードの捕捉。/r/{code} 以外に ?ref=code で来た場合のフォールバック。
+  // 集計KVはミドルウェアで触らず、cookie だけ保存（クリック計上は /r/ 側）。
+  const ref = req.nextUrl.searchParams.get("ref");
+  if (ref) {
+    const code = ref.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+    if (code) {
+      res.cookies.set("rr_ref", code, {
+        httpOnly: true,
+        secure: !isDev,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 90,
+      });
+    }
+  }
+
   return res;
 }
 

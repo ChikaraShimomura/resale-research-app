@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../lib/supabase/server";
 import { migrateDeviceDataToAccount } from "../lib/auth/migrate";
 import { recordFunnelEvent } from "../lib/funnelServer";
+import { captureSignupReferral } from "../lib/referralServer";
 import type { AuthState } from "./types";
 
 async function origin(): Promise<string> {
@@ -75,6 +76,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   if (data.session && data.user) {
     await migrateOnSignIn(data.user.id);
     await recordSignup(formData);
+    await captureSignupReferral(); // 紹介コード(ref cookie)があれば成果1件を計上
     redirect("/search");
   }
   return { message: "確認メールを送りました。メール内のリンクを開くと登録が完了します。" };
