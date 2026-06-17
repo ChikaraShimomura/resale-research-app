@@ -73,6 +73,21 @@ async function kvHdel(key, field) {
   } catch (e) { console.error('kvHdel error:', e.message); }
 }
 
+// ハッシュ全取得（{field: value}）。手動復活台帳 restored_products の読み出しに使う。
+async function kvHgetall(key) {
+  try {
+    const res = await fetch(`${KV_URL}/hgetall/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    });
+    const data = await res.json();
+    const arr = data.result;
+    if (!Array.isArray(arr)) return {};
+    const obj = {};
+    for (let i = 0; i < arr.length; i += 2) obj[arr[i]] = arr[i + 1];
+    return obj;
+  } catch { return {}; }
+}
+
 // ========== 楽天 itemCode 死活＋在庫判定 ==========
 // 戻り値: 'alive'（買える） | 'dead'（掲載終了） | 'soldout'（在庫切れ） | 'unknown'（判定不能＝残す）
 async function checkRakutenItem(itemCode) {
@@ -132,16 +147,30 @@ async function main() {
   const startedAt = Date.now();
 
   const products = await kvGet('profitable_products');
-  if (!Array.isArray(products) || products.length === 0) {
-    console.log('カタログが空 or 取得失敗。何もしない。');
+  // 手動復活台帳(restored_products)も対象に含める。/api/products が配信時にこれをマージするため、
+  // 復活商品が売り切れ/掲載終了になったら一緒に除外しないと一覧に残り続ける。
+  const restoredHash = await kvHgetall('restored_products');
+  const restoredItems = Object.values(restoredHash)
+    .map((v) => { try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return null; } })
+    .filter(Boolean);
+
+  const catalog = Array.isArray(products) ? products : [];
+  if (catalog.length === 0 && restoredItems.length === 0) {
+    console.log('カタログ・復活台帳とも空 or 取得失敗。何もしない。');
     return;
   }
-  console.log(`リンク死活＋在庫チェック開始: ${products.length}件 (gap ${RAKUTEN_GAP_MS}ms)`);
+  // チェック対象＝カタログ ∪ 復活台帳（id重複は1回だけ）。
+  const byId = new Map();
+  for (const p of catalog) if (p?.id && !byId.has(p.id)) byId.set(p.id, p);
+  for (const p of restoredItems) if (p?.id && !byId.has(p.id)) byId.set(p.id, p);
+  const toCheck = [...byId.values()];
+  const restoredIdSet = new Set(restoredItems.map((p) => p?.id).filter(Boolean));
+  console.log(`リンク死活＋在庫チェック開始: ${toCheck.length}件 (カタログ${catalog.length}/復活${restoredItems.length}, gap ${RAKUTEN_GAP_MS}ms)`);
 
   const deadIds = [];     // 掲載終了（永続）
   const soldoutIds = [];  // 在庫切れ（再入荷あり得る）
   let alive = 0, unknown = 0;
-  for (const p of products) {
+  for (const p of toCheck) {
     const code = p?.id;
     if (!code) { unknown++; continue; } // IDなし=判定不能 → 残す
     const status = await confirmStatus(code);
@@ -153,14 +182,16 @@ async function main() {
   }
 
   const removeIds = [...deadIds, ...soldoutIds];
-  const pruneRate = removeIds.length / products.length;
+  const pruneRate = removeIds.length / toCheck.length;
   const aborted = removeIds.length > 0 && pruneRate > SAFETY_MAX_PRUNE_RATE;
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
 
   // 観測用stats（常に書く）
   await kvSet('link_check_stats', {
     checkedAt: new Date().toISOString(),
-    total: products.length,
+    total: toCheck.length,
+    catalog: catalog.length,
+    restored: restoredItems.length,
     alive,
     dead: deadIds.length,
     soldout: soldoutIds.length,
@@ -173,7 +204,7 @@ async function main() {
 
   if (aborted) {
     console.error(
-      `⚠️ 安全ブレーキ作動: ${removeIds.length}/${products.length} (${Math.round(pruneRate * 100)}%) が ` +
+      `⚠️ 安全ブレーキ作動: ${removeIds.length}/${toCheck.length} (${Math.round(pruneRate * 100)}%) が ` +
       `除外対象(掲載終了${deadIds.length}/在庫切れ${soldoutIds.length})。楽天障害の可能性が高いため書き戻しを中止。`
     );
     process.exit(1); // ジョブを失敗扱いにしてメール通知させる
@@ -186,10 +217,16 @@ async function main() {
 
   // 書き戻し直前に最新カタログを再取得し、除外対象だけを除く（チェック中の refresh と競合しても新商品を潰さない）
   const fresh = await kvGet('profitable_products');
-  const base = (Array.isArray(fresh) && fresh.length) ? fresh : products;
+  const base = (Array.isArray(fresh) && fresh.length) ? fresh : catalog;
   const removeSet = new Set(removeIds);
   const finalList = base.filter((p) => !removeSet.has(p?.id));
   await kvSet('profitable_products', finalList, CATALOG_TTL_SEC);
+
+  // 手動復活台帳(restored_products)からも除外。これをしないと /api/products の配信時マージで
+  // 売り切れ/掲載終了の復活商品が一覧に蘇る。psnap(出品アーカイブ)は残す＝既に仕入れた人は出品できる。
+  for (const id of removeIds) {
+    if (restoredIdSet.has(id)) await kvHdel('restored_products', id);
+  }
 
   // 付随KVの掃除。掲載終了(永続)は aux key も削除。在庫切れ(再入荷あり得る)は飽和カウント等を残す。
   for (const id of deadIds) {
