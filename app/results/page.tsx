@@ -11,7 +11,7 @@ import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
-import { readUnlockedIds, pinUnlockedFirst } from "../lib/unlocked";
+import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
 import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
@@ -30,6 +30,8 @@ function ResultsContent() {
   const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
   // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  // 自分がeBayに出品済みの商品ID。本人の検索結果からは隠して「出品中一覧へ移った」状態にする（端末単位）。
+  const [listedIds, setListedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -47,15 +49,19 @@ function ResultsContent() {
   }, []);
 
   // アクティブ（仕入れ中）商品IDを取得（先頭固定/SOLD除外用）。出品・仕入れの変化でも再取得する。
+  // 同一タブ(rkt-changed)では unlocked だけ更新＝出品成功の直後に listed で当該カードを消すと
+  // その配下の出品完了モーダルごと unmount され成功画面が消えるため。出品済みの非表示は
+  // 初回マウントと別タブ(storage)で反映＝「検索を開き直すと出品中一覧へ移っている」挙動にする。
   useEffect(() => {
-    const refresh = () => setUnlockedIds(readUnlockedIds());
-    refresh();
+    const refreshUnlocked = () => setUnlockedIds(readUnlockedIds());
+    const refreshAll = () => { setUnlockedIds(readUnlockedIds()); setListedIds(readListedIds()); };
+    refreshAll();
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
-    window.addEventListener("rkt-changed", refresh); // 同一タブの仕入れ/出品
-    window.addEventListener("storage", refresh); // 別タブ
+    window.addEventListener("rkt-changed", refreshUnlocked); // 同一タブの仕入れ/出品
+    window.addEventListener("storage", refreshAll); // 別タブ
     return () => {
-      window.removeEventListener("rkt-changed", refresh);
-      window.removeEventListener("storage", refresh);
+      window.removeEventListener("rkt-changed", refreshUnlocked);
+      window.removeEventListener("storage", refreshAll);
     };
   }, []);
   // 一覧閲覧（ファネル計測）。2回目以降の検索（keyword変化）でも発火させ過少計上を防ぐ。
@@ -73,8 +79,10 @@ function ResultsContent() {
   }, [allProducts, keyword]);
 
   const sorted = useMemo(() => {
+    // 自分が出品済みの商品は本人の検索結果から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
+    const visible = filtered.filter((p) => !listedIds.has(p.id));
     // 「SOLD除外」でも、自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない。ProductCardのsold判定と一致）
-    const base = hideSold ? filtered.filter((p) => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(filtered);
+    const base = hideSold ? visible.filter((p) => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(visible);
     const arr = sortProducts(base, sortOrder);
     // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
     let ordered: ProfitProduct[];
@@ -89,7 +97,7 @@ function ResultsContent() {
     }
     // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
     return pinUnlockedFirst(ordered, unlockedIds, soldIds);
-  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds]);
+  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds, listedIds]);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);

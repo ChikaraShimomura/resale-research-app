@@ -18,6 +18,23 @@ export function readUnlockedIds(): Set<string> {
   return ids;
 }
 
+// 「自分がeBayに出品済み」の商品ID（localStorage listed_{id}="1"）。
+// 出品したら本人の検索一覧から隠して「出品中一覧へ移った」状態にするのに使う（端末単位）。
+export function readListedIds(): Set<string> {
+  const ids = new Set<string>();
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("listed_") && localStorage.getItem(k) === "1") {
+        ids.add(k.slice("listed_".length));
+      }
+    }
+  } catch {
+    /* noop */
+  }
+  return ids;
+}
+
 // アクティブ（仕入れ中）の商品を先頭へ固定する。売却済みは対象外、それ以外の並びは維持。
 export function pinUnlockedFirst<T extends { id: string }>(
   products: T[],
