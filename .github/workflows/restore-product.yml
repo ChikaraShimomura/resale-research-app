@@ -1,0 +1,37 @@
+name: Restore product (by Rakuten URL)
+
+# 楽天URLを1点、利益商品カタログ＋出品アーカイブ(psnap)へ手動で復活させる管理ツール。
+# リフレッシュでカタログから入れ替わって落ちた商品を、運営が戻したいときに使う。本番KVに書き込む。
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: '楽天の商品URL（または shop:itemcode）'
+        required: true
+        type: string
+      keyword:
+        description: 'eBay検索語（英語・任意。型番が一番効く。例: SEIKO DAL7BP 17mm watch band）'
+        required: false
+        type: string
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Restore one product
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          EBAY_APP_ID:          ${{ secrets.EBAY_APP_ID }}
+          EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+          RESTORE_URL:          ${{ inputs.url }}
+          RESTORE_KEYWORD:      ${{ inputs.keyword }}
+        run: node scripts/restore_product.mjs
