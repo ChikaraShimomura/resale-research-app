@@ -1,8 +1,11 @@
 name: Catalog precision audit
 
-# 本番カタログの精度を独立審判(Sonnet)で実測監査。手動実行のみ。本番KVには触れない（結果はログのみ）。
+# 本番カタログの精度を独立審判(Sonnet)で実測監査。本番KVには触れない（結果はログのみ）。
+# 毎週日曜 03:45 JST に自動実行＋手動も可。精度が基準(95%)を割るとジョブが赤になりアラートメールが飛ぶ。
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: '45 18 * * 6'   # 毎週日曜 03:45 JST (= 土 18:45 UTC)
 
 jobs:
   audit:
@@ -19,3 +22,25 @@ jobs:
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
         run: node scripts/audit_catalog.mjs
+
+      - name: 精度低下アラート（基準95%割れ or 監査失敗）
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.resend.com
+          server_port: 465
+          secure: true
+          username: resend
+          password: ${{ secrets.RESEND_API_KEY }}
+          subject: "⚠️ 輸出ラボ カタログ精度アラート(基準95%割れ/監査失敗)"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <noreply@yushutsu-fukugyo.com>"
+          body: |
+            週次のカタログ精度監査で、精度が基準(95%)を下回ったか、監査自体が失敗しました。
+
+            ▼ ジャンル別の精度・DIFF内容をログで確認
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            対応の目安: DIFF(誤マッチ)のジャンル/パターンを見て、確信ゲートや除外条件を調整。
+            ─────────────────────────────
+            トリガー: ${{ github.event_name }}
