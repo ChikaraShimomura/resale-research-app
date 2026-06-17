@@ -32,6 +32,7 @@ export interface Deal {
   title: string;
   imageUrl?: string; // 楽天画像（一覧のサムネ用。新規出品から保存）
   listedAt: string;
+  listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -40,13 +41,16 @@ export interface Deal {
 export async function recordListed(
   actor: string,
   productId: string,
-  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string }
+  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string; listingId?: string }
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
     // 既に記録済み（再出品・下書き再公開）は金額・listedAt・売却情報を維持し、上書きしない
     if (!existing) {
       await kv.hset(DEALS_KEY(actor), { [productId]: { ...d } });
+    } else if (d.listingId && existing.listingId !== d.listingId) {
+      // 再出品で公開IDが変わった/初めて取れた時だけ listingId を更新（金額・出品日・売却情報は維持）
+      await kv.hset(DEALS_KEY(actor), { [productId]: { ...existing, listingId: d.listingId } });
     }
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
   } catch {
@@ -81,6 +85,7 @@ export interface LiveDeal {
   listedAt: string;
   purchase: number; // 楽天仕入れ(送料込・JPY)
   imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
+  listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
 }
 export interface SoldDeal {
   id: string;
@@ -124,6 +129,7 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
       listedAt: d.listedAt || "",
       purchase: d.purchase ?? 0,
       imageUrl: d.imageUrl || catImg[id] || "",
+      listingId: d.listingId,
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 

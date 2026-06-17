@@ -138,6 +138,7 @@ export async function POST(req: Request) {
       title: product.title,
       imageUrl: product.imageUrl,
       listedAt: new Date().toISOString(),
+      listingId: result.listingId, // 「写真追加」でその出品へ直リンクするため公開IDを保存（再出品で変わったら更新）
     });
   }
 

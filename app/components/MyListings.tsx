@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, ImagePlus, RotateCw } from "lucide-react";
+import { ProfitProduct } from "../lib/profitFilter";
+import EbayListingModal from "./EbayListingModal";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
+
+// 「写真追加」の遷移先。公開IDがあればその出品ページ（編集して実物写真を足せる）へ、無ければeBayの出品一覧へ。
+const ebayEditUrl = (listingId?: string) =>
+  listingId ? `https://www.ebay.com/itm/${listingId}` : "https://www.ebay.com/sh/lst/active";
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
 const signedYen = (n: number) => (n < 0 ? "−" : "+") + "¥" + Math.round(Math.abs(n)).toLocaleString("ja-JP");
@@ -45,6 +51,23 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [soldFor, setSoldFor] = useState<string | null>(null); // 売れた金額を入力中の商品
   const [soldJpy, setSoldJpy] = useState("");
+  const [relistProduct, setRelistProduct] = useState<ProfitProduct | null>(null); // 再出品モーダルで開く商品
+  const [relistBusy, setRelistBusy] = useState<string | null>(null); // 再出品の商品データ取得中
+
+  // 「再出品」：現行カタログから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
+  // 同じSKUで上書き公開されるので重複にならず、価格や説明も最新に作り直せる。
+  const relist = async (productId: string) => {
+    setRelistBusy(productId);
+    try {
+      const j = await fetch("/api/products", { cache: "no-store" }).then((r) => r.json());
+      const found = (j?.products as ProfitProduct[] | undefined)?.find((p) => p.id === productId);
+      if (found) setRelistProduct(found);
+      else window.alert("この商品はいまカタログにないため、ここからは再出品できません。「商品をさがす」から同じ商品を探して出品してください。");
+    } catch {
+      window.alert("再出品の準備に失敗しました。通信環境を確認してもう一度お試しください。");
+    }
+    setRelistBusy(null);
+  };
 
   const load = () =>
     fetch("/api/ebay/deals", { cache: "no-store" })
@@ -88,7 +111,9 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
     <div className="space-y-3">
       {hasLive && (
         <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
-          <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">出品をやめた・実は売れていた時は、ここで手動で調整できます。</p>
+          <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+            📸 自動で載る写真は最大3枚です。<b className="text-gray-600">実物の写真を足すと売れやすく</b>なります（「写真追加」からeBayで追加）。出品をやめた・実は売れていた時もここで調整できます。
+          </p>
           <ul className="divide-y divide-gray-100">
             {live.map((d) => (
               <li key={d.id} className="py-1.5">
@@ -116,28 +141,47 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <Thumb url={d.imageUrl} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
-                      <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
-                        {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
-                      </p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Thumb url={d.imageUrl} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                        <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                          {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      disabled={busy === d.id}
-                      onClick={() => { setSoldFor(d.id); setSoldJpy(""); }}
-                      className="h-7 px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-40 shrink-0"
-                    >
-                      売れた
-                    </button>
-                    <button
-                      disabled={busy === d.id}
-                      onClick={() => { if (window.confirm("この商品を「出品中」から外しますか？（成績の出品数から除きます）")) act(d.id, "remove"); }}
-                      className="h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40 shrink-0"
-                    >
-                      やめた
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-wrap pl-11">
+                      <a
+                        href={ebayEditUrl(d.listingId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold active:bg-blue-100"
+                      >
+                        <ImagePlus size={12} /> 写真追加
+                      </a>
+                      <button
+                        disabled={relistBusy === d.id}
+                        onClick={() => relist(d.id)}
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 text-blue-700 text-[10px] font-bold disabled:opacity-40 active:bg-blue-50"
+                      >
+                        <RotateCw size={12} /> {relistBusy === d.id ? "準備中…" : "再出品"}
+                      </button>
+                      <button
+                        disabled={busy === d.id}
+                        onClick={() => { setSoldFor(d.id); setSoldJpy(""); }}
+                        className="h-7 px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-40"
+                      >
+                        売れた
+                      </button>
+                      <button
+                        disabled={busy === d.id}
+                        onClick={() => { if (window.confirm("この商品を「出品中」から外しますか？（成績の出品数から除きます）")) act(d.id, "remove"); }}
+                        className="h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                      >
+                        やめた
+                      </button>
+                    </div>
                   </div>
                 )}
               </li>
@@ -166,6 +210,15 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
             ))}
           </ul>
         </Section>
+      )}
+
+      {/* 再出品：既存の出品モーダルをそのまま再利用（価格・説明・写真を作り直して同じSKUで公開し直す）。 */}
+      {relistProduct && (
+        <EbayListingModal
+          product={relistProduct}
+          onClose={() => { setRelistProduct(null); load(); onChanged?.(); }}
+          onListed={() => { load(); onChanged?.(); }}
+        />
       )}
     </div>
   );
