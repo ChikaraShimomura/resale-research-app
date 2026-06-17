@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import AddToHome from "./components/AddToHome";
 import ConsentBanner from "./components/ConsentBanner";
+import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import JsonLd from "./components/JsonLd";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
@@ -86,8 +87,11 @@ export const metadata: Metadata = {
     google: "GGgOF1LGPqzP6qIa95QjVH1iaMw0HuFZUMZALrg5Lck",
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png", // iOS「ホーム画面に追加」用（PNG必須・全面塗り）
   },
   appleWebApp: {
     capable: true,
@@ -126,6 +130,7 @@ export default async function RootLayout({
         {children}
         <AddToHome />
         <ConsentBanner />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
