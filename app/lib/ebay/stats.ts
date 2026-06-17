@@ -111,24 +111,42 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
   const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && isPublished(id)); // 未売却かつ公開済み
   const soldEntries = entries.filter(([, d]) => d.soldUsd != null); // 売却済み（実取引なので全部有効）
 
-  // 画像未保存の古いdealは、現行カタログ(profitable_products)から画像を補完する。
-  const catImg: Record<string, string> = {};
-  if (liveEntries.some(([, d]) => !d.imageUrl) || soldEntries.some(([, d]) => !d.imageUrl)) {
+  // 画像/タイトル未保存の古いdealは、現行カタログ(profitable_products)から補完する。
+  // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
+  // 外れても出品中/販売した一覧の表示が欠けないようにする。新規dealは出品時に保存済みで対象外）。
+  const catInfo: Record<string, { imageUrl?: string; title?: string }> = {};
+  const needBackfill = [...liveEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title);
+  if (needBackfill) {
     try {
-      const products = (await kv.get<{ id: string; imageUrl?: string }[]>("profitable_products")) ?? [];
-      for (const p of products) if (p?.id && p.imageUrl) catImg[p.id] = p.imageUrl;
+      const products = (await kv.get<{ id: string; imageUrl?: string; title?: string }[]>("profitable_products")) ?? [];
+      for (const p of products) if (p?.id) catInfo[p.id] = { imageUrl: p.imageUrl, title: p.title };
     } catch {
       /* noop */
+    }
+    // 補完できた分だけ deal に保存し直す（best-effort・カタログがまだ持っているうちに永続化）。
+    const heal: Record<string, Deal> = {};
+    for (const [id, d] of [...liveEntries, ...soldEntries]) {
+      const img = !d.imageUrl ? catInfo[id]?.imageUrl : undefined;
+      const ttl = !d.title ? catInfo[id]?.title : undefined;
+      if (img || ttl) heal[id] = { ...d, ...(img ? { imageUrl: img } : {}), ...(ttl ? { title: ttl } : {}) };
+    }
+    if (Object.keys(heal).length) {
+      try {
+        await kv.hset(DEALS_KEY(actor), heal);
+        await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
+      } catch {
+        /* noop */
+      }
     }
   }
 
   const live: LiveDeal[] = liveEntries
     .map(([id, d]) => ({
       id,
-      title: d.title || "",
+      title: d.title || catInfo[id]?.title || "",
       listedAt: d.listedAt || "",
       purchase: d.purchase ?? 0,
-      imageUrl: d.imageUrl || catImg[id] || "",
+      imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
       listingId: d.listingId,
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
@@ -139,8 +157,8 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
       const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
       return {
         id,
-        title: d.title || "",
-        imageUrl: d.imageUrl || catImg[id] || "",
+        title: d.title || catInfo[id]?.title || "",
+        imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
         soldAt: d.soldAt || "",
         soldJpy: saleJpy,
         profitJpy: saleJpy - fee - (d.purchase ?? 0) + (d.points ?? 0),
@@ -150,6 +168,18 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
     .sort((a, b) => (b.soldAt || "").localeCompare(a.soldAt || "")); // 新しい順
 
   return { live, sold };
+}
+
+// 「自分が出品/販売した商品ID」をまとめて返す（ebay_deals の全キー＝カタログ非依存）。
+// 検索一覧で本人の出品済みを隠す（出品中一覧へ"移す"）のに使う。ログイン時は actor=acct:{uuid} なので
+// アカウントに紐づき、別端末でも同じIDが返る。
+export async function listListedProductIds(actor: string): Promise<string[]> {
+  try {
+    const deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
+    return Object.keys(deals);
+  } catch {
+    return [];
+  }
 }
 
 // 「出品をやめた」：成績から取引を削除する（hdel）。

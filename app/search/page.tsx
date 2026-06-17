@@ -11,6 +11,7 @@ import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
+import { fetchListedIds } from "../lib/ebayListed";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
@@ -23,13 +24,16 @@ export default function SearchPage() {
   const [hideSold, setHideSold] = useState(false);
   // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
-  // 自分がeBayに出品済みの商品ID。本人の一覧からは隠して「出品中一覧へ移った」状態にする（端末単位）。
+  // 自分がeBayに出品済みの商品ID。本人の一覧からは隠して「出品中一覧へ移った」状態にする。
+  // listedIds=この端末(localStorage)／accountListedIds=アカウント(サーバー・別端末でも効く)。両方で隠す。
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
+  const [accountListedIds, setAccountListedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     setUnlockedIds(readUnlockedIds());
     setListedIds(readListedIds());
+    fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     fetchProducts()
       .then(({ products, lastUpdated }) => {
@@ -64,7 +68,8 @@ export default function SearchPage() {
     : null;
 
   // 自分が出品済みの商品は本人の一覧から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
-  const visible = products.filter(p => !listedIds.has(p.id));
+  // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
+  const visible = products.filter(p => !listedIds.has(p.id) && !accountListedIds.has(p.id));
   const hotCount = visible.filter(p => p.realProfitRate >= 30).length;
   // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在。
   // 「SOLD除外」でも自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない）。

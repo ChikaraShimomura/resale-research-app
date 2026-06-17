@@ -12,6 +12,7 @@ import ListControls from "../components/ListControls";
 import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
+import { fetchListedIds } from "../lib/ebayListed";
 import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Heart, Flame, PackageSearch, Search } from "lucide-react";
@@ -30,8 +31,10 @@ function ResultsContent() {
   const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
   // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
-  // 自分がeBayに出品済みの商品ID。本人の検索結果からは隠して「出品中一覧へ移った」状態にする（端末単位）。
+  // 自分がeBayに出品済みの商品ID。本人の検索結果からは隠して「出品中一覧へ移った」状態にする。
+  // listedIds=この端末(localStorage)／accountListedIds=アカウント(サーバー・別端末でも効く)。両方で隠す。
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
+  const [accountListedIds, setAccountListedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -46,6 +49,11 @@ function ResultsContent() {
   // eBayで売れた商品を取得（連携済みのみ。未連携なら空セット）
   useEffect(() => {
     fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
+  }, []);
+
+  // 自分が出品/販売済みの商品ID（アカウント単位）を取得して検索結果から隠す（別端末でも効く。失敗時は内部でキャッシュ）。
+  useEffect(() => {
+    fetchListedIds().then(setAccountListedIds).catch(() => {});
   }, []);
 
   // アクティブ（仕入れ中）商品IDを取得（先頭固定/SOLD除外用）。出品・仕入れの変化でも再取得する。
@@ -80,7 +88,8 @@ function ResultsContent() {
 
   const sorted = useMemo(() => {
     // 自分が出品済みの商品は本人の検索結果から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
-    const visible = filtered.filter((p) => !listedIds.has(p.id));
+    // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
+    const visible = filtered.filter((p) => !listedIds.has(p.id) && !accountListedIds.has(p.id));
     // 「SOLD除外」でも、自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない。ProductCardのsold判定と一致）
     const base = hideSold ? visible.filter((p) => !isSold(p) || unlockedIds.has(p.id)) : withSoldDummies(visible);
     const arr = sortProducts(base, sortOrder);
@@ -97,7 +106,7 @@ function ResultsContent() {
     }
     // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
     return pinUnlockedFirst(ordered, unlockedIds, soldIds);
-  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds, listedIds]);
+  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds, listedIds, accountListedIds]);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);
