@@ -13,6 +13,10 @@ on:
         description: 'eBay検索語（英語・任意。型番が一番効く。例: SEIKO DAL7BP 17mm watch band）'
         required: false
         type: string
+      rakuten_keyword:
+        description: '楽天検索語（日本語・任意。商品が見つからない時に指定。例: セイコー ウレタンバンド DAL7BP）'
+        required: false
+        type: string
 
 jobs:
   restore:
@@ -32,6 +36,7 @@ jobs:
           EBAY_CLIENT_SECRET:   ${{ secrets.EBAY_CLIENT_SECRET }}
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
-          RESTORE_URL:          ${{ inputs.url }}
-          RESTORE_KEYWORD:      ${{ inputs.keyword }}
+          RESTORE_URL:             ${{ inputs.url }}
+          RESTORE_KEYWORD:         ${{ inputs.keyword }}
+          RESTORE_RAKUTEN_KEYWORD: ${{ inputs.rakuten_keyword }}
         run: node scripts/restore_product.mjs

@@ -13,7 +13,9 @@ const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET;
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const RESTORE_URL = process.env.RESTORE_URL || "";
-const RESTORE_KEYWORD = (process.env.RESTORE_KEYWORD || "").trim();
+const RESTORE_KEYWORD = (process.env.RESTORE_KEYWORD || "").trim();            // eBay検索語(英語)
+const RESTORE_RAKUTEN_KEYWORD = (process.env.RESTORE_RAKUTEN_KEYWORD || "").trim(); // 楽天検索語(日本語・任意)
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const USD_TO_JPY = 155;
 const EBAY_FEE_RATE = 0.1325;
@@ -66,47 +68,57 @@ function parseUrl(input) {
 
 const RKT_HEADERS = { Referer: 'https://www.yushutsu-fukugyo.com/', Origin: 'https://www.yushutsu-fukugyo.com', 'User-Agent': 'Mozilla/5.0' };
 
-// 新エンドポイント(ichibams)で検索。refreshと同じ認証(applicationId+accessKey+affiliateId)。Items[] を返す。
+// 新エンドポイント(ichibams)で検索。refreshと同じ認証。429(レート制限)は1.2秒空けて最大3回リトライ。
 async function rktSearch(extra, label) {
   const params = new URLSearchParams({ applicationId: RAKUTEN_APP_ID, accessKey: RAKUTEN_ACCESS_KEY, affiliateId: RAKUTEN_AFFILIATE_ID, format: 'json', hits: '30', ...extra });
-  try {
-    const res = await fetch(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`, { headers: RKT_HEADERS, signal: AbortSignal.timeout(15000) });
-    const text = await res.text();
-    if (!res.ok) { console.warn(`  [Rakuten ${label}] HTTP ${res.status}: ${text.slice(0, 200)}`); return []; }
-    return (JSON.parse(text).Items ?? []).map(x => x?.Item ?? x).filter(Boolean);
-  } catch (e) { console.warn(`  [Rakuten ${label}] ${e.message}`); return []; }
+  const url = `https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await sleep(1200); // 楽天APIは約1req/秒。毎回間隔を空ける。
+    try {
+      const res = await fetch(url, { headers: RKT_HEADERS, signal: AbortSignal.timeout(15000) });
+      const text = await res.text();
+      if (res.status === 429) { console.warn(`  [Rakuten ${label}] 429 retry ${attempt + 1}`); continue; }
+      if (!res.ok) { console.warn(`  [Rakuten ${label}] HTTP ${res.status}: ${text.slice(0, 160)}`); return []; }
+      return (JSON.parse(text).Items ?? []).map(x => x?.Item ?? x).filter(Boolean);
+    } catch (e) { console.warn(`  [Rakuten ${label}] ${e.message}`); }
+  }
+  return [];
 }
 
 // 商品ページHTMLから本当のitemCode(=shopCode:数字)を取り出す。URLスラッグはitemCode番号と一致しないため。
 async function scrapeItemCode(shop, slug) {
   try {
-    const res = await fetch(`https://item.rakuten.co.jp/${shop}/${slug}/`, { headers: RKT_HEADERS, signal: AbortSignal.timeout(15000) });
+    const res = await fetch(`https://item.rakuten.co.jp/${shop}/${slug}/`, {
+      headers: { ...RKT_HEADERS, 'Accept-Language': 'ja,en;q=0.8', Accept: 'text/html' },
+      signal: AbortSignal.timeout(15000),
+    });
+    console.log(`  ページ取得: HTTP ${res.status}`);
     if (!res.ok) return null;
     const html = await res.text();
-    let m = html.match(/"itemId"\s*:\s*(\d+)/);
-    if (m) return `${shop}:${m[1]}`;
-    m = html.match(new RegExp(`${shop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`));
-    if (m) return `${shop}:${m[1]}`;
-    return null;
-  } catch { return null; }
+    let m = html.match(/"itemId"\s*:\s*(\d+)/) || html.match(new RegExp(`${shop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`)) || html.match(/item_id=(\d+)/);
+    return m ? `${shop}:${m[1]}` : null;
+  } catch (e) { console.warn(`  scrape ${e.message}`); return null; }
 }
 
 async function fetchRakutenByUrl({ shop, slug }) {
-  // ① 商品ページから実itemCodeを取得 → itemCode検索（有効なitemCodeなら確実）。
+  const matches = (items) => items.find(it => (it.itemUrl || '').toLowerCase().includes(`/${shop.toLowerCase()}/${slug.toLowerCase()}`));
+  // ① 日本語キーワード(指定があれば)＋shopCode で検索し itemUrl 一致を選ぶ＝最も確実。
+  if (RESTORE_RAKUTEN_KEYWORD) {
+    const items = await rktSearch({ keyword: RESTORE_RAKUTEN_KEYWORD, shopCode: shop }, 'jp-kw+shop');
+    const hit = matches(items) || (items.length === 1 ? items[0] : null);
+    if (hit) return hit;
+  }
+  // ② 商品ページから実itemCodeを取得 → itemCode検索（有効itemCodeなら確実）。
   const realCode = await scrapeItemCode(shop, slug);
   if (realCode) {
-    console.log('  ページから実itemCode取得:', realCode);
+    console.log('  実itemCode:', realCode);
     const items = await rktSearch({ itemCode: realCode }, 'itemCode');
     if (items[0]) return items[0];
   }
-  // ② フォールバック: keyword(=指定/スラッグ)＋shopCode で検索し itemUrl 一致の1点を選ぶ。
-  const matches = (items) => items.find(it => (it.itemUrl || '').toLowerCase().includes(`/${shop.toLowerCase()}/${slug.toLowerCase()}`));
-  for (const kw of [RESTORE_KEYWORD, slug].filter(Boolean)) {
-    let items = await rktSearch({ keyword: kw, shopCode: shop }, `kw:${kw.slice(0, 12)}+shop`);
-    let hit = matches(items);
-    if (hit) return hit;
-    items = await rktSearch({ keyword: kw }, `kw:${kw.slice(0, 12)}`);
-    hit = matches(items);
+  // ③ フォールバック: スラッグ/英語keyword で検索し itemUrl 一致。
+  for (const kw of [slug, RESTORE_KEYWORD].filter(Boolean)) {
+    const items = await rktSearch({ keyword: kw, shopCode: shop }, `kw:${kw.slice(0, 12)}+shop`);
+    const hit = matches(items);
     if (hit) return hit;
   }
   return null;
