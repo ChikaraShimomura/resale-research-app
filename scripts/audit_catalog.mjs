@@ -150,13 +150,13 @@ const SAMPLE_N = 40; // 各層の最低サンプル数
   console.error(`PRECISION realCount==1: ${rc1P.pct}% (n=${rc1P.denom})`);
   console.error(`PRECISION recent(addedAt): ${recentP.pct}% (n=${recentP.denom})`);
   console.error(`PRECISION matched-pair(stored): ${matchedP.pct}% (n=${matchedP.denom}) ／ ebayTop再取得(旧): ${precisionOf(out.filter((x) => x.src === "ebayTop")).pct}%`);
-  console.error(`\n合格ライン: overall・realCount==1・recent すべて >=95%（2回連続）`);
+  console.error(`\n基準: 目標98% / 95%超で許容 / 95%以下でアラート`);
 
-  // 精度低下アラート: overall が基準(95%)を割ったらジョブを赤(失敗)にして週次メールで通知する。
+  // 精度低下アラート: overall が 95%以下 でジョブを赤(失敗)にして週次メールで通知する(ユーザー方針)。
   // 母数が少なすぎる時(n<10)は判定が不安定なので警告しない。
   const PASS = Number(process.env.AUDIT_PASS_PCT) || 95;
-  if (overall.pct !== null && overall.denom >= 10 && overall.pct < PASS) {
-    console.error(`\n⚠️ ALERT: カタログ精度 ${overall.pct}% が基準 ${PASS}% を下回りました（要対応）。`);
+  if (overall.pct !== null && overall.denom >= 10 && overall.pct <= PASS) {
+    console.error(`\n⚠️ ALERT: カタログ精度 ${overall.pct}% が基準(${PASS}%以下)です（要対応）。`);
     process.exitCode = 1;
   }
 })().catch((e) => { console.error("FATAL", e.message); process.exit(1); });

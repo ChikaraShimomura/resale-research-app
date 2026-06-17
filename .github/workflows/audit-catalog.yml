@@ -32,11 +32,12 @@ jobs:
           secure: true
           username: resend
           password: ${{ secrets.RESEND_API_KEY }}
-          subject: "⚠️ 輸出ラボ カタログ精度アラート(基準95%割れ/監査失敗)"
+          subject: "⚠️ 輸出ラボ カタログ精度アラート(95%以下/監査失敗)"
           to: chikara0323@gmail.com
           from: "輸出ラボBot <noreply@yushutsu-fukugyo.com>"
           body: |
-            週次のカタログ精度監査で、精度が基準(95%)を下回ったか、監査自体が失敗しました。
+            週次のカタログ精度監査で、精度が95%以下になったか、監査自体が失敗しました。
+            ※目標98%・95%超で許容・95%以下で通知。
 
             ▼ ジャンル別の精度・DIFF内容をログで確認
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
