@@ -1,6 +1,22 @@
 "use client";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import Spinner from "./Spinner";
+
+// Link の子として描画し、その Link の遷移中(pending)はアイコンの代わりにグルグルを出す（タブ切替の待ち時間を可視化）。
+function NavInner({ Icon, isActive, label }: { Icon: React.ComponentType<{ filled: boolean }>; isActive: boolean; label: string }) {
+  const { pending } = useLinkStatus();
+  return (
+    <>
+      <span className="flex items-center justify-center" style={{ width: 22, height: 22 }}>
+        {pending ? <Spinner size={20} /> : <Icon filled={isActive} />}
+      </span>
+      <span className={`text-[11px] whitespace-nowrap ${isActive ? "font-bold text-[#BF0000]" : "font-normal"}`}>
+        {label}
+      </span>
+    </>
+  );
+}
 
 function HomeIcon({ filled }: { filled: boolean }) {
   return filled ? (
@@ -82,10 +98,7 @@ export default function BottomNav() {
               isActive ? "text-[#BF0000]" : "text-gray-500"
             }`}
           >
-            <item.Icon filled={isActive} />
-            <span className={`text-[11px] whitespace-nowrap ${isActive ? "font-bold text-[#BF0000]" : "font-normal"}`}>
-              {item.label}
-            </span>
+            <NavInner Icon={item.Icon} isActive={isActive} label={item.label} />
           </Link>
         );
       })}

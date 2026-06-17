@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Package, ChevronDown, ChevronUp, ImagePlus, RotateCw, ExternalLink, Check } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import EbayListingModal from "./EbayListingModal";
+import Spinner from "./Spinner";
 
 interface SourcingDeal { id: string; title: string; imageUrl: string; purchase: number; purchased: boolean }
 interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string }
@@ -155,7 +156,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       onClick={() => relist(d.id)}
                       className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[10px] font-bold disabled:opacity-40 active:scale-[0.99]"
                     >
-                      <ExternalLink size={12} /> {relistBusy === d.id ? "準備中…" : "出品"}
+                      {relistBusy === d.id ? <><Spinner size={12} /> 準備中…</> : <><ExternalLink size={12} /> 出品</>}
                     </button>
                     {!d.purchased && (
                       <button
@@ -163,15 +164,15 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         onClick={() => srcAct(d.id, "purchased")}
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-40"
                       >
-                        <Check size={12} /> 仕入れた
+                        {busy === d.id ? <Spinner size={12} /> : <Check size={12} />} 仕入れた
                       </button>
                     )}
                     <button
                       disabled={busy === d.id}
                       onClick={() => { if (window.confirm("この商品を「仕入れ中」から外しますか？")) srcAct(d.id, "remove"); }}
-                      className="h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                      className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                     >
-                      やめた
+                      {busy === d.id && <Spinner size={11} />} やめた
                     </button>
                   </div>
                 </div>
@@ -204,9 +205,9 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                     <button
                       disabled={busy === d.id || !(Number(soldJpy) > 0)}
                       onClick={() => act(d.id, "sold", { soldJpy: Number(soldJpy) })}
-                      className="h-7 px-2.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40"
                     >
-                      記録
+                      {busy === d.id && <Spinner size={11} />} 記録
                     </button>
                     <button onClick={() => { setSoldFor(null); setSoldJpy(""); }} className="h-7 px-1.5 text-[11px] text-gray-400">
                       取消
@@ -237,7 +238,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         onClick={() => relist(d.id)}
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 text-blue-700 text-[10px] font-bold disabled:opacity-40 active:bg-blue-50"
                       >
-                        <RotateCw size={12} /> {relistBusy === d.id ? "準備中…" : "再出品"}
+                        {relistBusy === d.id ? <><Spinner size={12} /> 準備中…</> : <><RotateCw size={12} /> 再出品</>}
                       </button>
                       <button
                         disabled={busy === d.id}
@@ -249,9 +250,9 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       <button
                         disabled={busy === d.id}
                         onClick={() => { if (window.confirm("この商品を「出品中」から外しますか？（成績の出品数から除きます）")) act(d.id, "remove"); }}
-                        className="h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                       >
-                        やめた
+                        {busy === d.id && <Spinner size={11} />} やめた
                       </button>
                     </div>
                   </div>
