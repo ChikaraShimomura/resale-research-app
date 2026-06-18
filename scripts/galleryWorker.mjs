@@ -105,8 +105,14 @@ async function cycle() {
     if (await kvExists(`ref_gallery:${id}`)) { skip++; continue; } // 取得済み=再取得しない
     try {
       const urls = await extractGallery(url);
-      await kvSetEx(`ref_gallery:${id}`, { status: urls.length ? "done" : "empty", urls, at: new Date().toISOString() }, REF_TTL);
-      if (urls.length) { done++; console.log(`OK  ${id} → ${urls.length}枚`); } else { empty++; console.log(`空  ${id}`); }
+      const at = new Date().toISOString();
+      if (urls.length) {
+        await kvSetEx(`ref_gallery:${id}`, { status: "done", urls, at }, REF_TTL);
+        done++; console.log(`OK  ${id} → ${urls.length}枚`);
+      } else {
+        await kvSetEx(`ref_gallery:${id}`, { status: "empty", urls: [], at }, 24 * 3600); // 空は1日TTLで翌日再抽出(errorと同方針・取りこぼし救済)
+        empty++; console.log(`空  ${id}`);
+      }
     } catch (e) {
       await kvSetEx(`ref_gallery:${id}`, { status: "error", error: e.message, at: new Date().toISOString() }, 24 * 3600); // 1日後に再試行
       err++; console.log(`ERR ${id}: ${e.message}`);
