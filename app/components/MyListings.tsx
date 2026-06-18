@@ -7,7 +7,7 @@ import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
 interface SourcingDeal { id: string; title: string; imageUrl: string; purchase: number; purchased: boolean }
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string; stoppedAt?: string }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout" }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -253,6 +253,11 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                           {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
                         </p>
+                        {d.sourceStatus && (
+                          <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#BF0000]" : "text-amber-600"}`}>
+                            ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap pl-11">

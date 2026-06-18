@@ -1,0 +1,38 @@
+name: Listing Source Check (出品中の楽天死活/在庫)
+
+# 出品中(未売却・未停止)の listing について、仕入れ元の楽天商品が 売り切れ/掲載終了 になっていないかを
+# ~30分ごとに確認し、deal に sourceStatus フラグを立てる（マイページの出品中一覧に⚠️表示）。
+# 楽天API のみ＝無料。AI不使用。公開リポジトリのため GitHub Actions の実行時間も無料（無制限）。
+# ※スケジュールはベストエフォート（GitHub混雑時は遅延/スキップあり）。失敗メールは付けない（30分毎=スパム化するため）。
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # ~30分ごと
+  workflow_dispatch:          # 手動実行ボタン
+
+# 同時に複数走らないように（前回が長引いても二重実行しない）
+concurrency:
+  group: check-listings
+  cancel-in-progress: false
+
+jobs:
+  check-listings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run listing source check
+        env:
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/checkListings.mjs

@@ -37,6 +37,8 @@ export interface Deal {
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
   stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
+  sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
+  sourceCheckedAt?: string; // 仕入れ元の最終確認日時(ISO)
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -102,6 +104,7 @@ export interface LiveDeal {
   imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
+  sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
 }
 export interface SoldDeal {
   id: string;
@@ -169,6 +172,7 @@ export async function listDealsForUser(
       purchase: d.purchase ?? 0,
       imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
       listingId: d.listingId,
+      sourceStatus: d.sourceStatus, // 楽天の仕入れ元が売り切れ/リンク切れなら⚠️
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 
