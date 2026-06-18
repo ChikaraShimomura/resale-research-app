@@ -4,6 +4,7 @@ import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { getInventoryItem, updateInventoryItemImages } from "../../../../lib/ebay/listing";
 import { uploadHostedPictureFromBinary, uploadHostedPictureFromUrl } from "../../../../lib/ebay/eps";
+import { processRealPhoto } from "../../../../lib/ebay/imageProcess";
 
 // 実物写真をアプリ内で追加する。eBay Picture Services(EPS)に画像をホストし、当該SKUの在庫アイテムの
 // imageUrls を「全EPS」に統一して差し替える（楽天=自前URLとEPSの混在はeBayでエラーになるため）。
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60; // 画像のEPS往復で時間がかかるため上限を引き上げ
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/gif", "image/bmp", "image/tiff"]);
-const MAX_BYTES = 12 * 1024 * 1024;
+// 取り込みの上限(原本)。アップロード前に sharp で 1600px/JPEG へ縮小するので、スマホの大きな写真も受けられる。
+const MAX_BYTES = 40 * 1024 * 1024;
 const MAX_FILES = 6;
 
 export async function POST(req: Request) {
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: `対応していない形式です（${f.name}）。JPG/PNG/GIF/BMP/TIFFのみ。` }, { status: 400 });
     }
     if (f.size > MAX_BYTES) {
-      return Response.json({ ok: false, error: `画像が大きすぎます（${f.name}・12MBまで）。` }, { status: 400 });
+      return Response.json({ ok: false, error: `画像が大きすぎます（${f.name}・40MBまで）。` }, { status: 400 });
     }
   }
 
@@ -66,11 +68,13 @@ export async function POST(req: Request) {
     )
   ).filter((u): u is string => !!u);
 
-  // 実物写真をアップロード（並列）。
+  // 実物写真をアップロード（並列）。sharpで長辺1600px/JPEGへ縮小してから上げる(12MB超対策＋規格統一)。
   const uploaded = await Promise.all(
     files.map(async (f) => {
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const r = await uploadHostedPictureFromBinary(token, bytes, f.type, `rr-${productId}`);
+      const raw = Buffer.from(await f.arrayBuffer());
+      let bytes: Buffer = raw;
+      try { bytes = await processRealPhoto(raw); } catch { bytes = raw; } // 加工失敗は原本で続行
+      const r = await uploadHostedPictureFromBinary(token, bytes, "image/jpeg", `rr-${productId}`);
       return r.ok && r.fullUrl ? r.fullUrl : { error: r.error };
     })
   );

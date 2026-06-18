@@ -5,6 +5,7 @@ import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
 import { filterProductImages } from "../../../../lib/ebay/imageFilter";
+import { enhanceToEps } from "../../../../lib/ebay/imageProcess";
 import { recordListed } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
@@ -12,6 +13,7 @@ import { SOLD_THRESHOLD } from "../../../../lib/sold";
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 画像の取得→sharp加工→EPSアップロードで時間がかかるため上限を引き上げ
 
 interface Payload {
   productId?: string;
@@ -60,7 +62,16 @@ export async function POST(req: Request) {
 
   // 複数画像: 楽天ギャラリー(最大3)から「商品写真だけ」を選び原寸で出品。空なら代表画像にフォールバック。
   const gallery = product.images?.length ? product.images : [product.imageUrl];
-  const images = await filterProductImages(gallery);
+  const filtered = await filterProductImages(gallery);
+  // 品質加工(無料sharp): 楽天画像を取得→1600px正方白背景・シャープ→EPSへ載せ替え(全EPS化で混在も回避)。
+  // 失敗時は元の楽天URLのまま出品(fail-open)＝出品は必ず通る。
+  let images = filtered;
+  try {
+    const enhanced = await enhanceToEps(token, filtered);
+    if (enhanced && enhanced.length) images = enhanced;
+  } catch {
+    /* fail-open: 元URLのまま */
+  }
 
   // Best Offer（値下げ交渉）: 既定ON。出品価格の90%以上は自動承諾、損益分岐(floor)未満は自動拒否。
   const bestOffer = body.bestOffer !== false;
