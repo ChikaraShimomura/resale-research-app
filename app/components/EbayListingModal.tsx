@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
-import { formatJpy, toRakutenProductUrl } from "../lib/utils";
+import { formatJpy } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
@@ -114,7 +114,6 @@ export default function EbayListingModal({
   const [msg, setMsg] = useState("");
   const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
   const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
-  const [purchaseBlocked, setPurchaseBlocked] = useState(false); // 楽天仕入れ実績なしで出品ブロック中
   const [cooldown, setCooldown] = useState(0); // 「登録完了」失敗後のクールダウン秒数
   const [reportState, setReportState] = useState<"idle" | "sending" | "done">("idle"); // 開発者に報告
 
@@ -228,35 +227,7 @@ export default function EbayListingModal({
     onListed?.();
   };
 
-  // 「楽天で仕入れる」を押した実績（rkt_）が無い商品は出品させない（無在庫の抑止）。
-  const hasRakutenPurchase = (): boolean => {
-    try {
-      return localStorage.getItem(`rkt_${product.id}`) === "1";
-    } catch {
-      return false;
-    }
-  };
-  // 出品ブロック表示から「楽天で仕入れる」を押したとき：実績を記録して楽天を開き、再出品できるようにする。
-  const goRakuten = () => {
-    try {
-      localStorage.setItem(`rkt_${product.id}`, "1");
-      window.dispatchEvent(new Event("rkt-changed"));
-    } catch {
-      /* noop */
-    }
-    setPurchaseBlocked(false);
-    logEvent("rakuten_buy");
-    if (typeof window !== "undefined") {
-      window.open(toRakutenProductUrl(product.source.url), "_blank", "noopener,noreferrer");
-    }
-  };
-
   const publish = async () => {
-    if (!hasRakutenPurchase()) {
-      setPurchaseBlocked(true); // 楽天仕入れ実績なし → メッセージを出して出品しない
-      return;
-    }
-    setPurchaseBlocked(false);
     setPhase("publishing");
     setMsg("");
     const res = await postPublish();
@@ -737,27 +708,6 @@ export default function EbayListingModal({
                 <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   ⚠️ 上の「商品の詳細（必須）」に未入力があります。候補から選ぶと出品できます。
                 </p>
-              )}
-
-              {/* 無在庫の抑止：楽天仕入れ（「楽天で仕入れる」押下）の実績が無ければ出品をブロック */}
-              {purchaseBlocked && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-3.5 py-3 space-y-2.5">
-                  <p className="text-[12px] text-[#2D323B] font-bold leading-relaxed">
-                    楽天仕入れの実績が確認できませんでした。<br />
-                    楽天で先に仕入れてから、eBay出品を行ってください。
-                  </p>
-                  <button
-                    type="button"
-                    onClick={goRakuten}
-                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
-                  >
-                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
-                    楽天で仕入れる
-                  </button>
-                  <p className="text-[10px] text-gray-500 leading-relaxed">
-                    仕入れたら、もう一度下の「eBayに出品する」を押してください。
-                  </p>
-                </div>
               )}
 
               {/* 出品ボタン */}
