@@ -244,9 +244,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
           {/* ポイント二重取り — 1行強調 */}
           {pointAmount > 0 && (
-            <div className="mt-3 bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-[#5A6472]/20">
-              <span className="inline-flex w-4 h-4 bg-[#5A6472] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
-              <span className="text-xs font-bold text-[#5A6472]">
+            <div className="mt-3 bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-[#FF4466]/20">
+              <span className="inline-flex w-4 h-4 bg-[#FF4466] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
+              <span className="text-xs font-bold text-[#FF4466]">
                 楽天ポイント {pointAmount.toLocaleString()}pt 二重取り
               </span>
               <span className="text-xs text-gray-400 ml-auto">実質 {formatJpy(realCost)}</span>
@@ -284,7 +284,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
             {pointAmount > 0 && (
-              <div className="flex justify-between text-[#5A6472]">
+              <div className="flex justify-between text-[#FF4466]">
                 <span>楽天ポイント還元（{source.pointRate ?? 1}%）</span>
                 <span>+ {formatJpy(pointAmount)}</span>
               </div>
@@ -318,8 +318,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] hover:bg-[#1A1D23] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
-            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#2D323B] font-black text-[9px] shrink-0">R</span>
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
+            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
             楽天で仕入れる
           </a>
         </div>
