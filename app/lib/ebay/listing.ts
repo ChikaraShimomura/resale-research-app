@@ -685,3 +685,32 @@ export async function withdrawListingForSku(
   if (/not published|isn'?t published|already|ended/i.test(r.error ?? "")) return { ok: true, ended: false };
   return { ok: false, ended: false, error: r.error };
 }
+
+// ── 実物写真の追加（在庫アイテムの画像を差し替え。公開中の出品にも即反映） ──
+// 在庫アイテムをGETで読む（imageUrlsのマージや状態維持のため。PUTは全置換なので既存値を欠かさず再送する）。
+export async function getInventoryItem(token: string, sku: string): Promise<Record<string, unknown> | null> {
+  const r = await ebayFetch(token, "GET", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`);
+  if (!r.ok || !r.data) return null;
+  return r.data as Record<string, unknown>;
+}
+
+// 既存の在庫アイテムを読み、product.imageUrls だけ新しい配列（全EPS）に差し替えてPUT。
+// title/aspects/condition/availability 等は読み取った値をそのまま再送して欠落させない。
+export async function updateInventoryItemImages(
+  token: string,
+  sku: string,
+  imageUrls: string[]
+): Promise<{ ok: boolean; error?: string }> {
+  const item = await getInventoryItem(token, sku);
+  if (!item) {
+    return { ok: false, error: "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
+  }
+  const product = { ...((item.product as Record<string, unknown>) ?? {}), imageUrls: imageUrls.slice(0, 24) };
+  const body: Record<string, unknown> = { product };
+  if (item.availability != null) body.availability = item.availability;
+  if (item.condition != null) body.condition = item.condition;
+  if (item.conditionDescription != null) body.conditionDescription = item.conditionDescription;
+  if (item.packageWeightAndSize != null) body.packageWeightAndSize = item.packageWeightAndSize;
+  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, body);
+  return { ok: r.ok, error: r.error };
+}

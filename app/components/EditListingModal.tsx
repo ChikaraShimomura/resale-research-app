@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X, ImagePlus } from "lucide-react";
 import Spinner from "./Spinner";
 
 // 出品中の「価格・数量」をアプリ内で編集するモーダル。
@@ -23,6 +23,10 @@ export default function EditListingModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [files, setFiles] = useState<File[]>([]); // 追加する実物写真
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoDone, setPhotoDone] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -64,6 +68,29 @@ export default function EditListingModal({
       setSaveError("通信エラーで更新できませんでした。");
     }
     setSaving(false);
+  };
+
+  const uploadPhotos = async () => {
+    if (!files.length) return;
+    setUploading(true);
+    setPhotoError(null);
+    setPhotoDone(null);
+    try {
+      const fd = new FormData();
+      fd.append("productId", productId);
+      files.forEach((f) => fd.append("files", f));
+      const j = await fetch("/api/ebay/list/photos", { method: "POST", body: fd }).then((r) => r.json());
+      if (j?.ok) {
+        setPhotoDone(`実物写真を${j.added}枚 追加しました（出品に反映済み）`);
+        setFiles([]);
+        onSaved?.();
+      } else {
+        setPhotoError(j?.error || "写真の追加に失敗しました。");
+      }
+    } catch {
+      setPhotoError("通信エラーで写真を追加できませんでした。");
+    }
+    setUploading(false);
   };
 
   const priceOk = Number(priceUsd) >= 0.01;
@@ -140,9 +167,37 @@ export default function EditListingModal({
                 "この内容で更新"
               )}
             </button>
-            <p className="text-[10px] text-gray-400 leading-relaxed text-center">
-              実物写真の追加は準備中です。タイトルや写真の変更はeBay側で行うと出品の管理が外れる場合があるため、近日アプリ内対応します。
-            </p>
+            <div className="pt-3 mt-1 border-t border-gray-100">
+              <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
+              <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
+                実物の写真を足すと売れやすくなります。楽天の画像は残したままeBayに移して追加します（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると出品の管理が外れるので、写真の変更はここから。
+              </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff"
+                multiple
+                onChange={(e) => { setFiles(Array.from(e.target.files ?? []).slice(0, 6)); setPhotoDone(null); setPhotoError(null); }}
+                className="block w-full text-[11px] text-gray-600 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-[11px] file:font-bold"
+              />
+              {files.length > 0 && <p className="text-[11px] text-gray-500 mt-1">{files.length}枚 選択中</p>}
+              {photoError && <p className="text-[12px] text-[#BF0000] mt-1 leading-relaxed">{photoError}</p>}
+              {photoDone && <p className="text-[12px] text-emerald-600 mt-1 leading-relaxed">✓ {photoDone}</p>}
+              <button
+                onClick={uploadPhotos}
+                disabled={uploading || files.length === 0}
+                className="mt-2 w-full h-10 rounded-lg border border-[#BF0000] text-[#BF0000] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <Spinner size={14} /> アップロード中…（少し時間がかかります）
+                  </>
+                ) : (
+                  <>
+                    <ImagePlus size={15} /> 実物写真を追加
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
