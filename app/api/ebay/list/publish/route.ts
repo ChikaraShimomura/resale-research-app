@@ -34,8 +34,6 @@ interface Payload {
 export async function POST(req: Request) {
   const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, connected: false });
-  // listing_actors（乱立防止のSOLD集計）は端末単位を維持。利益台帳/トークン/SKU対応表はアカウント単位(actor)。
-  const did = (await cookies()).get("rr_did")?.value ?? actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
@@ -49,6 +47,19 @@ export async function POST(req: Request) {
 
   const product = await getProductById(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
+
+  // 出品上限(満了)チェック：1商品につき最大 SOLD_THRESHOLD 人(端末)まで。既に出した端末は再出品OK(冪等)。
+  const did = (await cookies()).get("rr_did")?.value ?? actor;
+  try {
+    if (
+      (await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD &&
+      !(await kv.sismember(`listing_actors:${product.id}`, did))
+    ) {
+      return Response.json({ ok: false, error: `この商品は出品上限（${SOLD_THRESHOLD}人）に達しました（満了）。別の商品をお試しください。` });
+    }
+  } catch {
+    /* KV障害時はブロックしない（出品は通す） */
+  }
 
   const title = (body.title || product.coreKeyword || product.title).slice(0, 80);
   // 必須項目（空値は送らない）。値は配列で渡す。
@@ -111,20 +122,11 @@ export async function POST(req: Request) {
     autoDeclineUsd,
   });
 
-  // オファー作成（下書き含む）できたら、出品者数を計上（SOLD飽和判定の元・乱立防止）。
-  // 1端末は何度出しても +0（SADDで冪等）。押下数ではなく実出品数で数える。
-  // ※これは「カタログの飽和検知」用。マイページの成績（件数・仕入れ額）は別で、公開完了(result.ok)だけを数える。
+  // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで端末単位・冪等。
   if (result.offerId) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, did);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
-      // 出品者数が飽和しきい値(SOLD_THRESHOLD)に達してSOLD化した瞬間を記録。30日後に refresh が
-      // DBから削除＋カウントリセットし、再び新しい利益商品として検知できるようにする。
-      if ((await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD) {
-        if ((await kv.hget("sold_since", product.id)) == null) {
-          await kv.hset("sold_since", { [product.id]: Date.now() });
-        }
-      }
     } catch {
       /* noop */
     }

@@ -9,11 +9,10 @@ import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
 import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
-import { isSold, withSoldDummies } from "../lib/sold";
 import { fetchSoldIds } from "../lib/ebaySold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
 import { fetchListedIds } from "../lib/ebayListed";
-import { readSort, writeSort, readHideSold, writeHideSold } from "../lib/prefs";
+import { readSort, writeSort } from "../lib/prefs";
 import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch, Search } from "lucide-react";
@@ -26,7 +25,6 @@ function ResultsContent() {
   const [loading, setLoading] = useState(true);
   // 既定=総合おすすめ順（利幅×需要×手頃さ×ライバルのバランス）。新着順は選択肢に残す。
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended");
-  const [hideSold, setHideSold] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   // 自分がeBayで売れた商品ID（端末単位）。最下部化/非表示に使う。
   const [soldIds, setSoldIds] = useState<Set<string>>(new Set());
@@ -66,7 +64,6 @@ function ResultsContent() {
     const refreshAll = () => { setUnlockedIds(readUnlockedIds()); setListedIds(readListedIds()); };
     refreshAll();
     setSortOrder(readSort());     // 前回の並び替えを復元（ページ移動で初期化されないように）
-    setHideSold(readHideSold());  // 前回のSOLD除外も復元
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     window.addEventListener("rkt-changed", refreshUnlocked); // 同一タブの仕入れ/出品
     window.addEventListener("storage", refreshAll); // 別タブ
@@ -94,15 +91,11 @@ function ResultsContent() {
     // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
     // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
     const visible = filtered.filter((p) => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
-    // 「SOLD除外」でも、自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない。ProductCardのsold判定と一致）
-    const base = hideSold ? visible.filter((p) => !isSold(p) || unlockedIds.has(p.id) || p.restored) : withSoldDummies(visible);
-    const arr = sortProducts(base, sortOrder);
-    // eBayで売れた商品：「SOLDを除外」時は隠し、通常時は最下部へ沈める（並び順は維持）
+    const arr = sortProducts(visible, sortOrder);
+    // 自分がeBayで売れた商品(soldIds)は最下部へ沈める（並び順は維持）。0件ならそのまま。
     let ordered: ProfitProduct[];
     if (soldIds.size === 0) {
       ordered = arr;
-    } else if (hideSold) {
-      ordered = arr.filter((p) => !soldIds.has(p.id) || p.restored);
     } else {
       const live = arr.filter((p) => !soldIds.has(p.id));
       const sold = arr.filter((p) => soldIds.has(p.id));
@@ -110,12 +103,12 @@ function ResultsContent() {
     }
     // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
     return pinUnlockedFirst(ordered, unlockedIds, soldIds);
-  }, [filtered, sortOrder, hideSold, soldIds, unlockedIds, listedIds, accountListedIds]);
+  }, [filtered, sortOrder, soldIds, unlockedIds, listedIds, accountListedIds]);
 
   // ページネーション（30件/ページ）。並び替え・フィルタ・キーワード変更で1ページ目へ
   const [page, setPage] = useState(1);
   // 並び替え/SOLD除外/検索を変えたら先頭へ戻す（2ページ目での切替が予告なく跳ぶのを防ぐ）
-  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder, hideSold, keyword]);
+  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder, keyword]);
   const pageCount = Math.ceil(sorted.length / PAGE_SIZE);
   const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
   const pageItems = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -169,8 +162,6 @@ function ResultsContent() {
         <ListControls
           sortOrder={sortOrder}
           onSortChange={(v) => { setSortOrder(v); writeSort(v); }}
-          hideSold={hideSold}
-          onHideSoldChange={(v) => { setHideSold(v); writeHideSold(v); }}
         />
       </div>
 

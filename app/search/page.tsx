@@ -9,10 +9,9 @@ import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
-import { isSold, withSoldDummies } from "../lib/sold";
 import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
 import { fetchListedIds } from "../lib/ebayListed";
-import { readSort, writeSort, readHideSold, writeHideSold } from "../lib/prefs";
+import { readSort, writeSort } from "../lib/prefs";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
@@ -22,7 +21,6 @@ export default function SearchPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended"); // 既定=総合おすすめ順
-  const [hideSold, setHideSold] = useState(false);
   // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   // 自分がeBayに出品済みの商品ID。本人の一覧からは隠して「出品中一覧へ移った」状態にする。
@@ -33,7 +31,6 @@ export default function SearchPage() {
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     setSortOrder(readSort());        // 前回の並び替えを復元（ページ移動で初期化されないように）
-    setHideSold(readHideSold());     // 前回のSOLD除外も復元
     setUnlockedIds(readUnlockedIds());
     setListedIds(readListedIds());
     fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
@@ -75,17 +72,13 @@ export default function SearchPage() {
   // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
   const visible = products.filter(p => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
   const hotCount = visible.filter(p => p.realProfitRate >= 30).length;
-  // SOLD以外のみ表示ならフィルタ、そうでなければ SOLD が10未満のときダミーSOLDを点在。
-  // 「SOLD除外」でも自分が仕入れ中（unlocked）の商品は残す（出品導線を消さない）。
-  const baseList = hideSold ? visible.filter(p => !isSold(p) || unlockedIds.has(p.id) || p.restored) : withSoldDummies(visible);
   // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
-  const sortedProducts = pinUnlockedFirst(sortProducts(baseList, sortOrder), unlockedIds);
-  // ヘッダー件数は実表示数に合わせる（SOLD除外時の過大表示を防ぐ）
-  const visibleCount = hideSold ? baseList.length : visible.length;
+  const sortedProducts = pinUnlockedFirst(sortProducts(visible, sortOrder), unlockedIds);
+  const visibleCount = visible.length;
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder, hideSold]);
+  useEffect(() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }, [sortOrder]);
   const pageCount = Math.ceil(sortedProducts.length / PAGE_SIZE);
   const safePage = Math.min(page, Math.max(1, pageCount)); // 非同期でリストが縮んでも空ページを出さない
   const pageItems = sortedProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -165,8 +158,6 @@ export default function SearchPage() {
           <ListControls
             sortOrder={sortOrder}
             onSortChange={(v) => { setSortOrder(v); writeSort(v); }}
-            hideSold={hideSold}
-            onHideSoldChange={(v) => { setHideSold(v); writeHideSold(v); }}
           />
         </div>
 

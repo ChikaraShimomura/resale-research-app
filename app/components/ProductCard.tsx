@@ -4,7 +4,6 @@ import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
-import { isSold } from "../lib/sold";
 import { track, logEvent } from "../lib/analytics";
 
 const EBAY_FEE_RATE = 0.1325;
@@ -56,8 +55,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 「相場を確認」は、画像照合で一致した実物(matchedEbayUrl)を最優先＝必ず同一商品に着地。
   // 無い(旧データ)時だけ、締めたキーワード検索にフォールバック。
   const ebayMarketUrl = product.matchedEbayUrl || toEbayMarketUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
-  // 出品者数(下書き含む)は /api/products が付与済み。SOLD判定に使う。計上はサーバー側。
-  const listingCount = product.listingCount ?? 0;
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   // 「楽天で仕入れる」を押した端末だけ「eBay自動出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
@@ -66,7 +63,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
   }, [product.id]);
   const markRakutenClicked = () => {
-    // 同一タブの他ページ（検索/結果一覧）にも仕入れ状態の変化を伝える（先頭固定・SOLD除外の再計算用）
+    // 同一タブの他ページ（検索/結果一覧）にも仕入れ状態の変化を伝える（先頭固定の再計算用）
     try { localStorage.setItem(`rkt_${product.id}`, "1"); window.dispatchEvent(new Event("rkt-changed")); } catch { /* noop */ }
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
@@ -97,11 +94,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     } catch { /* noop */ }
   };
 
-  // 「楽天で仕入れる」を押した端末(=仕入れ中)には SOLD を出さない。仕入れ途中で他人の出品が増えて
-  // SOLD化すると、買ったのに出品導線が消えてかわいそうなため、本人にはそのまま表示する。
-  // 自分がeBayで売った商品(ebaySold)もぼかさない（発送のため中身を見られるように）。
-  const sold = isSold(product, listingCount) && !rakutenClicked && !ebaySold;
-
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
   const shippingJpy = source.shippingJpy ?? 0; // 国内送料概算（利益計算に算入済み）
@@ -122,29 +114,11 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
       )}
 
       {/* HOT グラデーションライン */}
-      {isHot && !sold && !ebaySold && (
+      {isHot && !ebaySold && (
         <div className="h-1 bg-gradient-to-r from-[#2D323B] to-[#A98B5C]" />
       )}
 
-      {/* 飽和＝輸出ラボから規定数が出品された商品。「枠が埋まった＋他は早い者勝ち」で次の商品へ前向きに誘導する。 */}
-      {sold && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center">
-          <span className="inline-flex items-center gap-1.5 rotate-[-5deg] bg-gray-900 text-white text-[17px] font-black px-4 py-1.5 rounded-xl tracking-wide shadow-lg ring-2 ring-white/80">
-            <Flame size={17} aria-hidden="true" /> 出品枠 満了
-          </span>
-          <div className="mt-3 max-w-[290px] bg-white/95 rounded-xl px-3.5 py-2.5 shadow-sm border border-[#A98B5C]/25">
-            <p className="text-[10px] font-bold text-gray-600 whitespace-nowrap">
-              輸出ラボから出品された数が、<b className="text-gray-900">規定に到達</b>しました。
-            </p>
-            <p className="mt-1.5 text-[13px] font-black text-[#2D323B] leading-snug">
-              商品は早い者勝ち！<br />
-              <span className="text-[12px]">他の商品を早く出品しよう👇</span>
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className={cn("p-4", sold && "blur-[6px] pointer-events-none select-none")}>
+      <div className="p-4">
         {/* 上段：画像 + 商品情報 */}
         <div className="flex gap-3.5 mb-4">
           {/* 画像 */}
@@ -312,9 +286,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
         {/* 主要CTA — eBay自動出品 / 楽天で仕入れる を横並び（flex-1で等幅・位置を入れ替え済み） */}
         <div className="flex gap-2.5">
-          {!sold && (
-            <ListingHelper product={product} autoOpen={autoOpenListing} />
-          )}
+          <ListingHelper product={product} autoOpen={autoOpenListing} />
           {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}

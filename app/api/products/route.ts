@@ -1,5 +1,6 @@
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
+import { isSold } from "../../lib/sold";
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
@@ -47,18 +48,30 @@ export async function GET() {
     );
 
     if (merged.length > 0) {
-      // 各商品の出品クリック回数（ライバル数の目安）を pipeline でまとめて付与。
+      // 掲載ゲート＋満了(SOLD)隠し：各商品で ref_gallery(get) と 出品者数(scard listing_actors) をまとめて引く。
+      //  ・参考画像(ref_gallery done & 画像≥1)が揃った商品だけ掲載（抽出→画像取得→掲載）
+      //  ・出品者が SOLD_THRESHOLD 人以上＝満了は一覧から隠す（共食い防止の上限）
+      //  ・手動復活(restored)は管理者が明示的に出したものなのでゲート/満了を免除
+      let ready = merged;
       try {
         const pipe = kvReadOnly.pipeline();
-        merged.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
-        const counts = (await pipe.exec()) as number[];
-        merged.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
+        merged.forEach((p) => { pipe.get(`ref_gallery:${p.id}`); pipe.scard(`listing_actors:${p.id}`); });
+        const res = (await pipe.exec()) as unknown[];
+        ready = merged.filter((p, i) => {
+          p.listingCount = Number(res?.[i * 2 + 1] ?? 0); // 出品者数（満了判定の元・カードでも使える）
+          if (p.restored) return true;
+          if (isSold(p, p.listingCount)) return false;   // 満了は隠す
+          let r = res?.[i * 2] as { status?: string; urls?: string[] } | string | null;
+          if (typeof r === "string") { try { r = JSON.parse(r); } catch { r = null; } }
+          return !!r && typeof r === "object" && r.status === "done" && Array.isArray(r.urls) && r.urls.length > 0;
+        });
       } catch {
-        merged.forEach((p) => { p.listingCount = 0; });
+        // 照会に失敗したらゲートを掛けない（フェイルオープン＝KV障害で一覧が空にならないように）
+        ready = merged;
       }
 
       return Response.json(
-        { products: merged, lastUpdated, stats },
+        { products: ready, lastUpdated, stats },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）
         { headers: { "Cache-Control": "private, no-store" } }
       );

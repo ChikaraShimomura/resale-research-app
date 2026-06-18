@@ -3,7 +3,6 @@ import Link from "next/link";
 import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
-import ResetListingCounts from "../components/ResetListingCounts";
 import TrustBadges from "../components/TrustBadges";
 import PushSettings from "../components/PushSettings";
 
@@ -17,8 +16,7 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const sp = await searchParams;
-  const showReset = sp.reset === "1"; // /settings?reset=1 のときだけ表示
+  await searchParams;
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
@@ -55,8 +53,6 @@ export default async function SettingsPage({
         </section>
 
         <EbayListingSetup />
-
-        {showReset && <ResetListingCounts />}
 
         <div className="pt-1 text-center">
           <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#2D323B]">プライバシーポリシー</Link>

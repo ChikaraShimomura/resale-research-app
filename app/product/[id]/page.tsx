@@ -4,7 +4,6 @@ import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
-import { isSold } from "../../lib/sold";
 import { Search, Flame } from "lucide-react";
 import JsonLd from "../../components/JsonLd";
 import ShippingHelper from "../../components/ShippingHelper";
@@ -27,23 +26,13 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
   }
 }
 
-// 掲載終了ページの導線用：今アツい（利益率が高い／SOLD以外）商品を数件。
+// 掲載終了ページの導線用：今アツい（利益率が高い）商品を数件。
 async function getHotProducts(excludeId: string, n = 3): Promise<ProfitProduct[]> {
   try {
     const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
     if (!products) return [];
-    // /api/products と同じく listing_actors の出品者数を付与してから SOLD 判定する。
-    // 未付与だと listingCount=0 で SOLD化（出品乱立）商品が「今アツい」に混ざってしまう。
-    try {
-      const pipe = kvReadOnly.pipeline();
-      products.forEach((p) => pipe.scard(`listing_actors:${p.id}`));
-      const counts = (await pipe.exec()) as number[];
-      products.forEach((p, i) => { p.listingCount = counts?.[i] ?? 0; });
-    } catch {
-      products.forEach((p) => { p.listingCount = 0; });
-    }
     return products
-      .filter((p) => p.id !== excludeId && !isSold(p))
+      .filter((p) => p.id !== excludeId)
       .sort((a, b) => b.realProfitRate - a.realProfitRate)
       .slice(0, n);
   } catch {

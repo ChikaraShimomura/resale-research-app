@@ -1,78 +1,13 @@
 import { ProfitProduct } from "./profitFilter";
 
-// アプリから出品された数（下書き含む・異なる出品者の数）の飽和しきい値。これ「以上」でSOLD扱いにして、
-// 市場の乱立（ライバル増えすぎ）を防ぐ。押された数ではなく、実際に出品/下書きされた数で数える。
-// 数字の二重管理を避けるため、publish route 側もこの定数を import して判定を一致させる。
-export const SOLD_THRESHOLD = 15;
+// 1商品につき、輸出ラボから出品できる人数(端末)の上限。これ「以上」で満了(SOLD)。
+// 共有カタログでの共食い（同じ商品に出品が殺到→eBayで価格崩壊）を防ぐ希少性ガード。
+// 効果：① /api/products は満了商品を一覧から隠す ② publish は上限到達商品の新規出品をブロック。
+// しきい値は定数1個＝実データ（ユーザーが利益を出せているか）を見ていつでも調整可。
+export const SOLD_THRESHOLD = 10;
 
-// SOLD（出品が乱立 or ダミー）か判定。出品者数が15以上でSOLD。
+// 満了(SOLD)判定。出品者数(listing_actors の人数)が上限以上なら満了。
 export function isSold(p: ProfitProduct, liveCount?: number): boolean {
-  if (p.soldOut) return true;
   const count = liveCount ?? p.listingCount ?? 0;
   return count >= SOLD_THRESHOLD;
-}
-
-// ── ダミーSOLD商品（カードはブラー表示されるため内容は概略でよい） ──
-const DUMMY_TITLES = [
-  "ポケモンカード 強化拡張パック BOX 未開封",
-  "ガンプラ MG 1/100 新品未開封 限定",
-  "遊戯王 レアリティコレクション BOX シュリンク付",
-  "ねんどろいど 限定版 フィギュア 新品",
-  "LEGO テクニック 大型セット 新品未開封",
-  "セイコー プロスペックス ダイバー 新品",
-  "ワンピースカード 頂上決戦 BOX 未開封",
-  "一番くじ ラストワン賞 フィギュア",
-  "Nintendo Switch 限定ソフト 新品未開封",
-  "デュエルマスターズ 王道篇 BOX 未開封",
-  "コトブキヤ プラモデル 新品 限定",
-  "シャドウバース エボルヴ ブースター BOX",
-];
-
-export function makeDummySold(seed: number, imageUrl = ""): ProfitProduct {
-  const title = DUMMY_TITLES[seed % DUMMY_TITLES.length];
-  const price = 3000 + ((seed * 977) % 9000);
-  const rate = 45 + ((seed * 17) % 110);
-  const avg = Math.round(price * (1 + rate / 100));
-  return {
-    id: `dummy-sold-${seed}`,
-    title,
-    imageUrl, // 実商品の画像を流用してリアルに見せる（ブラー表示）
-    category: "その他",
-    source: { site: "rakuten", siteName: "楽天", price, url: "#", pointRate: 10, pointAmount: Math.floor(price / 10) },
-    isNew: true,
-    soldOut: true,
-    realAvgPrice: avg,
-    realProfit: avg - price,
-    realProfitRate: rate,
-    realCount: 1,
-    listingCount: 999,
-    addedAt: "2020-01-01T00:00:00.000Z",
-  } as ProfitProduct;
-}
-
-// SOLD商品が10未満なら、ダミーSOLDを補充してリスト内に点在させる。
-// （本番でもプラットフォームを活発に見せるための演出。カードはブラー＋SOLD札で表示）
-export function withSoldDummies(products: ProfitProduct[], target = 10): ProfitProduct[] {
-  // 実商品が無い（空カタログ・読込中）ときはダミーを出さない
-  if (products.length === 0) return products;
-  const soldCount = products.filter((p) => isSold(p)).length;
-  if (soldCount >= target) return products;
-
-  const need = target - soldCount;
-  // ダミー画像は実商品の画像を流用してバレにくくする（ブラー表示）
-  const realImages = products.map((p) => p.imageUrl).filter((u): u is string => !!u);
-  const dummies = Array.from({ length: need }, (_, i) =>
-    makeDummySold(i, realImages.length ? realImages[(i * 3 + 1) % realImages.length] : "")
-  );
-
-  // 数件ごとにダミーを差し込んで点在させる
-  const gap = Math.max(2, Math.floor(products.length / (need + 1)) || 2);
-  const out: ProfitProduct[] = [];
-  let di = 0;
-  products.forEach((p, i) => {
-    out.push(p);
-    if (di < dummies.length && (i + 1) % gap === 0) out.push(dummies[di++]);
-  });
-  while (di < dummies.length) out.push(dummies[di++]); // 余りは末尾
-  return out;
 }

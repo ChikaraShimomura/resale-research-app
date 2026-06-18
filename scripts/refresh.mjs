@@ -1115,32 +1115,6 @@ async function main() {
   const dupRemoved = loadedProducts.length - dedupedProducts.length;
   if (dupRemoved > 0) console.log(`  🧹 重複DB自動クリーンアップ: ${dupRemoved}件除去`);
 
-  // ── SOLDライフサイクル: SOLD化(出品者10超)から30日経った商品はDBから削除し、再検知に回す ──
-  // 同時に出品者カウント(listing_actors)をリセットし、eBayハッシュをchecked_idsから外して
-  // 再処理対象に戻す。→ 再び新しい利益商品として検知・掲載される。
-  const SOLD_HOLD_MS = 30 * 24 * 60 * 60 * 1000;
-  const soldSince = await kvHgetall('sold_since');
-  const agedOut = new Set(
-    Object.entries(soldSince)
-      .filter(([, since]) => now - Number(since) > SOLD_HOLD_MS)
-      .map(([id]) => id)
-  );
-  if (agedOut.size > 0) {
-    for (const p of dedupedProducts) {
-      if (agedOut.has(p.id) && p.coreKeyword) {
-        const h = String(ebayQueryHash(p.coreKeyword));
-        allCheckedMap.delete(h); // 保存される checked_ids から外す
-        checkedIds.delete(h);    // 今回の処理対象に戻す
-      }
-    }
-    for (const id of agedOut) {
-      await kvDel(`listing_actors:${id}`); // 出品者カウントをリセット
-      await kvHdel('sold_since', id);
-    }
-    dedupedProducts = dedupedProducts.filter(p => !agedOut.has(p.id));
-    console.log(`  ♻️ SOLD 30日経過: ${agedOut.size}件をDBから削除→再検知へ`);
-  }
-
   // 既存商品にも最新ロジックを遡及適用：カテゴリを再判定（誤分類の修正）し、
   // coreKeyword が汎用的すぎる場合は楽天タイトルの英訳に差し替える（相場検索の精度向上）。
   // guessCategory は純関数で安全、英訳は en_kw キャッシュ済みのため負荷は小さい。

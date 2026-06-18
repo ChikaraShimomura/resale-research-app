@@ -228,12 +228,6 @@ async function main() {
     if (restoredIdSet.has(id)) await kvHdel('restored_products', id);
   }
 
-  // 付随KVの掃除。掲載終了(永続)は aux key も削除。在庫切れ(再入荷あり得る)は飽和カウント等を残す。
-  for (const id of deadIds) {
-    await kvDel(`listing_actors:${id}`);
-    await kvHdel('sold_since', id);
-  }
-
   console.log(
     `除外: 掲載終了 ${deadIds.length}件 / 在庫切れ ${soldoutIds.length}件 → カタログ ${base.length} → ${finalList.length}件 ` +
     `(alive ${alive} / unknown ${unknown}, ${elapsedSec}s)`
