@@ -1,3 +1,4 @@
+import { kvReadOnly } from "../../../../lib/kv";
 import { getActorId } from "../../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getOfferForSku, updateOfferPriceQuantity } from "../../../../lib/ebay/listing";
@@ -30,7 +31,16 @@ export async function GET(req: Request) {
       error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。",
     });
   }
-  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId });
+  // 撮影の参考用：自宅ワーカー(galleryWorker)が取得・保存した楽天ギャラリー(ref_gallery:{id})を返す。
+  // 表示専用(eBay出品には載せない)。未取得なら空配列。
+  let refImages: string[] = [];
+  try {
+    const ref = await kvReadOnly.get<{ status?: string; urls?: string[] }>(`ref_gallery:${id}`);
+    if (ref?.status === "done" && Array.isArray(ref.urls)) refImages = ref.urls.slice(0, 24);
+  } catch {
+    /* noop */
+  }
+  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages });
 }
 
 export async function POST(req: Request) {

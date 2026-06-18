@@ -27,6 +27,7 @@ export default function EditListingModal({
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoDone, setPhotoDone] = useState<string | null>(null);
+  const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得した楽天ギャラリー
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +38,7 @@ export default function EditListingModal({
         if (j?.ok) {
           if (j.priceUsd != null) setPriceUsd(String(j.priceUsd));
           if (j.quantity != null) setQuantity(String(j.quantity));
+          if (Array.isArray(j.refImages)) setRefImages(j.refImages);
         } else {
           setLoadError(j?.error || "出品情報を取得できませんでした。");
         }
@@ -172,6 +174,19 @@ export default function EditListingModal({
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
                 実物の写真を足すと売れやすくなります。楽天の画像は残したままeBayに移して追加します（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると出品の管理が外れるので、写真の変更はここから。
               </p>
+              {refImages.length > 0 && (
+                <div className="mb-2">
+                  <span className="text-[11px] font-bold text-gray-600">📷 撮影の参考（楽天の商品写真 {refImages.length}枚）</span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed">このアングルを参考に実物を撮ると伝わりやすいです（※参考用。これはeBayには載せません）。</p>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {refImages.map((u, i) => (
+                      <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                        <img src={u} alt={`参考${i + 1}`} loading="lazy" className="w-14 h-14 rounded-md object-cover border border-gray-200 bg-gray-50" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff"
