@@ -72,9 +72,9 @@ export default function SourceStopRecap() {
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 p-3" onClick={close}>
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
-          <h2 className="text-[15px] font-black text-gray-900">⚠️ 自動で出品を停止しました</h2>
+          <h2 className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            仕入れ元（楽天）が売り切れ・リンク切れになった下記を、欠品キャンセルを防ぐため自動で出品停止しました。再開するときは「出品停止中の商品一覧」から再出品できます。
+            仕入れ元（楽天）が売り切れ・リンク切れになった下記を、<b>あなたの評価を守るため</b>自動で出品停止しました。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から再出品）。
           </p>
         </div>
         <ul className="max-h-[46vh] overflow-y-auto divide-y divide-gray-50">
