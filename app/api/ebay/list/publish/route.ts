@@ -28,6 +28,7 @@ interface Payload {
   quantity?: number; // 出品個数（在庫数）。1〜30
   bestOffer?: boolean; // 値下げ交渉(Best Offer)を受け付けるか（既定ON）
   floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
+  selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
 }
 
 export async function POST(req: Request) {
@@ -60,14 +61,20 @@ export async function POST(req: Request) {
     (body.description && body.description.trim()) ||
     `${title}\n\nShipped directly from Japan with tracking. Carefully packaged. Please check the photo.`;
 
-  // 複数画像: 楽天ギャラリー(最大3)から「商品写真だけ」を選び原寸で出品。空なら代表画像にフォールバック。
-  const gallery = product.images?.length ? product.images : [product.imageUrl];
-  const filtered = await filterProductImages(gallery);
+  // 出品画像: ユーザーが出品画面で選んだ写真があればそれを使う（先頭=メイン）。
+  // eBay上限＆EPS加工時間(maxDuration)を考え最大12枚に制限。重複は除去。
+  // 選択が無ければ従来どおり 楽天ギャラリー(最大3)から「商品写真だけ」を自動選定。
+  const picked = Array.isArray(body.selectedImages)
+    ? Array.from(new Set(body.selectedImages.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)))).slice(0, 12)
+    : [];
+  const baseImages = picked.length
+    ? picked
+    : await filterProductImages(product.images?.length ? product.images : [product.imageUrl]);
   // 品質加工(無料sharp): 楽天画像を取得→1600px正方白背景・シャープ→EPSへ載せ替え(全EPS化で混在も回避)。
   // 失敗時は元の楽天URLのまま出品(fail-open)＝出品は必ず通る。
-  let images = filtered;
+  let images = baseImages;
   try {
-    const enhanced = await enhanceToEps(token, filtered);
+    const enhanced = await enhanceToEps(token, baseImages);
     if (enhanced && enhanced.length) images = enhanced;
   } catch {
     /* fail-open: 元URLのまま */

@@ -24,7 +24,11 @@ interface PrepareData {
   requiredAspects: RequiredAspect[];
   shipping: ShippingChoice[];
   recommendedShippingId?: string; // ジャンル(サイズ)に最適な送料ポリシー（既定選択に使う）
+  refImages?: string[];     // 楽天ギャラリー(自宅ワーカー取得・出品/撮影の候補)
+  productImages?: string[]; // 楽天APIの代表画像(常に最低1枚)
 }
+
+const MAX_LISTING_PHOTOS = 12; // eBay出品に使える最大枚数（EPS加工時間の都合で12に制限）
 
 // 送料ポリシー名を日本語ラベルに
 function shippingLabel(name: string): string {
@@ -104,6 +108,7 @@ export default function EbayListingModal({
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
   const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
   const [aspects, setAspects] = useState<Record<string, string>>({});
+  const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -165,6 +170,9 @@ export default function EbayListingModal({
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);
+      // 出品写真の候補（楽天ギャラリー＋API代表画像）。既定で先頭8枚にチェック（多すぎる時は外せる）。
+      const cands = Array.from(new Set([...(p.refImages ?? []), ...(p.productImages ?? [])])).filter(Boolean);
+      setSelectedImages(cands.slice(0, Math.min(8, MAX_LISTING_PHOTOS)));
       setPhase("form");
     })();
     return () => {
@@ -206,6 +214,7 @@ export default function EbayListingModal({
         quantity,
         bestOffer,
         floorUsd: data?.floorUsd,
+        selectedImages, // 出品に使う写真（先頭=メイン）
       }),
     })
       .then((r) => r.json())
@@ -314,7 +323,21 @@ export default function EbayListingModal({
   // 必須Item Specifics（Type等）が全て埋まっているか。未入力だと公開が #25002 で弾かれるため出品をブロック。
   // 推奨(任意)項目は空でも公開できるのでブロック対象外。
   const aspectsFilled = (data?.requiredAspects ?? []).filter((a) => a.required).every((a) => (aspects[a.name] ?? "").trim() !== "");
-  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled;
+
+  // 出品写真の候補（楽天ギャラリー＋API代表画像・重複除去）。ユーザーがチェックで選ぶ。
+  const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])])).filter(Boolean);
+  // チェックの切り替え。候補の並び順を保ったまま selectedImages を作り直す（先頭=メイン写真）。
+  const togglePhoto = (url: string) => {
+    setSelectedImages((cur) => {
+      if (cur.includes(url)) return cur.filter((u) => u !== url);
+      if (cur.length >= MAX_LISTING_PHOTOS) return cur; // 上限超えは追加しない
+      const next = new Set([...cur, url]);
+      return photoCandidates.filter((u) => next.has(u)); // 候補順に並べ直す
+    });
+  };
+  // 候補があるのに1枚も選んでいなければ出品させない（写真ゼロの出品を防ぐ）。
+  const photoOk = photoCandidates.length === 0 || selectedImages.length >= 1;
+  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled && photoOk;
 
   // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
@@ -438,6 +461,52 @@ export default function EbayListingModal({
                   <option value="USED_GOOD">中古 - 良い</option>
                 </select>
               </div>
+
+              {/* 出品に使う写真（楽天ギャラリーから選ぶ・先頭がメイン写真） */}
+              {photoCandidates.length > 0 && (
+                <div>
+                  <label className="block text-[11px] text-gray-500 mb-1">
+                    出品に使う写真（チェックで選択・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {photoCandidates.map((u, i) => {
+                      const idx = selectedImages.indexOf(u);
+                      const checked = idx >= 0;
+                      const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
+                      return (
+                        <button
+                          type="button"
+                          key={i}
+                          onClick={() => togglePhoto(u)}
+                          disabled={disabled}
+                          aria-pressed={checked}
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                            checked ? "border-[#0064D2]" : "border-gray-200"
+                          } ${disabled ? "opacity-40" : ""}`}
+                        >
+                          <img src={u} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-cover bg-gray-50" />
+                          {checked && (
+                            <span className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-[#0064D2] text-white text-[11px] font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                          )}
+                          {idx === 0 && (
+                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[9px] font-bold text-center py-0.5">メイン</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
+                    最初の1枚がメイン写真です（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら<b>自分で撮った写真に差し替え</b>を（編集→実物写真を追加）。最終的には実物写真が安全です。
+                  </p>
+                  {!photoOk && (
+                    <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
+                      出品に使う写真を1枚以上選んでください。
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* 売り方（はやく / 最安 / 高く）。既定は「はやく売る」 */}
               <div>

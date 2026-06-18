@@ -289,6 +289,17 @@ export async function POST(req: Request) {
     });
   }
 
+  // 出品画像の候補：自宅ワーカー(galleryWorker)が取得した楽天ギャラリー(ref_gallery)＋APIの代表画像。
+  // ユーザーは出品画面でこの中から「出品に使う写真」をチェックで選ぶ。未取得ならAPIの画像だけ。
+  let refImages: string[] = [];
+  try {
+    const ref = await kv.get<{ status?: string; urls?: string[] }>(`ref_gallery:${productId}`);
+    if (ref?.status === "done" && Array.isArray(ref.urls)) refImages = ref.urls.slice(0, 24);
+  } catch {
+    /* noop */
+  }
+  const productImages = (product.images?.length ? product.images : [product.imageUrl]).filter(Boolean);
+
   return Response.json(
     {
       ok: true,
@@ -299,6 +310,8 @@ export async function POST(req: Request) {
         rakutenPrice: product.source.price,
         ebayAvgJpy: product.realAvgPrice,
       },
+      refImages,      // 楽天ギャラリー(自宅ワーカー取得・出品/撮影の候補)
+      productImages,  // 楽天APIの代表画像(常に最低1枚)
       title: enTitle,
       description: finalDescription,
       priceUsd,  // 既定の表示価格＝eBay最安ベース
