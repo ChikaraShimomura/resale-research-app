@@ -206,10 +206,6 @@ def pick_product(products: list) -> dict | None:
     return random.choice(top)
 
 
-def product_url(product: dict) -> str:
-    return f"{SITE_URL}/product/{quote(str(product['id']), safe='')}"
-
-
 # ── 投票(価格当て)の選択肢: eBay相場(円)を含む4つの価格帯 ──
 def poll_options(avg) -> list:
     try:
@@ -261,10 +257,10 @@ def pick_tags(kind: str) -> list:
 
 
 REPLY_LEADS = [
-    "▼ 相場・利益の詳細（楽天→eBay）はこちら",
-    "この商品の相場・利益を見る →",
-    "楽天→eBayの相場・利益はこちら ↓",
-    "詳しい相場・利益（手取りベース）はこちら ↓",
+    "▼ 楽天→eBayの相場・利益が分かるツール（無料登録で使えます）",
+    "無料登録して相場・利益を自分で見る →",
+    "登録は無料。相場・利益を手取りベースで確認 ↓",
+    "まずは無料で登録して使ってみて ↓",
 ]
 
 HOWTO_TOPICS = [
@@ -314,11 +310,11 @@ def kind_brief(kind: str, product: dict | None, extra: str = "") -> str:
     B = {
         "soba": "テーマ=『今日の相場』(知識/エバーグリーン)。個別商品の宣伝でなく、この商品を題材に『なぜ海外で評価されるか/相場の読み方/需要が動く条件』を解説。商品名を消しても“相場の見方”として成立する知識に。売り込まない。",
         "pro": "読者=現役eBay輸出セラー。ピア目線で、リサーチ時短/実利(手数料・送料・ポイント還元まで引いた手取りで利益率順)/相場=現行の最安〜中央値、を“あるある”や軽い問いかけで。教える上から目線・初心者煽りはしない。専門用語OK。",
-        "recruit": "読者=これから副業を始めたい初心者。『難しそう/英語が無理/怖い』を溶かす。完全無料・写真だけほぼ自動出品で英語ほぼ不要・手取りで利益が分かる、を1〜2点だけ自然に。専門用語は使わない。",
+        "recruit": "読者=これから副業を始めたい初心者。『難しそう/英語が無理/怖い』を溶かす。無料登録で相場リサーチから始められる・写真だけでほぼ自動出品で英語ほぼ不要・手取りで利益が分かる、を1〜2点だけ自然に。最後は“見に来て”でなく“まず無料で登録して試してみて”の温度感。専門用語は使わない。",
         "howto": f"テーマ=輸出の基礎ノウハウ(知識)。次の論点を1つ、初心者にやさしく解説: {extra}。商品の宣伝はしない。",
         "pitfall": f"テーマ=『輸出の落とし穴』(失敗回避の知識)。次の“やりがちなミス”を『ミス→なぜダメ→どう回避』の3段でコンパクトに: {extra}。共感を呼ぶ書き出しで。",
         "buildinpublic": f"テーマ=運営の“プロセスの数字”を等身大に共有(build in public)。次の事実だけ使う(収入額は出さない): {extra}。『どう考えてどう動いているか』を見せる。淡々と、でも人間味を。",
-        "announce": "テーマ=新着の利益商品の速報告知。商品名・想定利益率・楽天仕入れ→eBay想定売値を短くテンポよく。『新着は6時間ごと、フォローを』に自然に繋ぐ。",
+        "announce": "テーマ=新着の利益商品の速報告知（“こういう利益商品が見つかる”実例）。商品名・想定利益率・楽天仕入れ→eBay想定売値を短くテンポよく。“続きは無料登録して使ってみて”の温度感で、『新着は定期更新、フォローと無料登録を』に自然に繋ぐ。",
     }
     return B.get(kind, "")
 
@@ -616,7 +612,7 @@ def main():
     # announce のみ URL を自己リプに分離(リーチ最適化)
     if add_url and product:
         try:
-            twitter_client.create_tweet(text=f"{random.choice(REPLY_LEADS)}\n{product_url(product)}",
+            twitter_client.create_tweet(text=f"{random.choice(REPLY_LEADS)}\n{SITE_URL}",
                                         in_reply_to_tweet_id=tweet_id)
             print("自己リプ(URL)成功")
         except Exception as e:
