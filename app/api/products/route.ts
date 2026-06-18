@@ -25,17 +25,26 @@ async function getRestoredProducts(): Promise<ProfitProduct[]> {
 
 export async function GET() {
   try {
-    const [profitable, lastUpdated, stats, restored] = await Promise.all([
+    const [profitable, lastUpdated, stats, restored, wmHash] = await Promise.all([
       kvReadOnly.get<ProfitProduct[]>("profitable_products"),
       kvReadOnly.get<string>("last_updated"),
       kvReadOnly.get<Record<string, unknown>>("refresh_stats"),
       getRestoredProducts(),
+      // 透かし入り商品の記録（checkWatermarks.mjs が Haiku 検知で作る {id:"1"=透かし/"0"=クリーン}）。
+      kvReadOnly.hgetall<Record<string, unknown>>("product_watermark").catch(() => ({})),
     ]);
+
+    // 透かし入り（値が "1"/1）の商品IDは一覧から除外する（商品データは消さない＝可逆。記録ベース）。
+    const watermarkedIds = new Set(
+      Object.entries(wmHash ?? {}).filter(([, v]) => v === "1" || v === 1).map(([id]) => id)
+    );
 
     // 復活商品をカタログへ合流（カタログに既にあるidは重複させない）。復活分は先頭側（新着扱い）。
     const base = Array.isArray(profitable) ? profitable : [];
     const haveIds = new Set(base.map((p) => p?.id));
-    const merged = [...restored.filter((p) => p?.id && !haveIds.has(p.id)), ...base];
+    const merged = [...restored.filter((p) => p?.id && !haveIds.has(p.id)), ...base].filter(
+      (p) => !watermarkedIds.has(p?.id)
+    );
 
     if (merged.length > 0) {
       // 各商品の出品クリック回数（ライバル数の目安）を pipeline でまとめて付与。

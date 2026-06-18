@@ -1,0 +1,28 @@
+name: Watermark Check (楽天画像の透かし検知)
+
+# 楽天画像に透かし/店ロゴ/宣伝文が焼き込まれた商品をHaikuで検知し、一覧から除外する記録(product_watermark)を作る。
+# ⚠️Haikuビジョン課金が発生する(ユーザーが「AI検知で除外」を選択)。一度判定したらキャッシュ＝再検査なし。
+# コスト管理のため【手動実行(workflow_dispatch)のみ】。自動スケジュールは付けない(必要なら schedule を足す)。
+on:
+  workflow_dispatch:
+
+jobs:
+  check-watermarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run watermark check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/checkWatermarks.mjs
