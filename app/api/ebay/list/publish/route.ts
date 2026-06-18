@@ -11,6 +11,7 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getCurrentUserEmail, isComp, getPlan } from "../../../../lib/auth/plan";
 import { PLANS, PAYWALL_ENABLED } from "../../../../lib/plans";
+import { toRakutenProductUrl } from "../../../../lib/utils";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -174,6 +175,7 @@ export async function POST(req: Request) {
       points: product.source.pointAmount ?? 0,
       title: product.title,
       imageUrl: product.imageUrl,
+      sourceUrl: toRakutenProductUrl(product.source.url) || undefined, // 「仕入れ」ボタンの直リンク。出品時に焼き込めば backfill 不要
       listedAt: new Date().toISOString(),
       listingId: result.listingId, // 「写真追加」でその出品へ直リンクするため公開IDを保存（再出品で変わったら更新）
       sku: result.sku, // アプリ内編集(価格/数量)の対象オファー特定に使う

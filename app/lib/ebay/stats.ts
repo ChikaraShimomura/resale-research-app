@@ -1,6 +1,7 @@
 // 「育てるダッシュボード」用：アプリ出品→売れた取引の集計と称号(ランク)。サーバー専用。
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
+import { toRakutenProductUrl } from "../utils";
 
 export const USD_JPY = 155; // listing.ts と一致
 const EBAY_FEE_RATE = 0.1325;
@@ -33,6 +34,7 @@ export interface Deal {
   points: number; // 基本ポイント
   title: string;
   imageUrl?: string; // 楽天画像（一覧のサムネ用。新規出品から保存）
+  sourceUrl?: string; // 楽天の商品ページ直URL（「仕入れ」ボタン用）。カタログから補完して焼き込む＝失効後も残る
   listedAt: string;
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
@@ -47,7 +49,7 @@ export interface Deal {
 export async function recordListed(
   actor: string,
   productId: string,
-  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string; listingId?: string; sku?: string }
+  d: { purchase: number; points: number; title: string; imageUrl?: string; sourceUrl?: string; listedAt: string; listingId?: string; sku?: string }
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
@@ -102,6 +104,7 @@ export interface LiveDeal {
   listedAt: string;
   purchase: number; // 楽天仕入れ(送料込・JPY)
   imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
+  sourceUrl?: string; // 楽天の商品ページ直URL（「仕入れ」ボタン）。無い旧deal/失効商品では undefined→商品名検索にフォールバック
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
@@ -138,21 +141,51 @@ export async function listDealsForUser(
   // 画像/タイトル未保存の古いdealは、現行カタログ(profitable_products)から補完する。
   // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
   // 外れても出品中/販売した一覧の表示が欠けないようにする。新規dealは出品時に保存済みで対象外）。
-  const catInfo: Record<string, { imageUrl?: string; title?: string }> = {};
-  const needBackfill = [...liveEntries, ...stoppedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title);
+  const catInfo: Record<string, { imageUrl?: string; title?: string; sourceUrl?: string }> = {};
+  // 出品中/停止中は「仕入れ」ボタン用に楽天URL(sourceUrl)も要る（売却済みは不要なのでトリガに含めない）。
+  const needBackfill =
+    [...liveEntries, ...stoppedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title) ||
+    [...liveEntries, ...stoppedEntries].some(([, d]) => !d.sourceUrl);
   if (needBackfill) {
     try {
-      const products = (await kv.get<{ id: string; imageUrl?: string; title?: string }[]>("profitable_products")) ?? [];
-      for (const p of products) if (p?.id) catInfo[p.id] = { imageUrl: p.imageUrl, title: p.title };
+      const products =
+        (await kv.get<{ id: string; imageUrl?: string; title?: string; source?: { url?: string } }[]>("profitable_products")) ?? [];
+      for (const p of products)
+        if (p?.id)
+          catInfo[p.id] = { imageUrl: p.imageUrl, title: p.title, sourceUrl: toRakutenProductUrl(p.source?.url ?? "") || undefined };
     } catch {
       /* noop */
+    }
+    // カタログから外れた(rotate out)出品は psnap:{id} アーカイブ(2年保持・getProductById と同じ源)から補完する。
+    // 失効済みの出品でも仕入れURL/画像/タイトルが届き、heal で焼き込めて needBackfill が収束する（毎ロードの全件再取得を断つ）。
+    const missing = [...liveEntries, ...stoppedEntries].map(([id]) => id).filter((id) => !catInfo[id]?.sourceUrl);
+    if (missing.length) {
+      try {
+        const snaps = (await kv.mget(...missing.map((id) => `psnap:${id}`))) as (
+          { imageUrl?: string; title?: string; source?: { url?: string } } | null
+        )[];
+        missing.forEach((id, i) => {
+          const s = snaps[i];
+          if (!s) return;
+          const prev = catInfo[id] ?? {};
+          catInfo[id] = {
+            imageUrl: prev.imageUrl ?? s.imageUrl,
+            title: prev.title ?? s.title,
+            sourceUrl: prev.sourceUrl ?? (toRakutenProductUrl(s.source?.url ?? "") || undefined),
+          };
+        });
+      } catch {
+        /* noop */
+      }
     }
     // 補完できた分だけ deal に保存し直す（best-effort・カタログがまだ持っているうちに永続化）。
     const heal: Record<string, Deal> = {};
     for (const [id, d] of [...liveEntries, ...stoppedEntries, ...soldEntries]) {
       const img = !d.imageUrl ? catInfo[id]?.imageUrl : undefined;
       const ttl = !d.title ? catInfo[id]?.title : undefined;
-      if (img || ttl) heal[id] = { ...d, ...(img ? { imageUrl: img } : {}), ...(ttl ? { title: ttl } : {}) };
+      const src = !d.sourceUrl ? catInfo[id]?.sourceUrl : undefined;
+      if (img || ttl || src)
+        heal[id] = { ...d, ...(img ? { imageUrl: img } : {}), ...(ttl ? { title: ttl } : {}), ...(src ? { sourceUrl: src } : {}) };
     }
     if (Object.keys(heal).length) {
       try {
@@ -171,6 +204,7 @@ export async function listDealsForUser(
       listedAt: d.listedAt || "",
       purchase: d.purchase ?? 0,
       imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
+      sourceUrl: d.sourceUrl || catInfo[id]?.sourceUrl || undefined,
       listingId: d.listingId,
       sourceStatus: d.sourceStatus, // 楽天の仕入れ元が売り切れ/リンク切れなら⚠️
     }))
@@ -183,6 +217,7 @@ export async function listDealsForUser(
       listedAt: d.listedAt || "",
       purchase: d.purchase ?? 0,
       imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
+      sourceUrl: d.sourceUrl || catInfo[id]?.sourceUrl || undefined,
       listingId: d.listingId,
       stoppedAt: d.stoppedAt,
       sourceStatus: d.sourceStatus, // 自動停止の理由(売切/リンク切れ)を停止中一覧でも表示

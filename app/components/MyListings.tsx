@@ -6,7 +6,7 @@ import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout" }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout" }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -178,9 +178,10 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap pl-11">
-                        {/* 仕入れ：先頭。楽天で同じ商品を探して買う（売れたら仕入れて発送／在庫補充）。楽天URLは未保存なので商品名検索で確実に着地。 */}
+                        {/* 仕入れ：先頭。楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫補充）。
+                            sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
                         <a
-                          href={`https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`}
+                          href={d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[#BF0000] text-white text-[10px] font-bold active:bg-[#9E0000]"
