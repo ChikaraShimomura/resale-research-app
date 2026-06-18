@@ -47,18 +47,17 @@ export function shippingHelp(product: ProfitProduct): ShippingHelp {
   const c = CUSTOMS[cat];
   const valueUsd = Math.max(1, Math.round(product.realAvgPrice / USD_TO_JPY));
 
-  // 価格帯で発送方法を提案（高額は追跡・補償ありのEMS）
+  // 価格帯で発送方法を提案。eBayは実質「追跡必須」なので追跡のある方法のみを出す。
+  // ※2025/12末で「小形包装物の書留(追跡)」は終了。追跡付きの小型便は「国際エアパケット」
+  //   (旧・国際eパケットライト／2026/6/1に改名・全世界対応・2kgまで)に一本化されている。
   let method: string;
   let methodNote: string;
   if (valueUsd >= 120) {
     method = "EMS（国際スピード郵便）";
-    methodNote = "高額なので追跡＋補償ありのEMSが安心。";
-  } else if (valueUsd >= 30) {
-    method = "eパケット（ePacket）";
-    methodNote = "追跡あり・比較的安価。500g〜2kg程度の小型に向く。";
+    methodNote = "高額は追跡＋補償ありのEMSが安心（〜30kg）。";
   } else {
-    method = "小型包装物（Small Packet）＋ 追跡オプション";
-    methodNote = "軽量・低価格向け。紛失リスクを下げるなら追跡を付与。";
+    method = "国際エアパケット（旧・国際eパケットライト）";
+    methodNote = "追跡あり・全世界対応・2kgまで。小型〜軽量はこれが定番。2kg超や箱が大きい物はEMSか国際小包へ。";
   }
 
   return {
