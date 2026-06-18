@@ -353,7 +353,9 @@ export async function createFlatIntlFulfillmentPolicy(
         ],
       },
       {
-        // それ以外の国向け（国際）
+        // 国際は発送先を絞る: オーストラリア(AU)＋イギリス(GB)のみ。国内(DOMESTIC=米国)と合わせて
+        // US/AU/UK の3市場だけが購入可能になる(それ以外の国は「発送対象外」で買えない)。
+        // Worldwide をやめてホワイトリスト化＝出品先を絞る(ユーザー指示 2026-06-18)。広げたい時はここに国コードを足す。
         optionType: "INTERNATIONAL",
         costType: "FLAT_RATE",
         shippingServices: [
@@ -361,7 +363,7 @@ export async function createFlatIntlFulfillmentPolicy(
             sortOrder: 1,
             shippingServiceCode: "USPSPriorityMailInternational",
             shippingCost: { value: shippingCostUsd, currency: "USD" },
-            shipToLocations: { regionIncluded: [{ regionName: "Worldwide" }] },
+            shipToLocations: { regionIncluded: [{ regionName: "AU" }, { regionName: "GB" }] },
           },
         ],
       },
