@@ -1,7 +1,6 @@
 // 「育てるダッシュボード」用：アプリ出品→売れた取引の集計と称号(ランク)。サーバー専用。
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
-import { skuForProduct } from "./sellApi";
 
 export const USD_JPY = 155; // listing.ts と一致
 const EBAY_FEE_RATE = 0.1325;
@@ -22,8 +21,11 @@ async function publishedFilter(actor: string): Promise<(productId: string) => bo
   } catch {
     /* noop */
   }
-  const publishedSkus = new Set(Object.keys(skuMap));
-  return (productId: string) => publishedSkus.has(skuForProduct(productId));
+  // SKU対応表は { sku: productId }。出品済み判定は「productId が値に含まれるか」で見る。
+  // こうすると自己修復で sku が rr-{id}-{乱数} に変わっても、商品が出品中一覧から消えない
+  // （旧データ＝sku=rr-{id} でも値は productId なので結果は同じ＝後方互換）。
+  const publishedProductIds = new Set(Object.values(skuMap));
+  return (productId: string) => publishedProductIds.has(productId);
 }
 
 export interface Deal {
@@ -33,6 +35,7 @@ export interface Deal {
   imageUrl?: string; // 楽天画像（一覧のサムネ用。新規出品から保存）
   listedAt: string;
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
+  sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -41,16 +44,22 @@ export interface Deal {
 export async function recordListed(
   actor: string,
   productId: string,
-  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string; listingId?: string }
+  d: { purchase: number; points: number; title: string; imageUrl?: string; listedAt: string; listingId?: string; sku?: string }
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
     // 既に記録済み（再出品・下書き再公開）は金額・listedAt・売却情報を維持し、上書きしない
     if (!existing) {
       await kv.hset(DEALS_KEY(actor), { [productId]: { ...d } });
-    } else if (d.listingId && existing.listingId !== d.listingId) {
-      // 再出品で公開IDが変わった/初めて取れた時だけ listingId を更新（金額・出品日・売却情報は維持）
-      await kv.hset(DEALS_KEY(actor), { [productId]: { ...existing, listingId: d.listingId } });
+    } else if ((d.listingId && existing.listingId !== d.listingId) || (d.sku && existing.sku !== d.sku)) {
+      // 再出品/自己修復で公開ID・SKUが変わった/初めて取れた時だけ更新（金額・出品日・売却情報は維持）
+      await kv.hset(DEALS_KEY(actor), {
+        [productId]: {
+          ...existing,
+          ...(d.listingId ? { listingId: d.listingId } : {}),
+          ...(d.sku ? { sku: d.sku } : {}),
+        },
+      });
     }
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
   } catch {

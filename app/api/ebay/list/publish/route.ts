@@ -5,7 +5,6 @@ import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
 import { filterProductImages } from "../../../../lib/ebay/imageFilter";
-import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { recordListed } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
@@ -118,7 +117,8 @@ export async function POST(req: Request) {
   // ・マイページ成績の出品（件数・仕入れ額）。仕入れは楽天価格＋国内送料（＝実際に払った額）。
   if (result.ok) {
     try {
-      await kv.hset(SKU_MAP_KEY(actor), { [skuForProduct(product.id)]: product.id });
+      // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）で対応表を書く。
+      await kv.hset(SKU_MAP_KEY(actor), { [result.sku]: product.id });
       await kv.expire(SKU_MAP_KEY(actor), SKU_MAP_TTL);
     } catch {
       /* noop */
@@ -130,6 +130,7 @@ export async function POST(req: Request) {
       imageUrl: product.imageUrl,
       listedAt: new Date().toISOString(),
       listingId: result.listingId, // 「写真追加」でその出品へ直リンクするため公開IDを保存（再出品で変わったら更新）
+      sku: result.sku, // アプリ内編集(価格/数量)の対象オファー特定に使う
     });
     // 出品できたら「仕入れ中」からは外す（→ 出品中一覧へ移る）。
     try {

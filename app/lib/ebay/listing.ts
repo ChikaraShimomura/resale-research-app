@@ -306,6 +306,8 @@ export interface PublishResult {
   needsSellerRegistration?: boolean; // 下書きは保存済み・セラー登録だけ未完で公開できなかった
   pendingVerification?: boolean; // 登録済みだが本人確認(KYC)の完了待ちで公開できない
   accountUnusable?: boolean; // アカウントが出品できる状態にない（制限/一時停止/出品権限なし 等）
+  healedSku?: boolean; // 固定SKUがeBay側で別管理になり詰んだため、新SKUで出し直した
+  listingConflict?: boolean; // eBay側に競合する出品が存在し、新SKUでも公開できなかった（手動削除が必要）
 }
 
 async function findOfferId(token: string, sku: string): Promise<string | null> {
@@ -415,8 +417,44 @@ async function resolveCondition(token: string, categoryId: string, desiredEnum: 
   }
 }
 
+// 競合エラー＝その商品の出品が eBayサイト/別ツールで管理されていて Inventory API から触れない状態。
+// eBay #21919474 / "not allowed for inventory items" / "refer to the tool used to create this listing"。
+const LISTING_CONFLICT_RE =
+  /not allowed for inventory items|inventory-based listing management is not currently supported|refer to the tool used to create this listing|21919474/i;
+
+// 固定SKUがeBay側で「別管理」になり詰んだ時に使う、衝突しない新しいユニークSKU（rr-{商品ID}-{乱数}）。
+function mintSku(productId: string): string {
+  const base = skuForProduct(productId).slice(0, 43);
+  const nonce = crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+  return `${base}-${nonce}`;
+}
+
+// 出品（作成→公開）。まず固定SKU `rr-{商品ID}` で試す（再出品は同SKU更新で冪等＝重複しない）。
+// eBay側で別管理になって詰んでいる(#21919474等)時だけ、新しいユニークSKUで作り直して自己修復する。
+// 返す sku は実際に使われたSKU＝呼び出し側はこれを SKU対応表に保存する（売却検知の逆引き鍵）。
 export async function createAndPublish(token: string, input: PublishInput): Promise<PublishResult> {
-  const sku = skuForProduct(input.productId);
+  const first = await publishWithSku(token, input, skuForProduct(input.productId));
+  if (first.ok) return first;
+  // 競合以外の失敗（ポリシー未設定・本人確認待ち・価格不正 等）はそのまま返す。
+  if (!LISTING_CONFLICT_RE.test(first.error ?? "")) return first;
+  // 固定SKUの出品がeBayサイト/別ツール管理に移って詰んでいる → 新SKUで作り直す。
+  const healed = await publishWithSku(token, input, mintSku(input.productId));
+  healed.steps.unshift({
+    step: "既存SKUがeBay側で別管理のため、新しいSKUで出し直し",
+    ok: healed.ok,
+    error: healed.ok ? undefined : healed.error,
+  });
+  healed.healedSku = true;
+  // 新SKUでも競合（稀: eBay側に同一商品のライブ出品が別途ある）なら、やさしい案内に差し替える。
+  if (!healed.ok && LISTING_CONFLICT_RE.test(healed.error ?? "")) {
+    healed.error =
+      "この商品はeBay側で作成・編集された別の出品と競合しています。お手数ですが、eBayでその出品を一度削除してから、もう一度出品してください。";
+    healed.listingConflict = true;
+  }
+  return healed;
+}
+
+async function publishWithSku(token: string, input: PublishInput, sku: string): Promise<PublishResult> {
   const steps: StepResult[] = [];
 
   // 出品個数（在庫数）。1〜30にクランプ。未指定/不正なら1。
@@ -561,4 +599,72 @@ export async function createAndPublish(token: string, input: PublishInput): Prom
     };
 
   return { ok: true, sku, offerId, listingId, steps };
+}
+
+// ── 出品中の参照・編集（アプリ内で価格/数量を直す＝eBay.comを触らせない＝管理が外れる原因を断つ） ──
+export interface CurrentOffer {
+  offerId: string;
+  priceUsd?: string;
+  quantity?: number;
+  listingId?: string;
+  status?: string; // PUBLISHED / UNPUBLISHED 等
+}
+
+// SKUから現在のオファー（価格・数量・公開ID）を取得。編集モーダルのプリフィルに使う。
+export async function getOfferForSku(token: string, sku: string): Promise<CurrentOffer | null> {
+  const r = await ebayFetch(
+    token,
+    "GET",
+    `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${MARKETPLACE}`
+  );
+  const o = (
+    r.data as {
+      offers?: {
+        offerId?: string;
+        availableQuantity?: number;
+        status?: string;
+        pricingSummary?: { price?: { value?: string } };
+        listing?: { listingId?: string };
+      }[];
+    } | null
+  )?.offers?.[0];
+  if (!o?.offerId) return null;
+  return {
+    offerId: o.offerId,
+    priceUsd: o.pricingSummary?.price?.value,
+    quantity: o.availableQuantity,
+    listingId: o.listing?.listingId,
+    status: o.status,
+  };
+}
+
+// 出品中の価格・数量を更新（bulk_update_price_quantity）。公開済みの出品にも即反映される。
+export async function updateOfferPriceQuantity(
+  token: string,
+  sku: string,
+  offerId: string,
+  opts: { priceUsd?: string; quantity?: number }
+): Promise<{ ok: boolean; error?: string }> {
+  const offer: Record<string, unknown> = { offerId };
+  if (opts.quantity != null) offer.availableQuantity = opts.quantity;
+  if (opts.priceUsd != null) offer.price = { value: opts.priceUsd, currency: "USD" };
+  const body = {
+    requests: [
+      {
+        sku,
+        ...(opts.quantity != null ? { shipToLocationAvailability: { quantity: opts.quantity } } : {}),
+        offers: [offer],
+      },
+    ],
+  };
+  const r = await ebayFetch(token, "POST", `/sell/inventory/v1/bulk_update_price_quantity`, body);
+  if (!r.ok) return { ok: false, error: r.error };
+  // bulk APIは200でも各要素に statusCode/errors を返すので、要素レベルの失敗を拾う。
+  const resp = (
+    r.data as { responses?: { statusCode?: number; errors?: { message?: string; longMessage?: string }[] }[] } | null
+  )?.responses?.[0];
+  if (resp?.statusCode && resp.statusCode >= 300) {
+    return { ok: false, error: resp.errors?.[0]?.longMessage || resp.errors?.[0]?.message || `status ${resp.statusCode}` };
+  }
+  return { ok: true };
 }

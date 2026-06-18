@@ -1,17 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp, ImagePlus, RotateCw, ExternalLink, Check } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, ExternalLink, Check } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import EbayListingModal from "./EbayListingModal";
+import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
 interface SourcingDeal { id: string; title: string; imageUrl: string; purchase: number; purchased: boolean }
 interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
-
-// 「写真追加」の遷移先。公開IDがあればその出品ページ（編集して実物写真を足せる）へ、無ければeBayの出品一覧へ。
-const ebayEditUrl = (listingId?: string) =>
-  listingId ? `https://www.ebay.com/itm/${listingId}` : "https://www.ebay.com/sh/lst/active";
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
 const signedYen = (n: number) => (n < 0 ? "−" : "+") + "¥" + Math.round(Math.abs(n)).toLocaleString("ja-JP");
@@ -57,6 +54,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   const [soldJpy, setSoldJpy] = useState("");
   const [relistProduct, setRelistProduct] = useState<ProfitProduct | null>(null); // 再出品モーダルで開く商品
   const [relistBusy, setRelistBusy] = useState<string | null>(null); // 再出品の商品データ取得中
+  const [editDeal, setEditDeal] = useState<LiveDeal | null>(null); // アプリ内編集（価格・数量）モーダルで開く出品
 
   // 「再出品」：現行カタログから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
   // 同じSKUで上書き公開されるので重複にならず、価格や説明も最新に作り直せる。
@@ -225,14 +223,12 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap pl-11">
-                      <a
-                        href={ebayEditUrl(d.listingId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => setEditDeal(d)}
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold active:bg-blue-100"
                       >
-                        <ImagePlus size={12} /> 写真追加
-                      </a>
+                        <Pencil size={12} /> 編集
+                      </button>
                       <button
                         disabled={relistBusy === d.id}
                         onClick={() => relist(d.id)}
@@ -285,12 +281,22 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
         </Section>
       )}
 
-      {/* 再出品：既存の出品モーダルをそのまま再利用（価格・説明・写真を作り直して同じSKUで公開し直す）。 */}
+      {/* 再出品：既存の出品モーダルをそのまま再利用（価格・説明・写真を作り直す）。 */}
       {relistProduct && (
         <EbayListingModal
           product={relistProduct}
           onClose={() => { setRelistProduct(null); load(); onChanged?.(); }}
           onListed={() => { load(); onChanged?.(); }}
+        />
+      )}
+
+      {/* アプリ内編集（価格・数量）：eBay.comを開かずに直す＝出品の管理が外れる原因を作らない。 */}
+      {editDeal && (
+        <EditListingModal
+          productId={editDeal.id}
+          title={editDeal.title}
+          onClose={() => setEditDeal(null)}
+          onSaved={() => { load(); onChanged?.(); }}
         />
       )}
     </div>
