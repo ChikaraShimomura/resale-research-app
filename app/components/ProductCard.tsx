@@ -5,6 +5,7 @@ import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { track, logEvent } from "../lib/analytics";
+import { cleanImg } from "../lib/cleanImg";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
@@ -129,7 +130,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="楽天市場でこの商品を見る">
               {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.title}
+                <img src={cleanImg(product.imageUrl)} alt={product.title}
                   className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
               ) : (
                 <div aria-hidden="true" className={`w-[92px] h-[92px] bg-gray-50 rounded-xl border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"} flex items-center justify-center text-gray-300`}><Package size={30} /></div>
