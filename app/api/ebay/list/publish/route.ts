@@ -6,9 +6,11 @@ import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { createAndPublish, SKU_MAP_KEY, SKU_MAP_TTL } from "../../../../lib/ebay/listing";
 import { filterProductImages } from "../../../../lib/ebay/imageFilter";
 import { enhanceToEps } from "../../../../lib/ebay/imageProcess";
-import { recordListed } from "../../../../lib/ebay/stats";
+import { recordListed, listDealsForUser } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
+import { getCurrentUserEmail, isComp } from "../../../../lib/auth/plan";
+import { PLANS, PAYWALL_ENABLED, type PlanId } from "../../../../lib/plans";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -48,17 +50,39 @@ export async function POST(req: Request) {
   const product = await getProductById(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
-  // 出品上限(満了)チェック：1商品につき最大 SOLD_THRESHOLD 人(端末)まで。既に出した端末は再出品OK(冪等)。
+  // 行為者のメール/コンプ枠。コンプ枠(あなた＋身内=マスター無料)は満了・プラン上限の対象外。
+  const email = await getCurrentUserEmail();
+  const comp = isComp(email);
   const did = (await cookies()).get("rr_did")?.value ?? actor;
-  try {
-    if (
-      (await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD &&
-      !(await kv.sismember(`listing_actors:${product.id}`, did))
-    ) {
-      return Response.json({ ok: false, error: `この商品は出品上限（${SOLD_THRESHOLD}人）に達しました（満了）。別の商品をお試しください。` });
+
+  // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(端末)まで。既に出した端末は再出品OK(冪等)。
+  if (!comp) {
+    try {
+      if (
+        (await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD &&
+        !(await kv.sismember(`listing_actors:${product.id}`, did))
+      ) {
+        return Response.json({ ok: false, error: `この商品は出品上限（${SOLD_THRESHOLD}人）に達しました（満了）。別の商品をお試しください。` });
+      }
+    } catch {
+      /* KV障害時はブロックしない（出品は通す） */
     }
-  } catch {
-    /* KV障害時はブロックしない（出品は通す） */
+  }
+
+  // プラン上限(同時出品数)ゲート。Stripe決済が稼働するまで PAYWALL_ENABLED=OFF で無効（既存挙動を壊さない）。
+  if (PAYWALL_ENABLED && !comp) {
+    const plan: PlanId = "free"; // 決済連携後はここを Stripe 購読状態で解決（beginner〜master）
+    const limit = PLANS[plan].listingLimit;
+    if (Number.isFinite(limit)) {
+      const { live } = await listDealsForUser(actor);
+      if (!live.some((d) => d.id === product.id) && live.length >= limit) {
+        return Response.json({
+          ok: false,
+          planLimitReached: true,
+          error: `現在のプラン（${PLANS[plan].name}）の同時出品上限（${limit}件）に達しました。プランをアップグレードしてください。`,
+        });
+      }
+    }
   }
 
   const title = (body.title || product.coreKeyword || product.title).slice(0, 80);
@@ -123,7 +147,8 @@ export async function POST(req: Request) {
   });
 
   // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで端末単位・冪等。
-  if (result.offerId) {
+  // コンプ枠は枠を消費しない（あなた＝身内が何度出してもSOLDにしない）。
+  if (result.offerId && !comp) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, did);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
