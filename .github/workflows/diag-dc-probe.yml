@@ -1,0 +1,28 @@
+name: DC IP probe (楽天 item page from datacenter)
+
+# データセンターIP(GitHub Actions=Azure)から楽天の商品ページが取れるか実測する使い捨て診断。
+# push で自動起動＝admin権限不要(workflow_dispatchのdispatchが403で叩けないため)。
+# paths を絞って、このプローブ関連を push した時だけ動く。読み取りのみ・secret不要。
+on:
+  push:
+    paths:
+      - 'scripts/diagDcProbe.mjs'
+      - '.github/workflows/diag-dc-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe 楽天 item pages from DC IP
+        env:
+          KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
+          RAKUTEN_APP_ID:       ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY:   ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_AFFILIATE_ID: ${{ secrets.RAKUTEN_AFFILIATE_ID }}
+        run: node scripts/diagDcProbe.mjs
