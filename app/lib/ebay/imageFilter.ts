@@ -1,5 +1,7 @@
-// 楽天ギャラリー画像から「商品写真だけ」を選び、原寸URLで返す（複数画像出品用）。
-// 店のバナー/送料案内/サイズ表/ロゴ等の不要画像を、①ファイル名ヒント(無料) ②Haikuビジョン判定 で除外。
+// 楽天ギャラリー画像から「商品が写った写真」を選ぶ（複数画像出品用）。
+// 文字/小ロゴ/隅のバナーが乗っていても採用し（焼き込み文字は imageCleanup で後段に背景色で消す）、
+// 除外するのは「商品が写っていない店の装飾画像（バナー/サイズ表/クーポン/全面テキスト）」と「透かしが商品全体に被った画像」。
+// ①ファイル名ヒント(無料・明白な装飾だけ事前除外) ②Haikuビジョン判定。
 import { kv } from "@vercel/kv";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -51,7 +53,7 @@ async function isProductPhoto(url: string): Promise<boolean> {
             content: [
               {
                 type: "text",
-                text: "Is this a clean photo of the actual product (good for an eBay listing), or a store graphic — a shipping/price banner, size chart, store logo, coupon, or a text-heavy promo image? Answer with ONE word: PRODUCT or JUNK.",
+                text: "Does this image show the actual product itself? Overlaid text, a price/shipping banner, or a small store logo are fine — answer PRODUCT (such text gets cleaned up later). Answer JUNK only if it does NOT show the product (it is purely a store banner, a size chart, a coupon, or an all-text promo), OR if a watermark is stamped/tiled across the whole product. Answer with ONE word: PRODUCT or JUNK.",
               },
               { type: "image", source: { type: "base64", media_type: mt, data: b64 } },
             ],

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { uploadHostedPictureFromBinary } from "./eps";
 import { WATERMARK_PNG_B64 } from "./watermarkAsset";
+import { cleanupBakedText } from "./imageCleanup";
 
 // 出品画像の品質底上げ（無料・Node sharp）。
 // eBayのズーム(長辺800px以上で作動・1600px推奨)を解放＋検索グリッド最適化(正方1:1)＋
@@ -80,7 +81,8 @@ export async function enhanceToEps(token: string, urls: string[]): Promise<strin
       if (!raw) return null;
       let processed: Buffer;
       try {
-        processed = await processListingImage(raw, { watermark: wmOn && i > 0 });
+        const cleaned = await cleanupBakedText(raw); // 焼き込み文字を背景色で消去（キー未設定・失敗時は素通り）
+        processed = await processListingImage(cleaned, { watermark: wmOn && i > 0 });
       } catch {
         return null;
       }
