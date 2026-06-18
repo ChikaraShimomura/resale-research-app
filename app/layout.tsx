@@ -7,6 +7,7 @@ import AddToHome from "./components/AddToHome";
 import ConsentBanner from "./components/ConsentBanner";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import JsonLd from "./components/JsonLd";
+import SourceStopRecap from "./components/SourceStopRecap";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
 
@@ -131,6 +132,7 @@ export default async function RootLayout({
         <AddToHome />
         <ConsentBanner />
         <ServiceWorkerRegister />
+        <SourceStopRecap />
       </body>
     </html>
   );

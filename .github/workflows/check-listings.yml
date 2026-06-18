@@ -36,3 +36,13 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
         run: node scripts/checkListings.mjs
+
+      # 検知の直後に自動停止：売切/リンク切れの出品をeBayから取り下げる（離席中でも~30分以内）。
+      # eBayトークンの復号(EBAY_TOKEN_ENC_KEY)が要るためアプリのルートで実行し、ここはCRON_SECRETで叩くだけ。
+      # 失敗してもジョブは落とさない（次回再試行＋アプリを開いた時にも停止される）。
+      - name: 仕入れ元が売切/リンク切れの出品を自動停止
+        continue-on-error: true
+        run: |
+          curl -fsS -X POST "https://www.yushutsu-fukugyo.com/api/ebay/list/auto-stop-cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          || echo "auto-stop call failed (non-fatal)"

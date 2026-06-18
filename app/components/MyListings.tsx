@@ -242,6 +242,11 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                           {shortDate(d.stoppedAt || "") && `${shortDate(d.stoppedAt || "")} 停止・`}仕入れ {yen(d.purchase)}
                         </p>
+                        {d.sourceStatus && (
+                          <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#BF0000]" : "text-amber-600"}`}>
+                            ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap pl-11">

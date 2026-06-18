@@ -185,6 +185,7 @@ export async function listDealsForUser(
       imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
       listingId: d.listingId,
       stoppedAt: d.stoppedAt,
+      sourceStatus: d.sourceStatus, // 自動停止の理由(売切/リンク切れ)を停止中一覧でも表示
     }))
     .sort((a, b) => (b.stoppedAt || "").localeCompare(a.stoppedAt || "")); // 停止が新しい順
 
