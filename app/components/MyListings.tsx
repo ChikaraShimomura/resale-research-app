@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban, ShoppingCart } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
@@ -178,6 +178,15 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap pl-11">
+                        {/* 仕入れ：先頭。楽天で同じ商品を探して買う（売れたら仕入れて発送／在庫補充）。楽天URLは未保存なので商品名検索で確実に着地。 */}
+                        <a
+                          href={`https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[#BF0000] text-white text-[10px] font-bold active:bg-[#9E0000]"
+                        >
+                          <ShoppingCart size={12} /> 仕入れ
+                        </a>
                         <button
                           onClick={() => setEditDeal(d)}
                           className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold active:bg-blue-100"
