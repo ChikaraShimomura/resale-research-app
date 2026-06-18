@@ -15,6 +15,10 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
+  // 集客の入口（マーケ/SEO）は未ログインでも見せる＝SEOインデックス＋X流入の着地先。
+  // アプリ操作(検索/商品詳細/出品/マイページ/設定/スタジオ)はゲート維持＝登録誘導。
+  if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing") return true;
+  if (pathname === "/guide" || pathname.startsWith("/guide/")) return true;
   return false;
 }
 
