@@ -5,9 +5,10 @@ name: Listing Source Check (出品中の楽天死活/在庫)
 # 楽天API のみ＝無料。AI不使用。公開リポジトリのため GitHub Actions の実行時間も無料（無制限）。
 # ※スケジュールはベストエフォート（GitHub混雑時は遅延/スキップあり）。失敗メールは付けない（30分毎=スパム化するため）。
 on:
-  schedule:
-    - cron: '*/30 * * * *'   # ~30分ごと
-  workflow_dispatch:          # 手動実行ボタン
+  # スケジューリングは外部cron（cron-job.org）から workflow_dispatch でトリガーする運用（tweet-yushutsu と同方式）。
+  # GitHub Actions の schedule は時刻が不正確（30〜60分遅延・混雑時スキップ・60日無コミットで自動停止）のため使わない。
+  # cron-job.org 側を「15分ごと」に設定＝確実・無料。手動実行は Actions UI（この workflow_dispatch）から。
+  workflow_dispatch:
 
 # 同時に複数走らないように（前回が長引いても二重実行しない）
 concurrency:
