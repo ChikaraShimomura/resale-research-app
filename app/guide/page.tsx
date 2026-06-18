@@ -258,7 +258,7 @@ export default function GuidePage() {
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
               <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
+              <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
               <div className="flex justify-between"><span>国際送料・輸入関税</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-[#A98B5C]/35 text-sm">

@@ -70,7 +70,7 @@ function MoneyFlow({ s }: { s: Stats }) {
         <Legend color="bg-[#F0A0A0]" label="eBay手数料" value={`− ${yen(fee)}`} />
         <Legend color="bg-emerald-500" label="手数料を引いた残り" value={signedYen(grossTrue)} bold />
         {s.totalPoints > 0 && (
-          <Legend color="bg-[#5A6472]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
+          <Legend color="bg-[#FF4466]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
         )}
       </div>
 

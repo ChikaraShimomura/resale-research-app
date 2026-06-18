@@ -7,7 +7,7 @@ import { Globe, Users, ShieldCheck, KeyRound, TrendingUp, Landmark, Briefcase, L
 // linked=true で各カードがそのサービスのガイドへのリンクになる。
 // 数値は裏取り済み（eBay: 190の国・地域/1.3億人超/買い手保護, Payoneer: NASDAQ上場/200カ国超/各国ライセンス）。
 
-const RAKU = "#2D323B";
+const RAKU = "#BF0000";
 const EBAY = "#0064D2";
 const PAYO = "#FF6B00";
 

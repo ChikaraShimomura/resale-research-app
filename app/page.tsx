@@ -68,7 +68,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto px-4 py-6">
           <div className="flex items-start justify-center gap-4">
             {[
-              { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#2D323B]" },
+              { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#BF0000]" },
               { arrow: true },
               { step: "②", text: "eBayで出品", sub: "海外需要で高値売却", color: "bg-[#0064D2]" },
               { arrow: true },
@@ -140,7 +140,7 @@ export default function LandingPage() {
             <div className="flex justify-between"><span>eBayの想定売値</span><span className="text-[#0064D2]">+ ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
+            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-[#A98B5C]/35 text-sm">

@@ -749,9 +749,9 @@ export default function EbayListingModal({
                   <button
                     type="button"
                     onClick={goRakuten}
-                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
+                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
                   >
-                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#2D323B] font-black text-[9px] shrink-0">R</span>
+                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
                     楽天で仕入れる
                   </button>
                   <p className="text-[10px] text-gray-500 leading-relaxed">

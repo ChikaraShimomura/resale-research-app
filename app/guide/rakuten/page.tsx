@@ -34,7 +34,7 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
 export default function RakutenGuidePage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">
-      <header className="bg-[#2D323B] px-3 py-2.5 shadow-sm sticky top-0 z-20">
+      <header className="bg-[#BF0000] px-3 py-2.5 shadow-sm sticky top-0 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Link href="/guide" aria-label="はじめてガイドに戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
             <ArrowLeft size={18} />
@@ -64,7 +64,7 @@ export default function RakutenGuidePage() {
           </p>
           <div className="bg-[#F5F7FA] rounded-xl p-3 text-[12px] text-gray-600 font-mono space-y-1">
             <div className="flex justify-between"><span>商品価格</span><span className="text-[#2D323B]">10,000円</span></div>
-            <div className="flex justify-between"><span>ポイント還元</span><span className="text-[#5A6472]">− 2,000pt</span></div>
+            <div className="flex justify-between"><span>ポイント還元</span><span className="text-[#FF4466]">− 2,000pt</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-1 border-t border-[#A98B5C]/35"><span>実質コスト</span><span>＝ 8,000円</span></div>
           </div>
           <p className="text-[11px] text-gray-400 mt-2">※ ポイントは1pt＝1円として、次の仕入れにそのまま使えます。</p>
