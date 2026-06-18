@@ -117,7 +117,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           value={zip}
           onChange={(e) => onZip(e.target.value)}
           placeholder="100-0005"
-          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
+          className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
         />
         {lookupMsg && <p className={`text-[11px] mt-1 ${lookupFailed ? "text-[#2D323B]" : "text-gray-400"}`}>{lookupMsg}</p>}
         {lookupFailed && (
@@ -166,7 +166,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           value={addr}
           onChange={(e) => setAddr(e.target.value)}
           placeholder="1-12-4 〇〇マンション 1001"
-          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
+          className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
         />
         <p className="text-[10px] text-gray-400 mt-1 leading-snug">
           番地は数字でOK。建物名は英字がおすすめ（日本語のままだとそのまま登録されます）。

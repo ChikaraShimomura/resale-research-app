@@ -169,7 +169,7 @@ export default async function ProductPage({
         <ShippingHelper help={shippingHelp(product)} />
 
         {/* 初めて来た人向けの3ステップ。Xリンク等で単品ページに直接来ても流れが分かるように。 */}
-        <section className="mt-3 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+        <section className="mt-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
           <p className="text-[13px] font-black text-gray-800 mb-3">この商品で稼ぐ3ステップ</p>
           <div className="flex items-start justify-between gap-1">
             {[

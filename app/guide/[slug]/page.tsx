@@ -91,7 +91,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <Link href="/guide" className="hover:text-[#2D323B]">ガイド</Link>
         </nav>
 
-        <article className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <article className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-5">
           <h1 className="text-xl font-black text-gray-900 leading-snug mb-3">{a.title}</h1>
           <p className="text-[14px] text-gray-700 leading-relaxed">{a.lead}</p>
 
@@ -128,7 +128,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <Link href="/ranking" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
             🔥 いま稼げる利益商品ランキングを見る <ArrowRight size={16} />
           </Link>
-          <Link href="/search" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
+          <Link href="/search" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
             利益商品をさがす
           </Link>
         </div>
@@ -139,7 +139,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <div className="space-y-2">
             {related.map((r) => (
               <Link key={r.slug} href={`/guide/${r.slug}`}
-                className="flex items-center gap-2 bg-white border border-gray-100 rounded-xl px-3.5 py-3 shadow-sm active:bg-gray-50">
+                className="flex items-center gap-2 bg-white border border-[#A98B5C]/25 rounded-xl px-3.5 py-3 shadow-sm active:bg-gray-50">
                 <span className="text-[13px] font-bold text-gray-800 leading-snug flex-1 min-w-0">{r.title}</span>
                 <ArrowRight size={14} className="text-gray-400 shrink-0" />
               </Link>

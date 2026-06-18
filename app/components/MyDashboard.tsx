@@ -49,7 +49,7 @@ function MoneyFlow({ s }: { s: Stats }) {
   const loss = s.totalProfit < 0;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
       <p className="text-[13px] font-black text-gray-800 mb-1">お金の流れ</p>
       <p className="text-[11px] text-gray-400 mb-3">売れた商品の合計です</p>
 
@@ -75,7 +75,7 @@ function MoneyFlow({ s }: { s: Stats }) {
       </div>
 
       {/* 着地の利益（このカードで「利益」を名乗るのはここだけ） */}
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+      <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between">
         <span className="text-[12px] font-bold text-gray-700">
           あなたの利益{s.totalPoints > 0 ? "（ポイント込み）" : ""}
         </span>
@@ -109,7 +109,7 @@ function MonthlyChart({ data, soldCount }: { data: MonthPoint[]; soldCount: numb
   const charted = data.reduce((a, p) => a + p.count, 0); // 月別に集計できた件数
   const unknown = Math.max(0, soldCount - charted); // 売却日が不明で月別に出せない件数
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
       <p className="text-[13px] font-black text-gray-800 mb-3">月ごとの利益</p>
       <div className="flex items-end justify-between gap-2">
         {pts.map((p) => {
@@ -152,7 +152,7 @@ function RankBlock({ s }: { s: Stats }) {
     ? Math.max(2, Math.min(100, Math.round((s.totalProfit / s.nextRank.min) * 100)))
     : 100;
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
       <div className="flex items-center gap-3">
         <span className="text-2xl" aria-hidden="true">{s.rank.icon}</span>
         <div className="flex-1 min-w-0">
@@ -181,10 +181,10 @@ function RankBlock({ s }: { s: Stats }) {
 function AfterSaleLinks() {
   return (
     <div className="grid grid-cols-2 gap-2">
-      <Link href="/guide#step-4" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-gray-100 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
+      <Link href="/guide#step-4" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
         <Truck size={15} className="text-gray-500" /> 発送のしかた
       </Link>
-      <Link href="/guide/payoneer-withdraw" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-gray-100 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
+      <Link href="/guide/payoneer-withdraw" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
         <Wallet size={15} className="text-gray-500" /> 売上の受け取り方
       </Link>
     </div>
@@ -220,9 +220,9 @@ export default function MyDashboard() {
   if (!loaded) {
     return (
       <div className="space-y-3">
-        <div className="h-24 bg-white rounded-2xl border border-gray-100 animate-pulse" />
-        <div className="h-40 bg-white rounded-2xl border border-gray-100 animate-pulse" />
-        <div className="h-28 bg-white rounded-2xl border border-gray-100 animate-pulse" />
+        <div className="h-24 bg-white rounded-2xl border border-[#A98B5C]/25 animate-pulse" />
+        <div className="h-40 bg-white rounded-2xl border border-[#A98B5C]/25 animate-pulse" />
+        <div className="h-28 bg-white rounded-2xl border border-[#A98B5C]/25 animate-pulse" />
       </div>
     );
   }
@@ -242,7 +242,7 @@ export default function MyDashboard() {
     return (
       <div className="space-y-3">
         {nudge}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+        <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
           <Package size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-black text-gray-800 mb-1">まだ成績がありません</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
@@ -268,7 +268,7 @@ export default function MyDashboard() {
       <div className="space-y-3">
         {nudge}
         <RankBlock s={s} />
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+        <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm flex items-start gap-3">
           <Package size={22} className="text-gray-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-gray-800">出品中です（{s.listedCount}件）</p>
@@ -294,7 +294,7 @@ export default function MyDashboard() {
       {nudge}
 
       {/* 累計利益のヒーロー */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm text-center">
+      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-5 shadow-sm text-center">
         <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計）</p>
         <p className="mt-1 text-4xl font-black text-[#2D323B] tracking-tight">{signedYen(s.totalProfit)}</p>
         <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}</p>

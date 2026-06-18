@@ -36,7 +36,7 @@ export default function Pagination({
   return (
     <nav aria-label="ページ送り" className="flex items-center justify-center flex-wrap gap-1.5 px-3 py-5">
       <button onClick={() => go(page - 1)} disabled={page <= 1}
-        className="inline-flex items-center min-h-[40px] px-3 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 disabled:opacity-40 active:bg-gray-50">
+        className="inline-flex items-center min-h-[40px] px-3 rounded-lg border border-[#A98B5C]/35 bg-white text-xs font-bold text-gray-600 disabled:opacity-40 active:bg-gray-50">
         ‹ 前へ
       </button>
       {pageWindow(page, pageCount).map((n, i) =>
@@ -47,14 +47,14 @@ export default function Pagination({
             className={`inline-flex items-center justify-center min-w-[40px] min-h-[40px] rounded-lg border text-xs font-bold ${
               n === page
                 ? "bg-[#2D323B] border-[#2D323B] text-white"
-                : "bg-white border-gray-200 text-gray-600 active:bg-gray-50"
+                : "bg-white border-[#A98B5C]/35 text-gray-600 active:bg-gray-50"
             }`}>
             {n}
           </button>
         )
       )}
       <button onClick={() => go(page + 1)} disabled={page >= pageCount}
-        className="inline-flex items-center min-h-[40px] px-3 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 disabled:opacity-40 active:bg-gray-50">
+        className="inline-flex items-center min-h-[40px] px-3 rounded-lg border border-[#A98B5C]/35 bg-white text-xs font-bold text-gray-600 disabled:opacity-40 active:bg-gray-50">
         次へ ›
       </button>
     </nav>

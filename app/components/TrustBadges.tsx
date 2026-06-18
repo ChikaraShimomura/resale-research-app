@@ -39,7 +39,7 @@ function Card({
   points: Pt[]; href: string; linked: boolean; external?: boolean;
 }) {
   const body = (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 h-full">
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl shadow-sm p-4 h-full">
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${accent}1A` }}>
           <HeadIcon size={18} style={{ color: accent }} />

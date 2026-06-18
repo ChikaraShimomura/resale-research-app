@@ -150,7 +150,7 @@ function ResultsContent() {
       </header>
 
       {/* 件数・ソート/SOLD除外バー */}
-      <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-start justify-between gap-3 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
+      <div className="bg-white border-b border-[#A98B5C]/25 px-4 py-2.5 flex items-start justify-between gap-3 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
         <div className="min-w-0">
           {loading ? (
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
@@ -178,7 +178,7 @@ function ResultsContent() {
         {loading ? (
           <div className="flex flex-col gap-3 p-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse shadow-sm">
+              <div key={i} className="bg-white rounded-2xl border border-[#A98B5C]/25 p-4 animate-pulse shadow-sm">
                 <div className="flex gap-3">
                   <div className="w-[88px] h-[88px] bg-gray-100 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2 pt-1">
@@ -191,7 +191,7 @@ function ResultsContent() {
             ))}
           </div>
         ) : sorted.length === 0 ? (
-          <div className="text-center py-16 bg-white m-3 rounded-2xl shadow-sm border border-gray-100">
+          <div className="text-center py-16 bg-white m-3 rounded-2xl shadow-sm border border-[#A98B5C]/25">
             {allProducts.length === 0
               ? <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
               : <Search size={44} className="mx-auto mb-4 text-gray-300" />}

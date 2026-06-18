@@ -16,7 +16,7 @@ function Row({ s, compact }: { s: RakutenSvc; compact?: boolean }) {
       target="_blank"
       rel="sponsored noopener noreferrer"
       onClick={() => track("rakuten_prep_click", { svc: s.key })}
-      className={`block rounded-xl border border-gray-100 bg-[#F5F7FA] active:bg-gray-100 ${compact ? "px-3 py-2.5" : "px-3.5 py-3"}`}
+      className={`block rounded-xl border border-[#A98B5C]/25 bg-[#F5F7FA] active:bg-gray-100 ${compact ? "px-3 py-2.5" : "px-3.5 py-3"}`}
     >
       <div className="flex items-center gap-2">
         <span className="inline-flex w-5 h-5 bg-[#2D323B] rounded-full items-center justify-center text-white font-black text-[10px] shrink-0">R</span>
@@ -34,7 +34,7 @@ export default function RakutenPrepCard() {
   const primary = RAKUTEN_SERVICES.filter((s) => s.primary);
   const secondary = RAKUTEN_SERVICES.filter((s) => !s.primary);
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <h3 className="text-[15px] font-black text-gray-800">仕入れのポイントを上げる準備</h3>
       <p className="text-[12px] text-gray-500 leading-relaxed mt-1 mb-3">
         楽天市場で仕入れる前に整えると、<b>同じ仕入れでも還元（＝利益）が増えます</b>。各サービスに月の上限があるので、<b>まずは楽天カードだけ</b>でOK。あとは無理のない範囲で。

@@ -18,9 +18,9 @@ const shortDate = (iso: string) => {
 };
 
 function Thumb({ url }: { url: string }) {
-  if (url) return <img src={url} alt="" loading="lazy" className="w-9 h-9 rounded-md object-cover bg-gray-50 border border-gray-100 shrink-0" />;
+  if (url) return <img src={url} alt="" loading="lazy" className="w-9 h-9 rounded-md object-cover bg-gray-50 border border-[#A98B5C]/25 shrink-0" />;
   return (
-    <div className="w-9 h-9 rounded-md bg-gray-50 border border-gray-100 shrink-0 flex items-center justify-center text-gray-300">
+    <div className="w-9 h-9 rounded-md bg-gray-50 border border-[#A98B5C]/25 shrink-0 flex items-center justify-center text-gray-300">
       <Package size={16} />
     </div>
   );
@@ -29,7 +29,7 @@ function Thumb({ url }: { url: string }) {
 // 開閉できるセクション（既定は閉じる）。ヘッダーに件数を出す。0件でも常に表示する。
 function Section({ title, count, open, onToggle, children }: { title: string; count: number; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl shadow-sm overflow-hidden">
       <button onClick={onToggle} aria-expanded={open} className="w-full flex items-center justify-between px-4 py-3 active:bg-gray-50">
         <span className="text-[13px] font-black text-gray-800">{title}（{count}件）</span>
         {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
@@ -148,7 +148,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         value={soldJpy}
                         onChange={(e) => setSoldJpy(e.target.value)}
                         placeholder="円"
-                        className="w-20 h-7 px-2 rounded-lg border border-gray-200 text-[12px] focus:outline-none focus:border-[#2D323B]"
+                        className="w-20 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
                       />
                       <button
                         disabled={busy === d.id || !(Number(soldJpy) > 0)}
@@ -201,7 +201,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         <button
                           disabled={busy === d.id}
                           onClick={() => { if (window.confirm("この商品を「出品中」から外しますか？（成績の出品数から除きます）")) act(d.id, "remove"); }}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                         >
                           {busy === d.id && <Spinner size={11} />} やめた
                         </button>
@@ -260,7 +260,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       <button
                         disabled={busy === d.id}
                         onClick={() => { if (window.confirm("この商品を一覧から削除しますか？（成績からも外れます）")) act(d.id, "remove"); }}
-                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                       >
                         {busy === d.id && <Spinner size={11} />} 削除
                       </button>

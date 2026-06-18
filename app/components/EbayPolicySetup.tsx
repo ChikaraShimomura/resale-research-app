@@ -113,7 +113,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
               value={vals.handlingDays ?? ""}
               onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
               placeholder="7"
-              className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
+              className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
             />
           </div>
           {SIZE_FIELDS.map((f) => (
@@ -125,7 +125,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                 value={vals[f.key] ?? ""}
                 onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
-                className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
+                className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
               />
             </div>
           ))}

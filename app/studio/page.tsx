@@ -70,7 +70,7 @@ export default async function StudioPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-3">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4 mb-3">
           <h1 className="text-[15px] font-black text-gray-900 mb-1">今日の利益商品で動画素材をつくる</h1>
           <p className="text-[12px] text-gray-500 leading-relaxed">
             各商品ごとに、<b>縦型カード画像（9:16）</b>・<b>台本</b>・<b>キャプション</b>を用意しました。カードを保存して動画に重ね、台本を読み（または合成音声で）、キャプションを貼るだけ。Shorts／TikTok／Reelsに横展開できます。
@@ -81,7 +81,7 @@ export default async function StudioPage() {
         </div>
 
         {items.length === 0 ? (
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm text-sm text-gray-500">
+          <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm text-sm text-gray-500">
             いま集計中です。少し時間をおいて再度ご覧ください。
           </div>
         ) : (
@@ -91,11 +91,11 @@ export default async function StudioPage() {
               const ebay = p.realAvgPrice || 0;
               const rate = p.realProfitRate || 0;
               return (
-                <section key={p.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                <section key={p.id} className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
                   <div className="flex items-center gap-3 mb-3">
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-100 shrink-0" />
+                      <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
                     ) : (
                       <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
                     )}

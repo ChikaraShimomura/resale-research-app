@@ -7,14 +7,14 @@ import BrandHome from "../../components/BrandHome";
 
 const initial: AuthState = {};
 const field =
-  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]";
+  "w-full h-11 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]";
 
 export default function UpdatePasswordPage() {
   const [state, action, pending] = useActionState(updatePasswordAction, initial);
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
       <BrandHome className="mb-5" />
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#A98B5C]/25 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">新しいパスワード</h1>
         <p className="text-sm text-gray-500 mb-5">新しいパスワードを設定してください。</p>
         <form action={action} className="space-y-3">

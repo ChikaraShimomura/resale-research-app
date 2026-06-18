@@ -69,7 +69,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-stretch justify-around z-20"
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#A98B5C]/35 flex items-stretch justify-around z-20"
       style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
     >
       {NAV_ITEMS.map((item) => {

@@ -19,7 +19,7 @@ type GuideVideoShortsProps = {
  */
 export default function GuideVideoShorts({ title, note, shorts }: GuideVideoShortsProps) {
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-1">
         <PlayCircle size={20} className="text-[#2D323B] shrink-0" />
         <h2 className="text-[14px] font-black text-gray-800 leading-snug flex-1">{title}</h2>

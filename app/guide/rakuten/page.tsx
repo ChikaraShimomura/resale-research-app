@@ -21,7 +21,7 @@ function Tip({ children }: { children: React.ReactNode }) {
 
 function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-2.5">
         <span className="w-8 h-8 rounded-xl bg-[#2D323B] text-white flex items-center justify-center shrink-0">{icon}</span>
         <h2 className="text-[14px] font-black text-gray-800 leading-snug">{title}</h2>
@@ -45,7 +45,7 @@ export default function RakutenGuidePage() {
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-3">
         {/* イントロ */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-1.5">
             <ShoppingBag size={18} className="text-[#2D323B]" />
             <h2 className="text-[14px] font-black text-gray-800">楽天 ＝ このサイトの「仕入れ先」</h2>
@@ -65,7 +65,7 @@ export default function RakutenGuidePage() {
           <div className="bg-[#F5F7FA] rounded-xl p-3 text-[12px] text-gray-600 font-mono space-y-1">
             <div className="flex justify-between"><span>商品価格</span><span className="text-[#2D323B]">10,000円</span></div>
             <div className="flex justify-between"><span>ポイント還元</span><span className="text-[#5A6472]">− 2,000pt</span></div>
-            <div className="flex justify-between font-black text-emerald-600 pt-1 border-t border-gray-200"><span>実質コスト</span><span>＝ 8,000円</span></div>
+            <div className="flex justify-between font-black text-emerald-600 pt-1 border-t border-[#A98B5C]/35"><span>実質コスト</span><span>＝ 8,000円</span></div>
           </div>
           <p className="text-[11px] text-gray-400 mt-2">※ ポイントは1pt＝1円として、次の仕入れにそのまま使えます。</p>
         </Card>

@@ -152,7 +152,7 @@ export default function AddToHome() {
       className="fixed left-3 right-3 z-30 max-w-md mx-auto"
       style={{ bottom: "calc(var(--nav-h, 68px) + env(safe-area-inset-bottom, 0px) + 10px)" }}
     >
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-3.5 flex items-start gap-3">
+      <div className="bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 p-3.5 flex items-start gap-3">
         <span className="w-9 h-9 rounded-xl bg-[#2D323B] text-white flex items-center justify-center shrink-0">
           <Smartphone size={18} />
         </span>

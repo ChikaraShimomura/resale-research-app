@@ -26,7 +26,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
   ];
 
   return (
-    <section className="mt-3 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <section className="mt-3 bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

@@ -26,7 +26,7 @@ export default function PricingPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-10">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-8 text-center">
           <BadgeCheck size={44} className="mx-auto text-emerald-500 mb-3" aria-hidden="true" />
           <p className="text-2xl font-black text-gray-800 mb-2">現在、すべて無料</p>
           <p className="text-sm text-gray-500 leading-relaxed mb-2">

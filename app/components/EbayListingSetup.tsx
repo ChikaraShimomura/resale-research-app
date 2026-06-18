@@ -97,7 +97,7 @@ export default function EbayListingSetup() {
     return (
       <div className="space-y-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-14 bg-white rounded-2xl border border-gray-100 animate-pulse" />
+          <div key={i} className="h-14 bg-white rounded-2xl border border-[#A98B5C]/25 animate-pulse" />
         ))}
       </div>
     );
@@ -155,7 +155,7 @@ export default function EbayListingSetup() {
             key={i}
             ref={(el) => { stepRefs.current[i] = el; }}
             className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-colors ${
-              isOpen ? "border-[#2D323B]/40" : "border-gray-100"
+              isOpen ? "border-[#2D323B]/40" : "border-[#A98B5C]/25"
             }`}
           >
             <button
@@ -188,7 +188,7 @@ export default function EbayListingSetup() {
                 className={`text-gray-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
-            {isOpen && <div className="px-4 pb-4 pt-1 border-t border-gray-50">{s.body}</div>}
+            {isOpen && <div className="px-4 pb-4 pt-1 border-t border-[#A98B5C]/15">{s.body}</div>}
           </div>
         );
       })}

@@ -70,8 +70,8 @@ export default function SourceStopRecap() {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 p-3" onClick={close}>
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
           <h2 className="text-[15px] font-black text-gray-900">⚠️ 自動で出品を停止しました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
             仕入れ元（楽天）が売り切れ・リンク切れになった下記を、欠品キャンセルを防ぐため自動で出品停止しました。再開するときは「出品停止中の商品一覧」から再出品できます。
@@ -81,7 +81,7 @@ export default function SourceStopRecap() {
           {entries.map((e) => (
             <li key={e.id} className="flex items-center gap-2.5 px-4 py-2.5">
               {e.imageUrl ? (
-                <img src={e.imageUrl} alt="" loading="lazy" className="w-11 h-11 rounded-md object-cover border border-gray-200 bg-gray-50 shrink-0" />
+                <img src={e.imageUrl} alt="" loading="lazy" className="w-11 h-11 rounded-md object-cover border border-[#A98B5C]/35 bg-gray-50 shrink-0" />
               ) : (
                 <div className="w-11 h-11 rounded-md bg-gray-100 shrink-0" />
               )}
@@ -92,7 +92,7 @@ export default function SourceStopRecap() {
             </li>
           ))}
         </ul>
-        <div className="p-3 border-t border-gray-100">
+        <div className="p-3 border-t border-[#A98B5C]/25">
           <button
             onClick={close}
             className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]"

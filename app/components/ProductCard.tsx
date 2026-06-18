@@ -111,7 +111,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   return (
     <div className={cn(
       "relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border",
-      ebaySold ? "border-emerald-200" : "border-gray-100"
+      ebaySold ? "border-emerald-200" : "border-[#A98B5C]/25"
     )}>
 
       {/* eBayで売却済み：仕入れ→発送を促す帯（最下部に沈むカードの目印） */}
@@ -132,7 +132,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           <span className="inline-flex items-center gap-1.5 rotate-[-5deg] bg-gray-900 text-white text-[17px] font-black px-4 py-1.5 rounded-xl tracking-wide shadow-lg ring-2 ring-white/80">
             <Flame size={17} aria-hidden="true" /> 出品枠 満了
           </span>
-          <div className="mt-3 max-w-[290px] bg-white/95 rounded-xl px-3.5 py-2.5 shadow-sm border border-gray-100">
+          <div className="mt-3 max-w-[290px] bg-white/95 rounded-xl px-3.5 py-2.5 shadow-sm border border-[#A98B5C]/25">
             <p className="text-[10px] font-bold text-gray-600 whitespace-nowrap">
               輸出ラボから出品された数が、<b className="text-gray-900">規定に到達</b>しました。
             </p>
@@ -156,9 +156,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               className="block relative" aria-label="楽天市場でこの商品を見る">
               {product.imageUrl ? (
                 <img src={product.imageUrl} alt={product.title}
-                  className="w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border border-gray-100" />
+                  className="w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border border-[#A98B5C]/25" />
               ) : (
-                <div aria-hidden="true" className="w-[92px] h-[92px] bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center text-gray-300"><Package size={30} /></div>
+                <div aria-hidden="true" className="w-[92px] h-[92px] bg-gray-50 rounded-xl border border-[#A98B5C]/25 flex items-center justify-center text-gray-300"><Package size={30} /></div>
               )}
               <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
                 楽天で見る
@@ -200,7 +200,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         </div>
 
         {/* eBay価格・利益エリア — 想定売値 → 利益を主役に */}
-        <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-gray-100">
+        <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-[#A98B5C]/25">
           {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xs text-gray-400">eBay最安値<span className="text-[10px] text-gray-300 ml-0.5">（あなたの想定売値）</span></span>
@@ -214,7 +214,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           )}
 
           {/* 利益（ヒーロー） */}
-          <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-end justify-between gap-2">
+          <div className="mt-2.5 pt-2.5 border-t border-[#A98B5C]/25 flex items-end justify-between gap-2">
             <div className="shrink-0">
               <p className="text-xs text-gray-400 mb-1">実質利益（最安で売れた時・pt込み）</p>
               <ProfitRateBadge rate={product.realProfitRate} />
@@ -266,7 +266,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
         {/* 明細パネル */}
         {showBreakdown && (
-          <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 text-[12px] text-gray-600 space-y-1.5 border border-gray-100">
+          <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 text-[12px] text-gray-600 space-y-1.5 border border-[#A98B5C]/25">
             <div className="flex justify-between">
               <span>eBay最安値（早く売れる価格）</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
@@ -297,7 +297,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span>国際送料</span>
               <span className="font-bold text-emerald-600">購入者負担（¥0）</span>
             </div>
-            <div className="flex justify-between font-black text-[#2D323B] pt-1.5 border-t border-gray-200 text-[13px]">
+            <div className="flex justify-between font-black text-[#2D323B] pt-1.5 border-t border-[#A98B5C]/35 text-[13px]">
               <span>実質利益合計</span>
               <span>{formatJpy(product.realProfit)}</span>
             </div>

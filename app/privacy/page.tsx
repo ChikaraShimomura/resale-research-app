@@ -65,11 +65,11 @@ function PrivacyBody({ md }: { md: string }) {
       while (i < lines.length && lines[i].trim().startsWith("|")) { rows.push(splitRow(lines[i])); i++; }
       out.push(
         <div key={k} className="overflow-x-auto my-3">
-          <table className="w-full text-[12px] border border-gray-200 rounded-lg border-separate border-spacing-0">
+          <table className="w-full text-[12px] border border-[#A98B5C]/35 rounded-lg border-separate border-spacing-0">
             <thead>
               <tr className="bg-gray-50">
                 {header.map((c, ci) => (
-                  <th key={ci} className="text-left font-bold text-gray-700 px-2.5 py-2 border-b border-gray-200 whitespace-nowrap">{renderInline(c, `th${k}-${ci}`)}</th>
+                  <th key={ci} className="text-left font-bold text-gray-700 px-2.5 py-2 border-b border-[#A98B5C]/35 whitespace-nowrap">{renderInline(c, `th${k}-${ci}`)}</th>
                 ))}
               </tr>
             </thead>
@@ -77,7 +77,7 @@ function PrivacyBody({ md }: { md: string }) {
               {rows.map((r, ri) => (
                 <tr key={ri}>
                   {r.map((c, ci) => (
-                    <td key={ci} className="align-top px-2.5 py-2 text-gray-600 border-b border-gray-100">{renderInline(c, `td${k}-${ri}-${ci}`)}</td>
+                    <td key={ci} className="align-top px-2.5 py-2 text-gray-600 border-b border-[#A98B5C]/25">{renderInline(c, `td${k}-${ri}-${ci}`)}</td>
                   ))}
                 </tr>
               ))}
@@ -124,7 +124,7 @@ export default function PrivacyPage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-3">
-        <article className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <article className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <PrivacyBody md={PRIVACY_MD} />
         </article>
       </main>

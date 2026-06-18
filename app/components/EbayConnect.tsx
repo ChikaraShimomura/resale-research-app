@@ -65,7 +65,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
         </p>
       )}
       {flash === "disconnected" && (
-        <p className="mb-3 text-sm font-bold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+        <p className="mb-3 text-sm font-bold text-gray-700 bg-gray-50 border border-[#A98B5C]/35 rounded-lg px-3 py-2">
           この端末のeBay連携を解除しました
         </p>
       )}
@@ -83,7 +83,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
           </span>
           <a
             href={connectHref}
-            className="inline-flex items-center min-h-[44px] text-sm font-semibold text-gray-600 border border-gray-300 rounded-xl px-4 active:bg-gray-50"
+            className="inline-flex items-center min-h-[44px] text-sm font-semibold text-gray-600 border border-[#A98B5C]/45 rounded-xl px-4 active:bg-gray-50"
           >
             再連携する
           </a>

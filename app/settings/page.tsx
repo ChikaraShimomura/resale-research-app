@@ -35,16 +35,16 @@ export default async function SettingsPage({
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
         {/* eBay・Payoneerの信頼バッジ（連携/登録の不安をその場でケア） */}
-        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <TrustBadges />
         </section>
 
         {/* プッシュ通知（オン/オフ＋受け取る種類を本人が選べる） */}
-        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <PushSettings />
         </section>
 
-        <section className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <h2 className="text-sm font-black text-gray-800 mb-1">eBay出品の準備</h2>
           <p className="text-xs text-gray-500 leading-relaxed">
             下のSTEPを上から順に進めるだけで、eBay出品の準備が完了します。ログイン不要・eBayのパスワードは渡されません。

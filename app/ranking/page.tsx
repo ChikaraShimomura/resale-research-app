@@ -67,7 +67,7 @@ export default async function RankingPage() {
         </p>
 
         {items.length === 0 ? (
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+          <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">いま集計中です</p>
             <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度ご覧ください。</p>
             <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
@@ -79,13 +79,13 @@ export default async function RankingPage() {
             {items.map((p, i) => (
               <li key={p.id}>
                 <Link href={`/product/${encodeURIComponent(p.id)}`}
-                  className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3 shadow-sm active:bg-gray-50">
+                  className="flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50">
                   <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
                     {i + 1}
                   </span>
                   {p.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-100 shrink-0" />
+                    <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
                   ) : (
                     <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
                   )}
@@ -112,7 +112,7 @@ export default async function RankingPage() {
           <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
             すべての利益商品をさがす <ArrowRight size={16} />
           </Link>
-          <Link href="/guide" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
+          <Link href="/guide" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
             eBay輸出の始め方ガイドを見る
           </Link>
         </div>

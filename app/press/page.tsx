@@ -25,7 +25,7 @@ const LONG_INTRO = `「輸出ラボ」は、楽天で仕入れてeBayへ輸出�
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <h2 className="flex items-center gap-2 text-[15px] font-black text-gray-900 mb-2.5">
         <span aria-hidden="true" className="w-1 h-5 bg-[#2D323B] rounded-full shrink-0" />
         {title}

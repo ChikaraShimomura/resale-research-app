@@ -101,7 +101,7 @@ export default function EditListingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3" onClick={onClose}>
       <div
-        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 p-4"
+        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2 mb-3">
@@ -137,7 +137,7 @@ export default function EditListingModal({
                 min="0.01"
                 value={priceUsd}
                 onChange={(e) => setPriceUsd(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
+                className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
             </label>
             <label className="block">
@@ -149,7 +149,7 @@ export default function EditListingModal({
                 max="30"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
+                className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
               <span className="text-[10px] text-gray-400 mt-1 block">在庫を持っている数だけにしてください（無在庫で複数を出すと欠品キャンセルの原因に）。</span>
             </label>
@@ -169,7 +169,7 @@ export default function EditListingModal({
                 "この内容で更新"
               )}
             </button>
-            <div className="pt-3 mt-1 border-t border-gray-100">
+            <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
               <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
                 実物の写真を足すと売れやすくなります。楽天の画像は残したままeBayに移して追加します（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると出品の管理が外れるので、写真の変更はここから。
@@ -181,7 +181,7 @@ export default function EditListingModal({
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     {refImages.map((u, i) => (
                       <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                        <img src={u} alt={`参考${i + 1}`} loading="lazy" className="w-14 h-14 rounded-md object-cover border border-gray-200 bg-gray-50" />
+                        <img src={u} alt={`参考${i + 1}`} loading="lazy" className="w-14 h-14 rounded-md object-cover border border-[#A98B5C]/35 bg-gray-50" />
                       </a>
                     ))}
                   </div>

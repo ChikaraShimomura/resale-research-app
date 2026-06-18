@@ -26,8 +26,8 @@ function PayoneerLogo() {
 
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-      <div className="flex items-center h-8 px-2.5 bg-gray-50 border-b border-gray-100">
+    <div className="rounded-xl border border-[#A98B5C]/35 bg-white overflow-hidden shadow-sm">
+      <div className="flex items-center h-8 px-2.5 bg-gray-50 border-b border-[#A98B5C]/25">
         <PayoneerLogo />
       </div>
       <div className="p-3 space-y-2">{children}</div>
@@ -59,7 +59,7 @@ function Field({ label, value, ok }: { label: string; value: string; ok?: boolea
       <p className="text-[10px] text-gray-400 mb-0.5">{label}</p>
       <div
         className={`h-8 px-2.5 flex items-center rounded-lg border text-[12px] ${
-          ok ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-700"
+          ok ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-[#A98B5C]/35 text-gray-700"
         }`}
       >
         {value}
@@ -80,7 +80,7 @@ function Warn({ children }: { children: React.ReactNode }) {
 
 function StepCard({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <div className="flex items-center gap-2.5 mb-3">
         <span className="w-7 h-7 rounded-full bg-[#2D323B] text-white flex items-center justify-center text-sm font-black shrink-0">
           {n}
@@ -126,7 +126,7 @@ export default function PayoneerWithdrawGuide() {
           ]}
         />
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-1.5">
             <Wallet size={18} className="text-[#2D323B]" />
             <h2 className="text-[14px] font-black text-gray-800">eBayの売上 → あなたの銀行口座へ</h2>
@@ -151,7 +151,7 @@ export default function PayoneerWithdrawGuide() {
         </div>
 
         {/* 用意 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <h2 className="text-[13px] font-black text-gray-800 mb-2.5">用意するもの</h2>
           <ul className="space-y-2 text-[13px] text-gray-700">
             <li className="flex items-center gap-2"><Landmark size={16} className="text-[#2D323B]" /> 出金先の<b>銀行口座</b>（あなた本人名義）</li>
@@ -223,7 +223,7 @@ export default function PayoneerWithdrawGuide() {
         </StepCard>
 
         {/* 手数料まとめ */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <h2 className="text-[13px] font-black text-gray-800 mb-2.5">手数料・日数まとめ</h2>
           <ul className="space-y-1.5 text-[12px] text-gray-700 leading-relaxed">
             <li>💴 出金手数料：取引額の<b>約1〜2%</b>（少額は最低$1）</li>
@@ -235,7 +235,7 @@ export default function PayoneerWithdrawGuide() {
         </div>
 
         {/* つまずき */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <h2 className="text-[13px] font-black text-gray-800 mb-2.5">よくあるつまずき</h2>
           <ul className="space-y-2 text-[12px] text-gray-700 leading-relaxed">
             <li>🔴 <b>出金できない</b> → 口座名義がPayoneerの名前と<b>不一致</b>。ローマ字表記まで合わせる</li>

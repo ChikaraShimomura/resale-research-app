@@ -64,7 +64,7 @@ export default function ListingHelper({ product, autoOpen = false }: Props) {
           w-full inline-flex items-center justify-center gap-1 h-11 whitespace-nowrap
           text-[13px] font-bold rounded-xl transition-all
           ${listed
-            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-default"
+            ? "bg-gray-100 text-gray-400 border border-[#A98B5C]/35 cursor-default"
             : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 active:scale-[0.99]"
           }
         `}

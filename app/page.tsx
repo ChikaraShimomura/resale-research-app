@@ -64,7 +64,7 @@ export default function LandingPage() {
       </section>
 
       {/* 仕組み説明 */}
-      <div className="bg-white border-b border-gray-100 shadow-sm">
+      <div className="bg-white border-b border-[#A98B5C]/25 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-6">
           <div className="flex items-start justify-center gap-4">
             {[
@@ -105,7 +105,7 @@ export default function LandingPage() {
             { Icon: TrendingUp, t: "海外だから高く売れる", d: "日本にしかない商品は、海外では価値が上がって高値で売れます。" },
             { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブルを防げます。" },
           ].map(({ Icon, t, d }, i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-sm">
+            <div key={i} className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
               <div className="w-8 h-8 rounded-full bg-[#2D323B]/10 flex items-center justify-center mb-2">
                 <Icon size={16} className="text-[#2D323B]" />
               </div>
@@ -132,7 +132,7 @@ export default function LandingPage() {
           <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
           <h2 className="text-sm font-black text-gray-800">利益の計算方法</h2>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+        <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
           <div className="flex justify-end mb-2">
             <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">例</span>
           </div>
@@ -143,7 +143,7 @@ export default function LandingPage() {
             <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
-            <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-gray-200 text-sm">
+            <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-[#A98B5C]/35 text-sm">
               <span>利益</span><span>= ¥X,XXX + XXXpt</span>
             </div>
           </div>
@@ -166,7 +166,7 @@ export default function LandingPage() {
       </section>
 
       {/* フッター */}
-      <footer className="bg-white border-t border-gray-100 px-6 py-8 text-center">
+      <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
           ※ 利益はeBayの想定売値（現在の出品ベース）・楽天ポイント・eBay手数料(13.25%)・国内送料（送料別の商品は概算で原価に算入）をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
           実際の利益は状態・競合・為替等により異なります。

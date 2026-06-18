@@ -31,22 +31,22 @@ export default async function ReferralsAdminPage({
 
       <main className="max-w-2xl mx-auto px-4 py-5">
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
+          <div className="bg-white rounded-xl border border-[#A98B5C]/25 shadow-sm p-3 text-center">
             <p className="text-[11px] text-gray-400">総クリック</p>
             <p className="text-xl font-black text-gray-800">{totalClicks.toLocaleString()}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
+          <div className="bg-white rounded-xl border border-[#A98B5C]/25 shadow-sm p-3 text-center">
             <p className="text-[11px] text-gray-400">総登録(成果)</p>
             <p className="text-xl font-black text-[#2D323B]">{totalSignups.toLocaleString()}</p>
           </div>
         </div>
 
         {stats.length === 0 ? (
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center text-sm text-gray-500">
+          <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center text-sm text-gray-500">
             まだ紹介データがありません。インフルエンサーに <code className="bg-gray-100 px-1 rounded">/r/コード</code> のリンクを渡してください。
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm overflow-hidden">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="bg-gray-50 text-left text-[11px] text-gray-500">
@@ -58,7 +58,7 @@ export default async function ReferralsAdminPage({
               </thead>
               <tbody>
                 {stats.map((s) => (
-                  <tr key={s.code} className="border-t border-gray-50">
+                  <tr key={s.code} className="border-t border-[#A98B5C]/15">
                     <td className="px-3 py-2.5 font-mono font-bold text-gray-800 break-all">{s.code}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-600">{s.clicks.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-black text-[#2D323B]">{s.signups.toLocaleString()}</td>

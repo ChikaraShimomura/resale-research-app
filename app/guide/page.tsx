@@ -193,8 +193,8 @@ export default function GuidePage() {
           <SectionTitle>5ステップで始める</SectionTitle>
           <div className="flex flex-col gap-3.5">
             {STEPS.map((step) => (
-              <div key={step.num} id={`step-${step.num}`} className="scroll-mt-20 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
+              <div key={step.num} id={`step-${step.num}`} className="scroll-mt-20 bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#A98B5C]/15">
                   <span className="w-8 h-8 rounded-full bg-[#2D323B] text-white font-black flex items-center justify-center text-sm shrink-0">
                     {step.num}
                   </span>
@@ -243,7 +243,7 @@ export default function GuidePage() {
           <div className="flex flex-col gap-2">
             {ARTICLES.map((a) => (
               <Link key={a.slug} href={`/guide/${a.slug}`}
-                className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3.5 shadow-sm active:bg-gray-50">
+                className="flex items-center gap-2 bg-white border border-[#A98B5C]/25 rounded-2xl px-4 py-3.5 shadow-sm active:bg-gray-50">
                 <span className="text-[13px] font-bold text-gray-800 leading-snug flex-1 min-w-0">{a.title}</span>
                 <ChevronRight size={16} className="text-gray-400 shrink-0" />
               </Link>
@@ -254,14 +254,14 @@ export default function GuidePage() {
         {/* 利益計算の説明 */}
         <div className="mb-6">
           <SectionTitle>利益の計算方法</SectionTitle>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+          <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
               <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
               <div className="flex justify-between"><span>国際送料・輸入関税</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
-              <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
+              <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-[#A98B5C]/35 text-sm">
                 <span>利益</span><span>= ¥X,XXX ＋ XXXpt</span>
               </div>
             </div>
@@ -274,7 +274,7 @@ export default function GuidePage() {
           <SectionTitle>よくある質問</SectionTitle>
           <div className="flex flex-col gap-2">
             {FAQS.map((faq, i) => (
-              <details key={i} className="bg-white border border-gray-100 rounded-2xl shadow-sm group">
+              <details key={i} className="bg-white border border-[#A98B5C]/25 rounded-2xl shadow-sm group">
                 <summary className="flex items-center justify-between gap-2 px-4 min-h-[52px] cursor-pointer list-none text-[14px] font-bold text-gray-800">
                   <span><span className="text-[#2D323B]">Q.</span> {faq.q}</span>
                   <span aria-hidden="true" className="text-gray-400 text-xs shrink-0 transition-transform group-open:rotate-180">▼</span>

@@ -34,8 +34,33 @@ h1, h2, h3 {
   font-feature-settings: "palt";
 }
 
+/* 神々しさ：画面上辺のギルド罫（金箔の縁）。スクロールしても常に額縁のように残す */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #A98B5C 18%, #E4CE96 50%, #A98B5C 82%, transparent);
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* 選択ハイライトとフォーカスリングも金で統一（至る所に金を効かせる） */
+::selection {
+  background: rgba(169, 139, 92, 0.28);
+  color: #1a1a2e;
+}
+:focus-visible {
+  outline: 2px solid rgba(169, 139, 92, 0.7);
+  outline-offset: 2px;
+}
+
 body {
-  background: var(--background);
+  /* 上方からの淡い金の光輪（神々しさ）を紙トーンに重ねる */
+  background:
+    radial-gradient(125% 70% at 50% -12%, rgba(169, 139, 92, 0.13), rgba(169, 139, 92, 0) 60%),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   /* iOSのタップハイライト（青フラッシュ）を消す */

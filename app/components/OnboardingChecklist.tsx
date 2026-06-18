@@ -84,7 +84,7 @@ export default function OnboardingChecklist() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-black text-gray-800">
             はじめてガイド <span className="text-gray-400 font-bold">{doneCount}/{steps.length}</span>

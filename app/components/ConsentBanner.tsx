@@ -47,7 +47,7 @@ export default function ConsentBanner() {
     <div
       role="dialog"
       aria-label="Cookieの利用について"
-      className="fixed inset-x-0 bottom-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+      className="fixed inset-x-0 bottom-0 z-50 bg-white border-t border-[#A98B5C]/35 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="max-w-2xl mx-auto px-4 py-3.5 flex flex-col gap-2.5">

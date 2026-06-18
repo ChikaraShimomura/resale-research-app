@@ -37,7 +37,7 @@ export default function EbayListingReadiness() {
   const missingPolicy = !items[0].ok || !items[1].ok || !items[2].ok;
 
   return (
-    <section className="mt-3 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+    <section className="mt-3 bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
       <h3 className="text-sm font-black text-gray-800 mb-1">eBay自動出品の準備状況</h3>
       <p className="text-[11px] text-gray-400 mb-3">
         出品APIで下書きを作るのに必要な項目です（{data.marketplace}）

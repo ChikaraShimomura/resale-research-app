@@ -125,7 +125,7 @@ export default function SearchPage() {
 
         {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (
-          <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+          <div className="bg-white border-b border-[#A98B5C]/25 px-4 py-3 flex items-center gap-3">
             <div className="w-9 h-9 bg-[#2D323B] rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-black text-base leading-none">R</span>
             </div>
@@ -145,7 +145,7 @@ export default function SearchPage() {
 
 
         {/* セクションヘッダー（件数 + 右に並び替え/SOLD除外を上下配置） */}
-        <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-start justify-between gap-3">
+        <div className="bg-white px-4 py-2.5 border-b border-[#A98B5C]/25 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {loading ? (
               <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
@@ -174,7 +174,7 @@ export default function SearchPage() {
           {loading ? (
             <div className="flex flex-col gap-3 p-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm animate-pulse">
+                <div key={i} className="bg-white rounded-2xl border border-[#A98B5C]/25 p-4 shadow-sm animate-pulse">
                   <div className="flex gap-3">
                     <div className="w-[90px] h-[90px] bg-gray-100 rounded-xl shrink-0" />
                     <div className="flex-1 space-y-2 pt-1">
@@ -187,7 +187,7 @@ export default function SearchPage() {
               ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-16 bg-white m-3 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="text-center py-16 bg-white m-3 rounded-2xl border border-[#A98B5C]/25 shadow-sm">
               <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600 text-sm font-semibold mb-1">いま掲載できる商品がありません</p>
               <p className="text-gray-400 text-xs mb-5">時間をおいて、もう一度開いてみてください。</p>
