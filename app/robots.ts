@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/login", "/register", "/settings", "/sorry"],
+      disallow: ["/api/", "/login", "/register", "/settings", "/sorry", "/mypage", "/studio", "/admin"],
     },
     sitemap: "https://www.yushutsu-fukugyo.com/sitemap.xml",
     host: "https://www.yushutsu-fukugyo.com",

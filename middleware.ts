@@ -19,6 +19,9 @@ function isPublicPath(pathname: string): boolean {
   // アプリ操作(検索/商品詳細/出品/マイページ/設定/スタジオ)はゲート維持＝登録誘導。
   if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing") return true;
   if (pathname === "/guide" || pathname.startsWith("/guide/")) return true;
+  // 閲覧（カタログ）も公開＝free=閲覧のフリーミアム＋商品ページの長尾SEO。
+  // 出品・マイページ・設定・スタジオ・管理 は引き続きゲート（＝登録誘導）。
+  if (pathname === "/search" || pathname === "/results" || pathname.startsWith("/product/")) return true;
   return false;
 }
 
