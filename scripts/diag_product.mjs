@@ -6,6 +6,47 @@
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const ID = (process.env.DIAG_ID || "").trim();
+const RAKUTEN_APP_ID = process.env.RAKUTEN_APP_ID;
+const RAKUTEN_ACCESS_KEY = process.env.RAKUTEN_ACCESS_KEY;
+const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
+
+// checkListings.mjs と同一の楽天死活/在庫判定。生の availability も見せる（検知漏れの切り分け用）。
+async function diagRakuten(itemCode) {
+  if (!RAKUTEN_APP_ID || !RAKUTEN_ACCESS_KEY) {
+    console.log("  （RAKUTENキー未設定のため楽天ライブ判定スキップ）");
+    return;
+  }
+  const params = new URLSearchParams({
+    applicationId: RAKUTEN_APP_ID,
+    accessKey: RAKUTEN_ACCESS_KEY,
+    affiliateId: RAKUTEN_AFFILIATE_ID || "",
+    itemCode,
+    hits: "1",
+    format: "json",
+  });
+  try {
+    const res = await fetch(`https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401?${params}`, {
+      headers: { Referer: "https://www.yushutsu-fukugyo.com/", Origin: "https://www.yushutsu-fukugyo.com", "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(10000),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* 非JSON */ }
+    console.log("  HTTP:", res.status, "/ error:", data?.error ?? "なし");
+    if (data?.error === "not_found") { console.log("  → 判定: dead（掲載終了/リンク切れ）"); return; }
+    if (res.ok && Array.isArray(data?.Items)) {
+      if (data.Items.length === 0) { console.log("  → 判定: dead（Items 0件）"); return; }
+      const item = data.Items[0]?.Item ?? data.Items[0];
+      const av = Number(item?.availability);
+      console.log("  availability(生値):", item?.availability, "/ itemName:", (item?.itemName || "").slice(0, 50));
+      console.log("  itemPrice:", item?.itemPrice, "/ itemCode:", item?.itemCode);
+      console.log("  → 判定:", av === 0 ? "soldout（売切＝フラグ立つ）" : "alive（在庫あり扱い＝フラグ立たない）");
+    } else {
+      console.log("  → 判定: unknown（HTTP異常/想定外応答＝現状維持）");
+    }
+  } catch (e) {
+    console.log("  → 判定: unknown（", e.message, "）");
+  }
+}
 
 async function kv(path) {
   const res = await fetch(`${KV_URL}/${path}`, { headers: { Authorization: `Bearer ${KV_TOKEN}` } });
@@ -61,6 +102,10 @@ async function hget(key, field) {
     }
   }
   if (!dealHits) console.log("  → どの ebay_deals にも無い（dealは原因ではない）");
+
+  // 楽天ライブ判定（検知漏れの切り分け：APIが売切と返すか）
+  console.log("\n=== 楽天ライブ死活/在庫（checkListings と同一判定） ===");
+  await diagRakuten(ID);
 
   console.log("\n=== 結論の見方 ===");
   console.log("・sourcingに在る&dealに無い → 仕入れ中に出るはず（出ないならGETかキャッシュ）");
