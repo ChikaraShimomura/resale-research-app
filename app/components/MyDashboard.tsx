@@ -70,7 +70,7 @@ function MoneyFlow({ s }: { s: Stats }) {
         <Legend color="bg-[#F0A0A0]" label="eBay手数料" value={`− ${yen(fee)}`} />
         <Legend color="bg-emerald-500" label="手数料を引いた残り" value={signedYen(grossTrue)} bold />
         {s.totalPoints > 0 && (
-          <Legend color="bg-[#FF4466]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
+          <Legend color="bg-[#5A6472]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
         )}
       </div>
 
@@ -79,12 +79,12 @@ function MoneyFlow({ s }: { s: Stats }) {
         <span className="text-[12px] font-bold text-gray-700">
           あなたの利益{s.totalPoints > 0 ? "（ポイント込み）" : ""}
         </span>
-        <span className={`text-xl font-black ${loss ? "text-[#BF0000]" : "text-emerald-600"}`}>
+        <span className={`text-xl font-black ${loss ? "text-[#2D323B]" : "text-emerald-600"}`}>
           {signedYen(s.totalProfit)}
         </span>
       </div>
       {loss && (
-        <p className="mt-1 text-[11px] text-[#BF0000] leading-relaxed">
+        <p className="mt-1 text-[11px] text-[#2D323B] leading-relaxed">
           いまは赤字です。仕入れ値より安く売れた商品があるかもしれません。相場より高すぎない商品を選ぶと改善します。
         </p>
       )}
@@ -119,7 +119,7 @@ function MonthlyChart({ data, soldCount }: { data: MonthPoint[]; soldCount: numb
               <span className="text-[9px] font-bold text-gray-600 tabular-nums">{yenShort(p.profit)}</span>
               <div className="w-full h-20 flex items-end">
                 <div
-                  className="w-full rounded-t-md bg-gradient-to-t from-[#BF0000] to-[#FF4466]"
+                  className="w-full rounded-t-md bg-gradient-to-t from-[#2D323B] to-[#A98B5C]"
                   style={{ height: `${h}%` }}
                   title={`${p.label}：${yen(p.profit)}（${p.count}件）`}
                 />
@@ -168,7 +168,7 @@ function RankBlock({ s }: { s: Stats }) {
       {s.nextRank && (
         <div className="mt-3">
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#BF0000] to-[#FF4466]" style={{ width: `${pct}%` }} />
+            <div className="h-full bg-gradient-to-r from-[#2D323B] to-[#A98B5C]" style={{ width: `${pct}%` }} />
           </div>
           <p className="text-[11px] text-gray-400 mt-1.5">あと {yen(s.toNext)} で昇格</p>
         </div>
@@ -249,10 +249,10 @@ export default function MyDashboard() {
             利益商品を選んで最初の1品を出品すると、<br />
             ここに<b>仕入れ・売上・利益</b>が図で出てきます。
           </p>
-          <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]">
+          <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
             利益商品を見る <ArrowRight size={16} />
           </Link>
-          <Link href="/guide" className="block mt-3 text-[12px] font-bold text-[#BF0000] underline underline-offset-2">
+          <Link href="/guide" className="block mt-3 text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             画像つきの始め方ガイドを見る →
           </Link>
         </div>
@@ -296,7 +296,7 @@ export default function MyDashboard() {
       {/* 累計利益のヒーロー */}
       <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm text-center">
         <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計）</p>
-        <p className="mt-1 text-4xl font-black text-[#BF0000] tracking-tight">{signedYen(s.totalProfit)}</p>
+        <p className="mt-1 text-4xl font-black text-[#2D323B] tracking-tight">{signedYen(s.totalProfit)}</p>
         <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}</p>
       </div>
 

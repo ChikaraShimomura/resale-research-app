@@ -110,16 +110,16 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       </p>
 
       <div>
-        <label className="block text-[11px] text-gray-500 mb-0.5">郵便番号<span className="text-[#BF0000]"> *</span></label>
+        <label className="block text-[11px] text-gray-500 mb-0.5">郵便番号<span className="text-[#2D323B]"> *</span></label>
         <input
           type="text"
           inputMode="numeric"
           value={zip}
           onChange={(e) => onZip(e.target.value)}
           placeholder="100-0005"
-          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
         />
-        {lookupMsg && <p className={`text-[11px] mt-1 ${lookupFailed ? "text-[#BF0000]" : "text-gray-400"}`}>{lookupMsg}</p>}
+        {lookupMsg && <p className={`text-[11px] mt-1 ${lookupFailed ? "text-[#2D323B]" : "text-gray-400"}`}>{lookupMsg}</p>}
         {lookupFailed && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mt-1.5 space-y-2">
             <p className="text-[11px] text-amber-800 leading-relaxed">
@@ -130,21 +130,21 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
               value={manual.stateOrProvince}
               onChange={(e) => setManual((m) => ({ ...m, stateOrProvince: e.target.value }))}
               placeholder="都道府県（例: Tokyo）"
-              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#2D323B]"
             />
             <input
               type="text"
               value={manual.city}
               onChange={(e) => setManual((m) => ({ ...m, city: e.target.value }))}
               placeholder="市区町村（例: Chiyoda-ku）"
-              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#2D323B]"
             />
             <input
               type="text"
               value={manual.town}
               onChange={(e) => setManual((m) => ({ ...m, town: e.target.value }))}
               placeholder="町名（例: Marunouchi）任意"
-              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#BF0000]"
+              className="w-full h-10 px-3 rounded-lg border border-amber-200 bg-white text-sm focus:outline-none focus:border-[#2D323B]"
             />
           </div>
         )}
@@ -160,13 +160,13 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       </div>
 
       <div className="mt-2">
-        <label className="block text-[11px] text-gray-500 mb-0.5">番地・建物名・部屋番号<span className="text-[#BF0000]"> *</span></label>
+        <label className="block text-[11px] text-gray-500 mb-0.5">番地・建物名・部屋番号<span className="text-[#2D323B]"> *</span></label>
         <input
           type="text"
           value={addr}
           onChange={(e) => setAddr(e.target.value)}
           placeholder="1-12-4 〇〇マンション 1001"
-          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+          className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
         />
         <p className="text-[10px] text-gray-400 mt-1 leading-snug">
           番地は数字でOK。建物名は英字がおすすめ（日本語のままだとそのまま登録されます）。
@@ -176,12 +176,12 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       <button
         onClick={submit}
         disabled={state === "saving"}
-        className="mt-3 w-full h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000] disabled:opacity-50"
+        className="mt-3 w-full h-11 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23] disabled:opacity-50"
       >
         {state === "saving" ? "登録中..." : "発送元を登録"}
       </button>
       {msg && (
-        <p className={`mt-2 text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#BF0000]"}`}>
+        <p className={`mt-2 text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#2D323B]"}`}>
           {msg}
         </p>
       )}

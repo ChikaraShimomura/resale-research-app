@@ -21,7 +21,7 @@ export default async function SettingsPage({
   const showReset = sp.reset === "1"; // /settings?reset=1 のときだけ表示
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"
@@ -59,7 +59,7 @@ export default async function SettingsPage({
         {showReset && <ResetListingCounts />}
 
         <div className="pt-1 text-center">
-          <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#BF0000]">プライバシーポリシー</Link>
+          <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#2D323B]">プライバシーポリシー</Link>
         </div>
       </main>
 

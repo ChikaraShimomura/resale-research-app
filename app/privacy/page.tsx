@@ -25,9 +25,9 @@ function renderInline(text: string, kp: string) {
     if (p.startsWith("`") && p.endsWith("`"))
       return <code key={key} className="bg-gray-100 text-gray-800 rounded px-1 py-0.5 text-[12px] font-mono break-all">{p.slice(1, -1)}</code>;
     if (/^https?:\/\//.test(p))
-      return <a key={key} href={p} target="_blank" rel="noopener noreferrer" className="text-[#BF0000] underline break-all">{p}</a>;
+      return <a key={key} href={p} target="_blank" rel="noopener noreferrer" className="text-[#2D323B] underline break-all">{p}</a>;
     if (/@/.test(p))
-      return <a key={key} href={`mailto:${p}`} className="text-[#BF0000] underline break-all">{p}</a>;
+      return <a key={key} href={`mailto:${p}`} className="text-[#2D323B] underline break-all">{p}</a>;
     return <span key={key}>{p}</span>;
   });
 }
@@ -51,7 +51,7 @@ function PrivacyBody({ md }: { md: string }) {
       if (level === 1) out.push(<h1 key={k} className="text-xl font-black text-gray-900 mb-1">{renderInline(h[2], `h${k}`)}</h1>);
       else if (level === 2) out.push(
         <h2 key={k} className="flex items-center gap-2 text-[15px] font-black text-gray-900 mt-7 mb-2">
-          <span aria-hidden="true" className="w-1 h-4 bg-[#BF0000] rounded-full shrink-0" />{renderInline(h[2], `h${k}`)}
+          <span aria-hidden="true" className="w-1 h-4 bg-[#2D323B] rounded-full shrink-0" />{renderInline(h[2], `h${k}`)}
         </h2>
       );
       else out.push(<h3 key={k} className="text-sm font-black text-gray-800 mt-4 mb-1.5">{renderInline(h[2], `h${k}`)}</h3>);
@@ -95,7 +95,7 @@ function PrivacyBody({ md }: { md: string }) {
         <ul key={k} className="space-y-1.5 my-2">
           {items.map((it, ii) => (
             <li key={ii} className="flex gap-2 text-[13px] text-gray-600 leading-relaxed">
-              <span aria-hidden="true" className="mt-[7px] shrink-0 w-1 h-1 rounded-full bg-[#BF0000]" />
+              <span aria-hidden="true" className="mt-[7px] shrink-0 w-1 h-1 rounded-full bg-[#2D323B]" />
               <span>{renderInline(it, `li${k}-${ii}`)}</span>
             </li>
           ))}
@@ -113,7 +113,7 @@ function PrivacyBody({ md }: { md: string }) {
 export default function PrivacyPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-[#BF0000] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-[#2D323B] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="戻る"
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">

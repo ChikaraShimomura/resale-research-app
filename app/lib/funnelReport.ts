@@ -92,7 +92,7 @@ function pct(a: number, b: number): string {
 function delta(now: number, prev: number): string {
   const d = now - prev;
   if (d > 0) return `<span style="color:#16a34a">▲${d}</span>`;
-  if (d < 0) return `<span style="color:#BF0000">▼${-d}</span>`;
+  if (d < 0) return `<span style="color:#2D323B">▼${-d}</span>`;
   return `<span style="color:#9ca3af">±0</span>`;
 }
 
@@ -195,14 +195,14 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
 
   const html = `
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto">
-    <h2 style="color:#BF0000;font-size:18px;margin:0 0 4px">📊 行動ログ週次レポート</h2>
+    <h2 style="color:#2D323B;font-size:18px;margin:0 0 4px">📊 行動ログ週次レポート</h2>
     <p style="color:#6b7280;font-size:13px;margin:0 0 16px">${periodLabel}（日本時間・直近7日間）</p>
 
     <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 16px">
       <tr>
         <td style="width:25%;background:#FFF5F5;border:1px solid #FEE2E2;border-radius:10px;padding:10px;vertical-align:top">
           <div style="font-size:10px;color:#991b1b">訪問（端末）</div>
-          <div style="font-size:20px;font-weight:800;color:#BF0000">${visits}</div>
+          <div style="font-size:20px;font-weight:800;color:#2D323B">${visits}</div>
         </td>
         <td style="width:25%;background:#F5F3FF;border:1px solid #EDE9FE;border-radius:10px;padding:10px;vertical-align:top">
           <div style="font-size:10px;color:#5b21b6">登録（端末）</div>

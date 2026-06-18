@@ -30,10 +30,10 @@ export default function GuideVideo({
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-3">
-        <PlayCircle size={20} className="text-[#BF0000] shrink-0" />
+        <PlayCircle size={20} className="text-[#2D323B] shrink-0" />
         <h2 className="text-[14px] font-black text-gray-800 leading-snug flex-1">{title}</h2>
         {durationLabel && (
-          <span className="text-[11px] font-bold text-[#BF0000] bg-[#BF0000]/8 border border-[#BF0000]/20 rounded-full px-2.5 py-1 shrink-0">
+          <span className="text-[11px] font-bold text-[#2D323B] bg-[#2D323B]/8 border border-[#2D323B]/20 rounded-full px-2.5 py-1 shrink-0">
             ▶ {durationLabel}
           </span>
         )}

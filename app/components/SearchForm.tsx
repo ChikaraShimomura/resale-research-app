@@ -43,7 +43,7 @@ export default function SearchForm({ defaultKeyword = "" }: { defaultKeyword?: s
         </div>
         <button
           type="submit"
-          className="flex items-center gap-1 px-4 py-2.5 bg-white hover:bg-gray-50 active:bg-gray-100 active:scale-[0.98] text-[#BF0000] rounded-md text-sm font-black transition-all shrink-0"
+          className="flex items-center gap-1 px-4 py-2.5 bg-white hover:bg-gray-50 active:bg-gray-100 active:scale-[0.98] text-[#2D323B] rounded-md text-sm font-black transition-all shrink-0"
         >
           <Search size={15} strokeWidth={2.5} />
           検索

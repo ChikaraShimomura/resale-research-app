@@ -11,7 +11,7 @@ function NavInner({ Icon, isActive, label }: { Icon: React.ComponentType<{ fille
       <span className="flex items-center justify-center" style={{ width: 22, height: 22 }}>
         {pending ? <Spinner size={20} /> : <Icon filled={isActive} />}
       </span>
-      <span className={`text-[11px] whitespace-nowrap ${isActive ? "font-bold text-[#BF0000]" : "font-normal"}`}>
+      <span className={`text-[11px] whitespace-nowrap ${isActive ? "font-bold text-[#2D323B]" : "font-normal"}`}>
         {label}
       </span>
     </>
@@ -82,7 +82,7 @@ export default function BottomNav() {
             aria-label={item.label}
             aria-current={isActive ? "page" : undefined}
             className={`flex flex-col items-center justify-center gap-0.5 py-2 px-2 flex-1 min-h-[52px] transition-colors ${
-              isActive ? "text-[#BF0000]" : "text-gray-500"
+              isActive ? "text-[#2D323B]" : "text-gray-500"
             }`}
           >
             <NavInner Icon={item.Icon} isActive={isActive} label={item.label} />

@@ -131,7 +131,7 @@ function ResultsContent() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* ヘッダー */}
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] sticky top-0 z-20 shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] sticky top-0 z-20 shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 pt-2 pb-2 flex items-center gap-2">
           <Link href="/search"
@@ -156,10 +156,10 @@ function ResultsContent() {
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
           ) : (
             <p className="text-xs text-gray-500">
-              <span className="font-black text-[#BF0000] text-base">{sorted.length}</span>
+              <span className="font-black text-[#2D323B] text-base">{sorted.length}</span>
               <span className="ml-0.5">件</span>
               {hotCount > 0 && (
-                <span className="ml-2 text-[11px] text-[#FF4466] font-bold inline-flex items-center gap-1"><Flame size={12} />{hotCount}件が利益30%超</span>
+                <span className="ml-2 text-[11px] text-[#5A6472] font-bold inline-flex items-center gap-1"><Flame size={12} />{hotCount}件が利益30%超</span>
               )}
             </p>
           )}
@@ -205,7 +205,7 @@ function ResultsContent() {
             <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
               {allProducts.length > 0 && (
                 <Link href="/results"
-                  className="inline-block text-sm font-bold text-white bg-[#BF0000] px-5 py-2 rounded-full active:bg-[#9E0000]">
+                  className="inline-block text-sm font-bold text-white bg-[#2D323B] px-5 py-2 rounded-full active:bg-[#1A1D23]">
                   すべての利益商品を見る
                 </Link>
               )}

@@ -13,7 +13,7 @@ const EBAY_FEE_FIXED = 47;
 function PointBadge({ rate }: { rate: number }) {
   if (rate <= 1) return null;
   return (
-    <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-[#FF4466] text-white leading-none">
+    <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full bg-[#5A6472] text-white leading-none">
       {rate}倍
     </span>
   );
@@ -21,7 +21,7 @@ function PointBadge({ rate }: { rate: number }) {
 
 function ProfitRateBadge({ rate }: { rate: number }) {
   const bg = rate >= 50
-    ? "bg-[#BF0000]"
+    ? "bg-[#2D323B]"
     : rate >= 30
     ? "bg-orange-500"
     : "bg-amber-500";
@@ -123,7 +123,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
       {/* HOT グラデーションライン */}
       {isHot && !sold && !ebaySold && (
-        <div className="h-1 bg-gradient-to-r from-[#BF0000] to-[#FF4466]" />
+        <div className="h-1 bg-gradient-to-r from-[#2D323B] to-[#A98B5C]" />
       )}
 
       {/* 飽和＝輸出ラボから規定数が出品された商品。「枠が埋まった＋他は早い者勝ち」で次の商品へ前向きに誘導する。 */}
@@ -136,7 +136,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             <p className="text-[10px] font-bold text-gray-600 whitespace-nowrap">
               輸出ラボから出品された数が、<b className="text-gray-900">規定に到達</b>しました。
             </p>
-            <p className="mt-1.5 text-[13px] font-black text-[#BF0000] leading-snug">
+            <p className="mt-1.5 text-[13px] font-black text-[#2D323B] leading-snug">
               商品は早い者勝ち！<br />
               <span className="text-[12px]">他の商品を早く出品しよう👇</span>
             </p>
@@ -165,7 +165,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               </span>
             </a>
             {isHot && (
-              <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black bg-[#BF0000] text-white px-1.5 py-0.5 rounded-full leading-none shadow-sm">
+              <span className="absolute -top-1.5 -right-1.5 text-[9px] font-black bg-[#2D323B] text-white px-1.5 py-0.5 rounded-full leading-none shadow-sm">
                 急騰
               </span>
             )}
@@ -176,7 +176,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             {/* バッジ行 */}
             <div className="flex items-center gap-1.5 mb-2 flex-wrap">
               {product.isNew && (
-                <span className="text-[10px] font-bold border border-[#BF0000] text-[#BF0000] px-2 py-0.5 rounded-full leading-none">新品</span>
+                <span className="text-[10px] font-bold border border-[#2D323B] text-[#2D323B] px-2 py-0.5 rounded-full leading-none">新品</span>
               )}
               <PointBadge rate={source.pointRate ?? 1} />
             </div>
@@ -189,7 +189,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             {/* 楽天仕入れ価格 */}
             <div className="flex items-baseline gap-1.5">
               <span className="text-[11px] text-gray-400">仕入れ{shippingJpy > 0 ? "(送料込)" : ""}</span>
-              <span className="text-lg font-black text-[#BF0000]">
+              <span className="text-lg font-black text-[#2D323B]">
                 {formatJpy(source.price + shippingJpy)}
               </span>
               {pointAmount > 0 && (
@@ -219,7 +219,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <p className="text-xs text-gray-400 mb-1">実質利益（最安で売れた時・pt込み）</p>
               <ProfitRateBadge rate={product.realProfitRate} />
             </div>
-            <p className="text-3xl font-black text-[#BF0000] leading-none whitespace-nowrap">
+            <p className="text-3xl font-black text-[#2D323B] leading-none whitespace-nowrap">
               {formatJpy(product.realProfit)}
             </p>
           </div>
@@ -244,9 +244,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
           {/* ポイント二重取り — 1行強調 */}
           {pointAmount > 0 && (
-            <div className="mt-3 bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-[#FF4466]/20">
-              <span className="inline-flex w-4 h-4 bg-[#FF4466] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
-              <span className="text-xs font-bold text-[#FF4466]">
+            <div className="mt-3 bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-[#5A6472]/20">
+              <span className="inline-flex w-4 h-4 bg-[#5A6472] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
+              <span className="text-xs font-bold text-[#5A6472]">
                 楽天ポイント {pointAmount.toLocaleString()}pt 二重取り
               </span>
               <span className="text-xs text-gray-400 ml-auto">実質 {formatJpy(realCost)}</span>
@@ -271,25 +271,25 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span>eBay最安値（早く売れる価格）</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
-            <div className="flex justify-between text-[#BF0000]">
+            <div className="flex justify-between text-[#2D323B]">
               <span>楽天仕入れ価格</span>
               <span>- {formatJpy(source.price)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
               <span>国内送料（楽天→自分）</span>
               {shippingJpy > 0 ? (
-                <span className="text-[#BF0000]">- {formatJpy(shippingJpy)}（概算）</span>
+                <span className="text-[#2D323B]">- {formatJpy(shippingJpy)}（概算）</span>
               ) : (
                 <span className="font-bold text-emerald-600">送料込み（¥0）</span>
               )}
             </div>
             {pointAmount > 0 && (
-              <div className="flex justify-between text-[#FF4466]">
+              <div className="flex justify-between text-[#5A6472]">
                 <span>楽天ポイント還元（{source.pointRate ?? 1}%）</span>
                 <span>+ {formatJpy(pointAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-[#BF0000]">
+            <div className="flex justify-between text-[#2D323B]">
               <span>eBay手数料（13.25% + ¥47）</span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
@@ -297,7 +297,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span>国際送料</span>
               <span className="font-bold text-emerald-600">購入者負担（¥0）</span>
             </div>
-            <div className="flex justify-between font-black text-[#BF0000] pt-1.5 border-t border-gray-200 text-[13px]">
+            <div className="flex justify-between font-black text-[#2D323B] pt-1.5 border-t border-gray-200 text-[13px]">
               <span>実質利益合計</span>
               <span>{formatJpy(product.realProfit)}</span>
             </div>
@@ -318,8 +318,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
-            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] hover:bg-[#1A1D23] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
+            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#2D323B] font-black text-[9px] shrink-0">R</span>
             楽天で仕入れる
           </a>
         </div>

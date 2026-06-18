@@ -27,7 +27,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <h2 className="flex items-center gap-2 text-[15px] font-black text-gray-900 mb-2.5">
-        <span aria-hidden="true" className="w-1 h-5 bg-[#BF0000] rounded-full shrink-0" />
+        <span aria-hidden="true" className="w-1 h-5 bg-[#2D323B] rounded-full shrink-0" />
         {title}
       </h2>
       {children}
@@ -38,7 +38,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default function PressPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#9E0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/" aria-label="トップへ"
@@ -62,7 +62,7 @@ export default function PressPage() {
             <li>・<b>一言</b>：楽天で仕入れてeBayで売る「利益が出やすい商品」を無料で見つけるリサーチ支援ツール</li>
             <li>・<b>誰向け</b>：eBay輸出の初心者〜中級／楽天ポイントせどり層</li>
             <li>・<b>料金</b>：無料（登録不要で利用可）</li>
-            <li>・<b>URL</b>：<a href="https://www.yushutsu-fukugyo.com" className="text-[#BF0000] underline underline-offset-2">yushutsu-fukugyo.com</a></li>
+            <li>・<b>URL</b>：<a href="https://www.yushutsu-fukugyo.com" className="text-[#2D323B] underline underline-offset-2">yushutsu-fukugyo.com</a></li>
           </ul>
         </Card>
 
@@ -86,7 +86,7 @@ export default function PressPage() {
         <Card title="ブランド情報">
           <ul className="space-y-1.5 text-[13px] text-gray-700 leading-relaxed">
             <li>・<b>名称</b>：輸出ラボ</li>
-            <li>・<b>メインカラー</b>：クリムゾン <span className="inline-block align-middle w-3 h-3 rounded-sm bg-[#BF0000] mx-1" /> #BF0000</li>
+            <li>・<b>メインカラー</b>：クリムゾン <span className="inline-block align-middle w-3 h-3 rounded-sm bg-[#2D323B] mx-1" /> #2D323B</li>
             <li>・<b>運営</b>：個人開発（楽天→eBay輸出を自身でも実践）</li>
             <li>・<b>位置づけ</b>：eBay・楽天とは独立した非公式サービス</li>
           </ul>

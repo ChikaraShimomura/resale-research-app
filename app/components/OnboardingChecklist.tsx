@@ -96,7 +96,7 @@ export default function OnboardingChecklist() {
 
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
           <div
-            className="h-full bg-gradient-to-r from-[#BF0000] to-[#FF4466] transition-all"
+            className="h-full bg-gradient-to-r from-[#2D323B] to-[#A98B5C] transition-all"
             style={{ width: `${(doneCount / steps.length) * 100}%` }}
           />
         </div>
@@ -110,7 +110,7 @@ export default function OnboardingChecklist() {
               {s.done ? (
                 <Check size={16} className="text-emerald-500 shrink-0" />
               ) : (
-                <Circle size={16} className={`shrink-0 ${i === firstIncomplete ? "text-[#BF0000]" : "text-gray-300"}`} />
+                <Circle size={16} className={`shrink-0 ${i === firstIncomplete ? "text-[#2D323B]" : "text-gray-300"}`} />
               )}
               <span className={`flex-1 text-[13px] ${s.done ? "text-gray-400 line-through" : "text-gray-700 font-bold"}`}>
                 {s.label}
@@ -118,7 +118,7 @@ export default function OnboardingChecklist() {
               {!s.done && i === firstIncomplete && s.cta && (
                 <Link
                   href={s.cta.href}
-                  className="inline-flex items-center gap-0.5 rounded-full bg-[#BF0000] px-3 py-1.5 text-xs font-bold text-white active:opacity-80"
+                  className="inline-flex items-center gap-0.5 rounded-full bg-[#2D323B] px-3 py-1.5 text-xs font-bold text-white active:opacity-80"
                 >
                   {s.cta.text}
                   <ChevronRight size={14} />

@@ -112,12 +112,12 @@ export default function AddToHome() {
       <div className="flex flex-wrap gap-2 mt-2">
         {env.isAndroid && (
           <button onClick={openInChrome}
-            className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[#BF0000] rounded-lg px-3 py-1.5 active:bg-[#9E0000]">
+            className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[#2D323B] rounded-lg px-3 py-1.5 active:bg-[#1A1D23]">
             <ExternalLink size={13} /> Chromeで開く
           </button>
         )}
         <button onClick={copyUrl}
-          className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#BF0000] border border-[#BF0000]/30 rounded-lg px-3 py-1.5 active:bg-[#BF0000]/5">
+          className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#2D323B] border border-[#2D323B]/30 rounded-lg px-3 py-1.5 active:bg-[#2D323B]/5">
           {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "コピーしました" : "URLをコピー"}
         </button>
       </div>
@@ -129,7 +129,7 @@ export default function AddToHome() {
     actions = (
       <div className="mt-2">
         <button onClick={install}
-          className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[#BF0000] rounded-lg px-3 py-1.5 active:bg-[#9E0000]">
+          className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[#2D323B] rounded-lg px-3 py-1.5 active:bg-[#1A1D23]">
           <Smartphone size={13} /> ホーム画面に追加
         </button>
       </div>
@@ -153,7 +153,7 @@ export default function AddToHome() {
       style={{ bottom: "calc(var(--nav-h, 68px) + env(safe-area-inset-bottom, 0px) + 10px)" }}
     >
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-3.5 flex items-start gap-3">
-        <span className="w-9 h-9 rounded-xl bg-[#BF0000] text-white flex items-center justify-center shrink-0">
+        <span className="w-9 h-9 rounded-xl bg-[#2D323B] text-white flex items-center justify-center shrink-0">
           <Smartphone size={18} />
         </span>
         <div className="flex-1 min-w-0">

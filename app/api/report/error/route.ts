@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       .join("");
     const html = `
       <div style="font-family:sans-serif;font-size:13px;line-height:1.7;color:#111">
-        <h2 style="color:#BF0000;font-size:16px;margin:0 0 8px">⚠️ ユーザーからエラー報告（${escapeHtml(report.where || "unknown")}）</h2>
+        <h2 style="color:#2D323B;font-size:16px;margin:0 0 8px">⚠️ ユーザーからエラー報告（${escapeHtml(report.where || "unknown")}）</h2>
         <p><b>メッセージ:</b> ${escapeHtml(report.message || "(なし)")}</p>
         ${stepsHtml ? `<p><b>ステップ:</b></p><ul>${stepsHtml}</ul>` : ""}
         <p><b>商品ID:</b> ${escapeHtml(report.productId || "-")}<br>

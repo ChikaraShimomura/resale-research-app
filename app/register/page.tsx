@@ -7,7 +7,7 @@ import BrandHome from "../components/BrandHome";
 
 const initial: AuthState = {};
 const field =
-  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF0000]/30 focus:border-[#BF0000]";
+  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]";
 
 export default function RegisterPage() {
   const [state, action, pending] = useActionState(signUpAction, initial);
@@ -34,14 +34,14 @@ export default function RegisterPage() {
             <input type="hidden" name="from" value={from} />
             <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
             <input name="password" type="password" required minLength={8} placeholder="パスワード（8文字以上）" autoComplete="new-password" className={field} />
-            {state.error && <p className="text-sm text-[#BF0000]">{state.error}</p>}
-            <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#BF0000] text-white text-sm font-bold disabled:opacity-60">
+            {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+            <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
               {pending ? "登録中..." : "登録する"}
             </button>
           </form>
         )}
         <div className="mt-4 text-sm text-center">
-          <Link href="/login" className="text-[#BF0000] font-medium">すでにアカウントをお持ちの方</Link>
+          <Link href="/login" className="text-[#2D323B] font-medium">すでにアカウントをお持ちの方</Link>
         </div>
       </div>
     </main>

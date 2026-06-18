@@ -122,7 +122,7 @@ export default function EbayListingSetup() {
           <button
             type="button"
             onClick={continueToListing}
-            className="w-full h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]"
+            className="w-full h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]"
           >
             {listId ? "この商品を出品する →" : "商品を探して出品する →"}
           </button>
@@ -141,7 +141,7 @@ export default function EbayListingSetup() {
         <button
           type="button"
           onClick={() => setOverride(null)}
-          className="w-full h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+          className="w-full h-11 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
         >
           次にやること（STEP {firstIncomplete + 1}）を開く →
         </button>
@@ -155,7 +155,7 @@ export default function EbayListingSetup() {
             key={i}
             ref={(el) => { stepRefs.current[i] = el; }}
             className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-colors ${
-              isOpen ? "border-[#BF0000]/40" : "border-gray-100"
+              isOpen ? "border-[#2D323B]/40" : "border-gray-100"
             }`}
           >
             <button
@@ -169,7 +169,7 @@ export default function EbayListingSetup() {
                   done
                     ? "bg-emerald-500 text-white"
                     : isOpen
-                    ? "bg-[#BF0000] text-white"
+                    ? "bg-[#2D323B] text-white"
                     : "bg-gray-100 text-gray-500"
                 }`}
               >

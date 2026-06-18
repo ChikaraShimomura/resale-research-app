@@ -7,7 +7,7 @@ import BrandHome from "../components/BrandHome";
 
 const initial: AuthState = {};
 const field =
-  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF0000]/30 focus:border-[#BF0000]";
+  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(signInAction, initial);
@@ -37,13 +37,13 @@ export default function LoginPage() {
           <input type="hidden" name="from" value={from} />
           <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
           <input name="password" type="password" required placeholder="パスワード" autoComplete="current-password" className={field} />
-          {state.error && <p className="text-sm text-[#BF0000]">{state.error}</p>}
-          <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#BF0000] text-white text-sm font-bold disabled:opacity-60">
+          {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+          <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
             {pending ? "確認中..." : "ログイン"}
           </button>
         </form>
         <div className="flex justify-between mt-4 text-sm">
-          <Link href="/register" className="text-[#BF0000] font-medium">新規登録</Link>
+          <Link href="/register" className="text-[#2D323B] font-medium">新規登録</Link>
           <Link href="/reset-password" className="text-gray-500">パスワードを忘れた</Link>
         </div>
       </div>

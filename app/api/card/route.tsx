@@ -6,7 +6,7 @@ import { ImageResponse } from "next/og";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CRIMSON = "#BF0000";
+const CRIMSON = "#2D323B";
 
 // 日本語グリフは ImageResponse 既定フォントに無く豆腐(□)になるため、使う文字だけを動的サブセット取得。
 async function loadJpFont(text: string): Promise<ArrayBuffer | null> {

@@ -16,11 +16,11 @@ export default function LandingPage() {
       <TrackView event="visit" />
 
       {/* ヘッダー */}
-      <header className="bg-[#BF0000] px-4 py-3 shadow-sm">
+      <header className="bg-[#2D323B] px-4 py-3 shadow-sm">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-[#BF0000] font-black text-base leading-none">R</span>
+              <span className="text-[#2D323B] font-black text-base leading-none">R</span>
             </div>
             <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
           </div>
@@ -32,7 +32,7 @@ export default function LandingPage() {
       </header>
 
       {/* ヒーロー */}
-      <div className="bg-gradient-to-br from-[#BF0000] via-[#BF0000] to-[#9E0000] text-white">
+      <div className="bg-gradient-to-br from-[#2D323B] via-[#2D323B] to-[#1A1D23] text-white">
         <div className="max-w-2xl mx-auto px-6 py-10 text-center">
           <p className="text-xs font-bold bg-white/20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-4 backdrop-blur-sm">
             <Target size={13} /> 楽天ポイント × eBay転売
@@ -68,7 +68,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto px-4 py-6">
           <div className="flex items-start justify-center gap-4">
             {[
-              { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#BF0000]" },
+              { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#2D323B]" },
               { arrow: true },
               { step: "②", text: "eBayで出品", sub: "海外需要で高値売却", color: "bg-[#0064D2]" },
               { arrow: true },
@@ -94,7 +94,7 @@ export default function LandingPage() {
       {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <div className="flex items-center gap-2 mb-1.5">
-          <div className="w-1 h-5 bg-gradient-to-b from-[#BF0000] to-[#FF4466] rounded-full" />
+          <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
           <h2 className="text-sm font-black text-gray-800">「海外に売るのは難しそう」は、もう古い</h2>
         </div>
         <p className="text-[12px] text-gray-500 mb-4 pl-3">日本にいながら、いつもの通販と同じ感覚で始められます。</p>
@@ -106,8 +106,8 @@ export default function LandingPage() {
             { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブルを防げます。" },
           ].map(({ Icon, t, d }, i) => (
             <div key={i} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-sm">
-              <div className="w-8 h-8 rounded-full bg-[#BF0000]/10 flex items-center justify-center mb-2">
-                <Icon size={16} className="text-[#BF0000]" />
+              <div className="w-8 h-8 rounded-full bg-[#2D323B]/10 flex items-center justify-center mb-2">
+                <Icon size={16} className="text-[#2D323B]" />
               </div>
               <p className="text-[13px] font-black text-gray-800 mb-1">{t}</p>
               <p className="text-[11px] text-gray-500 leading-relaxed">{d}</p>
@@ -115,7 +115,7 @@ export default function LandingPage() {
           ))}
         </div>
         <div className="mt-3 text-center">
-          <Link href="/guide" className="text-[12px] font-bold text-[#BF0000] underline underline-offset-2">
+          <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             はじめ方を画像つきガイドで見る →
           </Link>
         </div>
@@ -129,7 +129,7 @@ export default function LandingPage() {
       {/* 利益計算の説明 */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-5 bg-gradient-to-b from-[#BF0000] to-[#FF4466] rounded-full" />
+          <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
           <h2 className="text-sm font-black text-gray-800">利益の計算方法</h2>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
@@ -138,10 +138,10 @@ export default function LandingPage() {
           </div>
           <div className="bg-[#F5F7FA] rounded-xl p-4 text-xs text-gray-600 space-y-2 font-mono mb-3">
             <div className="flex justify-between"><span>eBayの想定売値</span><span className="text-[#0064D2]">+ ¥XX,XXX</span></div>
-            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
-            <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
-            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
+            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
+            <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
+            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
+            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-gray-200 text-sm">
               <span>利益</span><span>= ¥X,XXX + XXXpt</span>
@@ -154,11 +154,11 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="max-w-2xl mx-auto px-4 pb-10 text-center">
         <Link href="/search"
-          className="inline-block bg-[#BF0000] hover:bg-[#9E0000] active:bg-[#9E0000] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
+          className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
           すべての利益商品を見る →
         </Link>
         <div className="mt-4">
-          <Link href="/ranking" className="text-[13px] font-bold text-[#BF0000] underline underline-offset-2">
+          <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
             🔥 いま稼げる利益商品ランキングを見る →
           </Link>
         </div>
@@ -172,13 +172,13 @@ export default function LandingPage() {
           実際の利益は状態・競合・為替等により異なります。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">
-          <Link href="/ranking" className="text-gray-500 hover:text-[#BF0000]">ランキング</Link>
+          <Link href="/ranking" className="text-gray-500 hover:text-[#2D323B]">ランキング</Link>
           <span aria-hidden="true" className="text-gray-300">·</span>
-          <Link href="/guide" className="text-gray-500 hover:text-[#BF0000]">ガイド</Link>
+          <Link href="/guide" className="text-gray-500 hover:text-[#2D323B]">ガイド</Link>
           <span aria-hidden="true" className="text-gray-300">·</span>
-          <Link href="/press" className="text-gray-500 hover:text-[#BF0000]">プレスキット</Link>
+          <Link href="/press" className="text-gray-500 hover:text-[#2D323B]">プレスキット</Link>
           <span aria-hidden="true" className="text-gray-300">·</span>
-          <Link href="/privacy" className="text-gray-500 hover:text-[#BF0000]">プライバシーポリシー</Link>
+          <Link href="/privacy" className="text-gray-500 hover:text-[#2D323B]">プライバシーポリシー</Link>
         </div>
         <p className="mt-4 text-[10px] text-gray-400">輸出ラボは eBay・楽天とは独立した非公式サービスです。</p>
       </footer>

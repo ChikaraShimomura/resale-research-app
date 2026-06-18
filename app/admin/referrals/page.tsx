@@ -22,7 +22,7 @@ export default async function ReferralsAdminPage({
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#9E0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 max-w-2xl mx-auto">
           <span className="text-white font-black text-base tracking-tight">紹介(成果報酬)集計</span>
@@ -37,7 +37,7 @@ export default async function ReferralsAdminPage({
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
             <p className="text-[11px] text-gray-400">総登録(成果)</p>
-            <p className="text-xl font-black text-[#BF0000]">{totalSignups.toLocaleString()}</p>
+            <p className="text-xl font-black text-[#2D323B]">{totalSignups.toLocaleString()}</p>
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export default async function ReferralsAdminPage({
                   <tr key={s.code} className="border-t border-gray-50">
                     <td className="px-3 py-2.5 font-mono font-bold text-gray-800 break-all">{s.code}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-600">{s.clicks.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums font-black text-[#BF0000]">{s.signups.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-black text-[#2D323B]">{s.signups.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">
                       {s.clicks > 0 ? Math.round((s.signups / s.clicks) * 100) : 0}%
                     </td>

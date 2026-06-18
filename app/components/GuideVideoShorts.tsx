@@ -21,7 +21,7 @@ export default function GuideVideoShorts({ title, note, shorts }: GuideVideoShor
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-1">
-        <PlayCircle size={20} className="text-[#BF0000] shrink-0" />
+        <PlayCircle size={20} className="text-[#2D323B] shrink-0" />
         <h2 className="text-[14px] font-black text-gray-800 leading-snug flex-1">{title}</h2>
       </div>
       {note && <p className="text-[11.5px] text-gray-500 leading-relaxed mb-3">{note}</p>}
@@ -42,7 +42,7 @@ export default function GuideVideoShorts({ title, note, shorts }: GuideVideoShor
             <div className="flex items-center justify-between gap-1 mt-1.5">
               <span className="text-[12px] font-bold text-gray-800 leading-tight">{s.label}</span>
               {s.durationLabel && (
-                <span className="text-[10px] font-bold text-[#BF0000] shrink-0">{s.durationLabel}</span>
+                <span className="text-[10px] font-bold text-[#2D323B] shrink-0">{s.durationLabel}</span>
               )}
             </div>
           </div>

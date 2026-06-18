@@ -43,7 +43,7 @@ export default async function RankingPage() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <JsonLd data={itemListLd} />
 
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#9E0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/" aria-label="トップへ"
@@ -70,7 +70,7 @@ export default async function RankingPage() {
           <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">いま集計中です</p>
             <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度ご覧ください。</p>
-            <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]">
+            <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               利益商品をさがす <ArrowRight size={16} />
             </Link>
           </div>
@@ -80,7 +80,7 @@ export default async function RankingPage() {
               <li key={p.id}>
                 <Link href={`/product/${encodeURIComponent(p.id)}`}
                   className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3 shadow-sm active:bg-gray-50">
-                  <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#BF0000] text-lg" : "text-gray-400 text-sm"}`}>
+                  <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
                     {i + 1}
                   </span>
                   {p.imageUrl ? (
@@ -96,7 +96,7 @@ export default async function RankingPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="inline-flex items-center gap-0.5 text-[#BF0000] font-black text-sm">
+                    <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
                       <Flame size={13} />{p.realProfitRate}%
                     </span>
                     <p className="text-[9px] text-gray-400">利益率</p>
@@ -109,7 +109,7 @@ export default async function RankingPage() {
 
         {/* 内部リンク（回遊＆SEO） */}
         <div className="mt-6 grid grid-cols-1 gap-2">
-          <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]">
+          <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
             すべての利益商品をさがす <ArrowRight size={16} />
           </Link>
           <Link href="/guide" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">

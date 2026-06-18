@@ -8,7 +8,7 @@ export const alt = "輸出ラボ｜楽天で仕入れてeBayで売る 利益商�
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const CRIMSON = "#BF0000";
+const CRIMSON = "#2D323B";
 
 // 日本語グリフは ImageResponse 既定フォントに無く豆腐(□)になるため、使う文字だけを
 // Google Fonts から動的サブセット取得する。古いUAで truetype を返させ satori で使える形に。
@@ -46,7 +46,7 @@ export default async function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "72px 80px",
-          background: `linear-gradient(135deg, ${CRIMSON} 0%, #9E0000 100%)`,
+          background: `linear-gradient(135deg, ${CRIMSON} 0%, #1A1D23 100%)`,
           color: "#ffffff",
           fontFamily: font ? "Noto Sans JP" : "sans-serif",
         }}

@@ -101,7 +101,7 @@ export default async function ProductPage({
     const hot = await getHotProducts(id, 3);
     return (
       <div className="min-h-dvh bg-[#F5F7FA] pb-nav flex flex-col">
-        <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] px-3 py-3"
+        <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] px-3 py-3"
           style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))" }}>
           <span className="text-white font-black text-base">輸出ラボ</span>
         </header>
@@ -111,14 +111,14 @@ export default async function ProductPage({
             <p className="text-gray-700 text-sm font-bold mb-1">この商品は現在掲載されていません</p>
             <p className="text-gray-400 text-xs mb-5">入れ替わった可能性があります。今アツい商品をチェックしてみて！</p>
             <Link href="/search"
-              className="inline-flex items-center min-h-[44px] text-sm font-bold text-white bg-[#BF0000] rounded-full px-6 active:bg-[#9E0000]">
+              className="inline-flex items-center min-h-[44px] text-sm font-bold text-white bg-[#2D323B] rounded-full px-6 active:bg-[#1A1D23]">
               利益商品を見る →
             </Link>
           </div>
 
           {hot.length > 0 && (
             <section className="mt-2">
-              <div className="flex items-center gap-1.5 mb-3 text-[#BF0000] font-black text-sm">
+              <div className="flex items-center gap-1.5 mb-3 text-[#2D323B] font-black text-sm">
                 <Flame size={16} />今アツい利益商品
               </div>
               <div className="flex flex-col gap-3">
@@ -153,7 +153,7 @@ export default async function ProductPage({
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <JsonLd data={productLd} />
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"
@@ -178,19 +178,19 @@ export default async function ProductPage({
               { n: "③", t: "発送する", s: "国際郵便で" },
             ].map((x, i) => (
               <div key={i} className="flex-1 flex flex-col items-center text-center">
-                <div className="w-8 h-8 rounded-full bg-[#BF0000] text-white flex items-center justify-center text-sm font-black mb-1.5">{x.n}</div>
+                <div className="w-8 h-8 rounded-full bg-[#2D323B] text-white flex items-center justify-center text-sm font-black mb-1.5">{x.n}</div>
                 <p className="text-[12px] font-bold text-gray-700 leading-tight">{x.t}</p>
                 <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{x.s}</p>
               </div>
             ))}
           </div>
-          <Link href="/guide" className="mt-3 block text-center text-[12px] font-bold text-[#BF0000] underline underline-offset-2">
+          <Link href="/guide" className="mt-3 block text-center text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             画像つきの始め方ガイドを見る →
           </Link>
         </section>
 
         <Link href="/search"
-          className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#BF0000] border border-[#BF0000] rounded-xl active:bg-red-50">
+          className="mt-3 flex items-center justify-center min-h-[44px] text-sm font-bold text-[#2D323B] border border-[#2D323B] rounded-xl active:bg-red-50">
           他の利益商品を見る →
         </Link>
       </main>

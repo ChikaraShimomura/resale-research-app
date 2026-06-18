@@ -53,7 +53,7 @@ export default function ConsentBanner() {
       <div className="max-w-2xl mx-auto px-4 py-3.5 flex flex-col gap-2.5">
         <p className="text-[12.5px] text-gray-700 leading-relaxed">
           本サイトは、利用状況の分析（Google Analytics）のためにCookieを使用します。詳しくは
-          <Link href="/privacy" className="text-[#BF0000] underline mx-0.5">プライバシーポリシー</Link>
+          <Link href="/privacy" className="text-[#2D323B] underline mx-0.5">プライバシーポリシー</Link>
           をご覧ください。
         </p>
         <div className="flex gap-2">
@@ -67,7 +67,7 @@ export default function ConsentBanner() {
           <button
             type="button"
             onClick={() => decide(true)}
-            className="flex-1 h-10 bg-[#BF0000] text-white font-bold text-[13px] rounded-xl active:bg-[#9E0000]"
+            className="flex-1 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
           >
             同意する
           </button>

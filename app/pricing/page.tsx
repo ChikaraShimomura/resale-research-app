@@ -12,7 +12,7 @@ export const metadata = {
 export default function PricingPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-[#BF0000] px-3 py-3 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-[#2D323B] px-3 py-3 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-1 py-2 flex items-center gap-2 max-w-2xl mx-auto">
           <Link
             href="/"
@@ -37,7 +37,7 @@ export default function PricingPage() {
           </p>
           <Link
             href="/search"
-            className="inline-block bg-[#BF0000] hover:bg-[#9E0000] active:bg-[#9E0000] text-white font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-md"
+            className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-md"
           >
             利益商品を見る →
           </Link>

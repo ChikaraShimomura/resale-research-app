@@ -11,7 +11,7 @@ export const metadata = {
 function Tip({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2 text-[13px] text-gray-600 leading-snug">
-      <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#BF0000]/10 text-[#BF0000] text-[10px] font-black flex items-center justify-center shrink-0">
+      <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#2D323B]/10 text-[#2D323B] text-[10px] font-black flex items-center justify-center shrink-0">
         <Check size={11} />
       </span>
       {children}
@@ -23,7 +23,7 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-2.5">
-        <span className="w-8 h-8 rounded-xl bg-[#BF0000] text-white flex items-center justify-center shrink-0">{icon}</span>
+        <span className="w-8 h-8 rounded-xl bg-[#2D323B] text-white flex items-center justify-center shrink-0">{icon}</span>
         <h2 className="text-[14px] font-black text-gray-800 leading-snug">{title}</h2>
       </div>
       {children}
@@ -34,7 +34,7 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
 export default function RakutenGuidePage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">
-      <header className="bg-[#BF0000] px-3 py-2.5 shadow-sm sticky top-0 z-20">
+      <header className="bg-[#2D323B] px-3 py-2.5 shadow-sm sticky top-0 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Link href="/guide" aria-label="はじめてガイドに戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
             <ArrowLeft size={18} />
@@ -47,7 +47,7 @@ export default function RakutenGuidePage() {
         {/* イントロ */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <ShoppingBag size={18} className="text-[#BF0000]" />
+            <ShoppingBag size={18} className="text-[#2D323B]" />
             <h2 className="text-[14px] font-black text-gray-800">楽天 ＝ このサイトの「仕入れ先」</h2>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
@@ -63,8 +63,8 @@ export default function RakutenGuidePage() {
             実質コストは8,000円。<b>その差がそのまま利益に上乗せ</b>されます。
           </p>
           <div className="bg-[#F5F7FA] rounded-xl p-3 text-[12px] text-gray-600 font-mono space-y-1">
-            <div className="flex justify-between"><span>商品価格</span><span className="text-[#BF0000]">10,000円</span></div>
-            <div className="flex justify-between"><span>ポイント還元</span><span className="text-[#FF4466]">− 2,000pt</span></div>
+            <div className="flex justify-between"><span>商品価格</span><span className="text-[#2D323B]">10,000円</span></div>
+            <div className="flex justify-between"><span>ポイント還元</span><span className="text-[#5A6472]">− 2,000pt</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-1 border-t border-gray-200"><span>実質コスト</span><span>＝ 8,000円</span></div>
           </div>
           <p className="text-[11px] text-gray-400 mt-2">※ ポイントは1pt＝1円として、次の仕入れにそのまま使えます。</p>
@@ -94,7 +94,7 @@ export default function RakutenGuidePage() {
               ["ポイントは次の仕入れへ", "貯まったポイントは1pt＝1円で次の仕入れに使えます。回すほど実質コストが下がります。"],
             ].map(([t, d], i) => (
               <li key={i} className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-[#BF0000] text-white text-[12px] font-black flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="w-6 h-6 rounded-full bg-[#2D323B] text-white text-[12px] font-black flex items-center justify-center shrink-0">{i + 1}</span>
                 <div>
                   <p className="text-[13px] font-bold text-gray-800">{t}</p>
                   <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">{d}</p>
@@ -105,9 +105,9 @@ export default function RakutenGuidePage() {
         </Card>
 
         {/* 注意 */}
-        <div className="flex items-start gap-2 bg-[#BF0000]/[0.05] border border-[#BF0000]/20 rounded-xl px-3 py-2.5">
-          <AlertTriangle size={16} className="text-[#BF0000] shrink-0 mt-0.5" />
-          <p className="text-[12px] text-[#BF0000] leading-relaxed">
+        <div className="flex items-start gap-2 bg-[#2D323B]/[0.05] border border-[#2D323B]/20 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={16} className="text-[#2D323B] shrink-0 mt-0.5" />
+          <p className="text-[12px] text-[#2D323B] leading-relaxed">
             <b>仕入れ前に確認：</b>モバイルバッテリー・香水・スプレー・電池内蔵品などは<b>国際郵便で送れない</b>ことがあります。
             「売れたのに送れない」を防ぐため、<b>送れる商品かどうかを仕入れ前にチェック</b>しましょう。価格・在庫・ポイント倍率は変動します。
           </p>
@@ -116,7 +116,7 @@ export default function RakutenGuidePage() {
         {/* CTA */}
         <div className="text-center pt-2 pb-6">
           <Link href="/search"
-            className="inline-block bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white font-black px-8 py-3 text-sm rounded-full shadow-md transition-all">
+            className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:scale-[0.99] text-white font-black px-8 py-3 text-sm rounded-full shadow-md transition-all">
             利益商品を探す →
           </Link>
           <div className="mt-3">

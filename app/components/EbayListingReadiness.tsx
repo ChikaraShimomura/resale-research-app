@@ -69,7 +69,7 @@ export default function EbayListingReadiness() {
               href="https://www.bizpolicy.ebay.com/businesspolicy/manage"
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-lg px-3 py-2 active:bg-[#BF0000]/10"
+              className="block text-[13px] font-bold text-[#2D323B] bg-[#2D323B]/5 border border-[#2D323B]/20 rounded-lg px-3 py-2 active:bg-[#2D323B]/10"
             >
               eBayでビジネスポリシーを設定する ›
             </a>

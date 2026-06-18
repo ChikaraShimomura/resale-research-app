@@ -7,7 +7,7 @@ import BrandHome from "../components/BrandHome";
 
 const initial: AuthState = {};
 const field =
-  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF0000]/30 focus:border-[#BF0000]";
+  "w-full h-11 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]";
 
 export default function ResetPasswordPage() {
   const [state, action, pending] = useActionState(requestResetAction, initial);
@@ -27,13 +27,13 @@ export default function ResetPasswordPage() {
         ) : (
           <form action={action} className="space-y-3">
             <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
-            {state.error && <p className="text-sm text-[#BF0000]">{state.error}</p>}
-            <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#BF0000] text-white text-sm font-bold disabled:opacity-60">
+            {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+            <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
               {pending ? "送信中..." : "再設定メールを送る"}
             </button>
           </form>
         )}
-        <Link href="/login" className="block text-center mt-4 text-sm text-[#BF0000] font-medium">ログインに戻る</Link>
+        <Link href="/login" className="block text-center mt-4 text-sm text-[#2D323B] font-medium">ログインに戻る</Link>
       </div>
     </main>
   );

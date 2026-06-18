@@ -148,7 +148,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         value={soldJpy}
                         onChange={(e) => setSoldJpy(e.target.value)}
                         placeholder="円"
-                        className="w-20 h-7 px-2 rounded-lg border border-gray-200 text-[12px] focus:outline-none focus:border-[#BF0000]"
+                        className="w-20 h-7 px-2 rounded-lg border border-gray-200 text-[12px] focus:outline-none focus:border-[#2D323B]"
                       />
                       <button
                         disabled={busy === d.id || !(Number(soldJpy) > 0)}
@@ -171,7 +171,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                             {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
                           </p>
                           {d.sourceStatus && (
-                            <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#BF0000]" : "text-amber-600"}`}>
+                            <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
                               ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
                             </p>
                           )}
@@ -208,7 +208,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         <button
                           disabled={busy === d.id}
                           onClick={() => stopListing(d.id)}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#BF0000]/30 text-[#BF0000] text-[10px] font-bold disabled:opacity-40 active:bg-red-50"
+                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#2D323B]/30 text-[#2D323B] text-[10px] font-bold disabled:opacity-40 active:bg-red-50"
                         >
                           {busy === d.id ? <Spinner size={11} /> : <Ban size={12} />} 出品停止
                         </button>
@@ -243,7 +243,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                           {shortDate(d.stoppedAt || "") && `${shortDate(d.stoppedAt || "")} 停止・`}仕入れ {yen(d.purchase)}
                         </p>
                         {d.sourceStatus && (
-                          <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#BF0000]" : "text-amber-600"}`}>
+                          <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
                             ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
                           </p>
                         )}
@@ -290,7 +290,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       {shortDate(d.soldAt) && `${shortDate(d.soldAt)} 輸出・`}売値 {yen(d.soldJpy)}
                     </p>
                   </div>
-                  <span className={`text-[12px] font-black tabular-nums shrink-0 ${d.profitJpy < 0 ? "text-[#BF0000]" : "text-emerald-600"}`}>
+                  <span className={`text-[12px] font-black tabular-nums shrink-0 ${d.profitJpy < 0 ? "text-[#2D323B]" : "text-emerald-600"}`}>
                     {signedYen(d.profitJpy)}
                   </span>
                 </li>

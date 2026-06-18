@@ -9,7 +9,7 @@ export const metadata = {
 export default function SorryPage() {
   return (
     <main className="min-h-dvh bg-[#F5F7FA] flex flex-col items-center justify-center px-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#BF0000] to-[#9E0000] flex items-center justify-center shadow-lg mb-5">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2D323B] to-[#1A1D23] flex items-center justify-center shadow-lg mb-5">
         <Wrench className="text-white" size={30} aria-hidden="true" />
       </div>
 
@@ -23,7 +23,7 @@ export default function SorryPage() {
 
       <a
         href="/"
-        className="mt-7 inline-flex items-center justify-center h-11 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+        className="mt-7 inline-flex items-center justify-center h-11 px-7 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
       >
         再読み込みする
       </a>

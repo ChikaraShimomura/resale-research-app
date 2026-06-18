@@ -38,9 +38,9 @@ function Screen({ children }: { children: React.ReactNode }) {
 function Tap({ children }: { children: React.ReactNode }) {
   return (
     <span className="relative inline-flex">
-      <span className="absolute -inset-1 rounded-xl ring-2 ring-[#BF0000] animate-pulse" aria-hidden="true" />
+      <span className="absolute -inset-1 rounded-xl ring-2 ring-[#2D323B] animate-pulse" aria-hidden="true" />
       <span className="relative">{children}</span>
-      <span className="absolute -right-2 -bottom-3 text-[#BF0000]"><Hand size={18} /></span>
+      <span className="absolute -right-2 -bottom-3 text-[#2D323B]"><Hand size={18} /></span>
     </span>
   );
 }
@@ -82,7 +82,7 @@ function StepCard({ n, title, children }: { n: number; title: string; children: 
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center gap-2.5 mb-3">
-        <span className="w-7 h-7 rounded-full bg-[#BF0000] text-white flex items-center justify-center text-sm font-black shrink-0">
+        <span className="w-7 h-7 rounded-full bg-[#2D323B] text-white flex items-center justify-center text-sm font-black shrink-0">
           {n}
         </span>
         <h2 className="text-[14px] font-black text-gray-800 leading-snug">{title}</h2>
@@ -95,7 +95,7 @@ function StepCard({ n, title, children }: { n: number; title: string; children: 
 export default function PayoneerWithdrawGuide() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] px-3 py-2.5 shadow-sm sticky top-0 z-20">
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] px-3 py-2.5 shadow-sm sticky top-0 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Link href="/guide" aria-label="戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
             <ArrowLeft size={18} />
@@ -128,7 +128,7 @@ export default function PayoneerWithdrawGuide() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-1.5">
-            <Wallet size={18} className="text-[#BF0000]" />
+            <Wallet size={18} className="text-[#2D323B]" />
             <h2 className="text-[14px] font-black text-gray-800">eBayの売上 → あなたの銀行口座へ</h2>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
@@ -154,9 +154,9 @@ export default function PayoneerWithdrawGuide() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
           <h2 className="text-[13px] font-black text-gray-800 mb-2.5">用意するもの</h2>
           <ul className="space-y-2 text-[13px] text-gray-700">
-            <li className="flex items-center gap-2"><Landmark size={16} className="text-[#BF0000]" /> 出金先の<b>銀行口座</b>（あなた本人名義）</li>
+            <li className="flex items-center gap-2"><Landmark size={16} className="text-[#2D323B]" /> 出金先の<b>銀行口座</b>（あなた本人名義）</li>
           </ul>
-          <p className="mt-2.5 text-[11px] text-[#BF0000] font-bold">
+          <p className="mt-2.5 text-[11px] text-[#2D323B] font-bold">
             ⚠️ 口座の<b>名義は、Payoneer登録名と完全一致</b>（ローマ字）。違うと出金できません。
           </p>
         </div>

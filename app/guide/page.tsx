@@ -125,7 +125,7 @@ const BREADCRUMB_LD = {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-1 h-5 bg-[#BF0000] rounded-full" />
+      <div className="w-1 h-5 bg-[#2D323B] rounded-full" />
       <h2 className="text-sm font-black text-gray-800">{children}</h2>
     </div>
   );
@@ -138,7 +138,7 @@ export default function GuidePage() {
       <JsonLd data={HOWTO_LD} />
       <JsonLd data={BREADCRUMB_LD} />
       {/* ヘッダー */}
-      <header className="bg-[#BF0000] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-[#2D323B] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
@@ -151,7 +151,7 @@ export default function GuidePage() {
       <main className="max-w-2xl mx-auto px-3 py-4">
 
         {/* イントロ + フロー図 */}
-        <div className="bg-gradient-to-br from-[#BF0000] to-[#9E0000] rounded-2xl p-5 mb-6 text-white shadow-sm">
+        <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] rounded-2xl p-5 mb-6 text-white shadow-sm">
           <p className="font-black text-xl mb-1.5">楽天 × eBay 輸出転売</p>
           <p className="text-white/85 text-[13px] leading-relaxed mb-5">
             楽天でポイントをもらいながら仕入れて、eBayで海外に高く売る副業の始め方を、初めての方向けに解説します。
@@ -195,7 +195,7 @@ export default function GuidePage() {
             {STEPS.map((step) => (
               <div key={step.num} id={`step-${step.num}`} className="scroll-mt-20 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
-                  <span className="w-8 h-8 rounded-full bg-[#BF0000] text-white font-black flex items-center justify-center text-sm shrink-0">
+                  <span className="w-8 h-8 rounded-full bg-[#2D323B] text-white font-black flex items-center justify-center text-sm shrink-0">
                     {step.num}
                   </span>
                   <h3 className="font-black text-gray-800 text-[15px] flex items-center gap-1.5">
@@ -207,26 +207,26 @@ export default function GuidePage() {
                   <ul className="space-y-2 mb-4">
                     {step.tips.map((tip, i) => (
                       <li key={i} className="flex items-start gap-2 text-[13px] text-gray-600 leading-snug">
-                        <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#BF0000]/10 text-[#BF0000] text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
+                        <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#2D323B]/10 text-[#2D323B] text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
                         {tip}
                       </li>
                     ))}
                   </ul>
                   {step.warn && (
-                    <div className="flex items-start gap-2 bg-[#BF0000]/[0.05] border border-[#BF0000]/20 rounded-xl px-3 py-2.5 mb-4">
-                      <span aria-hidden="true" className="text-[#BF0000] text-sm leading-none mt-0.5 shrink-0">⚠️</span>
-                      <p className="text-[12px] text-[#BF0000] leading-relaxed font-medium">{step.warn}</p>
+                    <div className="flex items-start gap-2 bg-[#2D323B]/[0.05] border border-[#2D323B]/20 rounded-xl px-3 py-2.5 mb-4">
+                      <span aria-hidden="true" className="text-[#2D323B] text-sm leading-none mt-0.5 shrink-0">⚠️</span>
+                      <p className="text-[12px] text-[#2D323B] leading-relaxed font-medium">{step.warn}</p>
                     </div>
                   )}
                   {step.link && (
                     step.link.external ? (
                       <a href={step.link.href} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-xl px-3.5 py-2 active:bg-[#BF0000]/10 transition-colors">
+                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#2D323B] bg-[#2D323B]/5 border border-[#2D323B]/20 rounded-xl px-3.5 py-2 active:bg-[#2D323B]/10 transition-colors">
                         {step.link.label} <ExternalLink size={13} />
                       </a>
                     ) : (
                       <Link href={step.link.href}
-                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-xl px-3.5 py-2 active:bg-[#BF0000]/10 transition-colors">
+                        className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#2D323B] bg-[#2D323B]/5 border border-[#2D323B]/20 rounded-xl px-3.5 py-2 active:bg-[#2D323B]/10 transition-colors">
                         {step.link.label} →
                       </Link>
                     )
@@ -257,9 +257,9 @@ export default function GuidePage() {
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
               <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#BF0000]">- ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
-              <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#BF0000]">- ¥XXX</span></div>
+              <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
+              <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#5A6472]">+ XXXpt</span></div>
+              <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
               <div className="flex justify-between"><span>国際送料・輸入関税</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-gray-200 text-sm">
                 <span>利益</span><span>= ¥X,XXX ＋ XXXpt</span>
@@ -276,7 +276,7 @@ export default function GuidePage() {
             {FAQS.map((faq, i) => (
               <details key={i} className="bg-white border border-gray-100 rounded-2xl shadow-sm group">
                 <summary className="flex items-center justify-between gap-2 px-4 min-h-[52px] cursor-pointer list-none text-[14px] font-bold text-gray-800">
-                  <span><span className="text-[#BF0000]">Q.</span> {faq.q}</span>
+                  <span><span className="text-[#2D323B]">Q.</span> {faq.q}</span>
                   <span aria-hidden="true" className="text-gray-400 text-xs shrink-0 transition-transform group-open:rotate-180">▼</span>
                 </summary>
                 <p className="px-4 pb-4 text-[13px] text-gray-600 leading-relaxed">A. {faq.a}</p>
@@ -288,7 +288,7 @@ export default function GuidePage() {
         {/* CTA */}
         <div className="text-center py-2">
           <Link href="/search"
-            className="inline-block bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white font-black px-8 py-3 text-sm rounded-full shadow-md transition-all">
+            className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:scale-[0.99] text-white font-black px-8 py-3 text-sm rounded-full shadow-md transition-all">
             利益商品を探す →
           </Link>
         </div>

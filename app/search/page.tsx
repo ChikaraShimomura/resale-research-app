@@ -94,14 +94,14 @@ export default function SearchPage() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
       {/* 楽天風ヘッダー（スクロールしても固定） */}
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#BF0000] shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         {/* ロゴ行 */}
         <div className="px-3 pt-2 pb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* 楽天風ロゴ */}
             <div className="flex items-center gap-1">
               <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                <span className="text-[#BF0000] font-black text-sm leading-none">R</span>
+                <span className="text-[#2D323B] font-black text-sm leading-none">R</span>
               </div>
               <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
             </div>
@@ -126,14 +126,14 @@ export default function SearchPage() {
         {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (
           <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#BF0000] rounded-full flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 bg-[#2D323B] rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-black text-base leading-none">R</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-gray-900 font-black text-sm">楽天×eBayで稼ぐ</p>
               <p className="text-gray-500 text-xs leading-snug">仕入れで最大20%ポイント還元 ＋ 海外で高値売却</p>
             </div>
-            <Link href="/guide" className="text-[11px] font-bold text-[#BF0000] border border-[#BF0000] px-3 py-1.5 rounded-full shrink-0 active:bg-[#BF0000]/5">
+            <Link href="/guide" className="text-[11px] font-bold text-[#2D323B] border border-[#2D323B] px-3 py-1.5 rounded-full shrink-0 active:bg-[#2D323B]/5">
               使い方 ›
             </Link>
             <button onClick={dismissBanner} aria-label="バナーを閉じる"
@@ -151,10 +151,10 @@ export default function SearchPage() {
               <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
             ) : (
               <p className="text-xs text-gray-500">
-                <span className="font-black text-[#BF0000] text-base">{visibleCount}</span>
+                <span className="font-black text-[#2D323B] text-base">{visibleCount}</span>
                 <span className="ml-0.5">件の利益商品</span>
                 {hotCount > 0 && (
-                  <span className="ml-2 text-[13px] text-[#FF4466] font-bold inline-flex items-center gap-1"><Flame size={13} />{hotCount}件が利益30%超</span>
+                  <span className="ml-2 text-[13px] text-[#5A6472] font-bold inline-flex items-center gap-1"><Flame size={13} />{hotCount}件が利益30%超</span>
                 )}
               </p>
             )}
@@ -194,7 +194,7 @@ export default function SearchPage() {
               <div className="flex items-center justify-center gap-2">
                 <button
                   onClick={() => window.location.reload()}
-                  className="text-sm font-bold text-[#BF0000] border border-[#BF0000] px-5 py-2 rounded-full active:bg-red-50"
+                  className="text-sm font-bold text-[#2D323B] border border-[#2D323B] px-5 py-2 rounded-full active:bg-red-50"
                 >
                   再読み込み
                 </button>

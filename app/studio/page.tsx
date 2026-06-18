@@ -58,7 +58,7 @@ export default async function StudioPage() {
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#9E0000] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/" aria-label="トップへ"
@@ -102,13 +102,13 @@ export default async function StudioPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
                       <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                        楽天 {yen(raku)} → eBay想定 <span className="text-[#0064D2] font-bold">{yen(ebay)}</span>・利益率 <span className="text-[#BF0000] font-bold">{rate}%</span>
+                        楽天 {yen(raku)} → eBay想定 <span className="text-[#0064D2] font-bold">{yen(ebay)}</span>・利益率 <span className="text-[#2D323B] font-bold">{rate}%</span>
                       </p>
                     </div>
                   </div>
 
                   <a href={cardUrl(p.title, raku, ebay, rate)} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 h-11 bg-[#BF0000] text-white font-bold text-[13px] rounded-xl active:bg-[#9E0000] mb-2.5">
+                    className="flex items-center justify-center gap-1.5 h-11 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23] mb-2.5">
                     <Download size={15} /> 縦型カードを保存（9:16）
                   </a>
 

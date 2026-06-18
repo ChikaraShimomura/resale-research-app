@@ -72,7 +72,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <JsonLd data={ld} />
 
-      <header className="bg-gradient-to-r from-[#BF0000] to-[#9E0000] shadow-sm sticky top-0 z-20"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/guide" aria-label="ガイドへ戻る"
@@ -86,9 +86,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <main className="max-w-2xl mx-auto px-4 py-5">
         {/* パンくず */}
         <nav className="text-[11px] text-gray-400 mb-3" aria-label="パンくず">
-          <Link href="/" className="hover:text-[#BF0000]">ホーム</Link>
+          <Link href="/" className="hover:text-[#2D323B]">ホーム</Link>
           <span className="mx-1">›</span>
-          <Link href="/guide" className="hover:text-[#BF0000]">ガイド</Link>
+          <Link href="/guide" className="hover:text-[#2D323B]">ガイド</Link>
         </nav>
 
         <article className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -98,7 +98,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           {a.sections.map((s, i) => (
             <section key={i} className="mt-6">
               <h2 className="flex items-center gap-2 text-[16px] font-black text-gray-900 mb-1">
-                <span aria-hidden="true" className="w-1 h-5 bg-[#BF0000] rounded-full shrink-0" />
+                <span aria-hidden="true" className="w-1 h-5 bg-[#2D323B] rounded-full shrink-0" />
                 {s.h2}
               </h2>
               <ArticleBody body={s.body} />
@@ -108,7 +108,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           {a.faq.length > 0 && (
             <section className="mt-8">
               <h2 className="flex items-center gap-2 text-[16px] font-black text-gray-900 mb-3">
-                <span aria-hidden="true" className="w-1 h-5 bg-[#BF0000] rounded-full shrink-0" />
+                <span aria-hidden="true" className="w-1 h-5 bg-[#2D323B] rounded-full shrink-0" />
                 よくある質問
               </h2>
               <div className="space-y-3">
@@ -125,7 +125,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
         {/* CTA */}
         <div className="mt-5 grid grid-cols-1 gap-2">
-          <Link href="/ranking" className="flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] text-white font-black text-sm rounded-xl active:bg-[#9E0000]">
+          <Link href="/ranking" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
             🔥 いま稼げる利益商品ランキングを見る <ArrowRight size={16} />
           </Link>
           <Link href="/search" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">

@@ -113,7 +113,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
               value={vals.handlingDays ?? ""}
               onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
               placeholder="7"
-              className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+              className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
             />
           </div>
           {SIZE_FIELDS.map((f) => (
@@ -125,7 +125,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                 value={vals[f.key] ?? ""}
                 onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
-                className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+                className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
               />
             </div>
           ))}
@@ -137,7 +137,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       <button
         onClick={submit}
         disabled={state === "saving"}
-        className="w-full h-12 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000] disabled:opacity-50"
+        className="w-full h-12 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23] disabled:opacity-50"
       >
         {state === "saving" ? "登録中..." : "この内容で登録する"}
       </button>
@@ -161,7 +161,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       )}
 
       {msg && (
-        <p className={`text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#BF0000]"}`}>
+        <p className={`text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#2D323B]"}`}>
           {msg}
         </p>
       )}

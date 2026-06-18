@@ -19,9 +19,9 @@ function Row({ s, compact }: { s: RakutenSvc; compact?: boolean }) {
       className={`block rounded-xl border border-gray-100 bg-[#F5F7FA] active:bg-gray-100 ${compact ? "px-3 py-2.5" : "px-3.5 py-3"}`}
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex w-5 h-5 bg-[#BF0000] rounded-full items-center justify-center text-white font-black text-[10px] shrink-0">R</span>
+        <span className="inline-flex w-5 h-5 bg-[#2D323B] rounded-full items-center justify-center text-white font-black text-[10px] shrink-0">R</span>
         <span className={`font-black text-gray-800 ${compact ? "text-[12px]" : "text-[13px]"}`}>{s.name}</span>
-        <span className="text-[10px] font-bold text-[#BF0000] bg-[#BF0000]/10 rounded-full px-2 py-0.5 shrink-0">{s.tag}</span>
+        <span className="text-[10px] font-bold text-[#2D323B] bg-[#2D323B]/10 rounded-full px-2 py-0.5 shrink-0">{s.tag}</span>
         {ad && <span className="text-[10px] text-gray-400 ml-1">広告</span>}
         <ExternalLink size={13} className="text-gray-400 ml-auto shrink-0" />
       </div>

@@ -14,8 +14,8 @@ function renderInline(text: string, kp: string): ReactNode[] {
     if (m) {
       const [, label, href] = m;
       if (href.startsWith("/"))
-        return <Link key={key} href={href} className="text-[#BF0000] font-medium underline underline-offset-2">{label}</Link>;
-      return <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-[#BF0000] font-medium underline underline-offset-2">{label}</a>;
+        return <Link key={key} href={href} className="text-[#2D323B] font-medium underline underline-offset-2">{label}</Link>;
+      return <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-[#2D323B] font-medium underline underline-offset-2">{label}</a>;
     }
     return <span key={key}>{p}</span>;
   });
@@ -33,7 +33,7 @@ export default function ArticleBody({ body }: { body: string }) {
             <ul key={bi} className="my-3 space-y-1.5">
               {lines.map((l, li) => (
                 <li key={li} className="flex gap-2 text-[14px] text-gray-700 leading-relaxed">
-                  <span aria-hidden="true" className="mt-[8px] shrink-0 w-1.5 h-1.5 rounded-full bg-[#BF0000]" />
+                  <span aria-hidden="true" className="mt-[8px] shrink-0 w-1.5 h-1.5 rounded-full bg-[#2D323B]" />
                   <span>{renderInline(l.replace(/^-\s+/, ""), `b${bi}-${li}`)}</span>
                 </li>
               ))}

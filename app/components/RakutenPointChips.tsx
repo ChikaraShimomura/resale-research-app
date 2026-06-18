@@ -9,7 +9,7 @@ export default function RakutenPointChips() {
     <section className="bg-white border border-gray-100 rounded-2xl shadow-sm p-3.5">
       <div className="flex items-baseline justify-between gap-2 mb-2.5">
         <p className="text-[12px] font-black text-gray-800 leading-snug">
-          楽天サービスを揃えるほど、仕入れのポイントが<span className="text-[#BF0000]">跳ね上がる</span> 📈
+          楽天サービスを揃えるほど、仕入れのポイントが<span className="text-[#2D323B]">跳ね上がる</span> 📈
         </p>
         <span className="text-[10px] text-gray-400 shrink-0">広告</span>
       </div>
@@ -25,9 +25,9 @@ export default function RakutenPointChips() {
               onClick={() => track("rakuten_chip_click", { svc: s.key })}
               className="flex flex-col items-center justify-center gap-0.5 rounded-lg border border-gray-100 bg-[#F5F7FA] py-2 px-1 active:bg-gray-100"
             >
-              <span className="inline-flex w-4 h-4 bg-[#BF0000] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
+              <span className="inline-flex w-4 h-4 bg-[#2D323B] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
               <span className="text-[10px] font-bold text-gray-700 leading-none whitespace-nowrap">{s.short}</span>
-              <span className="text-[8px] font-bold text-[#BF0000] leading-none">{s.chipTag}</span>
+              <span className="text-[8px] font-bold text-[#2D323B] leading-none">{s.chipTag}</span>
             </a>
           );
         })}

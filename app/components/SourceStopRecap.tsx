@@ -86,7 +86,7 @@ export default function SourceStopRecap() {
                 <div className="w-11 h-11 rounded-md bg-gray-100 shrink-0" />
               )}
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-[#BF0000] leading-tight">出品停止：{REASON[e.reason]}</p>
+                <p className="text-[11px] font-bold text-[#2D323B] leading-tight">出品停止：{REASON[e.reason]}</p>
                 <p className="text-[12px] text-gray-700 truncate mt-0.5">{e.title || e.id}</p>
               </div>
             </li>
@@ -95,7 +95,7 @@ export default function SourceStopRecap() {
         <div className="p-3 border-t border-gray-100">
           <button
             onClick={close}
-            className="w-full h-11 rounded-lg bg-[#BF0000] text-white text-sm font-bold active:bg-[#9E0000]"
+            className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]"
           >
             確認しました（{entries.length}件）
           </button>

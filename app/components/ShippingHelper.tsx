@@ -32,7 +32,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
         aria-expanded={open}
         className="w-full flex items-center gap-2 px-4 py-3 text-left"
       >
-        <span className="w-8 h-8 rounded-xl bg-[#BF0000] text-white flex items-center justify-center shrink-0">
+        <span className="w-8 h-8 rounded-xl bg-[#2D323B] text-white flex items-center justify-center shrink-0">
           <Package size={16} />
         </span>
         <span className="flex-1">
@@ -50,9 +50,9 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
             <p className="text-[11px] text-gray-500 mt-0.5">{help.methodNote}</p>
           </div>
 
-          <div className="flex items-start gap-2 bg-[#BF0000]/[0.05] border border-[#BF0000]/20 rounded-xl px-3 py-2.5 mb-3">
-            <AlertTriangle size={15} className="text-[#BF0000] shrink-0 mt-0.5" />
-            <p className="text-[11.5px] text-[#BF0000] leading-relaxed">
+          <div className="flex items-start gap-2 bg-[#2D323B]/[0.05] border border-[#2D323B]/20 rounded-xl px-3 py-2.5 mb-3">
+            <AlertTriangle size={15} className="text-[#2D323B] shrink-0 mt-0.5" />
+            <p className="text-[11.5px] text-[#2D323B] leading-relaxed">
               <b>送れない物</b>：モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライター等は航空危険物で発送できません。<b>申告価格は実際の販売額を正直に</b>（過少申告・ギフト偽装は違法です）。
             </p>
           </div>
@@ -66,7 +66,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
                 <button
                   onClick={() => copy(r.value, r.key)}
                   aria-label={`${r.label}をコピー`}
-                  className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-bold text-[#BF0000] px-2 py-1 rounded-lg border border-[#BF0000]/20 active:bg-[#BF0000]/5"
+                  className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-bold text-[#2D323B] px-2 py-1 rounded-lg border border-[#2D323B]/20 active:bg-[#2D323B]/5"
                 >
                   {copied === r.key ? <Check size={12} /> : <Copy size={12} />}
                   {copied === r.key ? "済" : "コピー"}
@@ -79,7 +79,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
             href="https://www.int-mypage.post.japanpost.jp/"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#BF0000] bg-[#BF0000]/5 border border-[#BF0000]/20 rounded-lg px-3 py-2 active:bg-[#BF0000]/10"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#2D323B] bg-[#2D323B]/5 border border-[#2D323B]/20 rounded-lg px-3 py-2 active:bg-[#2D323B]/10"
           >
             国際郵便マイページで送り状を作成 <ExternalLink size={13} />
           </a>

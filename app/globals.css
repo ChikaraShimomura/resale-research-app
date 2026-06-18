@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #FCFBF8;
   --foreground: #1a1a2e;
-  --primary: #BF0000;
-  --primary-dark: #9E0000;
-  --accent: #FF4466;
-  --surface: #F5F7FA;
+  --primary: #2D323B;
+  --primary-dark: #1A1D23;
+  --accent: #5A6472;
+  --gold: #A98B5C;
+  --surface: #F4F3EE;
   /* スティッキーヘッダー高さ（safe-area込み）。結果一覧の件数/ソートバーのtopオフセットに使用 */
   --header-h: calc(env(safe-area-inset-top, 0px) + 88px);
   /* ボトムナビ高さ（py-2=16px + min-h-[52px]） */
@@ -24,7 +25,13 @@
 
 html {
   scroll-behavior: smooth;
-  background-color: #F5F7FA;
+  background-color: #F4F3EE;
+}
+
+/* 威厳のある見出し：字間をわずかに詰め、和文の約物を詰める（上品・端正に） */
+h1, h2, h3 {
+  letter-spacing: -0.018em;
+  font-feature-settings: "palt";
 }
 
 body {

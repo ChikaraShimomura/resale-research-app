@@ -137,7 +137,7 @@ export default function EditListingModal({
                 min="0.01"
                 value={priceUsd}
                 onChange={(e) => setPriceUsd(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF0000]/30 focus:border-[#BF0000]"
+                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
             </label>
             <label className="block">
@@ -149,17 +149,17 @@ export default function EditListingModal({
                 max="30"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF0000]/30 focus:border-[#BF0000]"
+                className="mt-1 w-full h-10 px-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
               <span className="text-[10px] text-gray-400 mt-1 block">在庫を持っている数だけにしてください（無在庫で複数を出すと欠品キャンセルの原因に）。</span>
             </label>
 
-            {saveError && <p className="text-[12px] text-[#BF0000] leading-relaxed">{saveError}</p>}
+            {saveError && <p className="text-[12px] text-[#2D323B] leading-relaxed">{saveError}</p>}
 
             <button
               onClick={save}
               disabled={saving || !priceOk || !qtyOk}
-              className="w-full h-11 rounded-lg bg-[#BF0000] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>
@@ -195,12 +195,12 @@ export default function EditListingModal({
                 className="block w-full text-[11px] text-gray-600 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-[11px] file:font-bold"
               />
               {files.length > 0 && <p className="text-[11px] text-gray-500 mt-1">{files.length}枚 選択中</p>}
-              {photoError && <p className="text-[12px] text-[#BF0000] mt-1 leading-relaxed">{photoError}</p>}
+              {photoError && <p className="text-[12px] text-[#2D323B] mt-1 leading-relaxed">{photoError}</p>}
               {photoDone && <p className="text-[12px] text-emerald-600 mt-1 leading-relaxed">✓ {photoDone}</p>}
               <button
                 onClick={uploadPhotos}
                 disabled={uploading || files.length === 0}
-                className="mt-2 w-full h-10 rounded-lg border border-[#BF0000] text-[#BF0000] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                className="mt-2 w-full h-10 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {uploading ? (
                   <>

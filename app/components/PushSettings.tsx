@@ -116,7 +116,7 @@ export default function PushSettings() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
-        <Bell size={18} className="text-[#BF0000]" />
+        <Bell size={18} className="text-[#2D323B]" />
         <h2 className="text-[14px] font-black text-gray-800">通知</h2>
       </div>
 
@@ -130,14 +130,14 @@ export default function PushSettings() {
             出品が売れた・新着の高利益商品などをお知らせします。いつでもオフにできます。
           </p>
           {denied && (
-            <p className="text-[11px] text-[#BF0000] mb-2 leading-relaxed">
+            <p className="text-[11px] text-[#2D323B] mb-2 leading-relaxed">
               通知がブロックされています。端末の設定でこのサイトの通知を許可してください。
             </p>
           )}
           <button
             onClick={enable}
             disabled={busy || denied}
-            className="h-11 px-5 rounded-xl bg-[#BF0000] text-white font-bold text-sm disabled:opacity-40 active:scale-[0.99]"
+            className="h-11 px-5 rounded-xl bg-[#2D323B] text-white font-bold text-sm disabled:opacity-40 active:scale-[0.99]"
           >
             {busy ? "設定中…" : "通知をオンにする"}
           </button>
@@ -157,7 +157,7 @@ export default function PushSettings() {
                   aria-checked={prefs[l.key]}
                   aria-label={l.label}
                   onClick={() => toggle(l.key)}
-                  className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${prefs[l.key] ? "bg-[#BF0000]" : "bg-gray-300"}`}
+                  className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${prefs[l.key] ? "bg-[#2D323B]" : "bg-gray-300"}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${prefs[l.key] ? "translate-x-5" : ""}`} />
                 </button>

@@ -401,7 +401,7 @@ export default function EbayListingModal({
                   } catch { /* noop */ }
                   router.push(`/settings?list=${encodeURIComponent(product.id)}`);
                 }}
-                className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+                className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
               >
                 <Settings size={16} /> 設定へ進む
               </button>
@@ -432,7 +432,7 @@ export default function EbayListingModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value.slice(0, 80))}
                   rows={2}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000] resize-none"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B] resize-none"
                 />
                 <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　自動で英語タイトルを入れています（編集OK）</p>
               </div>
@@ -444,7 +444,7 @@ export default function EbayListingModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000] resize-none leading-relaxed"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B] resize-none leading-relaxed"
                 />
               </div>
 
@@ -454,7 +454,7 @@ export default function EbayListingModal({
                 <select
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
                 >
                   <option value="NEW">新品（New）</option>
                   <option value="USED_EXCELLENT">中古 - 非常に良い</option>
@@ -501,7 +501,7 @@ export default function EbayListingModal({
                     最初の1枚がメイン写真です（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら<b>自分で撮った写真に差し替え</b>を（編集→実物写真を追加）。最終的には実物写真が安全です。
                   </p>
                   {!photoOk && (
-                    <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
+                    <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
                       出品に使う写真を1枚以上選んでください。
                     </p>
                   )}
@@ -517,7 +517,7 @@ export default function EbayListingModal({
                     onClick={() => chooseStrategy("fast")}
                     aria-pressed={strategy === "fast"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "fast" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                      strategy === "fast" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-gray-200 text-gray-500"
                     }`}
                   >
                     <span className="text-[12px] font-bold">⚡ はやく</span>
@@ -528,7 +528,7 @@ export default function EbayListingModal({
                     onClick={() => chooseStrategy("lowest")}
                     aria-pressed={strategy === "lowest"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "lowest" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                      strategy === "lowest" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-gray-200 text-gray-500"
                     }`}
                   >
                     <span className="text-[12px] font-bold">🚀 最安</span>
@@ -539,7 +539,7 @@ export default function EbayListingModal({
                     onClick={() => chooseStrategy("market")}
                     aria-pressed={strategy === "market"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "market" ? "border-[#BF0000] bg-[#BF0000]/5 text-[#BF0000]" : "border-gray-200 text-gray-500"
+                      strategy === "market" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-gray-200 text-gray-500"
                     }`}
                   >
                     <span className="text-[12px] font-bold">💰 高く</span>
@@ -569,12 +569,12 @@ export default function EbayListingModal({
                     inputMode="decimal"
                     value={priceUsd}
                     onChange={(e) => setPriceUsd(e.target.value)}
-                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#BF0000]"
+                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#2D323B]"
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
                 {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (
-                  <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
                     ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
                   </p>
                 )}
@@ -587,7 +587,7 @@ export default function EbayListingModal({
                     type="checkbox"
                     checked={bestOffer}
                     onChange={(e) => setBestOffer(e.target.checked)}
-                    className="accent-[#BF0000] w-4 h-4"
+                    className="accent-[#2D323B] w-4 h-4"
                   />
                   <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける</span>
                 </label>
@@ -607,7 +607,7 @@ export default function EbayListingModal({
                 <select
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
                 >
                   {[...Array(30)].map((_, i) => (
                     <option key={i + 1} value={i + 1}>{i + 1}個</option>
@@ -623,7 +623,7 @@ export default function EbayListingModal({
                   <select
                     value={shippingId}
                     onChange={(e) => setShippingId(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
                   >
                     {data.shipping.map((s) => (
                       <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
@@ -632,7 +632,7 @@ export default function EbayListingModal({
                     ))}
                   </select>
                 ) : (
-                  <p className="text-[12px] text-[#BF0000] bg-red-50 rounded-xl px-3 py-2">
+                  <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
                     配送ポリシーが見つかりません。設定で「発送設定」を完了してください。
                   </p>
                 )}
@@ -647,7 +647,7 @@ export default function EbayListingModal({
                 <select
                   value={handlingDays}
                   onChange={(e) => setHandlingDays(Number(e.target.value))}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#BF0000]"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
                 >
                   {[1, 2, 3, 5, 7, 10, 14, 20, 30].map((d) => (
                     <option key={d} value={d}>
@@ -666,7 +666,7 @@ export default function EbayListingModal({
                     {data.category.categoryName}
                   </p>
                 ) : (
-                  <p className="text-[12px] text-[#BF0000] bg-red-50 rounded-xl px-3 py-2">
+                  <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
                     カテゴリを自動判定できませんでした。タイトルを具体的にして開き直すか、時間をおいて再度お試しください。
                   </p>
                 )}
@@ -679,10 +679,10 @@ export default function EbayListingModal({
                 const renderField = (a: RequiredAspect) => {
                   const empty = (aspects[a.name] ?? "").trim() === "";
                   const showRed = a.required && empty; // 推奨は空でも赤くしない（出品はブロックしない）
-                  const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#BF0000] ${showRed ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
+                  const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#2D323B] ${showRed ? "border-red-300 bg-red-50/40" : "border-gray-200"}`;
                   return (
                     <div key={a.name}>
-                      <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#BF0000]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
+                      <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#2D323B]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
                       {a.values.length > 0 ? (
                         <select
                           value={aspects[a.name] ?? ""}
@@ -734,7 +734,7 @@ export default function EbayListingModal({
 
               {/* 必須項目が未入力の時の案内（公開エラー#25002の予防） */}
               {!aspectsFilled && (
-                <p className="text-[11px] text-[#BF0000] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   ⚠️ 上の「商品の詳細（必須）」に未入力があります。候補から選ぶと出品できます。
                 </p>
               )}
@@ -742,16 +742,16 @@ export default function EbayListingModal({
               {/* 無在庫の抑止：楽天仕入れ（「楽天で仕入れる」押下）の実績が無ければ出品をブロック */}
               {purchaseBlocked && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-3.5 py-3 space-y-2.5">
-                  <p className="text-[12px] text-[#BF0000] font-bold leading-relaxed">
+                  <p className="text-[12px] text-[#2D323B] font-bold leading-relaxed">
                     楽天仕入れの実績が確認できませんでした。<br />
                     楽天で先に仕入れてから、eBay出品を行ってください。
                   </p>
                   <button
                     type="button"
                     onClick={goRakuten}
-                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#BF0000] text-white font-bold text-sm rounded-xl active:bg-[#9E0000]"
+                    className="w-full inline-flex items-center justify-center gap-1.5 h-11 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
                   >
-                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
+                    <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#2D323B] font-black text-[9px] shrink-0">R</span>
                     楽天で仕入れる
                   </button>
                   <p className="text-[10px] text-gray-500 leading-relaxed">
@@ -944,7 +944,7 @@ export default function EbayListingModal({
                   </p>
                 ) : null}
                 {confirmErr && (
-                  <p className="mb-2 text-[11px] text-[#BF0000] leading-relaxed">
+                  <p className="mb-2 text-[11px] text-[#2D323B] leading-relaxed">
                     まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
                   </p>
                 )}
@@ -955,9 +955,9 @@ export default function EbayListingModal({
 
           {phase === "error" && (
             <div className="py-6">
-              <AlertTriangle size={36} className="mx-auto mb-3 text-[#BF0000]" />
+              <AlertTriangle size={36} className="mx-auto mb-3 text-[#2D323B]" />
               <p className="text-sm font-bold text-gray-800 text-center mb-2">出品できませんでした</p>
-              <p className="text-[12px] text-[#BF0000] text-center mb-3 leading-relaxed break-words">{msg}</p>
+              <p className="text-[12px] text-[#2D323B] text-center mb-3 leading-relaxed break-words">{msg}</p>
               {result?.steps && result.steps.length > 0 && (
                 <ul className="mb-4 space-y-1 bg-gray-50 rounded-xl p-3">
                   {result.steps.map((s, i) => (
@@ -982,7 +982,7 @@ export default function EbayListingModal({
                 type="button"
                 onClick={reportError}
                 disabled={reportState !== "idle"}
-                className="w-full h-11 mb-2 bg-[#BF0000] text-white rounded-xl text-sm font-bold active:bg-[#9E0000] disabled:opacity-50"
+                className="w-full h-11 mb-2 bg-[#2D323B] text-white rounded-xl text-sm font-bold active:bg-[#1A1D23] disabled:opacity-50"
               >
                 {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
               </button>
