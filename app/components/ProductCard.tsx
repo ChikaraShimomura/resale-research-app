@@ -1,6 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenProductUrl, toEbayMarketUrl } from "../lib/utils";
-import { Heart, Share2, ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -9,18 +9,6 @@ import { track, logEvent } from "../lib/analytics";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
-
-function useFavorite(productId: string) {
-  const key = `fav_${productId}`;
-  const [isFav, setIsFav] = useState(false);
-  useEffect(() => { setIsFav(localStorage.getItem(key) === "1"); }, [key]);
-  const toggle = () => {
-    const next = !isFav;
-    next ? localStorage.setItem(key, "1") : localStorage.removeItem(key);
-    setIsFav(next);
-  };
-  return { isFav, toggle };
-}
 
 function PointBadge({ rate }: { rate: number }) {
   if (rate <= 1) return null;
@@ -60,7 +48,7 @@ function TrustBadge({ count }: { count: number }) {
   );
 }
 
-export default function ProductCard({ product, ebaySold = false, autoOpenListing = false, onFavoriteChange }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean; onFavoriteChange?: (productId: string, isFav: boolean) => void }) {
+export default function ProductCard({ product, ebaySold = false, autoOpenListing = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean }) {
   const { source } = product;
   const sourceUrl = toRakutenProductUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
@@ -68,13 +56,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 「相場を確認」は、画像照合で一致した実物(matchedEbayUrl)を最優先＝必ず同一商品に着地。
   // 無い(旧データ)時だけ、締めたキーワード検索にフォールバック。
   const ebayMarketUrl = product.matchedEbayUrl || toEbayMarketUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
-  const { isFav, toggle: rawToggleFav } = useFavorite(product.id);
-  // お気に入りトグル時、親（お気に入り一覧など）へ即時反映できるよう通知する。
-  const toggleFav = () => {
-    const next = !isFav; // rawToggleFav 後の値（このレンダーでは isFav は更新前）
-    rawToggleFav();
-    onFavoriteChange?.(product.id, next);
-  };
   // 出品者数(下書き含む)は /api/products が付与済み。SOLD判定に使う。計上はサーバー側。
   const listingCount = product.listingCount ?? 0;
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -120,11 +101,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // SOLD化すると、買ったのに出品導線が消えてかわいそうなため、本人にはそのまま表示する。
   // 自分がeBayで売った商品(ebaySold)もぼかさない（発送のため中身を見られるように）。
   const sold = isSold(product, listingCount) && !rakutenClicked && !ebaySold;
-
-  const shareOnX = () => {
-    const text = `【転売リサーチ】${product.title}\n仕入れ: ${formatJpy(source.price)} → eBay利益率${product.realProfitRate}%！\n#転売 #eBay #輸出副業`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent("https://www.yushutsu-fukugyo.com")}`, "_blank");
-  };
 
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
@@ -334,41 +310,18 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           </div>
         )}
 
-        {/* アクションボタン：楽天 と eBay を横並び・等幅。補助(お気に入り/シェア)は下段 */}
-        <div className="space-y-2.5">
-          {/* 主要CTA — 楽天で仕入れる / eBay自動出品 を横並び（flex-1で等幅） */}
-          <div className="flex gap-2.5">
-            {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
-                中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
-            <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
-              <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
-              楽天で仕入れる
-            </a>
-            {!sold && (
-              <ListingHelper product={product} autoOpen={autoOpenListing} />
-            )}
-          </div>
-
-          {/* お気に入り・シェア — 2分割の補助行 */}
-          <div className="flex gap-2.5">
-            <button onClick={toggleFav}
-              aria-label={isFav ? "お気に入りから削除" : "お気に入りに追加"}
-              aria-pressed={isFav}
-              className={cn(
-                "flex-1 inline-flex items-center justify-center gap-1.5 h-11 rounded-xl border text-xs font-bold transition-colors active:scale-95",
-                isFav ? "bg-red-50 border-[#BF0000] text-[#BF0000]" : "bg-gray-50 border-gray-100 text-gray-500"
-              )}>
-              <Heart size={15} fill={isFav ? "currentColor" : "none"} />
-              {isFav ? "お気に入り済" : "お気に入り"}
-            </button>
-            <button onClick={shareOnX}
-              aria-label="Xでシェア"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 rounded-xl border border-gray-100 bg-gray-50 text-gray-500 active:bg-gray-100 active:scale-95 text-xs font-bold">
-              <Share2 size={15} />
-              シェア
-            </button>
-          </div>
+        {/* 主要CTA — eBay自動出品 / 楽天で仕入れる を横並び（flex-1で等幅・位置を入れ替え済み） */}
+        <div className="flex gap-2.5">
+          {!sold && (
+            <ListingHelper product={product} autoOpen={autoOpenListing} />
+          )}
+          {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
+              中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
+          <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
+            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
+            楽天で仕入れる
+          </a>
         </div>
       </div>
     </div>

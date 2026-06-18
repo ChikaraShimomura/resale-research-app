@@ -16,7 +16,7 @@ import { fetchListedIds } from "../lib/ebayListed";
 import { readSort, writeSort, readHideSold, writeHideSold } from "../lib/prefs";
 import { logEvent } from "../lib/analytics";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
-import { Heart, Flame, PackageSearch, Search } from "lucide-react";
+import { Flame, PackageSearch, Search } from "lucide-react";
 
 function ResultsContent() {
   const params = useSearchParams();
@@ -141,7 +141,6 @@ function ResultsContent() {
           <div className="flex-1">
             <SearchForm defaultKeyword={keyword} />
           </div>
-          <Link href="/favorites" className="text-white/80 shrink-0 flex items-center" aria-label="お気に入り"><Heart size={20} /></Link>
         </div>
         {keyword && (
           <div className="px-3 pb-1.5">

@@ -107,7 +107,7 @@ export default function SearchPage() {
             </div>
           </div>
           {/* ログイン時はメールで横幅を食うため、ヘッダーは要点だけに絞る。
-              お気に入りは下部ナビ、ガイドはホーム/バナーの「使い方」で到達できる。 */}
+              ガイドはホーム/バナーの「使い方」で到達できる。 */}
           <div className="flex items-center gap-1.5 min-w-0">
             <AuthButton />
             <Link href="/settings" className="w-10 h-10 -mr-1 flex items-center justify-center text-white/80 hover:text-white active:scale-95 shrink-0" aria-label="設定">
