@@ -44,6 +44,7 @@ jobs:
       - name: 仕入れ元が売切/リンク切れの出品を自動停止
         continue-on-error: true
         run: |
-          curl -fsS -X POST "https://www.yushutsu-fukugyo.com/api/ebay/list/auto-stop-cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-          || echo "auto-stop call failed (non-fatal)"
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://www.yushutsu-fukugyo.com/api/ebay/list/auto-stop-cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "auto-stop-cron HTTP $code"
+          if [ "$code" != "200" ]; then echo "::warning::auto-stop-cron が HTTP $code を返しました（CRON_SECRET不一致やミドルウェア403の可能性）"; fi

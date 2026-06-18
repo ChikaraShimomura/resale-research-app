@@ -88,7 +88,7 @@ async function kvArchiveProducts(products) {
   } catch (e) { console.error('kvArchiveProducts error:', e.message); }
 }
 
-// ハッシュ全取得（{field: value} で返す）。SOLDライフサイクルの sold_since 読み出しに使う。
+// ハッシュ全取得（{field: value} で返す）。restored_products(手動復活台帳)の読み出しに使う。
 async function kvHgetall(key) {
   try {
     const res = await fetch(`${KV_URL}/hgetall/${encodeURIComponent(key)}`, {
@@ -101,26 +101,6 @@ async function kvHgetall(key) {
     for (let i = 0; i < arr.length; i += 2) obj[arr[i]] = arr[i + 1];
     return obj;
   } catch { return {}; }
-}
-
-async function kvDel(key) {
-  try {
-    await fetch(`${KV_URL}/pipeline`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify([['DEL', key]]),
-    });
-  } catch (e) { console.error('kvDel error:', e.message); }
-}
-
-async function kvHdel(key, field) {
-  try {
-    await fetch(`${KV_URL}/pipeline`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify([['HDEL', key, field]]),
-    });
-  } catch (e) { console.error('kvHdel error:', e.message); }
 }
 
 // ========== 除外パターン ==========

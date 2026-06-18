@@ -70,6 +70,9 @@ export async function GET() {
         ready = merged;
       }
 
+      // セーフティ：ゲートで全消え(ギャラリーワーカー停止・全TTL失効など)した時はブラックアウトを避け全件出す。
+      if (ready.length === 0 && merged.length > 0) ready = merged;
+
       return Response.json(
         { products: ready, lastUpdated, stats },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）

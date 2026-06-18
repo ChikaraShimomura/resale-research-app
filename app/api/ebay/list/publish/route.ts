@@ -9,8 +9,8 @@ import { enhanceToEps } from "../../../../lib/ebay/imageProcess";
 import { recordListed, listDealsForUser } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
-import { getCurrentUserEmail, isComp } from "../../../../lib/auth/plan";
-import { PLANS, PAYWALL_ENABLED, type PlanId } from "../../../../lib/plans";
+import { getCurrentUserEmail, isComp, getPlan } from "../../../../lib/auth/plan";
+import { PLANS, PAYWALL_ENABLED } from "../../../../lib/plans";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -71,9 +71,10 @@ export async function POST(req: Request) {
 
   // プラン上限(同時出品数)ゲート。Stripe決済が稼働するまで PAYWALL_ENABLED=OFF で無効（既存挙動を壊さない）。
   if (PAYWALL_ENABLED && !comp) {
-    const plan: PlanId = "free"; // 決済連携後はここを Stripe 購読状態で解決（beginner〜master）
+    const plan = await getPlan(); // コンプ→master / それ以外→free（決済連携後は購読状態で解決）
     const limit = PLANS[plan].listingLimit;
-    if (Number.isFinite(limit)) {
+    // limit>0 のときだけ enforce。free(=0)は「未購読＝ゲート対象外」扱いとし、Stripe未実装の間に全員ロックアウトしない。
+    if (Number.isFinite(limit) && limit > 0) {
       const { live } = await listDealsForUser(actor);
       if (!live.some((d) => d.id === product.id) && live.length >= limit) {
         return Response.json({

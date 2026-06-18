@@ -9,14 +9,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  // 認証：Authorization: Bearer <CRON_SECRET> か ?secret=。未設定環境(ローカル)は素通り。
+  // 認証：Authorization: Bearer <CRON_SECRET> か ?secret=。未設定なら拒否(フェイルクローズ)。
+  // 全アクターの出品を取り下げる破壊的cronなので、設定漏れ時に無認可で動かさない。
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const url = new URL(req.url);
-    const bearer = req.headers.get("authorization");
-    if (bearer !== `Bearer ${secret}` && url.searchParams.get("secret") !== secret) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  const url = new URL(req.url);
+  const bearer = req.headers.get("authorization");
+  if (!secret || (bearer !== `Bearer ${secret}` && url.searchParams.get("secret") !== secret)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // ebay_deals:* を走査してアクター一覧を作る。
