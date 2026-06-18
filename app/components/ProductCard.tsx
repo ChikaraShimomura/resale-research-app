@@ -156,9 +156,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               className="block relative" aria-label="楽天市場でこの商品を見る">
               {product.imageUrl ? (
                 <img src={product.imageUrl} alt={product.title}
-                  className="w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border border-[#A98B5C]/25" />
+                  className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
               ) : (
-                <div aria-hidden="true" className="w-[92px] h-[92px] bg-gray-50 rounded-xl border border-[#A98B5C]/25 flex items-center justify-center text-gray-300"><Package size={30} /></div>
+                <div aria-hidden="true" className={`w-[92px] h-[92px] bg-gray-50 rounded-xl border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"} flex items-center justify-center text-gray-300`}><Package size={30} /></div>
               )}
               <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
                 楽天で見る
