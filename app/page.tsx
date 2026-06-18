@@ -47,7 +47,7 @@ export default function LandingPage() {
           </p>
           <Link href="/search"
             className="inline-block bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-gray-900 font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-lg">
-            利益商品を見る →
+            登録して利益商品を見る →
           </Link>
           <div className="mt-3">
             <Link href="/guide"
@@ -155,7 +155,7 @@ export default function LandingPage() {
       <section className="max-w-2xl mx-auto px-4 pb-10 text-center">
         <Link href="/search"
           className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
-          すべての利益商品を見る →
+          登録して利益商品を探す →
         </Link>
         <div className="mt-4">
           <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
