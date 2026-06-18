@@ -7,7 +7,7 @@ import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
 interface SourcingDeal { id: string; title: string; imageUrl: string; purchase: number; purchased: boolean }
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; listingId?: string; stoppedAt?: string }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -45,9 +45,11 @@ function Section({ title, count, open, onToggle, children }: { title: string; co
 export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   const [sourcing, setSourcing] = useState<SourcingDeal[] | null>(null);
   const [live, setLive] = useState<LiveDeal[] | null>(null);
+  const [stopped, setStopped] = useState<LiveDeal[] | null>(null);
   const [sold, setSold] = useState<SoldDeal[] | null>(null);
   const [openSourcing, setOpenSourcing] = useState(false);
   const [openLive, setOpenLive] = useState(false);
+  const [openStopped, setOpenStopped] = useState(false);
   const [openSold, setOpenSold] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [soldFor, setSoldFor] = useState<string | null>(null); // 売れた金額を入力中の商品
@@ -75,8 +77,8 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
     Promise.all([
       fetch("/api/ebay/deals", { cache: "no-store" })
         .then((r) => r.json())
-        .then((j) => { setLive(j.ok ? j.live : []); setSold(j.ok ? j.sold : []); })
-        .catch(() => { setLive([]); setSold([]); }),
+        .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); })
+        .catch(() => { setLive([]); setStopped([]); setSold([]); }),
       fetch("/api/ebay/sourcing", { cache: "no-store" })
         .then((r) => r.json())
         .then((s) => setSourcing(s.ok ? s.items : []))
@@ -144,11 +146,12 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
     setBusy(null);
   };
 
-  if (sourcing === null || live === null || sold === null) return null; // 読み込み中
+  if (sourcing === null || live === null || stopped === null || sold === null) return null; // 読み込み中
   const hasSourcing = sourcing.length > 0;
   const hasLive = live.length > 0;
+  const hasStopped = stopped.length > 0;
   const hasSold = sold.length > 0;
-  if (!hasSourcing && !hasLive && !hasSold) return null;
+  if (!hasSourcing && !hasLive && !hasStopped && !hasSold) return null;
 
   return (
     <div className="space-y-3">
@@ -290,6 +293,47 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                     </div>
                   </div>
                 )}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {hasStopped && (
+        <Section title="出品停止中の商品" count={stopped.length} open={openStopped} onToggle={() => setOpenStopped((v) => !v)}>
+          <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+            「出品停止」したeBay出品です。<b className="text-gray-600">再出品</b>でまたeBayに公開できます（仕入れ額などの記録は残っています）。
+          </p>
+          <ul className="divide-y divide-gray-100">
+            {stopped.map((d) => (
+              <li key={d.id} className="py-1.5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Thumb url={d.imageUrl} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                      <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                        {shortDate(d.stoppedAt || "") && `${shortDate(d.stoppedAt || "")} 停止・`}仕入れ {yen(d.purchase)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap pl-11">
+                    <button
+                      disabled={relistBusy === d.id}
+                      onClick={() => relist(d.id)}
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[10px] font-bold disabled:opacity-40 active:scale-[0.99]"
+                    >
+                      {relistBusy === d.id ? <><Spinner size={12} /> 準備中…</> : <><RotateCw size={12} /> 再出品</>}
+                    </button>
+                    <button
+                      disabled={busy === d.id}
+                      onClick={() => { if (window.confirm("この商品を一覧から削除しますか？（成績からも外れます）")) act(d.id, "remove"); }}
+                      className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                    >
+                      {busy === d.id && <Spinner size={11} />} 削除
+                    </button>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

@@ -36,6 +36,7 @@ export interface Deal {
   listedAt: string;
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
+  stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -51,15 +52,20 @@ export async function recordListed(
     // 既に記録済み（再出品・下書き再公開）は金額・listedAt・売却情報を維持し、上書きしない
     if (!existing) {
       await kv.hset(DEALS_KEY(actor), { [productId]: { ...d } });
-    } else if ((d.listingId && existing.listingId !== d.listingId) || (d.sku && existing.sku !== d.sku)) {
-      // 再出品/自己修復で公開ID・SKUが変わった/初めて取れた時だけ更新（金額・出品日・売却情報は維持）
-      await kv.hset(DEALS_KEY(actor), {
-        [productId]: {
-          ...existing,
-          ...(d.listingId ? { listingId: d.listingId } : {}),
-          ...(d.sku ? { sku: d.sku } : {}),
-        },
-      });
+    } else if (
+      (d.listingId && existing.listingId !== d.listingId) ||
+      (d.sku && existing.sku !== d.sku) ||
+      existing.stoppedAt != null
+    ) {
+      // 再出品/自己修復で公開ID・SKUが変わった/初めて取れた時だけ更新（金額・出品日・売却情報は維持）。
+      // recordListed は公開成功時のみ呼ばれる＝再び出品中なので、停止フラグ(stoppedAt)は解除する。
+      const next: Deal = {
+        ...existing,
+        ...(d.listingId ? { listingId: d.listingId } : {}),
+        ...(d.sku ? { sku: d.sku } : {}),
+      };
+      delete next.stoppedAt;
+      await kv.hset(DEALS_KEY(actor), { [productId]: next });
     }
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
   } catch {
@@ -95,6 +101,7 @@ export interface LiveDeal {
   purchase: number; // 楽天仕入れ(送料込・JPY)
   imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
+  stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
 }
 export interface SoldDeal {
   id: string;
@@ -108,23 +115,28 @@ export interface SoldDeal {
 
 // マイページ用：出品中(未売却・公開済み)と輸出した(売却済み)の取引一覧をまとめて返す。
 // deals ハッシュ1回・SKU対応表1回・画像補完カタログ1回で両方を組み立てる。
-export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[]; sold: SoldDeal[] }> {
+export async function listDealsForUser(
+  actor: string
+): Promise<{ live: LiveDeal[]; stopped: LiveDeal[]; sold: SoldDeal[] }> {
   let deals: Record<string, Deal> = {};
   try {
     deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
   } catch {
-    return { live: [], sold: [] };
+    return { live: [], stopped: [], sold: [] };
   }
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
-  const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && isPublished(id)); // 未売却かつ公開済み
   const soldEntries = entries.filter(([, d]) => d.soldUsd != null); // 売却済み（実取引なので全部有効）
+  // 出品停止中＝未売却 かつ stoppedAt あり（出品中より優先して分類）。
+  const stoppedEntries = entries.filter(([, d]) => d.soldUsd == null && d.stoppedAt != null);
+  // 出品中＝未売却 かつ 停止していない かつ 公開済み。
+  const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id));
 
   // 画像/タイトル未保存の古いdealは、現行カタログ(profitable_products)から補完する。
   // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
   // 外れても出品中/販売した一覧の表示が欠けないようにする。新規dealは出品時に保存済みで対象外）。
   const catInfo: Record<string, { imageUrl?: string; title?: string }> = {};
-  const needBackfill = [...liveEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title);
+  const needBackfill = [...liveEntries, ...stoppedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title);
   if (needBackfill) {
     try {
       const products = (await kv.get<{ id: string; imageUrl?: string; title?: string }[]>("profitable_products")) ?? [];
@@ -134,7 +146,7 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
     }
     // 補完できた分だけ deal に保存し直す（best-effort・カタログがまだ持っているうちに永続化）。
     const heal: Record<string, Deal> = {};
-    for (const [id, d] of [...liveEntries, ...soldEntries]) {
+    for (const [id, d] of [...liveEntries, ...stoppedEntries, ...soldEntries]) {
       const img = !d.imageUrl ? catInfo[id]?.imageUrl : undefined;
       const ttl = !d.title ? catInfo[id]?.title : undefined;
       if (img || ttl) heal[id] = { ...d, ...(img ? { imageUrl: img } : {}), ...(ttl ? { title: ttl } : {}) };
@@ -160,6 +172,18 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 
+  const stopped: LiveDeal[] = stoppedEntries
+    .map(([id, d]) => ({
+      id,
+      title: d.title || catInfo[id]?.title || "",
+      listedAt: d.listedAt || "",
+      purchase: d.purchase ?? 0,
+      imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
+      listingId: d.listingId,
+      stoppedAt: d.stoppedAt,
+    }))
+    .sort((a, b) => (b.stoppedAt || "").localeCompare(a.stoppedAt || "")); // 停止が新しい順
+
   const sold: SoldDeal[] = soldEntries
     .map(([id, d]) => {
       const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
@@ -176,7 +200,7 @@ export async function listDealsForUser(actor: string): Promise<{ live: LiveDeal[
     })
     .sort((a, b) => (b.soldAt || "").localeCompare(a.soldAt || "")); // 新しい順
 
-  return { live, sold };
+  return { live, stopped, sold };
 }
 
 // 「実際に出品中(公開済み) or 売却済みの商品ID」を返す。検索一覧で本人の出品済みを隠す／仕入れ中一覧から
@@ -188,8 +212,9 @@ export async function listListedProductIds(actor: string): Promise<string[]> {
   try {
     const deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
     const isPublished = await publishedFilter(actor);
+    // 売却済み・出品停止中・出品中は検索一覧に出さない（停止中は出品停止中一覧へ駐機）。
     return Object.entries(deals)
-      .filter(([id, d]) => d?.soldUsd != null || isPublished(id))
+      .filter(([id, d]) => d?.soldUsd != null || d?.stoppedAt != null || isPublished(id))
       .map(([id]) => id);
   } catch {
     return [];
@@ -203,6 +228,19 @@ export async function getListingSku(actor: string, productId: string): Promise<s
     return deal?.sku ?? null;
   } catch {
     return null;
+  }
+}
+
+// 「出品停止」：取引に停止フラグ(stoppedAt)を立て、出品停止中一覧へ移す。dealが無ければ何もしない
+// （仕入れ中のみで未出品の商品など）。再出品(recordListed)で stoppedAt は自動解除される。
+export async function markStopped(actor: string, productId: string): Promise<void> {
+  try {
+    const existing = await kv.hget<Deal>(DEALS_KEY(actor), productId);
+    if (!existing) return;
+    await kv.hset(DEALS_KEY(actor), { [productId]: { ...existing, stoppedAt: new Date().toISOString() } });
+    await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
+  } catch {
+    /* noop */
   }
 }
 
@@ -275,8 +313,8 @@ export async function getStats(actor: string): Promise<Stats> {
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
   const sold = entries.filter(([, d]) => d.soldUsd != null).map(([, d]) => d); // 売却済み（実取引なので全部有効）
-  // 出品中＝未売却 かつ 実際に出品できた（SKU対応表にある）ものだけ。旧仕様の下書き/本人確認待ちは除外。
-  const live = entries.filter(([id, d]) => d.soldUsd == null && isPublished(id)).map(([, d]) => d);
+  // 出品中＝未売却 かつ 停止していない かつ 実際に出品できた（SKU対応表にある）ものだけ。
+  const live = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id)).map(([, d]) => d);
   const listedPurchase = live.reduce((a, d) => a + (d.purchase ?? 0), 0);
 
   let totalPurchase = 0;

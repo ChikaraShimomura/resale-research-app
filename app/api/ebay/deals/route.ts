@@ -12,12 +12,12 @@ export const dynamic = "force-dynamic";
 const SOLD_KEY = (actor: string) => `ebay_sold:${actor}`;
 const SOLD_TTL = 180 * 24 * 60 * 60; // sold/route.ts と一致（最終更新から180日）
 
-// GET: 出品中（未売却）と輸出した（売却済み）の取引一覧。
+// GET: 出品中（未売却）／出品停止中／輸出した（売却済み）の取引一覧。
 export async function GET() {
   const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false, live: [], sold: [] });
-  const { live, sold } = await listDealsForUser(actor);
-  return Response.json({ ok: true, live, sold }, { headers: { "Cache-Control": "private, no-store" } });
+  if (!actor) return Response.json({ ok: false, live: [], stopped: [], sold: [] });
+  const { live, stopped, sold } = await listDealsForUser(actor);
+  return Response.json({ ok: true, live, stopped, sold }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 // POST: { action: "remove" | "sold", productId, soldJpy? }
