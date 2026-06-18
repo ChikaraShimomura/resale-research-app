@@ -668,3 +668,20 @@ export async function updateOfferPriceQuantity(
   }
   return { ok: true };
 }
+
+// 出品停止: 公開中のオファーを取り下げて eBay の出品を終了する（withdrawOffer）。
+// オファー自体は残す（status=UNPUBLISHED）ので、あとで再出品できる。
+// 出品が無い/既に未公開の時は ended:false で成功扱い（冪等＝押しても害がない）。
+export async function withdrawListingForSku(
+  token: string,
+  sku: string
+): Promise<{ ok: boolean; ended: boolean; error?: string }> {
+  const offer = await getOfferForSku(token, sku);
+  if (!offer) return { ok: true, ended: false }; // 出品が存在しない（未公開/未作成）
+  if (offer.status && offer.status !== "PUBLISHED") return { ok: true, ended: false }; // 既に未公開
+  const r = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offer.offerId}/withdraw`);
+  if (r.ok) return { ok: true, ended: true };
+  // 既に未公開/終了済みは「終了済み」とみなし成功扱い（冪等）。
+  if (/not published|isn'?t published|already|ended/i.test(r.error ?? "")) return { ok: true, ended: false };
+  return { ok: false, ended: false, error: r.error };
+}

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, ExternalLink, Check } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, ExternalLink, Check, Ban } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
@@ -101,6 +101,29 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
     setBusy(null);
   };
 
+  // 「出品停止」：eBayの出品(オファー)を取り下げて終了する。出品中・仕入れ中の両方から押せる。
+  const stopListing = async (productId: string) => {
+    if (!window.confirm("この商品のeBay出品を停止しますか？（eBayの出品を終了します。あとで再出品できます）")) return;
+    setBusy(productId);
+    try {
+      const j = await fetch("/api/ebay/list/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      }).then((r) => r.json());
+      if (j.ok) {
+        if (j.ended === false) window.alert("この商品は現在eBayに出品されていません。");
+        await load();
+        onChanged?.();
+      } else {
+        window.alert(j.error || "出品停止に失敗しました。");
+      }
+    } catch {
+      window.alert("通信エラーで出品停止できませんでした。");
+    }
+    setBusy(null);
+  };
+
   const act = async (productId: string, action: "remove" | "sold", extra?: { soldJpy: number }) => {
     setBusy(productId);
     try {
@@ -171,6 +194,13 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                       className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                     >
                       {busy === d.id && <Spinner size={11} />} やめた
+                    </button>
+                    <button
+                      disabled={busy === d.id}
+                      onClick={() => stopListing(d.id)}
+                      className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#BF0000]/30 text-[#BF0000] text-[10px] font-bold disabled:opacity-40 active:bg-red-50"
+                    >
+                      {busy === d.id ? <Spinner size={11} /> : <Ban size={12} />} 出品停止
                     </button>
                   </div>
                 </div>
@@ -249,6 +279,13 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gray-200 text-gray-500 text-[10px] font-bold disabled:opacity-40"
                       >
                         {busy === d.id && <Spinner size={11} />} やめた
+                      </button>
+                      <button
+                        disabled={busy === d.id}
+                        onClick={() => stopListing(d.id)}
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#BF0000]/30 text-[#BF0000] text-[10px] font-bold disabled:opacity-40 active:bg-red-50"
+                      >
+                        {busy === d.id ? <Spinner size={11} /> : <Ban size={12} />} 出品停止
                       </button>
                     </div>
                   </div>

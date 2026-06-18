@@ -1,7 +1,7 @@
-import { kv } from "@vercel/kv";
 import { getActorId } from "../../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getOfferForSku, updateOfferPriceQuantity } from "../../../../lib/ebay/listing";
+import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
@@ -10,19 +10,9 @@ import { skuForProduct } from "../../../../lib/ebay/sellApi";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
-
-// その商品の出品に使われたSKUを特定する。新規/再出品時に deal.sku に保存している。
-// 旧データ（sku未保存）は決定的SKU rr-{商品ID} にフォールバック（当時のSKUと一致）。
-async function skuFor(actor: string, productId: string): Promise<string> {
-  try {
-    const deal = await kv.hget<{ sku?: string }>(DEALS_KEY(actor), productId);
-    if (deal?.sku) return deal.sku;
-  } catch {
-    /* noop */
-  }
-  return skuForProduct(productId);
-}
+// その商品の出品に使われたSKU（deal.sku）。旧データは決定的SKU rr-{商品ID} にフォールバック。
+const skuFor = async (actor: string, productId: string): Promise<string> =>
+  (await getListingSku(actor, productId)) ?? skuForProduct(productId);
 
 export async function GET(req: Request) {
   const actor = await getActorId();

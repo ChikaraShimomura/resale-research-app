@@ -196,6 +196,16 @@ export async function listListedProductIds(actor: string): Promise<string[]> {
   }
 }
 
+// 出品に使われたSKUを返す（アプリ内編集／出品停止の対象オファー特定用）。無ければ null。
+export async function getListingSku(actor: string, productId: string): Promise<string | null> {
+  try {
+    const deal = await kv.hget<Deal>(DEALS_KEY(actor), productId);
+    return deal?.sku ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // 「出品をやめた」：成績から取引を削除する（hdel）。
 export async function removeDeal(actor: string, productId: string): Promise<void> {
   try {
