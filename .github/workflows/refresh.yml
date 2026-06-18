@@ -37,6 +37,16 @@ jobs:
           PRICE_VERIFY_BUDGET: '150'  # steady値。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
         run: node scripts/refresh.mjs
 
+      # 商品取得(refresh)の直後に透かし検知も実行(option A)。新商品の透かし入りを一覧から除外。
+      # 判定はKVにキャッシュされ再課金されない＝追加コストは新商品ぶんのみ(数銭〜)。失敗してもrefreshは止めない。
+      - name: Run watermark check (透かし入りを一覧から除外)
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: node scripts/checkWatermarks.mjs
+
       - name: エラー通知メール
         if: failure()
         uses: dawidd6/action-send-mail@v3
