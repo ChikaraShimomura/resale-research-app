@@ -210,30 +210,73 @@ async function main() {
     process.exit(1); // ジョブを失敗扱いにしてメール通知させる
   }
 
-  if (removeIds.length === 0) {
-    console.log(`全件生存・在庫あり。alive ${alive} / unknown ${unknown}（変更なし, ${elapsedSec}s）`);
-    return;
-  }
-
-  // 書き戻し直前に最新カタログを再取得し、除外対象だけを除く（チェック中の refresh と競合しても新商品を潰さない）
+  // 書き戻し直前に最新カタログを再取得（チェック中に refresh が走っても新商品を潰さない）。
   const fresh = await kvGet('profitable_products');
   const base = (Array.isArray(fresh) && fresh.length) ? fresh : catalog;
   const removeSet = new Set(removeIds);
-  const finalList = base.filter((p) => !removeSet.has(p?.id));
-  await kvSet('profitable_products', finalList, CATALOG_TTL_SEC);
+  let working = base.filter((p) => !removeSet.has(p?.id)); // ① 掲載終了/在庫切れを除外
 
-  // 手動復活台帳(restored_products)からも除外。これをしないと /api/products の配信時マージで
-  // 売り切れ/掲載終了の復活商品が一覧に蘇る。psnap(出品アーカイブ)は残す＝既に仕入れた人は出品できる。
+  // ② 重複削除（明らかな同一商品のみ・不用意に消さない）。同一eBay商品にマッチした楽天品を1件に集約。
+  //    安全上限(SAFETY_MAX_PRUNE_RATE)超の削除は異常とみなしスキップ（死活削除と同じブレーキ）。
+  const { dupRemoveIds, dupGroups } = obviousDuplicates(working);
+  let dupRemoved = 0;
+  if (dupRemoveIds.size > 0) {
+    if (dupRemoveIds.size > working.length * SAFETY_MAX_PRUNE_RATE) {
+      console.error(`⚠️ 重複候補 ${dupRemoveIds.size}/${working.length} が安全上限超＝異常の疑い。重複削除はスキップ。`);
+    } else {
+      working = working.filter((p) => !dupRemoveIds.has(p?.id));
+      dupRemoved = dupRemoveIds.size;
+    }
+  }
+
+  // 削るものが何も無ければ書き戻さない（変更なし）。
+  if (removeIds.length === 0 && dupRemoved === 0) {
+    console.log(`全件生存・在庫あり・重複なし。alive ${alive} / unknown ${unknown}（変更なし, ${elapsedSec}s）`);
+    return;
+  }
+
+  await kvSet('profitable_products', working, CATALOG_TTL_SEC);
+
+  // 手動復活台帳(restored_products)からは「掲載終了/在庫切れ」のみ除外（重複削除は restored を触らない）。
+  // psnap(出品アーカイブ)は残す＝既に仕入れた人は出品できる。
   for (const id of removeIds) {
     if (restoredIdSet.has(id)) await kvHdel('restored_products', id);
   }
 
   console.log(
-    `除外: 掲載終了 ${deadIds.length}件 / 在庫切れ ${soldoutIds.length}件 → カタログ ${base.length} → ${finalList.length}件 ` +
+    `除外: 掲載終了 ${deadIds.length}件 / 在庫切れ ${soldoutIds.length}件 / 重複 ${dupRemoved}件 → カタログ ${base.length} → ${working.length}件 ` +
     `(alive ${alive} / unknown ${unknown}, ${elapsedSec}s)`
   );
   if (deadIds.length) console.log('掲載終了ID:', deadIds.join(', '));
   if (soldoutIds.length) console.log('在庫切れID:', soldoutIds.join(', '));
+  if (dupGroups) console.log(`重複集約: ${dupGroups}グループ / ${dupRemoved}件削除（同一eBay商品にマッチした楽天品・利益最大を残す）`);
+}
+
+// ========== 重複削除（明らかな同一商品のみ） ==========
+// 判定は最も確実な信号だけ使う: matchedEbayUrl が「同一の実eBay URL」＝同じeBay商品にマッチした楽天品＝同一商品。
+// グループ内は利益(realProfit)最大を残し、同点なら楽天価格(source.price)が安い方を残す。
+// 触らない(=不用意に消さない): matchedEbayUrl が空/非eBay/ユニークな商品、手動復活(restored)商品。
+function obviousDuplicates(list) {
+  const byEbay = new Map();
+  for (const p of list) {
+    if (!p || p.restored) continue; // 手動復活は保護
+    const key = String(p.matchedEbayUrl || '').trim().toLowerCase();
+    if (!/^https?:\/\/[^ ]*ebay\.[a-z]/i.test(key)) continue; // 実eBay URLのみ＝空/既定値はグループ化しない
+    if (!byEbay.has(key)) byEbay.set(key, []);
+    byEbay.get(key).push(p);
+  }
+  const dupRemoveIds = new Set();
+  let dupGroups = 0;
+  for (const ps of byEbay.values()) {
+    if (ps.length < 2) continue; // 重複なし＝触らない
+    dupGroups++;
+    ps.sort((a, b) =>
+      (Number(b.realProfit) || 0) - (Number(a.realProfit) || 0) ||
+      (Number(a.source?.price) || 0) - (Number(b.source?.price) || 0)
+    );
+    for (let i = 1; i < ps.length; i++) if (ps[i]?.id) dupRemoveIds.add(ps[i].id);
+  }
+  return { dupRemoveIds, dupGroups };
 }
 
 main().catch((e) => { console.error('checkLinks fatal:', e); process.exit(1); });
