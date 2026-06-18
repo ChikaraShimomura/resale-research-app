@@ -35,7 +35,7 @@ export default function LandingPage() {
       <div className="bg-gradient-to-br from-[#2D323B] via-[#2D323B] to-[#1A1D23] text-white">
         <div className="max-w-2xl mx-auto px-6 py-10 text-center">
           <p className="text-xs font-bold bg-white/20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-4 backdrop-blur-sm">
-            <Target size={13} /> 楽天ポイント × eBay転売
+            <Target size={13} /> 楽天ポイント × eBay輸出
           </p>
           <h1 className="text-2xl font-black mb-3 leading-snug">
             楽天で買って<br />
@@ -72,7 +72,7 @@ export default function LandingPage() {
               { arrow: true },
               { step: "②", text: "eBayで出品", sub: "海外需要で高値売却", color: "bg-[#0064D2]" },
               { arrow: true },
-              { step: "③", text: "利益＋ポイント", sub: "二重取りで稼ぐ", color: "bg-emerald-600" },
+              { step: "③", text: "利益＋ポイント", sub: "ポイント還元も上乗せ", color: "bg-emerald-600" },
             ].map((item, i) =>
               "arrow" in item ? (
                 <span key={i} aria-hidden="true" className="text-gray-300 text-xl shrink-0 mt-2">›</span>

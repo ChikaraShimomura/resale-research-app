@@ -8,7 +8,7 @@ import { Flame, ArrowRight } from "lucide-react";
 export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で毎回ランキング
 
 const SITE = "https://www.yushutsu-fukugyo.com";
-const TITLE = "eBay輸出で稼げる利益商品ランキング【毎日更新】｜楽天→eBay相場・利益率";
+const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜楽天→eBay相場・利益率";
 const DESC =
   "楽天で仕入れてeBayで売る——いま利益率が高い商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる日本商品の楽天仕入れ値→eBay想定売値・利益率を無料でチェックできます。";
 
@@ -28,7 +28,7 @@ export default async function RankingPage() {
   const itemListLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "eBay輸出で稼げる利益商品ランキング",
+    name: "eBay輸出の利益商品ランキング",
     description: DESC,
     numberOfItems: items.length,
     itemListElement: items.map((p, i) => ({
@@ -56,7 +56,7 @@ export default async function RankingPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-5">
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">
-          eBay輸出で稼げる利益商品ランキング
+          eBay輸出の利益商品ランキング
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
           楽天で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。

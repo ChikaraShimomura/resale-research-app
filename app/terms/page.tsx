@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ これは法的な叩き台です。本番運用（特に有料化）の前に、行政書士・弁護士の確認を受けてください。
-// 〔運営者名〕〔所在地〕〔管轄裁判所〕は実情報に置き換えること（特商法表記とも整合させる）。
+// 運営者の氏名・住所は無料提供の間は非公開（個情法は請求対応で可）。有料化（特商法表記）時に
+// 事業者情報を開示する方針。管轄は当面 東京地方裁判所をデフォルトに置いている。
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -117,10 +118,10 @@ export default function TermsPage() {
           </Section>
 
           <Section title="第10条（準拠法・管轄）">
-            <p>本規約は日本法に準拠します。本サービスに関して紛争が生じた場合は、〔運営者所在地を管轄する裁判所〕を第一審の専属的合意管轄裁判所とします。</p>
+            <p>本規約は日本法に準拠します。本サービスに関して紛争が生じた場合は、東京地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
           </Section>
 
-          <p className="mt-7 text-[12px] text-gray-400">制定日：2026年6月18日 ／ 運営者：〔運営者名〕</p>
+          <p className="mt-7 text-[12px] text-gray-400">制定日：2026年6月18日 ／ 運営者：輸出ラボ（お問い合わせ：support@yushutsu-fukugyo.com）／ 事業者の名称・住所等は有料サービス開始時に「特定商取引法に基づく表記」で開示します。</p>
         </article>
       </main>
 
