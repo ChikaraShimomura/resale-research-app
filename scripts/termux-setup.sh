@@ -23,6 +23,11 @@ if [ -f .env.local ] && grep -q "KV_REST_API_TOKEN" .env.local; then
 else
   printf "  KV_REST_API_URL を貼ってEnter: "; read -r KV_URL
   printf "  KV_REST_API_TOKEN を貼ってEnter: "; read -r KV_TOKEN
+  # 「KV_REST_API_URL=...」のように行ごと貼られても大丈夫なように、先頭の名前部分と前後の空白/引用符を除去。
+  KV_URL="${KV_URL#KV_REST_API_URL=}"; KV_URL="${KV_URL#KV_REST_API_TOKEN=}"
+  KV_TOKEN="${KV_TOKEN#KV_REST_API_TOKEN=}"; KV_TOKEN="${KV_TOKEN#KV_REST_API_URL=}"
+  KV_URL="$(printf '%s' "$KV_URL" | tr -d ' \t"'"'"'\r')"
+  KV_TOKEN="$(printf '%s' "$KV_TOKEN" | tr -d ' \t"'"'"'\r')"
   if [ -z "$KV_URL" ] || [ -z "$KV_TOKEN" ]; then echo "  鍵が空です。中止。"; exit 1; fi
   printf "KV_REST_API_URL=%s\nKV_REST_API_TOKEN=%s\n" "$KV_URL" "$KV_TOKEN" > .env.local
   echo "  .env.local を作成しました"
