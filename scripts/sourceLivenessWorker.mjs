@@ -123,14 +123,15 @@ async function probeOnce(url) {
     if (!res.ok) return "unknown";                                    // その他4xx/5xx＝fail-open(現状維持)
     const html = await res.text();
     if (html.length < 2000) return "unknown";                        // 空/極小＝取得異常(DCブロック等)＝fail-open
-    // 楽天には「万能な売切信号」が無い（店テンプレ差。HARUが店ごとに在庫ワード手設定するのと同じ理由）。多信号で判定：
-    // schema.org microdata（ASCIIなのでページ文字コード非依存）。在庫ありは InStock を明示する店が多い。
+    // 自動停止の根拠は schema.org microdata の availability のみ（ASCIIなのでページ文字コード非依存・高信頼）。
     const av = html.match(/itemprop=["']availability["'][^>]*content=["']([^"']+)["']/i)?.[1] || "";
-    if (/OutOfStock|SoldOut|Discontinued/i.test(av)) return "soldout";                       // ①metaが明示(高信頼)
-    if (/InStock|LimitedAvailability|PreOrder|BackOrder|PreSale/i.test(av)) return "alive";  // ②in-stock meta=在庫あり(高信頼・実測確認済)
-    // ③meta無し/不明：売切店は meta を消し本文に売切表現を出すパターンが実在(例 stylife)。本文表現で判定(中信頼・要再確認)。
-    if (/売り切れ|在庫切れ|品切れ|完売|ご注文を承れません|ご注文いただけません|販売を終了|販売終了/.test(html)) return "soldout";
-    return "unknown";                                                // ④metaも売切表現も無い(在庫あり楽天ブックス等)＝判定保留(fail-open)
+    if (/OutOfStock|SoldOut|Discontinued/i.test(av)) return "soldout"; // meta明示の売切のみ自動停止(実測:bababa等)
+    if (/InStock|LimitedAvailability|PreOrder|BackOrder|PreSale/i.test(av)) return "alive";
+    // metaが無い頁(楽天ファッションのJS描画/楽天books等)は静的HTMLから在庫判定不可→unknown(fail-open＝止めない)。
+    // ⚠️本文の「完売/売り切れ」テキストでは判定しない：商品名「完売カラー…」・説明「幾度となく完売を繰り返し」・
+    //   予約品・レビュー等で在庫あり品にも頻出し、販売中商品を誤停止する(実測FP)。万能テキスト規則は不可能で、
+    //   これがHARUが店ごとに手動「在庫ワード」を要求する理由。テキスト売切は将来 per-URL 設定が要るなら別途。
+    return "unknown";
   } catch { return "unknown"; }                                       // timeout等＝fail-open
 }
 
