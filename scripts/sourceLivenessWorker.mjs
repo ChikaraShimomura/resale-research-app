@@ -39,10 +39,10 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const GAP_MS = Number(process.env.LIVENESS_GAP_MS ?? 800);     // 楽天への礼儀（バースト遮断を避ける）
 const CONC = Number(process.env.LIVENESS_CONC ?? 2);
 const RECONFIRM_WAIT_MS = 1500;
-const BRAKE_MIN_TOTAL = 8;       // これ未満の件数ではブレーキ判定しない
+const BRAKE_MIN_TOTAL = Number(process.env.LIVENESS_BRAKE_MIN ?? 5); // これ未満ではブレーキ判定しない(少数ユーザー保護で低め・env上書き可)
 const BRAKE_FLAG_RATIO = 0.7;    // soldout+dead がこの割合超＝取得異常を疑い丸ごと破棄
 const MAX_ITEMS = Number(process.env.LIVENESS_MAX ?? 800);
-const DRY = process.env.LIVENESS_DRY === "1"; // 1=判定だけ表示しKVを書かない(eBayも止めない)。初回検証用。
+const DRY = process.env.LIVENESS_DRY !== "0"; // 安全側: 明示的に "0" の時だけ本番書込。未設定/その他はDRY(書込なし=eBay停止なし)。本番タスクは liveness-oneshot.cmd が =0 を明示。
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

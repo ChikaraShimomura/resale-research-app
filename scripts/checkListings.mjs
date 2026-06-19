@@ -181,30 +181,27 @@ async function main() {
     await sleep(RAKUTEN_GAP_MS);
   }
 
-  // 各 deal に反映。
-  //  ①本物URL(sourceUrl)のバックフィル：住宅IPワーカーが実ページを叩くのに必須。APIの itemUrl は正しいスラッグURL。
-  //  ②弱いフェイルセーフ：APIが明確に dead/soldout を返した時だけフラグ（rareだが無料の保険）。
-  //    ⚠️APIの availability=alive は信用しない（売切でも alive を返す）。alive でフラグ解除もしない＝判定の権威は住宅IPワーカー(sourceLivenessWorker)。
-  let urled = 0, flagged = 0;
+  // 各 deal に「本物URL(sourceUrl)」だけをバックフィルする。住宅IPワーカーが実ページを叩くのに必須。APIの itemUrl は正しいスラッグURL。
+  // ⚠️ここでは sourceStatus を一切書かない（売切/削除の判定はしない）。理由：
+  //   楽天APIの availability は売切でも alive を返し、availability===0 も index遅延/一時表示で誤って出うる＝信用できない。
+  //   かつ reconcile(取り下げ)は「誰がフラグを立てたか」を問わず停止するため、API由来の soldout は誤停止の温床になる。
+  //   → 売切/削除の判定権威は住宅IPワーカー(sourceLivenessWorker)の実ページ(schema.org)のみ。ここはURL供給に徹する。
+  let urled = 0;
   for (const { key, productId } of targets) {
-    const status = statusByCode.get(productId);
     const itemUrl = urlByCode.get(productId) || null;
+    if (!itemUrl) continue;
     const fresh = await kvHget(key, productId);
     if (!fresh || typeof fresh !== "object") continue;
     if (fresh.soldUsd != null || fresh.stoppedAt != null) continue; // 売却/停止されたら触らない
-    const next = { ...fresh };
-    let changed = false;
-    if (itemUrl && fresh.sourceUrl !== itemUrl) { next.sourceUrl = itemUrl; changed = true; urled++; }
-    if (status === "dead" || status === "soldout") {
-      if (next.sourceStatus !== status) { next.sourceStatus = status; next.sourceCheckedAt = new Date().toISOString(); next.sourceCheckedBy = "api"; changed = true; flagged++; }
-    }
-    if (changed) await kvHset(key, productId, next);
+    if (fresh.sourceUrl === itemUrl) continue;                      // 既に同じURL＝書かない
+    await kvHset(key, productId, { ...fresh, sourceUrl: itemUrl });
+    urled++;
   }
 
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
   console.log(
-    `完了: itemCode alive ${alive} / 売り切れ ${soldout} / リンク切れ ${dead} / 不明 ${unknown}。` +
-    `本物URL焼き ${urled}件・APIフェイルセーフでフラグ ${flagged}件 (${elapsedSec}s)。実判定は住宅IPワーカー(sourceLivenessWorker.mjs)が担当`
+    `完了: API参考(alive ${alive}/売切 ${soldout}/リンク切れ ${dead}/不明 ${unknown}) ※API値は不信頼で停止に使わない。` +
+    `本物URL焼き ${urled}件 (${elapsedSec}s)。売切/削除の判定は住宅IPワーカー(sourceLivenessWorker.mjs)が実ページで担当`
   );
 }
 
