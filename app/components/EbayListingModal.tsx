@@ -520,10 +520,15 @@ export default function EbayListingModal({
                   {/* 拡大プレビュー（横スワイプで全写真を流し見＆その場で選択） */}
                   {zoomIndex !== null && (
                     <div className="fixed inset-0 z-[110] bg-black/90 flex flex-col" onClick={() => setZoomIndex(null)}>
-                      <div className="flex items-center justify-between px-4 py-3 text-white" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-xs text-white/75">← 横にスワイプして確認・選択 →</span>
-                        <button type="button" onClick={() => setZoomIndex(null)} aria-label="閉じる" className="p-1"><X size={22} /></button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setZoomIndex(null)}
+                        aria-label="閉じて出品画面に戻る"
+                        className="absolute top-3 right-3 z-10 w-11 h-11 rounded-full bg-black/55 border border-white/50 text-white flex items-center justify-center active:bg-black/75 shadow-lg"
+                      >
+                        <X size={26} />
+                      </button>
+                      <div className="px-4 py-3 text-xs text-white/70" onClick={(e) => e.stopPropagation()}>← 横にスワイプして確認・選択 ／ 右上 ✕ で閉じる →</div>
                       <div ref={carouselRef} className="flex-1 flex overflow-x-auto snap-x snap-mandatory" onClick={(e) => e.stopPropagation()}>
                         {photoCandidates.map((u, i) => {
                           const idx = selectedImages.indexOf(u);
