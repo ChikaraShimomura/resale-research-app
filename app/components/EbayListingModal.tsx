@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -112,7 +112,14 @@ export default function EbayListingModal({
   const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
-  const [zoomIndex, setZoomIndex] = useState<number | null>(null); // 拡大プレビュー中の候補index（null=閉じ）
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null); // 拡大プレビューを開いた起点index（null=閉じ）
+  const carouselRef = useRef<HTMLDivElement>(null); // 拡大カルーセルの横スクロール制御
+  useEffect(() => {
+    if (zoomIndex === null) return;
+    const el = carouselRef.current;
+    const child = el?.children[zoomIndex] as HTMLElement | undefined;
+    if (el && child) el.scrollLeft = child.offsetLeft; // 開いた写真までスクロール
+  }, [zoomIndex]);
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -510,51 +517,40 @@ export default function EbayListingModal({
                     </p>
                   )}
 
-                  {/* 拡大プレビュー（タップで開く・その場で選択／前後めくり） */}
-                  {zoomIndex !== null && photoCandidates[zoomIndex] && (() => {
-                    const u = photoCandidates[zoomIndex];
-                    const idx = selectedImages.indexOf(u);
-                    const checked = idx >= 0;
-                    const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
-                    return (
-                      <div className="fixed inset-0 z-[110] bg-black/80 flex flex-col" onClick={() => setZoomIndex(null)}>
-                        <div className="flex items-center justify-between px-4 py-3 text-white">
-                          <span className="text-xs">
-                            {zoomIndex + 1} / {photoCandidates.length}　{checked ? `選択中（${idx + 1}枚目${idx === 0 ? "・メイン" : ""}）` : "未選択"}
-                          </span>
-                          <button type="button" onClick={() => setZoomIndex(null)} aria-label="閉じる" className="p-1"><X size={22} /></button>
-                        </div>
-                        <div className="flex-1 flex flex-col items-center justify-center px-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                          <p className="text-[11px] text-white/75 mb-1.5">▼ 実際にeBayに出品される画像（加工後プレビュー）</p>
-                          <img src={ebayPreviewSrc(u)} alt="実際にeBayに出品される画像" className="max-w-full max-h-full object-contain bg-white rounded" />
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => setZoomIndex((z) => (z! > 0 ? z! - 1 : photoCandidates.length - 1))}
-                            aria-label="前の写真"
-                            className="h-11 px-4 rounded-xl bg-white/15 text-white font-bold active:bg-white/25"
-                          >◀</button>
-                          <button
-                            type="button"
-                            onClick={() => togglePhoto(u)}
-                            disabled={disabled}
-                            className={`flex-1 h-11 rounded-xl font-black text-sm ${
-                              checked ? "bg-white text-[#0064D2]" : disabled ? "bg-white/20 text-white/50" : "bg-[#0064D2] text-white active:bg-[#0052ab]"
-                            }`}
-                          >
-                            {checked ? "✓ 出品から外す" : disabled ? `上限${MAX_LISTING_PHOTOS}枚に達しています` : "＋ この写真を出品に使う"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setZoomIndex((z) => (z! < photoCandidates.length - 1 ? z! + 1 : 0))}
-                            aria-label="次の写真"
-                            className="h-11 px-4 rounded-xl bg-white/15 text-white font-bold active:bg-white/25"
-                          >▶</button>
-                        </div>
+                  {/* 拡大プレビュー（横スワイプで全写真を流し見＆その場で選択） */}
+                  {zoomIndex !== null && (
+                    <div className="fixed inset-0 z-[110] bg-black/90 flex flex-col" onClick={() => setZoomIndex(null)}>
+                      <div className="flex items-center justify-between px-4 py-3 text-white" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-white/75">← 横にスワイプして確認・選択 →</span>
+                        <button type="button" onClick={() => setZoomIndex(null)} aria-label="閉じる" className="p-1"><X size={22} /></button>
                       </div>
-                    );
-                  })()}
+                      <div ref={carouselRef} className="flex-1 flex overflow-x-auto snap-x snap-mandatory" onClick={(e) => e.stopPropagation()}>
+                        {photoCandidates.map((u, i) => {
+                          const idx = selectedImages.indexOf(u);
+                          const checked = idx >= 0;
+                          const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
+                          return (
+                            <div key={i} className="min-w-full shrink-0 snap-center flex flex-col items-center justify-center gap-3 px-4">
+                              <p className="text-[11px] text-white/70 text-center">
+                                {i + 1} / {photoCandidates.length}・実際にeBayに出る画像{checked ? `（選択中・${idx + 1}枚目${idx === 0 ? "・メイン" : ""}）` : ""}
+                              </p>
+                              <img src={ebayPreviewSrc(u)} alt={`写真${i + 1}`} className="max-w-full max-h-[58vh] object-contain bg-white rounded" />
+                              <button
+                                type="button"
+                                onClick={() => togglePhoto(u)}
+                                disabled={disabled}
+                                className={`w-[90%] max-w-md h-12 rounded-xl font-black text-sm ${
+                                  checked ? "bg-white text-[#0064D2]" : disabled ? "bg-white/20 text-white/50" : "bg-[#0064D2] text-white active:bg-[#0052ab]"
+                                }`}
+                              >
+                                {checked ? "✓ 出品画像から外す" : disabled ? `上限${MAX_LISTING_PHOTOS}枚に達しています` : "＋ この写真を出品に使う"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
