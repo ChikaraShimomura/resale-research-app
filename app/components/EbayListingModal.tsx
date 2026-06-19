@@ -18,7 +18,14 @@ interface PrepareData {
   priceUsd: string;
   medianUsd?: string;        // 中央値USD（売り方「相場/はやく」の基準）
   lowestUsd?: string | null; // 同等品の現在の最安USD（最速出品用）
-  floorUsd?: string;         // 損益分岐USD（これ未満は赤字）
+  floorUsd?: string;         // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
+  landed?: {                 // 損益分岐に織り込んだ着地コスト（国際送料・米国関税）の内訳
+    weightG: number;
+    shippingJpy: number;
+    shippingMethod: "airpacket" | "ems";
+    dutyJpy: number;
+    needsDutyPrepay: boolean;
+  };
   condition: string;
   category: { categoryId?: string; categoryName?: string; categoryTreeId: string } | null;
   requiredAspects: RequiredAspect[];
@@ -640,6 +647,19 @@ export default function EbayListingModal({
                   <p className="text-[12px] text-[#2D323B] font-bold mt-1">≒ {formatJpy(priceJpy)}（日本円のめやす）</p>
                 )}
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
+                {/* 着地コスト（国際送料・米国関税）の内訳。損益分岐に織り込み済みなので「なぜこの下限か」を示す。 */}
+                {data.landed && (
+                  <div className="text-[10px] text-gray-400 mt-1 leading-relaxed">
+                    📦 国際送料の目安 {formatJpy(data.landed.shippingJpy)}（
+                    {data.landed.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／推定{data.landed.weightG}g）
+                    {data.landed.needsDutyPrepay && (
+                      <span className="block text-amber-600 font-bold mt-0.5">
+                        🛃 米国関税(前払い) {formatJpy(data.landed.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局からの発送が必要です
+                      </span>
+                    )}
+                    <span className="block mt-0.5">※ 上の損益分岐にこれらの目安を差し引き済み（赤字回避）。</span>
+                  </div>
+                )}
                 {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (
                   <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
                     ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。

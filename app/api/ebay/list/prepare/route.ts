@@ -12,6 +12,7 @@ import {
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
+import { landedCost } from "../../../../lib/ebay/landedCost";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -271,7 +272,10 @@ export async function POST(req: Request) {
   // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 仕入れ実質原価(楽天価格+国内送料-ポイント)。
   const effBuyJpy =
     product.source.price + (product.source.shippingJpy ?? 0) - (product.source.pointAmount ?? 0);
-  const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY) / (1 - EBAY_FEE_RATE));
+  // 国際送料(目安)＋米国関税(DDP前払い)を損益分岐に織り込む＝「買い手が送料を払うから±0」の旧前提を撤廃。
+  // subtractJpy = 国際送料の買い手負担超過分 + $100超の関税(立替)。重い品/高額品ほど floor が上がり赤字を防ぐ。
+  const landed = landedCost(product.category, Number(priceUsd));
+  const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY + landed.subtractJpy) / (1 - EBAY_FEE_RATE));
   const floorUsd = (Math.round((floorJpy / USD_JPY) * 100) / 100).toFixed(2);
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
@@ -317,7 +321,14 @@ export async function POST(req: Request) {
       priceUsd,  // 既定の表示価格＝eBay最安ベース
       medianUsd, // 中央値USD（売り方「相場/はやく」の基準）
       lowestUsd, // 同等品の現在の最安USD（null=取得できず）
-      floorUsd,  // 損益分岐USD（これ未満は赤字）
+      floorUsd,  // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
+      landed: {  // 損益分岐に織り込んだ着地コストの内訳（モーダルで内訳と$100超の前払い注意を出す）
+        weightG: landed.weightG,
+        shippingJpy: landed.shippingJpy,
+        shippingMethod: landed.shippingMethod,
+        dutyJpy: landed.dutyJpy,
+        needsDutyPrepay: landed.needsDutyPrepay,
+      },
       condition,
       category: cat
         ? { categoryId: cat.categoryId, categoryName: cat.categoryName, categoryTreeId: cat.categoryTreeId }

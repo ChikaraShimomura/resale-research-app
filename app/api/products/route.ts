@@ -1,6 +1,19 @@
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { isSold } from "../../lib/sold";
+import { landedCost } from "../../lib/ebay/landedCost";
+
+// カタログに保存されている realProfit は「国際送料前」の粗利。配信時にここで国際送料(目安)＋米国関税を
+// 差し引いて“本当に手元に残る利益”に直す（単一ソース＝二重計上しない／再ビルド不要で制度変更に即追従）。
+const USD_JPY = 155;
+function withLandedCost(p: ProfitProduct): ProfitProduct {
+  const valueUsd = (p.realAvgPrice || 0) / USD_JPY;
+  const landed = landedCost(p.category, valueUsd);
+  const effBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0) - (p.source?.pointAmount ?? 0);
+  const netProfit = Math.round((p.realProfit ?? 0) - landed.subtractJpy);
+  const netRate = effBuy > 0 ? Math.round((netProfit / effBuy) * 100) : (p.realProfitRate ?? 0);
+  return { ...p, realProfit: netProfit, realProfitRate: netRate };
+}
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
@@ -73,8 +86,12 @@ export async function GET() {
       // セーフティ：ゲートで全消え(ギャラリーワーカー停止・全TTL失効など)した時はブラックアウトを避け全件出す。
       if (ready.length === 0 && merged.length > 0) ready = merged;
 
+      // 国際送料・米国関税を差し引いて利益を正直化。net≤0(構造赤字)は隠す（restoredは管理者裁量で残す）。
+      let priced = ready.map(withLandedCost).filter((p) => p.restored || (p.realProfit ?? 0) > 0);
+      if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost); // 全消しは避ける(fail-open)
+
       return Response.json(
-        { products: ready, lastUpdated, stats },
+        { products: priced, lastUpdated, stats },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）
         { headers: { "Cache-Control": "private, no-store" } }
       );

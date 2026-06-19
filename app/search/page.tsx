@@ -208,8 +208,8 @@ export default function SearchPage() {
 
         {!loading && products.length > 0 && (
           <p className="px-4 py-5 text-[11px] text-gray-400 leading-relaxed text-center">
-            ※ eBay最安値・楽天ポイント・eBay手数料(13.25%)をもとに計算しています（国際送料は購入者負担のため利益に含めません）。<br />
-            実際の利益は状態・競合・送料などによって異なります。
+            ※ eBay最安値・楽天ポイント・eBay手数料(13.25%)・国内送料に加え、国際送料と米国関税の目安も差し引いて計算しています。<br />
+            実際の利益は状態・競合・為替・実際の重量などによって異なります。
           </p>
         )}
       </main>
