@@ -11,6 +11,7 @@ const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
 // SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。
 const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 const TTL_SECONDS = 730 * 24 * 60 * 60; // 取引履歴は2年保持（出品/出荷の都度 expire を再延長）
+const STOPPED_TTL_MS = 24 * 60 * 60 * 1000; // 出品停止中に入ってから24時間で自動削除（一覧・記録から消す）
 
 // 「実際に出品できた商品」だけを通す判定を返す。
 // 旧仕様では下書き/本人確認待ちでも deal を記録していたため、SKU対応表に載っているものだけを
@@ -119,6 +120,50 @@ export interface SoldDeal {
   purchase: number; // 楽天仕入れ(送料込・JPY)
 }
 
+// 出品停止中(未売却・stoppedAtあり)で、停止から24時間を過ぎた取引のID（自動削除の対象）。
+// stoppedAt が不正・空のものは NaN 比較で false → 絶対に消さない（安全側）。
+function expiredStopIds(deals: Record<string, Deal>, now: number): string[] {
+  return Object.entries(deals)
+    .filter(([, d]) => d && d.soldUsd == null && d.stoppedAt != null && now - Date.parse(d.stoppedAt) >= STOPPED_TTL_MS)
+    .map(([id]) => id);
+}
+
+// 取引を完全削除する（deals本体＋SKU対応表の該当エントリ）。SKU対応表を残すと publishedFilter が
+// 「出品中」と誤認し、その商品が検索一覧から消えたままになるため、値=productId のSKUキーも必ず消す
+// （自己修復で rr-{id}-{乱数} になっていても値で拾えるので取りこぼさない）。
+async function deleteDealsWithSku(actor: string, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const idSet = new Set(ids);
+  try {
+    await kv.hdel(DEALS_KEY(actor), ...ids);
+  } catch {
+    /* noop */
+  }
+  try {
+    const skuMap = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
+    const skuKeys = Object.entries(skuMap)
+      .filter(([, pid]) => idSet.has(pid))
+      .map(([sku]) => sku);
+    if (skuKeys.length) await kv.hdel(SKU_MAP_KEY(actor), ...skuKeys);
+  } catch {
+    /* noop */
+  }
+}
+
+// cron用：出品停止中に入って24時間を過ぎた取引をまとめて自動削除する。削除したIDを返す。
+// 離席中でも auto-stop-cron(15分毎) から呼ばれ、ユーザーがマイページを開かなくても掃除される。
+export async function pruneExpiredStops(actor: string): Promise<string[]> {
+  let deals: Record<string, Deal> = {};
+  try {
+    deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
+  } catch {
+    return [];
+  }
+  const ids = expiredStopIds(deals, Date.now());
+  await deleteDealsWithSku(actor, ids);
+  return ids;
+}
+
 // マイページ用：出品中(未売却・公開済み)と輸出した(売却済み)の取引一覧をまとめて返す。
 // deals ハッシュ1回・SKU対応表1回・画像補完カタログ1回で両方を組み立てる。
 export async function listDealsForUser(
@@ -129,6 +174,12 @@ export async function listDealsForUser(
     deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
   } catch {
     return { live: [], stopped: [], sold: [] };
+  }
+  // 出品停止中に入って24時間を過ぎた取引は自動削除（読み込み時にも掃除＝cronが回らない間も即座に消える）。
+  const expiredStops = expiredStopIds(deals, Date.now());
+  if (expiredStops.length) {
+    await deleteDealsWithSku(actor, expiredStops);
+    for (const id of expiredStops) delete deals[id];
   }
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);

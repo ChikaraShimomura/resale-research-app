@@ -1,5 +1,6 @@
 import { kv } from "@vercel/kv";
 import { reconcileActorStops } from "../../../../lib/ebay/sourceReconcile";
+import { pruneExpiredStops } from "../../../../lib/ebay/stats";
 
 // cron用：全アクターを走査し、仕入れ元が売切/リンク切れの出品をeBayから自動停止する。
 // 検知(checkListings.mjs)が deal.sourceStatus を立てた直後に、check-listings ワークフローから呼ばれる。
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
   } while (cursor !== "0" && ++guard < 1000);
 
   let totalStopped = 0;
+  let totalPruned = 0;
   for (const actor of actors) {
     try {
       const s = await reconcileActorStops(actor);
@@ -36,6 +38,13 @@ export async function POST(req: Request) {
     } catch {
       /* 1アクターの失敗で全体を止めない */
     }
+    try {
+      // 出品停止中に入って24時間を過ぎた取引を自動削除（離席中でも掃除）。
+      const pruned = await pruneExpiredStops(actor);
+      totalPruned += pruned.length;
+    } catch {
+      /* 削除失敗は次回リトライ */
+    }
   }
-  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped });
+  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned });
 }

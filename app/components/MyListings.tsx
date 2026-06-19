@@ -16,6 +16,13 @@ const shortDate = (iso: string) => {
   const m = d.slice(5, 7), day = d.slice(8, 10);
   return m && day ? `${Number(m)}/${Number(day)}` : "";
 };
+// 出品停止中の自動削除（停止から24時間）までの残り時間（時間単位・切り上げ）。不正な日時は null。
+const hoursToAutoDelete = (stoppedAt?: string) => {
+  if (!stoppedAt) return null;
+  const ms = 24 * 60 * 60 * 1000 - (Date.now() - Date.parse(stoppedAt));
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(0, Math.ceil(ms / (60 * 60 * 1000)));
+};
 
 function Thumb({ url }: { url: string }) {
   if (url) return <img src={url} alt="" loading="lazy" className="w-9 h-9 rounded-md object-cover bg-gray-50 border border-[#A98B5C]/25 shrink-0" />;
@@ -239,7 +246,8 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              「出品停止」したeBay出品です。<b className="text-gray-600">再出品</b>でまたeBayに公開できます（仕入れ額などの記録は残っています）。
+              「出品停止」したeBay出品です。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。
+              <br />⏳ <b className="text-gray-600">停止から24時間で、この一覧から自動的に削除</b>されます（記録も外れます）。残したい場合は早めに再出品してください。
             </p>
             <ul className="divide-y divide-gray-100">
               {stopped.map((d) => (
@@ -252,6 +260,9 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
                         <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                           {shortDate(d.stoppedAt || "") && `${shortDate(d.stoppedAt || "")} 停止・`}仕入れ {yen(d.purchase)}
                         </p>
+                        {hoursToAutoDelete(d.stoppedAt) !== null && (
+                          <p className="text-[10px] text-gray-400 leading-tight mt-0.5">⏳ あと約{hoursToAutoDelete(d.stoppedAt)}時間で自動削除</p>
+                        )}
                         {d.sourceStatus && (
                           <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
                             ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
