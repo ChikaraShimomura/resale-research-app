@@ -738,9 +738,9 @@ export default function EbayListingModal({
                 </label>
                 {bestOffer && Number(priceUsd) > 0 && (
                   <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
-                    ${(Number(priceUsd) * 0.9).toFixed(2)} 以上のオファーは<b>自動承諾</b>（10%引きまで即売）
+                    ${(Number(priceUsd) * 0.9).toFixed(2)}（{formatJpy(Math.round(Number(priceUsd) * 0.9 * USD_JPY))}）以上のオファーは<b>自動承諾</b>（10%引きまで即売）
                     {floorUsd > 0 && floorUsd < Number(priceUsd) * 0.9 && (
-                      <>／ 損益分岐 ${floorUsd.toFixed(2)} 未満は<b>自動拒否</b></>
+                      <>／ 損益分岐 ${floorUsd.toFixed(2)}（{formatJpy(Math.round(floorUsd * USD_JPY))}）未満は<b>自動拒否</b></>
                     )}
                   </p>
                 )}
