@@ -71,6 +71,7 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
 const FAST_UNDERCUT = 0.05; // 「はやく」＝「最安」からさらに5%オフ（最速で売る）
+const USD_JPY = 155; // USD→JPY 表示用の固定レート（refresh.mjs / app/lib/ebay/listing.ts と一致）
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
@@ -332,9 +333,8 @@ export default function EbayListingModal({
     if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
     if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安（損益分岐は割らない）
   };
-  // 入力USD価格の日本円めやす（eBay相場の JPY÷USD から換算レートを導出）。
-  const usdJpy = medianUsd > 0 && Number(data?.product?.ebayAvgJpy) > 0 ? Number(data!.product.ebayAvgJpy) / medianUsd : 0;
-  const priceJpy = usdJpy > 0 && Number(priceUsd) > 0 ? Math.round(Number(priceUsd) * usdJpy) : 0;
+  // 入力USD価格の日本円めやす（為替は固定155円＝アプリの換算と一致）。
+  const priceJpy = Number(priceUsd) > 0 ? Math.round(Number(priceUsd) * USD_JPY) : 0;
 
   const overlay = (
     <div
