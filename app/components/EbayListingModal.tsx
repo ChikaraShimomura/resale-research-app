@@ -109,6 +109,7 @@ export default function EbayListingModal({
   const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null); // 拡大プレビュー中の候補index（null=閉じ）
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
@@ -445,37 +446,96 @@ export default function EbayListingModal({
                       const checked = idx >= 0;
                       const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
                       return (
-                        <button
-                          type="button"
+                        <div
                           key={i}
-                          onClick={() => togglePhoto(u)}
-                          disabled={disabled}
-                          aria-pressed={checked}
                           className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
                             checked ? "border-[#0064D2]" : "border-[#A98B5C]/35"
-                          } ${disabled ? "opacity-40" : ""}`}
+                          } ${disabled && !checked ? "opacity-50" : ""}`}
                         >
-                          <img src={u} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-cover bg-gray-50" />
-                          {checked && (
-                            <span className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-[#0064D2] text-white text-[11px] font-bold flex items-center justify-center">
-                              {idx + 1}
-                            </span>
-                          )}
+                          {/* 画像タップ＝拡大して確認 */}
+                          <button
+                            type="button"
+                            onClick={() => setZoomIndex(i)}
+                            aria-label={`写真${i + 1}を拡大して確認`}
+                            className="absolute inset-0 w-full h-full"
+                          >
+                            <img src={u} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-cover bg-gray-50" />
+                          </button>
+                          {/* 右上＝選択トグル（拡大しなくても直接選べる） */}
+                          <button
+                            type="button"
+                            onClick={() => togglePhoto(u)}
+                            disabled={disabled}
+                            aria-pressed={checked}
+                            aria-label={checked ? "選択を外す" : "出品に使う"}
+                            className={`absolute top-0.5 right-0.5 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center border ${
+                              checked ? "bg-[#0064D2] text-white border-[#0064D2]" : "bg-white/85 text-gray-500 border-gray-300"
+                            }`}
+                          >
+                            {checked ? idx + 1 : "＋"}
+                          </button>
+                          {/* 左下＝拡大ヒント */}
+                          <span className="absolute bottom-0.5 left-0.5 bg-black/45 text-white text-[10px] leading-none rounded px-1 py-0.5 pointer-events-none">🔍</span>
                           {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[9px] font-bold text-center py-0.5">メイン</span>
+                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[9px] font-bold text-center py-0.5 pointer-events-none">メイン</span>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    最初の1枚がメイン写真です（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら<b>自分で撮った写真に差し替え</b>を（編集→実物写真を追加）。最終的には実物写真が安全です。
+                    写真を<b>タップで拡大して確認</b> → <b>＋で選択</b>。最初の1枚がメイン写真です（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら<b>自分で撮った写真に差し替え</b>を（編集→実物写真を追加）。
                   </p>
                   {!photoOk && (
                     <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
                       出品に使う写真を1枚以上選んでください。
                     </p>
                   )}
+
+                  {/* 拡大プレビュー（タップで開く・その場で選択／前後めくり） */}
+                  {zoomIndex !== null && photoCandidates[zoomIndex] && (() => {
+                    const u = photoCandidates[zoomIndex];
+                    const idx = selectedImages.indexOf(u);
+                    const checked = idx >= 0;
+                    const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
+                    return (
+                      <div className="fixed inset-0 z-[110] bg-black/80 flex flex-col" onClick={() => setZoomIndex(null)}>
+                        <div className="flex items-center justify-between px-4 py-3 text-white">
+                          <span className="text-xs">
+                            {zoomIndex + 1} / {photoCandidates.length}　{checked ? `選択中（${idx + 1}枚目${idx === 0 ? "・メイン" : ""}）` : "未選択"}
+                          </span>
+                          <button type="button" onClick={() => setZoomIndex(null)} aria-label="閉じる" className="p-1"><X size={22} /></button>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center px-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                          <img src={u} alt="拡大プレビュー" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setZoomIndex((z) => (z! > 0 ? z! - 1 : photoCandidates.length - 1))}
+                            aria-label="前の写真"
+                            className="h-11 px-4 rounded-xl bg-white/15 text-white font-bold active:bg-white/25"
+                          >◀</button>
+                          <button
+                            type="button"
+                            onClick={() => togglePhoto(u)}
+                            disabled={disabled}
+                            className={`flex-1 h-11 rounded-xl font-black text-sm ${
+                              checked ? "bg-white text-[#0064D2]" : disabled ? "bg-white/20 text-white/50" : "bg-[#0064D2] text-white active:bg-[#0052ab]"
+                            }`}
+                          >
+                            {checked ? "✓ 出品から外す" : disabled ? `上限${MAX_LISTING_PHOTOS}枚に達しています` : "＋ この写真を出品に使う"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setZoomIndex((z) => (z! < photoCandidates.length - 1 ? z! + 1 : 0))}
+                            aria-label="次の写真"
+                            className="h-11 px-4 rounded-xl bg-white/15 text-white font-bold active:bg-white/25"
+                          >▶</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
