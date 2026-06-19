@@ -70,6 +70,7 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
+const FAST_UNDERCUT = 0.05; // 「はやく」＝「最安」からさらに5%オフ（最速で売る）
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
@@ -323,12 +324,17 @@ export default function EbayListingModal({
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
+  // 「はやく」＝「最安」からさらに5%オフ（最速で売る）。ただし損益分岐(floor)は割らない。
+  const fastTarget = lowestTarget > 0 ? Math.max(lowestTarget * (1 - FAST_UNDERCUT), floorUsd) : 0;
   const chooseStrategy = (s: "fast" | "market" | "lowest") => {
     setStrategy(s);
     if (s === "market") { if (medianUsd > 0) setPriceUsd(medianUsd.toFixed(2)); return; }
-    if (s === "fast") { if (medianUsd > 0) setPriceUsd((medianUsd * (1 - FAST_DISCOUNT)).toFixed(2)); return; }
+    if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
     if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安（損益分岐は割らない）
   };
+  // 入力USD価格の日本円めやす（eBay相場の JPY÷USD から換算レートを導出）。
+  const usdJpy = medianUsd > 0 && Number(data?.product?.ebayAvgJpy) > 0 ? Number(data!.product.ebayAvgJpy) / medianUsd : 0;
+  const priceJpy = usdJpy > 0 && Number(priceUsd) > 0 ? Math.round(Number(priceUsd) * usdJpy) : 0;
 
   const overlay = (
     <div
@@ -562,7 +568,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">⚡ はやく</span>
-                    <span className="text-[10px]">相場−8%</span>
+                    <span className="text-[10px]">最安−5%</span>
                   </button>
                   <button
                     type="button"
@@ -589,7 +595,7 @@ export default function EbayListingModal({
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1">
                   {strategy === "fast"
-                    ? "相場より少し安くして、早く売れやすくします（おすすめ）"
+                    ? "eBay最安よりさらに5%安くして、最速で売れやすくします（おすすめ・損益分岐は割りません）"
                     : strategy === "market"
                     ? "相場どおりの価格。売れるまで少し待ちます"
                     : !lowestAvailable
@@ -613,7 +619,10 @@ export default function EbayListingModal({
                     className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}（≒ 上記USD）</p>
+                {priceJpy > 0 && (
+                  <p className="text-[12px] text-[#2D323B] font-bold mt-1">≒ {formatJpy(priceJpy)}（日本円のめやす）</p>
+                )}
+                <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
                 {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (
                   <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
                     ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
