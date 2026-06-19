@@ -72,6 +72,7 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 const FAST_DISCOUNT = 0.08;
 const FAST_UNDERCUT = 0.05; // 「はやく」＝「最安」からさらに5%オフ（最速で売る）
 const USD_JPY = 155; // USD→JPY 表示用の固定レート（refresh.mjs / app/lib/ebay/listing.ts と一致）
+const HIGH_MARKUP = 0.10; // 「高値出品」＝eBay相場(中央値)から10%高く
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
@@ -103,7 +104,7 @@ export default function EbayListingModal({
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
-  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest">("lowest"); // 売り方（既定: 最安＝最速・カード表示と一致）
+  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
@@ -327,11 +328,13 @@ export default function EbayListingModal({
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
   // 「はやく」＝「最安」からさらに5%オフ（最速で売る）。ただし損益分岐(floor)は割らない。
   const fastTarget = lowestTarget > 0 ? Math.max(lowestTarget * (1 - FAST_UNDERCUT), floorUsd) : 0;
-  const chooseStrategy = (s: "fast" | "market" | "lowest") => {
+  const highTarget = medianUsd > 0 ? medianUsd * (1 + HIGH_MARKUP) : 0; // 高値出品＝eBay相場+10%
+  const chooseStrategy = (s: "fast" | "market" | "lowest" | "high") => {
     setStrategy(s);
     if (s === "market") { if (medianUsd > 0) setPriceUsd(medianUsd.toFixed(2)); return; }
+    if (s === "high") { if (highTarget > 0) setPriceUsd(highTarget.toFixed(2)); return; }
     if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
-    if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安（損益分岐は割らない）
+    if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安出品（損益分岐は割らない）
   };
   // 入力USD価格の日本円めやす（為替は固定155円＝アプリの換算と一致）。
   const priceJpy = Number(priceUsd) > 0 ? Math.round(Number(priceUsd) * USD_JPY) : 0;
@@ -555,10 +558,10 @@ export default function EbayListingModal({
                 </div>
               )}
 
-              {/* 売り方（はやく / 最安 / 高く）。既定は「はやく売る」 */}
+              {/* 売り方（激安出品=最安-5% / 最安出品=最安値 / 相場出品=eBay相場 / 高値出品=相場+10%）。既定は最安出品 */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">売り方</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => chooseStrategy("fast")}
@@ -567,7 +570,7 @@ export default function EbayListingModal({
                       strategy === "fast" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">⚡ はやく</span>
+                    <span className="text-[12px] font-bold">⚡ 激安出品</span>
                     <span className="text-[10px]">最安−5%</span>
                   </button>
                   <button
@@ -578,8 +581,8 @@ export default function EbayListingModal({
                       strategy === "lowest" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">🚀 最安</span>
-                    <span className="text-[10px]">eBay最安に</span>
+                    <span className="text-[12px] font-bold">🔽 最安出品</span>
+                    <span className="text-[10px]">最安値と同額</span>
                   </button>
                   <button
                     type="button"
@@ -589,20 +592,33 @@ export default function EbayListingModal({
                       strategy === "market" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">💰 高く</span>
-                    <span className="text-[10px]">相場どおり</span>
+                    <span className="text-[12px] font-bold">📊 相場出品</span>
+                    <span className="text-[10px]">eBay相場</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => chooseStrategy("high")}
+                    aria-pressed={strategy === "high"}
+                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                      strategy === "high" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
+                    }`}
+                  >
+                    <span className="text-[12px] font-bold">💎 高値出品</span>
+                    <span className="text-[10px]">相場+10%</span>
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1">
                   {strategy === "fast"
-                    ? "eBay最安よりさらに5%安くして、最速で売れやすくします（おすすめ・損益分岐は割りません）"
+                    ? "eBay最安よりさらに5%安く。最速で売れやすい（おすすめ・損益分岐は割りません）"
+                    : strategy === "high"
+                    ? "eBay相場より10%高く。利益重視（売れるまで時間はかかります）"
                     : strategy === "market"
-                    ? "相場どおりの価格。売れるまで少し待ちます"
+                    ? "eBay相場（中央値）どおりの価格。売れるまで少し待ちます"
                     : !lowestAvailable
                     ? "eBayの最安が取れなかったため、相場より少し安くしています"
                     : lowestClamped
-                    ? `eBayの最安は赤字になるため、損益分岐 $${data.floorUsd} で出します（最速・赤字回避）`
-                    : "eBayの最安値に合わせて、最速で売れやすくします（赤字にはしません）"}
+                    ? `eBayの最安は赤字になるため、損益分岐 $${data.floorUsd} で出します（赤字回避）`
+                    : "eBay最安値と同額。最速で売れやすくします（赤字にはしません）"}
                 </p>
               </div>
 
