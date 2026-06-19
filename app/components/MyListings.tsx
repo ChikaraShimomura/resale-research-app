@@ -187,50 +187,38 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-wrap pl-11">
-                        {/* 仕入れ：先頭。楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫補充）。
+                      {/* 出品中の操作は2×2に最適化：追加仕入れ／出品停止・売れた／商品の編集。
+                          再出品は出品中では不要(=既に出品中)・「やめた」は出品停止＋24h自動削除に集約して整理。 */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {/* 追加仕入れ：楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
                             sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
                         <a
                           href={d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[#BF0000] text-white text-[10px] font-bold active:bg-[#9E0000]"
+                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-[#BF0000] text-white text-[11px] font-bold active:bg-[#9E0000]"
                         >
-                          <ShoppingCart size={12} /> 仕入れ
+                          <ShoppingCart size={13} /> 追加仕入れ
                         </a>
                         <button
-                          onClick={() => setEditDeal(d)}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold active:bg-blue-100"
+                          disabled={busy === d.id}
+                          onClick={() => stopListing(d.id)}
+                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-[#2D323B]/30 text-[#2D323B] text-[11px] font-bold disabled:opacity-40 active:bg-red-50"
                         >
-                          <Pencil size={12} /> 編集
-                        </button>
-                        <button
-                          disabled={relistBusy === d.id}
-                          onClick={() => relist(d.id)}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-blue-200 text-blue-700 text-[10px] font-bold disabled:opacity-40 active:bg-blue-50"
-                        >
-                          {relistBusy === d.id ? <><Spinner size={12} /> 準備中…</> : <><RotateCw size={12} /> 再出品</>}
+                          {busy === d.id ? <Spinner size={12} /> : <Ban size={13} />} 出品停止
                         </button>
                         <button
                           disabled={busy === d.id}
                           onClick={() => { setSoldFor(d.id); setSoldJpy(""); }}
-                          className="h-7 px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold disabled:opacity-40"
+                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold disabled:opacity-40 active:bg-emerald-100"
                         >
-                          売れた
+                          ✓ 売れた
                         </button>
                         <button
-                          disabled={busy === d.id}
-                          onClick={() => { if (window.confirm("この商品を「出品中」から外しますか？（成績の出品数から除きます）")) act(d.id, "remove"); }}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold disabled:opacity-40"
+                          onClick={() => setEditDeal(d)}
+                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[11px] font-bold active:bg-blue-100"
                         >
-                          {busy === d.id && <Spinner size={11} />} やめた
-                        </button>
-                        <button
-                          disabled={busy === d.id}
-                          onClick={() => stopListing(d.id)}
-                          className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#2D323B]/30 text-[#2D323B] text-[10px] font-bold disabled:opacity-40 active:bg-red-50"
-                        >
-                          {busy === d.id ? <Spinner size={11} /> : <Ban size={12} />} 出品停止
+                          <Pencil size={13} /> 商品の編集
                         </button>
                       </div>
                     </div>
