@@ -39,18 +39,32 @@ async function getRestoredProducts(): Promise<ProfitProduct[]> {
 
 export async function GET() {
   try {
-    const [profitable, lastUpdated, stats, restored, wmHash] = await Promise.all([
+    const [profitable, lastUpdated, stats, restored, wmHash, srcStatus] = await Promise.all([
       kvReadOnly.get<ProfitProduct[]>("profitable_products"),
       kvReadOnly.get<string>("last_updated"),
       kvReadOnly.get<Record<string, unknown>>("refresh_stats"),
       getRestoredProducts(),
       // 透かし入り商品の記録（checkWatermarks.mjs が Haiku 検知で作る {id:"1"=透かし/"0"=クリーン}）。
       kvReadOnly.hgetall<Record<string, unknown>>("product_watermark").catch(() => ({})),
+      // 仕入れ元(楽天)の売切/削除フラグ（住宅IPワーカー sourceLivenessWorker が実ページ確認して記録）。
+      kvReadOnly.hgetall<Record<string, unknown>>("catalog_source_status").catch(() => ({})),
     ]);
 
     // 透かし入り（値が "1"/1）の商品IDは一覧から除外する（商品データは消さない＝可逆。記録ベース）。
     const watermarkedIds = new Set(
       Object.entries(wmHash ?? {}).filter(([, v]) => v === "1" || v === 1).map(([id]) => id)
+    );
+
+    // 楽天で売切/削除の商品IDは一覧から隠す（実ページ確認＝権威。在庫復活でワーカーが解除→自動で戻る）。
+    const deadSourceIds = new Set(
+      Object.entries(srcStatus ?? {})
+        .filter(([, v]) => {
+          let s: unknown = v;
+          if (typeof s === "string") { try { s = JSON.parse(s); } catch { return false; } }
+          const st = (s as { status?: string })?.status;
+          return st === "soldout" || st === "dead";
+        })
+        .map(([id]) => id)
     );
 
     // 復活商品をカタログへ合流（カタログに既にあるidは重複させない）。復活分は先頭側（新着扱い）。
@@ -94,7 +108,11 @@ export async function GET() {
       let priced = ready
         .map(withLandedCost)
         .filter(
-          (p) => p.restored || ((p.realProfit ?? 0) > 0 && (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD)
+          (p) =>
+            p.restored ||
+            ((p.realProfit ?? 0) > 0 &&
+              (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
+              !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
         );
       if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost); // 全消しは避ける(fail-open)
 

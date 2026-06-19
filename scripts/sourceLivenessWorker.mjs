@@ -95,6 +95,15 @@ async function kvHset(key, field, value) {
     return true;
   } catch (e) { console.error("kvHset error:", e.message); return false; }
 }
+async function kvHdel(key, field) {
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: "POST", headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify([["HDEL", key, field]]),
+    });
+    return true;
+  } catch (e) { console.error("kvHdel error:", e.message); return false; }
+}
 
 // ========== 本物URL抽出（①の refresh.mjs realRakutenUrl を踏襲）==========
 function realRakutenUrl(srcUrl) {
@@ -151,49 +160,57 @@ async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定。中止。(.env.local を確認)"); process.exit(1); }
   const startedAt = Date.now();
 
-  // 出品中(未売却・未停止)の deal を収集。itemCode 単位に、その itemCode を持つ全 deal の置き場所(key)と本物URLを束ねる。
+  // 対象を itemCode(productId) 単位に集約。出品中(ebay_deals)＋利益商品カタログ(profitable_products)の両方を見る。
+  //  ・出品中 … 売切/削除なら eBay 出品を自動停止(sourceStatus を deal に立てる)
+  //  ・カタログ … 出品してなくても売切/削除なら一覧から隠す(catalog_source_status に立てる)←今回の追加
+  const byCode = new Map(); // code -> { url, dealLocations:[{key,field}], inCatalog:bool }
+  const ensure = (code) => {
+    let e = byCode.get(code);
+    if (!e) { e = { url: null, dealLocations: [], inCatalog: false }; byCode.set(code, e); }
+    return e;
+  };
+
+  // 出品中(未売却・未停止)の deal を収集（その itemCode を持つ全 deal の置き場所と本物URL）
   const dealKeys = await kvScan("ebay_deals:*");
-  const byCode = new Map(); // itemCode -> { locations:[{key,field}], url }
   for (const key of dealKeys) {
     const deals = await kvHgetallParsed(key);
     for (const [productId, d] of Object.entries(deals)) {
       if (!d || typeof d !== "object") continue;
       if (d.soldUsd != null || d.stoppedAt != null) continue; // 売却済/停止済は対象外
-      let e = byCode.get(productId);
-      if (!e) { e = { locations: [], url: null }; byCode.set(productId, e); }
-      e.locations.push({ key, field: productId });
+      const e = ensure(productId);
+      e.dealLocations.push({ key, field: productId });
       // 本物URL：deal.sourceUrl(checkListingsがAPIで焼いた値)を最優先。無ければ後でカタログから補完。
       if (!e.url && d.sourceUrl) e.url = realRakutenUrl(d.sourceUrl) || d.sourceUrl;
     }
   }
-  if (byCode.size === 0) { console.log("出品中(未売却・未停止)の deal なし。終了。"); return; }
 
-  // カタログ(profitable_products)から code->url の補完表（deal に sourceUrl がまだ無い分のフォールバック）
+  // 利益商品カタログ … 全件を対象に（売切なら一覧から隠す）。URLは source.url から本物URLを作る。
   const catalog = await kvGet("profitable_products");
   if (Array.isArray(catalog)) {
     for (const it of catalog) {
       const code = it?.id;
-      if (!code || !byCode.has(code)) continue;
-      const e = byCode.get(code);
+      if (!code) continue;
+      const e = ensure(code);
+      e.inCatalog = true;
       if (!e.url) e.url = realRakutenUrl(it?.source?.url);
     }
   }
 
+  if (byCode.size === 0) { console.log("対象なし(出品中 deal も利益商品カタログも空)。終了。"); return; }
+
   const codes = [...byCode.keys()].slice(0, MAX_ITEMS);
-  const noUrl = codes.filter((c) => !byCode.get(c).url);
-  console.log(`住宅IP実ページ照合: 出品中itemCode ${byCode.size}件 / URL取得済 ${codes.length - noUrl.length}件 / URL未取得 ${noUrl.length}件`);
-  if (noUrl.length) console.log(`  ※URL未取得${noUrl.length}件は checkListings(クラウド)が楽天APIで sourceUrl を焼くまで待ち: ${noUrl.slice(0, 5).join(", ")}${noUrl.length > 5 ? " …" : ""}`);
+  const work = codes.filter((c) => byCode.get(c).url);
+  const noUrl = codes.length - work.length;
+  console.log(`住宅IP実ページ照合: 対象 ${byCode.size}件(出品中＋利益商品) / URL取得済 ${work.length}件 / URL未取得 ${noUrl}件`);
 
   // 並列ワーカーで判定
   const verdicts = new Map(); // code -> verdict
   let idx = 0, blocked = false;
-  const work = codes.filter((c) => byCode.get(c).url);
   async function runner() {
     while (idx < work.length) {
       const code = work[idx++];
       if (blocked) { verdicts.set(code, "unknown"); continue; }
-      const url = byCode.get(code).url;
-      const v = await probeConfirmed(url);
+      const v = await probeConfirmed(byCode.get(code).url);
       if (v === "blocked") { blocked = true; verdicts.set(code, "unknown"); continue; }
       verdicts.set(code, v);
       await sleep(GAP_MS);
@@ -201,7 +218,7 @@ async function main() {
   }
   await Promise.all(Array.from({ length: CONC }, runner));
 
-  if (blocked) { console.log("⚠️ 楽天が429/503を返したため打ち切り（fail-open＝何も止めない）。"); return; }
+  if (blocked) { console.log("⚠️ 楽天が429/503を返したため打ち切り（fail-open＝何も止めない/隠さない）。"); return; }
 
   // 判定タリー（metaが実際に読めてるか＝生存と不明の切り分け確認）
   const tally = { soldout: 0, dead: 0, alive: 0, unknown: 0 };
@@ -212,7 +229,7 @@ async function main() {
   const decided = [...verdicts.values()];
   const flagCount = decided.filter((v) => v === "soldout" || v === "dead").length;
   if (decided.length >= BRAKE_MIN_TOTAL && flagCount / decided.length > BRAKE_FLAG_RATIO) {
-    console.log(`⚠️ フラグ過多(${flagCount}/${decided.length})＝取得異常を疑い結果を破棄(fail-open)。何も止めない。`);
+    console.log(`⚠️ フラグ過多(${flagCount}/${decided.length})＝取得異常を疑い結果を破棄(fail-open)。何も止めない/隠さない。`);
     return;
   }
 
@@ -222,14 +239,16 @@ async function main() {
     if (v === "soldout" || v === "dead") console.log(`  ${v === "soldout" ? "🟥売切" : "⬛削除"}: ${code}  ${byCode.get(code).url}`);
   }
 
-  // KVへ反映。soldout/dead は sourceStatus を立てる。alive は(実ページ権威なので)既存フラグを解除。unknownは現状維持。
-  // DRY=1 のときは書かずに件数だけ出す（eBayも止まらない）。
-  let setSold = 0, setDead = 0, cleared = 0;
+  // KVへ反映。soldout/dead はフラグを立てる。alive は(実ページ権威なので)既存フラグを解除。unknownは現状維持。
+  // DRY=1 のときは書かずに件数だけ出す。
+  let setSold = 0, setDead = 0, cleared = 0, catSet = 0, catCleared = 0;
   for (const code of work) {
     const v = verdicts.get(code);
     if (v === "unknown") continue;
-    const { locations } = byCode.get(code);
-    for (const { key, field } of locations) {
+    const e = byCode.get(code);
+
+    // (1) 出品中deal の sourceStatus（従来どおり＝eBay自動停止のトリガ）
+    for (const { key, field } of e.dealLocations) {
       const fresh = await kvHget(key, field);
       if (!fresh || typeof fresh !== "object") continue;
       if (fresh.soldUsd != null || fresh.stoppedAt != null) continue; // この間に売却/停止されたら触らない
@@ -239,20 +258,31 @@ async function main() {
         if (!DRY) await kvHset(key, field, { ...fresh, sourceStatus: v, sourceCheckedAt: new Date().toISOString(), sourceCheckedBy: "page" });
         if (v === "soldout") setSold++; else setDead++;
       } else if (v === "alive") {
-        if (cur == null) continue; // フラグ無し＝何もしない
+        if (cur == null) continue;
         if (!DRY) {
           const next = { ...fresh, sourceCheckedAt: new Date().toISOString(), sourceCheckedBy: "page" };
-          delete next.sourceStatus; // 実ページが在庫ありと言うならフラグ解除（APIと違い権威）
+          delete next.sourceStatus; // 実ページが在庫ありと言うならフラグ解除
           await kvHset(key, field, next);
         }
         cleared++;
       }
     }
+
+    // (2) カタログの売切/削除フラグ（catalog_source_status ハッシュ）。/api/products が読んで一覧から隠す。
+    if (e.inCatalog) {
+      if (v === "soldout" || v === "dead") {
+        if (!DRY) await kvHset("catalog_source_status", code, { status: v, at: new Date().toISOString() });
+        catSet++;
+      } else if (v === "alive") {
+        if (!DRY) await kvHdel("catalog_source_status", code); // 在庫復活したら解除＝一覧へ戻す
+        catCleared++;
+      }
+    }
   }
 
   const sec = Math.round((Date.now() - startedAt) / 1000);
-  console.log(`${DRY ? "[DRY] " : ""}完了: 売切フラグ ${setSold} / 削除フラグ ${setDead} / 復活で解除 ${cleared} (URL未取得 ${noUrl.length}・${sec}s)`);
-  console.log(DRY ? "→ DRYなのでKV未書込・eBay停止なし。本番は LIVENESS_DRY=0 で実行。" : "→ クラウドの reconcile/auto-stop-cron が sourceStatus を見て eBay を停止します。");
+  console.log(`${DRY ? "[DRY] " : ""}完了: [出品中] 売切 ${setSold}/削除 ${setDead}/復活解除 ${cleared}  [カタログ] 隠す ${catSet}/戻す ${catCleared}  (URL未取得 ${noUrl}・${sec}s)`);
+  console.log(DRY ? "→ DRYなのでKV未書込。本番は LIVENESS_DRY=0 で実行。" : "→ 出品中はreconcile/auto-stopがeBay停止、カタログは/api/productsが一覧から非表示。");
 }
 
 main().catch((e) => { console.error("sourceLivenessWorker fatal:", e); process.exit(1); });
