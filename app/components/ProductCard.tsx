@@ -135,6 +135,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               className="block relative" aria-label="楽天市場でこの商品を見る">
               <img src={cleanImg(product.imageUrl)} alt={product.title}
                 onError={() => setImgError(true)}
+                // 楽天の画像が消えると 404 で「1x1の極小プレースホルダgif」が返り onError が出ない＝空表示で残る。
+                // 読み込めた画像が極小(正規サムネは128px以上)ならリンク切れ扱いにしてカードごと隠す（負荷ゼロ・表示側のみ）。
+                onLoad={(e) => { const w = e.currentTarget.naturalWidth; if (w > 0 && w < 16) setImgError(true); }}
                 className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
               <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
                 楽天で見る
