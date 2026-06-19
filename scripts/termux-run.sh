@@ -11,6 +11,7 @@ termux-wake-lock 2>/dev/null || true  # 省電力でCPUが寝て止まるのを�
 echo "売切ワーカー常駐開始（${INTERVAL}秒ごと・本番モード）。ログ: ~/liveness.log"
 while true; do
   echo "---- $(date) ----" >> "$HOME/liveness.log"
+  git pull --ff-only >/dev/null 2>&1 || true   # 最新のワーカーコードへ毎回自動更新（PC側で直したら勝手に反映）
   LIVENESS_DRY=0 node scripts/sourceLivenessWorker.mjs >> "$HOME/liveness.log" 2>&1 || echo "  (この回は失敗・次回に再試行)" >> "$HOME/liveness.log"
   sleep "$INTERVAL"
 done

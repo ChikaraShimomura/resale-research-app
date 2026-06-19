@@ -104,6 +104,22 @@ async function kvHdel(key, field) {
     return true;
   } catch (e) { console.error("kvHdel error:", e.message); return false; }
 }
+// 実行ステータスをKVに残す（PC側 livenessStatus.mjs で死活・結果を確認できるように）。
+// liveness_status=最新1件 / liveness_log=直近50件のリング。DRYでも書く（テストも見えるように）。
+async function writeStatus(report) {
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: "POST", headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify([
+        ["SET", "liveness_status", JSON.stringify(report), "EX", String(90 * 24 * 3600)],
+        ["LPUSH", "liveness_log", JSON.stringify(report)],
+        ["LTRIM", "liveness_log", "0", "49"],
+        ["EXPIRE", "liveness_log", String(60 * 24 * 3600)],
+      ]),
+    });
+  } catch (e) { console.error("writeStatus error:", e.message); }
+}
+const nowIso = () => new Date().toISOString();
 
 // ========== 本物URL抽出（①の refresh.mjs realRakutenUrl を踏襲）==========
 function realRakutenUrl(srcUrl) {
@@ -196,7 +212,7 @@ async function main() {
     }
   }
 
-  if (byCode.size === 0) { console.log("対象なし(出品中 deal も利益商品カタログも空)。終了。"); return; }
+  if (byCode.size === 0) { console.log("対象なし(出品中 deal も利益商品カタログも空)。終了。"); await writeStatus({ at: nowIso(), dry: DRY, note: "idle", total: 0 }); return; }
 
   const codes = [...byCode.keys()].slice(0, MAX_ITEMS);
   const work = codes.filter((c) => byCode.get(c).url);
@@ -218,7 +234,7 @@ async function main() {
   }
   await Promise.all(Array.from({ length: CONC }, runner));
 
-  if (blocked) { console.log("⚠️ 楽天が429/503を返したため打ち切り（fail-open＝何も止めない/隠さない）。"); return; }
+  if (blocked) { console.log("⚠️ 楽天が429/503を返したため打ち切り（fail-open＝何も止めない/隠さない）。"); await writeStatus({ at: nowIso(), dry: DRY, note: "blocked", total: work.length }); return; }
 
   // 判定タリー（metaが実際に読めてるか＝生存と不明の切り分け確認）
   const tally = { soldout: 0, dead: 0, alive: 0, unknown: 0 };
@@ -230,6 +246,7 @@ async function main() {
   const flagCount = decided.filter((v) => v === "soldout" || v === "dead").length;
   if (decided.length >= BRAKE_MIN_TOTAL && flagCount / decided.length > BRAKE_FLAG_RATIO) {
     console.log(`⚠️ フラグ過多(${flagCount}/${decided.length})＝取得異常を疑い結果を破棄(fail-open)。何も止めない/隠さない。`);
+    await writeStatus({ at: nowIso(), dry: DRY, note: "brake", total: decided.length, alive: tally.alive, soldout: tally.soldout, dead: tally.dead, unknown: tally.unknown });
     return;
   }
 
@@ -281,6 +298,12 @@ async function main() {
   }
 
   const sec = Math.round((Date.now() - startedAt) / 1000);
+  await writeStatus({
+    at: nowIso(), dry: DRY, note: "ok", durationSec: sec, total: work.length,
+    alive: tally.alive, soldout: tally.soldout, dead: tally.dead, unknown: tally.unknown,
+    catalogHidden: catSet, catalogRestored: catCleared,
+    dealsSold: setSold, dealsDead: setDead, dealsCleared: cleared,
+  });
   console.log(`${DRY ? "[DRY] " : ""}完了: [出品中] 売切 ${setSold}/削除 ${setDead}/復活解除 ${cleared}  [カタログ] 隠す ${catSet}/戻す ${catCleared}  (URL未取得 ${noUrl}・${sec}s)`);
   console.log(DRY ? "→ DRYなのでKV未書込。本番は LIVENESS_DRY=0 で実行。" : "→ 出品中はreconcile/auto-stopがeBay停止、カタログは/api/productsが一覧から非表示。");
 }
