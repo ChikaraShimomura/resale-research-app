@@ -8,7 +8,7 @@ import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
-import { landedCostForWeight } from "../lib/ebay/landedCost";
+import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId } from "../lib/ebay/landedCost";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -130,6 +130,14 @@ export default function EbayListingModal({
     const child = el?.children[zoomIndex] as HTMLElement | undefined;
     if (el && child) el.scrollLeft = child.offsetLeft; // 開いた写真までスクロール
   }, [zoomIndex]);
+  // 送料ポリシーを「重さ(入力 or 概算)＋高額(EMS必須)」で自動選択。重さを入れ替えると最適なサイズに切り替わる。
+  useEffect(() => {
+    if (!data?.shipping?.length || !data.landed) return;
+    const w = Number(weightInput) > 0 ? Number(weightInput) : data.landed.weightG ?? 700;
+    const v = Number(data.priceUsd) || data.product.ebayAvgJpy / USD_JPY;
+    const id = pickShippingPolicyId(data.shipping, recommendShippingTier(w, v));
+    if (id) setShippingId(id);
+  }, [weightInput, data]);
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");

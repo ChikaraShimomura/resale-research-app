@@ -94,3 +94,29 @@ export function landedCostForWeight(weightG: number, valueUsd: number): LandedCo
 export function landedCost(category: string | undefined, valueUsd: number): LandedCost {
   return landedCostForWeight(estimateWeightG(category), valueUsd);
 }
+
+// ====== 配送ポリシー(small/medium/large)の選択 ======
+// 既存3ポリシー構造を壊さず、選択を「重さ＋高額(EMS必須)」基準にする。
+// 高額品はEMS(補償)前提で送料が高いので重量に関わらず大サイズ、それ以外は重量帯で。
+export type ShippingTier = "small" | "medium" | "large";
+export function recommendShippingTier(weightG: number, valueUsd: number): ShippingTier {
+  if (valueUsd >= EMS_VALUE_USD) return "large"; // $120超=EMS(補償付き・高送料)前提で大サイズ送料に寄せる
+  if (weightG <= 500) return "small"; // エアパケット〜¥2,040
+  if (weightG <= 1200) return "medium"; // エアパケット〜¥3,500前後
+  return "large"; // 〜2kg/EMS帯
+}
+
+// 配送ポリシー一覧(名前に small/medium/large を含む)から、tier に合うポリシーIDを選ぶ。
+// 該当が無ければ medium→先頭にフォールバック。
+export function pickShippingPolicyId(
+  policies: { fulfillmentPolicyId: string; name: string }[] | undefined,
+  tier: ShippingTier
+): string | undefined {
+  if (!policies?.length) return undefined;
+  const re = tier === "small" ? /small/i : tier === "large" ? /large/i : /medium/i;
+  return (
+    policies.find((p) => re.test(p.name)) ??
+    policies.find((p) => /medium/i.test(p.name)) ??
+    policies[0]
+  )?.fulfillmentPolicyId;
+}

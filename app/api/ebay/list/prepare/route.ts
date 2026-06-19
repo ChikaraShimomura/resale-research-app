@@ -12,7 +12,7 @@ import {
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
-import { landedCost } from "../../../../lib/ebay/landedCost";
+import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -92,27 +92,6 @@ function detectCondition(jaTitle: string): string {
     return "USED_GOOD";
   }
   return "NEW";
-}
-
-// ジャンル(=荷物の大きさの目安)→ eBay配送ポリシーのサイズ区分。小さい物に大サイズ送料を当てない。
-const SHIP_TIER_BY_GENRE: Record<string, "small" | "medium" | "large"> = {
-  トレカ: "small", コスメ: "small", 腕時計: "small", フィギュア: "small",
-  ゲーム: "small", おもちゃ: "small", ガンプラ: "medium", LEGO: "large",
-};
-// ジャンルに最適な送料ポリシーのIDを選ぶ（ポリシー名の small/medium/large で判定）。
-// 該当サイズが無ければ medium→先頭にフォールバック。ユーザーは画面で変更可。
-function recommendShippingId(
-  shipping: { fulfillmentPolicyId: string; name: string }[],
-  genre?: string
-): string | undefined {
-  if (!shipping?.length) return undefined;
-  const tier = (genre && SHIP_TIER_BY_GENRE[genre]) || "medium";
-  const re = tier === "small" ? /small/i : tier === "large" ? /large/i : /medium/i;
-  const hit =
-    shipping.find((s) => re.test(s.name)) ??
-    shipping.find((s) => /medium/i.test(s.name)) ??
-    shipping[0];
-  return hit?.fulfillmentPolicyId;
 }
 
 // 英語の説明文（編集可）。購入者がよく気にする点をQ&Aで手厚く、かつトラブル回避の文言を網羅する。
@@ -336,7 +315,8 @@ export async function POST(req: Request) {
         : null,
       requiredAspects,
       shipping,
-      recommendedShippingId: recommendShippingId(shipping, product.category), // ジャンル(サイズ)に最適な送料ポリシー
+      // 送料ポリシーは「推定重量＋高額(EMS必須)」で選ぶ（ジャンルでなく実態ベース）。重さ入力時はモーダル側で再選択。
+      recommendedShippingId: pickShippingPolicyId(shipping, recommendShippingTier(landed.weightG, Number(priceUsd))),
     },
     { headers: { "Cache-Control": "private, no-store" } }
   );

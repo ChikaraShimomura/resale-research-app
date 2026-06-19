@@ -8,14 +8,17 @@ interface StepResult {
   error?: string;
 }
 
+// 送料の目安は日本郵便・米国宛の実費ベース：小=軽量エアパケット(〜500g≒¥2,040≒$14)／
+// 中=〜1.2kg(≒¥3,500≒$23)／大=2kgやEMS・高額品(補償付き・$25〜)。アプリが商品の重さ・価格で自動選択する。
 const SIZE_FIELDS = [
-  { key: "small", label: "小さい荷物の送料（USD）", placeholder: "12" },
-  { key: "medium", label: "中くらいの荷物の送料（USD）", placeholder: "25" },
-  { key: "large", label: "大きい荷物の送料（USD）", placeholder: "45" },
+  { key: "small", label: "小（〜500g・軽量）の送料（USD）", placeholder: "14" },
+  { key: "medium", label: "中（〜1.2kg）の送料（USD）", placeholder: "25" },
+  { key: "large", label: "大（2kgやEMS・高額品）の送料（USD）", placeholder: "45" },
 ] as const;
 
 // 送料の既定値（USD）。送り先の国に関わらず同じ料金で、サイズで料金が変わる。ユーザー入力は任意で、最初からこの値が入る。
-const DEFAULTS: Record<string, string> = { handlingDays: "7", small: "12", medium: "25", large: "45" };
+// 既定は日本郵便・米国宛の実費に合わせた目安（赤字を出さない安全側）。
+const DEFAULTS: Record<string, string> = { handlingDays: "7", small: "14", medium: "25", large: "45" };
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
@@ -83,8 +86,9 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       </p>
 
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-[12px] text-gray-500 leading-relaxed">
-        送料は<b className="text-gray-700">購入者が負担</b>します。送り先の国に関わらず同じ料金で、
-        荷物のサイズによって料金が変わります。
+        送料は<b className="text-gray-700">購入者が負担</b>します。出品時に<b className="text-gray-700">商品の重さ・価格からアプリが自動で小/中/大を選ぶ</b>ので、
+        重い物や高額品（EMS）でも送料が足りず赤字…を防げます。金額の目安は日本郵便・米国宛の実費ベース
+        （小=〜500g≒$14／中=〜1.2kg≒$25／大=2kgやEMS≒$45）。
       </div>
 
       {/* 既定の送料サマリー（サイズ別・USD） */}

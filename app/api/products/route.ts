@@ -86,8 +86,16 @@ export async function GET() {
       // セーフティ：ゲートで全消え(ギャラリーワーカー停止・全TTL失効など)した時はブラックアウトを避け全件出す。
       if (ready.length === 0 && merged.length > 0) ready = merged;
 
-      // 国際送料・米国関税を差し引いて利益を正直化。net≤0(構造赤字)は隠す（restoredは管理者裁量で残す）。
-      let priced = ready.map(withLandedCost).filter((p) => p.restored || (p.realProfit ?? 0) > 0);
+      // 国際送料・米国関税を差し引いて利益を正直化。
+      //  ・net≤0(構造赤字)は隠す
+      //  ・$800超は米国DDP関税を郵便のZonosで処理できず初心者が扱えない＝カタログから除外
+      // (restoredは管理者裁量で常に残す)
+      const MAX_DECLARED_USD = 800;
+      let priced = ready
+        .map(withLandedCost)
+        .filter(
+          (p) => p.restored || ((p.realProfit ?? 0) > 0 && (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD)
+        );
       if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost); // 全消しは避ける(fail-open)
 
       return Response.json(

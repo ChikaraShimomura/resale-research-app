@@ -51,6 +51,22 @@ export default function ShipPage() {
           </Link>
         </div>
 
+        {/* $100超を米国へ送るとき：関税前払い(DDP)の手順 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <p className="text-[13px] font-black text-amber-800 mb-1.5">🛃 $100超を米国へ送るとき（関税の前払い）</p>
+          <p className="text-[11px] text-amber-800/90 leading-relaxed mb-2">
+            2025年に米国の少額免税が撤廃され、<b>商品代$100超の米国宛は、差出人が関税を前払い（DDP）してからでないと郵便局で出せません</b>。手順：
+          </p>
+          <ol className="text-[11px] text-amber-800/90 space-y-1 list-decimal pl-4 leading-relaxed">
+            <li>Zonos（CBP認証業者）で関税を前払い → <b>13桁のDeclaration ID</b>を取得</li>
+            <li>宛名ラベルに<b>「DDP」表記＋Declaration ID</b>を記載</li>
+            <li><b>指定された郵便局</b>から差し出す（$100超は全局では出せません）</li>
+          </ol>
+          <p className="text-[10px] text-amber-700/80 mt-2 leading-relaxed">
+            ※ $100以下は前払い不要・全局でOK。$800超は郵便のDDP処理対象外（個別相談）。制度は変わるので、発送前に郵便局の窓口で最新を確認してください。
+          </p>
+        </div>
+
         {/* 売れた（輸出した）一覧 */}
         <MyListings show={["sold"]} />
       </main>
