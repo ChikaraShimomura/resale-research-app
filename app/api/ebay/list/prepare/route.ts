@@ -322,6 +322,7 @@ export async function POST(req: Request) {
       medianUsd, // 中央値USD（売り方「相場/はやく」の基準）
       lowestUsd, // 同等品の現在の最安USD（null=取得できず）
       floorUsd,  // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
+      effBuyJpy: Math.round(effBuyJpy), // 実質仕入れ原価。モーダルで「重さ(任意)」入力時に損益分岐を再計算するのに使う
       landed: {  // 損益分岐に織り込んだ着地コストの内訳（モーダルで内訳と$100超の前払い注意を出す）
         weightG: landed.weightG,
         shippingJpy: landed.shippingJpy,

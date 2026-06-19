@@ -8,6 +8,7 @@ import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
+import { landedCostForWeight } from "../lib/ebay/landedCost";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -19,6 +20,7 @@ interface PrepareData {
   medianUsd?: string;        // 中央値USD（売り方「相場/はやく」の基準）
   lowestUsd?: string | null; // 同等品の現在の最安USD（最速出品用）
   floorUsd?: string;         // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
+  effBuyJpy?: number;        // 実質仕入れ原価。重さ(任意)入力時に損益分岐をクライアントで再計算するのに使う
   landed?: {                 // 損益分岐に織り込んだ着地コスト（国際送料・米国関税）の内訳
     weightG: number;
     shippingJpy: number;
@@ -111,6 +113,7 @@ export default function EbayListingModal({
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
+  const [weightInput, setWeightInput] = useState(""); // 重さ(任意・g・梱包込み)。入力すると送料/損益分岐を再計算
   const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
@@ -336,7 +339,17 @@ export default function EbayListingModal({
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
   const medianUsd = Number(data?.medianUsd) || Number(data?.priceUsd) || 0;
   const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
-  const floorUsd = Number(data?.floorUsd) || 0;    // 損益分岐（これ未満は赤字）
+  // 着地コスト(国際送料＋米国関税)は「重さ(任意)」入力で動的に再計算。未入力なら概算(data.landed.weightG)。
+  // 関税の元値は編集中に動く価格でなく安定した推奨価格(data.priceUsd)を使う（損益分岐がタイプ中に揺れないように）。
+  const estWeightG = data?.landed?.weightG ?? 700;
+  const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
+  const dutyValueUsd = Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
+  const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
+  // 損益分岐（これ未満は赤字・国際送料/関税込み）。effBuyJpy があれば重さに応じて再計算、無ければサーバー値。
+  const floorUsd =
+    data?.effBuyJpy != null && liveLanded
+      ? Math.round((((data.effBuyJpy + 47 + liveLanded.subtractJpy) / (1 - 0.1325)) / USD_JPY) * 100) / 100
+      : Number(data?.floorUsd) || 0;
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
@@ -647,14 +660,28 @@ export default function EbayListingModal({
                   <p className="text-[12px] text-[#2D323B] font-bold mt-1">≒ {formatJpy(priceJpy)}（日本円のめやす）</p>
                 )}
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
-                {/* 着地コスト（国際送料・米国関税）の内訳。損益分岐に織り込み済みなので「なぜこの下限か」を示す。 */}
-                {data.landed && (
-                  <div className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    📦 国際送料の目安 {formatJpy(data.landed.shippingJpy)}（
-                    {data.landed.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／推定{data.landed.weightG}g）
-                    {data.landed.needsDutyPrepay && (
+                {/* 着地コスト（国際送料・米国関税）の内訳＋重さ(任意)入力。損益分岐に織り込み済み。
+                    重さは分かれば入力するとより正確に（未入力はカテゴリ概算）。 */}
+                {liveLanded && (
+                  <div className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="text-gray-500">重さ（任意・g）</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={weightInput}
+                        onChange={(e) => setWeightInput(e.target.value)}
+                        placeholder={`概算${estWeightG}`}
+                        className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
+                      />
+                      <span>梱包込み・分かれば</span>
+                    </div>
+                    📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}（
+                    {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／
+                    {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）
+                    {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
-                        🛃 米国関税(前払い) {formatJpy(data.landed.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局からの発送が必要です
+                        🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局からの発送が必要です
                       </span>
                     )}
                     <span className="block mt-0.5">※ 上の損益分岐にこれらの目安を差し引き済み（赤字回避）。</span>

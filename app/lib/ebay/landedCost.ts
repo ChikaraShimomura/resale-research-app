@@ -74,9 +74,8 @@ export interface LandedCost {
   needsDutyPrepay: boolean; // $100超＝Zonos前払い＋指定郵便局が必要
 }
 
-// 着地コスト一式。valueUsd は eBay想定売価(申告価格)。
-export function landedCost(category: string | undefined, valueUsd: number): LandedCost {
-  const weightG = estimateWeightG(category);
+// 着地コスト一式（重量を直接指定）。ユーザーが「重さ(任意)」を入力したらこちらで再計算する。
+export function landedCostForWeight(weightG: number, valueUsd: number): LandedCost {
   const ship = intlShippingJpy(weightG, valueUsd);
   const dutyJpy = usDutyJpy(valueUsd);
   const shippingShortfallJpy = Math.max(0, ship.jpy - BUYER_SHIP_CREDIT_JPY);
@@ -89,4 +88,9 @@ export function landedCost(category: string | undefined, valueUsd: number): Land
     subtractJpy: shippingShortfallJpy + dutyJpy,
     needsDutyPrepay: valueUsd > DUTY_FREE_USD,
   };
+}
+
+// 着地コスト一式（カテゴリから重量を概算）。valueUsd は eBay想定売価(申告価格)。
+export function landedCost(category: string | undefined, valueUsd: number): LandedCost {
+  return landedCostForWeight(estimateWeightG(category), valueUsd);
 }
