@@ -3,7 +3,8 @@
 // CLEAN_IMG_VER: clean-img は immutable で1年キャッシュするため、文字消去ロジックを変えたら必ず +1 する。
 // URLが変わってキャッシュミス→新ロジックで再処理される（過去の“消しすぎ”画像を更新するため）。
 // v2 = 縁(外周)の文字だけ消す方式に変更（中央の商品の刻印を保護）。
-const CLEAN_IMG_VER = 2;
+// v3 = 縁帯を14%→7%に狭めた（IMAGE_TEXT_EDGE_FRAC=0.07）。G-SHOCK等の枠いっぱい商品のブランド/表示文字を保護。
+const CLEAN_IMG_VER = 3;
 export function cleanImg(url?: string | null): string {
   if (!url) return url ?? "";
   if (!/(\.|\/\/)(rakuten\.co\.jp|r10s\.jp)/i.test(url)) return url;
