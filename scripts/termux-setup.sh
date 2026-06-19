@@ -8,8 +8,9 @@ say() { printf "\n\033[1m%s\033[0m\n" "$1"; }
 
 say "[1/4] 必要なものを入れています (node / git)…"
 pkg update -y >/dev/null 2>&1 || true
+pkg upgrade -y >/dev/null 2>&1 || true   # node と openssl の不整合(OSSL_PROVIDER...エラー)防止に全体を揃える
 pkg install -y nodejs git >/dev/null 2>&1
-node -v >/dev/null 2>&1 || { echo "node の導入に失敗。pkg install nodejs を手動で試してください"; exit 1; }
+node -v >/dev/null 2>&1 || { echo "node の導入に失敗。'pkg upgrade -y' を手動実行してから再試行してください"; exit 1; }
 echo "  node $(node -v) / git $(git --version | awk '{print $3}') OK"
 
 say "[2/4] コードを最新にしています…"
