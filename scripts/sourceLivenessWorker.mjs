@@ -122,13 +122,15 @@ async function probeOnce(url) {
     if (res.status === 404) return "dead";                            // 明確な404のみ削除扱い(リダイレクトはdeadにしない)
     if (!res.ok) return "unknown";                                    // その他4xx/5xx＝fail-open(現状維持)
     const html = await res.text();
-    // schema.org microdata（ASCIIなのでページ文字コードに依存しない）。主商品Offerの availability を見る。
+    if (html.length < 2000) return "unknown";                        // 空/極小＝取得異常(DCブロック等)＝fail-open
+    // 楽天には「万能な売切信号」が無い（店テンプレ差。HARUが店ごとに在庫ワード手設定するのと同じ理由）。多信号で判定：
+    // schema.org microdata（ASCIIなのでページ文字コード非依存）。在庫ありは InStock を明示する店が多い。
     const av = html.match(/itemprop=["']availability["'][^>]*content=["']([^"']+)["']/i)?.[1] || "";
-    if (/OutOfStock|SoldOut|Discontinued/i.test(av)) return "soldout";
-    if (/InStock|LimitedAvailability|PreOrder|BackOrder/i.test(av)) return "alive";
-    // metaが取れない=DCブロックの空ページ/想定外。住宅IPなら通常114KB前後だが念のため長さも見る。
-    if (html.length < 2000) return "unknown";                        // 空/極小＝取得異常(fail-open)
-    return "unknown";                                                // 200で本文はあるがmeta無し＝判定保留(fail-open)
+    if (/OutOfStock|SoldOut|Discontinued/i.test(av)) return "soldout";                       // ①metaが明示(高信頼)
+    if (/InStock|LimitedAvailability|PreOrder|BackOrder|PreSale/i.test(av)) return "alive";  // ②in-stock meta=在庫あり(高信頼・実測確認済)
+    // ③meta無し/不明：売切店は meta を消し本文に売切表現を出すパターンが実在(例 stylife)。本文表現で判定(中信頼・要再確認)。
+    if (/売り切れ|在庫切れ|品切れ|完売|ご注文を承れません|ご注文いただけません|販売を終了|販売終了/.test(html)) return "soldout";
+    return "unknown";                                                // ④metaも売切表現も無い(在庫あり楽天ブックス等)＝判定保留(fail-open)
   } catch { return "unknown"; }                                       // timeout等＝fail-open
 }
 
