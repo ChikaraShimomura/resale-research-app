@@ -38,8 +38,9 @@ function upHtml(st: Status | null) {
 }
 
 export async function GET(req: Request) {
-  // 認証: Authorization: Bearer <CRON_SECRET> か ?secret=。未設定なら拒否(フェイルクローズ)。
-  const secret = process.env.CRON_SECRET;
+  // 認証: ?secret= か Authorization: Bearer。専用の OPS_ALERT_SECRET を優先(無ければ CRON_SECRET)。
+  // ＝Vercelのsensitiveで見れない CRON_SECRET を掘らずに、新しい既知の値(OPS_ALERT_SECRET)を1個作って使える。
+  const secret = process.env.OPS_ALERT_SECRET || process.env.CRON_SECRET;
   const url = new URL(req.url);
   const bearer = req.headers.get("authorization");
   if (!secret || (bearer !== `Bearer ${secret}` && url.searchParams.get("secret") !== secret)) {
