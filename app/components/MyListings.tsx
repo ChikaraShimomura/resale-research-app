@@ -52,13 +52,15 @@ function EmptyNote({ text }: { text: string }) {
 
 // マイページの一覧は「出品中／出品停止中／輸出した（売れた）」の3つだけ。0件でも常に表示する。
 // 出品をやめた → 成績から外す／実は売れていた → 売れた金額(円)で記録（→輸出した側へ移動）。
-export default function MyListings({ onChanged }: { onChanged?: () => void }) {
+export type ListingSection = "live" | "stopped" | "sold";
+// show: 表示するセクションを選べる（出品管理タブ=live+stopped／発送タブ=sold）。既定は全部。
+export default function MyListings({ onChanged, show = ["live", "stopped", "sold"] }: { onChanged?: () => void; show?: ListingSection[] }) {
   const [live, setLive] = useState<LiveDeal[] | null>(null);
   const [stopped, setStopped] = useState<LiveDeal[] | null>(null);
   const [sold, setSold] = useState<SoldDeal[] | null>(null);
-  const [openLive, setOpenLive] = useState(false);
+  const [openLive, setOpenLive] = useState(show.includes("live"));
   const [openStopped, setOpenStopped] = useState(false);
-  const [openSold, setOpenSold] = useState(false);
+  const [openSold, setOpenSold] = useState(show.includes("sold"));
   const [busy, setBusy] = useState<string | null>(null);
   const [soldFor, setSoldFor] = useState<string | null>(null); // 売れた金額を入力中の商品
   const [soldJpy, setSoldJpy] = useState("");
@@ -134,6 +136,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
   return (
     <div className="space-y-3">
       {/* 出品中の商品（0件でも表示） */}
+      {show.includes("live") && (
       <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
         {live.length === 0 ? (
           <EmptyNote text="まだ出品中の商品はありません。商品を選んで「eBayに出品」すると、ここに並びます。" />
@@ -238,8 +241,10 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
           </>
         )}
       </Section>
+      )}
 
       {/* 出品停止中の商品（0件でも表示） */}
+      {show.includes("stopped") && (
       <Section title="出品停止中の商品" count={stopped.length} open={openStopped} onToggle={() => setOpenStopped((v) => !v)}>
         {stopped.length === 0 ? (
           <EmptyNote text="出品停止中の商品はありません。「出品停止」を押した商品がここに入ります。" />
@@ -293,8 +298,10 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
           </>
         )}
       </Section>
+      )}
 
       {/* 輸出した商品（売れた・0件でも表示） */}
+      {show.includes("sold") && (
       <Section title="輸出した商品" count={sold.length} open={openSold} onToggle={() => setOpenSold((v) => !v)}>
         {sold.length === 0 ? (
           <EmptyNote text="まだ売れた商品はありません。売れると、利益とともにここに記録されます。" />
@@ -320,6 +327,7 @@ export default function MyListings({ onChanged }: { onChanged?: () => void }) {
           </>
         )}
       </Section>
+      )}
 
       {/* 再出品：既存の出品モーダルをそのまま再利用（価格・説明・写真を作り直す）。 */}
       {relistProduct && (

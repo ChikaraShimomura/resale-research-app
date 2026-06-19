@@ -1,10 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, Wallet, ArrowRight } from "lucide-react";
+import { Package, Truck, ArrowRight, Settings, BookOpen } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
-import MyListings from "./MyListings";
 
 interface Rank { name: string; icon: string; min: number }
 interface MonthPoint { month: string; label: string; profit: number; sales: number; purchase: number; count: number }
@@ -177,16 +176,23 @@ function RankBlock({ s }: { s: Stats }) {
   );
 }
 
-// 売れた後の導線（発送→受け取り）。
-function AfterSaleLinks() {
+// マイページのハブ導線（出品管理・発送・設定・ガイドへ）。出品中/停止中の一覧は「出品管理」タブ、
+// 売れた一覧と発送/受け取りは「発送」タブへ集約したので、ここからそれぞれへ送る。
+function HubLinks() {
+  const items = [
+    { href: "/listings", Icon: Package, label: "出品管理" },
+    { href: "/ship", Icon: Truck, label: "発送・受け取り" },
+    { href: "/settings", Icon: Settings, label: "設定" },
+    { href: "/guide", Icon: BookOpen, label: "使い方ガイド" },
+  ];
   return (
     <div className="grid grid-cols-2 gap-2">
-      <Link href="/guide#step-4" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
-        <Truck size={15} className="text-gray-500" /> 発送のしかた
-      </Link>
-      <Link href="/guide/payoneer-withdraw" className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
-        <Wallet size={15} className="text-gray-500" /> 売上の受け取り方
-      </Link>
+      {items.map(({ href, Icon, label }) => (
+        <Link key={href} href={href}
+          className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
+          <Icon size={15} className="text-gray-500" /> {label}
+        </Link>
+      ))}
     </div>
   );
 }
@@ -256,8 +262,7 @@ export default function MyDashboard() {
             画像つきの始め方ガイドを見る →
           </Link>
         </div>
-        {/* 出品中／出品停止中／輸出した の3一覧（0件でも常に表示） */}
-        <MyListings onChanged={loadStats} />
+        <HubLinks />
       </div>
     );
   }
@@ -282,8 +287,7 @@ export default function MyDashboard() {
             </p>
           </div>
         </div>
-        <MyListings onChanged={loadStats} />
-        <AfterSaleLinks />
+        <HubLinks />
       </div>
     );
   }
@@ -317,9 +321,7 @@ export default function MyDashboard() {
         ※ 利益は eBay手数料(13.25%+¥47)・仕入れ値・基本ポイントから計算（為替 $1=¥155）。0と5のつく日など実際のポイントはこれより多い場合があります。
       </p>
 
-      <MyListings onChanged={loadStats} />
-
-      <AfterSaleLinks />
+      <HubLinks />
     </div>
   );
 }
