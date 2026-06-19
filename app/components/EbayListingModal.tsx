@@ -689,13 +689,15 @@ export default function EbayListingModal({
                     </div>
                     📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}（
                     {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／
-                    {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）
+                    {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）＝<b className="text-gray-500">購入者が負担</b>
                     {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
                         🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局からの発送が必要です
                       </span>
                     )}
-                    <span className="block mt-0.5">※ 上の損益分岐にこれらの目安を差し引き済み（赤字回避）。</span>
+                    <span className="block mt-0.5">
+                      ※ 損益分岐に入れるのは<b className="text-gray-500">関税{liveLanded.needsDutyPrepay ? "" : "(この価格は不要)"}＋送料にかかるeBay手数料</b>のみ。送料そのものは購入者負担です。
+                    </span>
                   </div>
                 )}
                 {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (

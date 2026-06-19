@@ -18,8 +18,9 @@ const US_DUTY_RATE = Number(process.env.LANDED_US_DUTY_RATE ?? 0.1); // 郵便�
 const ZONOS_FEE_USD = Number(process.env.LANDED_ZONOS_FEE_USD ?? 1.5); // DDP前払いの処理手数料/件(概算)
 const DUTY_FREE_USD = Number(process.env.LANDED_DUTY_FREE_USD ?? 100); // これ以下は前払い不要(帯・要窓口確認)
 const EMS_VALUE_USD = Number(process.env.LANDED_EMS_VALUE_USD ?? 120); // これ以上は補償付きEMSを前提に見積もる
-// 買い手がeBayの送料として負担してくれる額の目安(現状の固定送料≒$12)。実費との差額(shortfall)だけが出品者負担。
-const BUYER_SHIP_CREDIT_JPY = Number(process.env.LANDED_BUYER_SHIP_CREDIT_JPY ?? 1860);
+// 国際送料そのものは「購入者が負担」(eBayの配送ポリシーで請求)。出品者がかぶるのは、その送料にも
+// かかるeBay販売手数料(約13.25%)の分だけ。送料を重量帯別に正しく設定すれば実費≒請求でほぼ相殺される。
+const EBAY_FEE_RATE = Number(process.env.LANDED_EBAY_FEE_RATE ?? 0.1325);
 
 // カテゴリ別の概算重量(g・梱包込み・安全側に多め)。語彙は refresh.mjs の guessCategory / domesticShipping と揃える。
 // 過小だと赤字を見逃すので、迷ったら重め。代表商品の実測で随時較正する前提。
@@ -68,9 +69,9 @@ export interface LandedCost {
   weightG: number;
   shippingJpy: number; // 国際送料の実費(目安)
   shippingMethod: ShippingMethod;
-  shippingShortfallJpy: number; // 実費 − 買い手送料負担(=出品者がかぶる分)
+  shippingFeeJpy: number; // 購入者が払う送料にかかるeBay手数料(=出品者負担。送料自体は購入者負担)
   dutyJpy: number; // 米国関税(DDP前払い・出品者立替)
-  subtractJpy: number; // 利益/損益分岐から差し引く合計(= shortfall + duty)
+  subtractJpy: number; // 利益/損益分岐から差し引く合計(= 送料へのeBay手数料 + 関税)
   needsDutyPrepay: boolean; // $100超＝Zonos前払い＋指定郵便局が必要
 }
 
@@ -78,14 +79,16 @@ export interface LandedCost {
 export function landedCostForWeight(weightG: number, valueUsd: number): LandedCost {
   const ship = intlShippingJpy(weightG, valueUsd);
   const dutyJpy = usDutyJpy(valueUsd);
-  const shippingShortfallJpy = Math.max(0, ship.jpy - BUYER_SHIP_CREDIT_JPY);
+  // 送料そのものは購入者負担(配送ポリシーで請求)。出品者がかぶるのは(1)その送料にかかるeBay手数料
+  // (2)$100超の関税(前払い)の2つだけ。重量帯別に送料を正しく設定すれば実費≒請求でほぼ相殺される前提。
+  const shippingFeeJpy = Math.round(ship.jpy * EBAY_FEE_RATE);
   return {
     weightG,
     shippingJpy: ship.jpy,
     shippingMethod: ship.method,
-    shippingShortfallJpy,
+    shippingFeeJpy,
     dutyJpy,
-    subtractJpy: shippingShortfallJpy + dutyJpy,
+    subtractJpy: shippingFeeJpy + dutyJpy,
     needsDutyPrepay: valueUsd > DUTY_FREE_USD,
   };
 }

@@ -251,8 +251,8 @@ export async function POST(req: Request) {
   // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 仕入れ実質原価(楽天価格+国内送料-ポイント)。
   const effBuyJpy =
     product.source.price + (product.source.shippingJpy ?? 0) - (product.source.pointAmount ?? 0);
-  // 国際送料(目安)＋米国関税(DDP前払い)を損益分岐に織り込む＝「買い手が送料を払うから±0」の旧前提を撤廃。
-  // subtractJpy = 国際送料の買い手負担超過分 + $100超の関税(立替)。重い品/高額品ほど floor が上がり赤字を防ぐ。
+  // 損益分岐に出品者の実負担を織り込む。送料そのものは購入者負担なので引かない。
+  // subtractJpy = 「送料にかかるeBay手数料」＋「$100超の米国関税(前払い・立替)」。高額品ほど floor が上がり赤字を防ぐ。
   const landed = landedCost(product.category, Number(priceUsd));
   const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY + landed.subtractJpy) / (1 - EBAY_FEE_RATE));
   const floorUsd = (Math.round((floorJpy / USD_JPY) * 100) / 100).toFixed(2);
