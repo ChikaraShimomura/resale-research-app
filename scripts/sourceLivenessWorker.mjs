@@ -120,6 +120,16 @@ async function writeStatus(report) {
   } catch (e) { console.error("writeStatus error:", e.message); }
 }
 const nowIso = () => new Date().toISOString();
+// 実検査が成立した時刻(ok時のみ)。死活監視はこちらの鮮度を見る＝楽天が継続ブロック(429連発)で実質ゼロ件でも
+// liveness_status.at だけ新鮮になり「正常」と誤判定される偽陰性を防ぐ。
+async function writeRealRun(report) {
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: "POST", headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify([["SET", "liveness_last_real_run", JSON.stringify(report), "EX", String(90 * 24 * 3600)]]),
+    });
+  } catch (e) { console.error("writeRealRun error:", e.message); }
+}
 
 // ========== 本物URL抽出（①の refresh.mjs realRakutenUrl を踏襲）==========
 function realRakutenUrl(srcUrl) {
@@ -304,6 +314,8 @@ async function main() {
     catalogHidden: catSet, catalogRestored: catCleared,
     dealsSold: setSold, dealsDead: setDead, dealsCleared: cleared,
   });
+  // 実検査が成立した(ok)＝この時刻を監視の鮮度基準にする。
+  await writeRealRun({ at: nowIso(), alive: tally.alive, soldout: tally.soldout, dead: tally.dead });
   console.log(`${DRY ? "[DRY] " : ""}完了: [出品中] 売切 ${setSold}/削除 ${setDead}/復活解除 ${cleared}  [カタログ] 隠す ${catSet}/戻す ${catCleared}  (URL未取得 ${noUrl}・${sec}s)`);
   console.log(DRY ? "→ DRYなのでKV未書込。本番は LIVENESS_DRY=0 で実行。" : "→ 出品中はreconcile/auto-stopがeBay停止、カタログは/api/productsが一覧から非表示。");
 }

@@ -54,10 +54,14 @@ export type ShippingMethod = "airpacket" | "ems";
 export function intlShippingJpy(weightG: number, valueUsd: number): { jpy: number; method: ShippingMethod } {
   const useEms = valueUsd >= EMS_VALUE_USD || weightG > 2000; // 高額は補償付きEMS推奨／2kg超はエアパケ不可
   if (useEms) {
-    // EMS第4地帯：500g¥3,900 を起点に、超過500gごと+¥1,400で近似（確証 1kg¥5,300/2kg¥7,900 にやや安全側で一致）。
-    const over = Math.max(0, weightG - 500);
-    const jpy = 3900 + Math.ceil(over / 500) * 1400;
-    return { jpy: Math.max(3900, jpy), method: "ems" };
+    // EMS第4地帯の確証値に合わせて段階化：500g¥3,900 / 1kg¥5,300 / 1.5kg¥6,600 / 2kg¥7,900。2kg超は概算。
+    let jpy;
+    if (weightG <= 500) jpy = 3900;
+    else if (weightG <= 1000) jpy = 5300;
+    else if (weightG <= 1500) jpy = 6600;
+    else if (weightG <= 2000) jpy = 7900;
+    else jpy = 7900 + Math.ceil((weightG - 2000) / 500) * 1400;
+    return { jpy, method: "ems" };
   }
   const w = Math.min(2000, Math.max(100, weightG));
   const steps = Math.ceil((w - 100) / 100); // 100g起点の100g刻み

@@ -58,10 +58,10 @@ const fmtAge = (ms) => {
   return h < 1 ? `${Math.round(h * 60)}分前` : `${Math.round(h * 10) / 10}時間前`;
 };
 
-function downHtml(st, ageMs) {
+function downHtml(ageMs) {
   return `
-    <p>⚠️ <b>売切の見張り（スマホのワーカー）が止まっているようです。</b></p>
-    <p>最後に動いたのは <b>${fmtAge(ageMs)}</b>（${st?.at || "記録なし"}）。${STALE_H}時間以上 更新がありません。</p>
+    <p>⚠️ <b>売切の見張りが止まっている／楽天にブロックされているようです。</b></p>
+    <p>最後に在庫チェックが成立したのは <b>${fmtAge(ageMs)}</b>。${STALE_H}時間以上、正常な巡回がありません。</p>
     <p>このままだと、楽天で売切れた商品が利益商品一覧に残り続けます。スマホ（Pixel）を確認してください：</p>
     <ol>
       <li>電源が入っていて、<b>家のWiFi</b>に繋がっているか（充電もしっぱなしか）</li>
@@ -86,16 +86,20 @@ async function main() {
   }
 
   const now = Date.now();
-  const st = await kvGet("liveness_status");
-  const ageMs = st?.at ? now - Date.parse(st.at) : Infinity;
-  const down = !st || !Number.isFinite(ageMs) || ageMs > STALE_H * 3600000;
+  const st = await kvGet("liveness_status");            // 直近の結果(復活通知の表示用)
+  const real = await kvGet("liveness_last_real_run");   // 実検査が成立した最終時刻(ok時のみ更新)
+  // 鮮度は「実検査が成立した時刻」を最優先＝楽天ブロックで実質ゼロ件でも liveness_status だけ新鮮に見える偽陰性を防ぐ。
+  // 旧版ワーカー移行中は real が未生成なので liveness_status.at にフォールバック。
+  const refAt = real?.at || st?.at || null;
+  const ageMs = refAt ? now - Date.parse(refAt) : Infinity;
+  const down = !refAt || !Number.isFinite(ageMs) || ageMs > STALE_H * 3600000;
   const prev = (await kvGet("liveness_alert_state")) || { down: false, since: null, lastEmailAt: null };
 
   if (down) {
     const firstTime = !prev.down;
     const remindDue = prev.lastEmailAt ? now - Date.parse(prev.lastEmailAt) > REMIND_H * 3600000 : true;
     if (firstTime || remindDue) {
-      await sendEmail("⚠️ 輸出ラボ 売切見張りが止まっています", downHtml(st, ageMs));
+      await sendEmail("⚠️ 輸出ラボ 売切見張りが止まっています", downHtml(ageMs));
       await kvSet("liveness_alert_state", {
         down: true,
         since: firstTime ? new Date(now).toISOString() : prev.since || new Date(now).toISOString(),

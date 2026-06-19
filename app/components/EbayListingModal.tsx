@@ -249,7 +249,7 @@ export default function EbayListingModal({
         handlingDays,
         quantity,
         bestOffer,
-        floorUsd: data?.floorUsd,
+        floorUsd, // 重さ入力を反映した再計算後のfloor（表示と一致・Best Offer自動拒否に使用）
         selectedImages, // 出品に使う写真（先頭=メイン）
       }),
     })
@@ -374,8 +374,8 @@ export default function EbayListingModal({
   const highTarget = medianUsd > 0 ? medianUsd * (1 + HIGH_MARKUP) : 0; // 高値出品＝eBay相場+10%
   const chooseStrategy = (s: "fast" | "market" | "lowest" | "high") => {
     setStrategy(s);
-    if (s === "market") { if (medianUsd > 0) setPriceUsd(medianUsd.toFixed(2)); return; }
-    if (s === "high") { if (highTarget > 0) setPriceUsd(highTarget.toFixed(2)); return; }
+    if (s === "market") { const t = Math.max(medianUsd, floorUsd); if (t > 0) setPriceUsd(t.toFixed(2)); return; } // 相場でも損益分岐は割らない
+    if (s === "high") { const t = Math.max(highTarget, floorUsd); if (t > 0) setPriceUsd(t.toFixed(2)); return; } // 高値でも損益分岐は割らない
     if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
     if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安出品（損益分岐は割らない）
   };

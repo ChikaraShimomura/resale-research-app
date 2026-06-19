@@ -131,7 +131,7 @@ function expiredStopIds(deals: Record<string, Deal>, now: number): string[] {
 // 取引を完全削除する（deals本体＋SKU対応表の該当エントリ）。SKU対応表を残すと publishedFilter が
 // 「出品中」と誤認し、その商品が検索一覧から消えたままになるため、値=productId のSKUキーも必ず消す
 // （自己修復で rr-{id}-{乱数} になっていても値で拾えるので取りこぼさない）。
-async function deleteDealsWithSku(actor: string, ids: string[]): Promise<void> {
+export async function deleteDealsWithSku(actor: string, ids: string[]): Promise<void> {
   if (!ids.length) return;
   const idSet = new Set(ids);
   try {

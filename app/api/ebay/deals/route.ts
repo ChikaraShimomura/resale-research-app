@@ -1,8 +1,6 @@
 import { kv } from "@vercel/kv";
 import { getActorId } from "../../../lib/auth/actor";
-import { listDealsForUser, removeDeal, recordSold, USD_JPY } from "../../../lib/ebay/stats";
-import { SKU_MAP_KEY } from "../../../lib/ebay/listing";
-import { skuForProduct } from "../../../lib/ebay/sellApi";
+import { listDealsForUser, deleteDealsWithSku, recordSold, USD_JPY } from "../../../lib/ebay/stats";
 
 // マイページ「出品中の商品」の一覧と手動調整（出品をやめた／実は売れていた）。
 // 端末(アクター)単位の KV ハッシュ ebay_deals を読み書きする。eBay は叩かない。
@@ -33,14 +31,9 @@ export async function POST(req: Request) {
   const productId = (body.productId || "").trim();
   if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  // 出品をやめた → 成績から削除。売却検知の逆引き(SKU)も消し、後から売却扱いされないようにする。
+  // 出品をやめた → 成績から削除。deal＋SKU対応表(値=productId一致で削除＝自己修復SKU rr-{id}-{乱数} も確実に消す)。
   if (body.action === "remove") {
-    await removeDeal(actor, productId);
-    try {
-      await kv.hdel(SKU_MAP_KEY(actor), skuForProduct(productId));
-    } catch {
-      /* noop */
-    }
+    await deleteDealsWithSku(actor, [productId]);
     return Response.json({ ok: true });
   }
 

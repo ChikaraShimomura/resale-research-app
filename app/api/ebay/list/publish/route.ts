@@ -122,11 +122,15 @@ export async function POST(req: Request) {
   let autoAcceptUsd: string | undefined;
   let autoDeclineUsd: string | undefined;
   if (bestOffer) {
-    autoAcceptUsd = (price * 0.9).toFixed(2); // 10%引きまで即承諾
     const floor = Number(body.floorUsd);
-    // eBay制約: 自動拒否価格は自動承諾価格より低いこと。損益分岐がそれを満たす時だけ設定。
-    if (Number.isFinite(floor) && floor > 0 && floor < price * 0.9) {
-      autoDeclineUsd = floor.toFixed(2); // 損益分岐未満の赤字オファーは自動拒否
+    const hasFloor = Number.isFinite(floor) && floor > 0;
+    // 自動承諾は「10%引き」だが損益分岐(floor)は絶対に割らない＝赤字を即確定させない。出品価格は上限。
+    const accept = Math.min(price, hasFloor ? Math.max(price * 0.9, floor) : price * 0.9);
+    autoAcceptUsd = accept.toFixed(2);
+    // 自動拒否は floor 未満(赤字)を弾く。eBay制約で 拒否価格 < 承諾価格 のため、等しくならないよう僅かに下げる。
+    if (hasFloor) {
+      const decline = Math.min(floor, accept - 0.01);
+      if (decline > 0 && decline < accept) autoDeclineUsd = decline.toFixed(2);
     }
   }
 
