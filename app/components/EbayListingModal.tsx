@@ -64,6 +64,13 @@ function aspectLabel(name: string): string {
   };
   return map[name.trim().toLowerCase()] ?? name;
 }
+// 各項目の必須/任意バッジ（「何を必ず入れるか」を一目で）。
+function ReqBadge() {
+  return <span className="ml-1 align-middle text-[9px] font-bold text-[#BF0000] bg-red-50 border border-red-200 rounded px-1 py-px">必須</span>;
+}
+function OptBadge() {
+  return <span className="ml-1 align-middle text-[9px] text-gray-400 bg-gray-50 border border-gray-200 rounded px-1 py-px">任意</span>;
+}
 interface PublishResult {
   ok: boolean;
   listingId?: string;
@@ -114,6 +121,7 @@ export default function EbayListingModal({
   const [description, setDescription] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
   const [weightInput, setWeightInput] = useState(""); // 重さ(任意・g・梱包込み)。入力すると送料/損益分岐を再計算
+  const [showWeight, setShowWeight] = useState(false); // 重さ入力欄は既定で隠し、押したら開く
   const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
@@ -447,7 +455,7 @@ export default function EbayListingModal({
 
               {/* タイトル（英語・編集可） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">タイトル（英語）</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">タイトル（英語）<ReqBadge /></label>
                 <textarea
                   value={title}
                   onChange={(e) => setTitle(e.target.value.slice(0, 80))}
@@ -459,7 +467,7 @@ export default function EbayListingModal({
 
               {/* 説明文（英語・編集可） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">説明文（英語）</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">説明文（英語）<OptBadge /></label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -470,7 +478,7 @@ export default function EbayListingModal({
 
               {/* 状態 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">商品の状態</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">商品の状態<OptBadge /></label>
                 <select
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
@@ -486,7 +494,7 @@ export default function EbayListingModal({
               {photoCandidates.length > 0 && (
                 <div>
                   <label className="block text-[11px] text-gray-500 mb-1">
-                    出品に使う写真（<b>タップで選択</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）
+                    出品に使う写真（<b>タップで選択</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）<ReqBadge />
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {photoCandidates.map((u, i) => {
@@ -592,7 +600,7 @@ export default function EbayListingModal({
 
               {/* 売り方（激安出品=最安-5% / 最安出品=最安値 / 相場出品=eBay相場 / 高値出品=相場+10%）。既定は最安出品 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-1">売り方</label>
+                <label className="block text-[11px] text-gray-500 mb-1">売り方<OptBadge /></label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -656,7 +664,7 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">販売価格（USD）</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">販売価格（USD）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">$</span>
                   <input
@@ -675,18 +683,28 @@ export default function EbayListingModal({
                     重さは分かれば入力するとより正確に（未入力はカテゴリ概算）。 */}
                 {liveLanded && (
                   <div className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <label className="text-gray-500">重さ（任意・g）</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={weightInput}
-                        onChange={(e) => setWeightInput(e.target.value)}
-                        placeholder={`概算${estWeightG}`}
-                        className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
-                      />
-                      <span>梱包込み・分かれば（未入力は安全側で少し重め）</span>
-                    </div>
+                    {!showWeight ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowWeight(true)}
+                        className="text-gray-500 underline underline-offset-2 active:text-gray-700 mb-1"
+                      >
+                        ＋ 重さを入力して送料を正確にする（任意）
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <label className="text-gray-500">重さ（g）<OptBadge /></label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={weightInput}
+                          onChange={(e) => setWeightInput(e.target.value)}
+                          placeholder={`概算${estWeightG}`}
+                          className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
+                        />
+                        <span>梱包込み（未入力は安全側で少し重め）</span>
+                      </div>
+                    )}
                     📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}（
                     {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／
                     {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）＝<b className="text-gray-500">購入者が負担</b>
@@ -716,7 +734,7 @@ export default function EbayListingModal({
                     onChange={(e) => setBestOffer(e.target.checked)}
                     className="accent-[#2D323B] w-4 h-4"
                   />
-                  <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける</span>
+                  <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける<OptBadge /></span>
                 </label>
                 {bestOffer && Number(priceUsd) > 0 && (
                   <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
@@ -730,7 +748,7 @@ export default function EbayListingModal({
 
               {/* 出品する個数（在庫数） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">出品する個数（在庫数）</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">出品する個数（在庫数）<OptBadge /></label>
                 <select
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
@@ -745,7 +763,7 @@ export default function EbayListingModal({
 
               {/* 送料サイズ */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）<OptBadge /><span className="ml-1 text-[9px] text-gray-400">自動選択</span></label>
                 {data.shipping.length > 0 ? (
                   <select
                     value={shippingId}
@@ -769,7 +787,7 @@ export default function EbayListingModal({
               {/* 発送までの日数（handling time） */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-0.5 flex items-center gap-1">
-                  <Clock size={12} className="text-gray-400" />発送までの日数（落札後に発送するまで）
+                  <Clock size={12} className="text-gray-400" />発送までの日数（落札後に発送するまで）<OptBadge />
                 </label>
                 <select
                   value={handlingDays}
