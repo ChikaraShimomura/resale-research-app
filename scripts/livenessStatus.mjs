@@ -27,9 +27,19 @@ console.log(`結果: ${st.note}${st.dry ? "(DRY)" : ""}  生存${st.alive ?? "-"
 
 const log = (await j("lrange/liveness_log/0/9")) || [];
 if (log.length) {
-  console.log("\n直近の実行:");
+  console.log("\n直近の実行(売切検知):");
   for (const s of log) {
     const o = parse(s);
     console.log(`  ${o.at}  ${o.note}${o.dry ? "(DRY)" : ""}  売切${o.soldout ?? "-"}/隠す${o.catalogHidden ?? "-"}`);
   }
+}
+
+// ギャラリー取得ワーカーの心拍
+const g = parse(await j("get/gallery_last_run"));
+if (g && g.at) {
+  const gMin = Math.round((Date.now() - Date.parse(g.at)) / 60000);
+  const gStale = gMin > 12 * 60; // 約6hごと→12h超で疑い
+  console.log(`\nギャラリー取得: ${g.at}（${gMin}分前）${gStale ? "  ⚠️ 12h以上更新なし" : "  ✅ 稼働中"}  取得${g.fetched ?? "-"}/空${g.empty ?? "-"}/失敗${g.err ?? "-"}/スキップ${g.skip ?? "-"}`);
+} else {
+  console.log("\nギャラリー取得: まだ心拍なし(新版ワーカーが1回も回ってない可能性。次サイクルで出ます)");
 }

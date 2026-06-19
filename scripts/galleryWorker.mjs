@@ -120,6 +120,8 @@ async function cycle() {
     await sleep(PRODUCT_GAP_MS);
   }
   console.log(`サイクル完了: 取得${done} / 空${empty} / 失敗${err} / 既取得スキップ${skip} (カタログ${products.length})`);
+  // 心拍: PC/クラウドから「ギャラリーワーカーが実際に回ったか」を監視できるようKVへ記録(取得対象ゼロでも更新される)。
+  await kvSetEx("gallery_last_run", { at: new Date().toISOString(), fetched: done, empty, err, skip, total: products.length }, 90 * 24 * 3600);
 }
 
 async function loop() {
