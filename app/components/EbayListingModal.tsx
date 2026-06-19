@@ -565,7 +565,7 @@ export default function EbayListingModal({
                           const checked = idx >= 0;
                           const disabled = !checked && selectedImages.length >= MAX_LISTING_PHOTOS;
                           return (
-                            <div key={i} className="min-w-full shrink-0 snap-center flex flex-col items-center justify-center gap-3 px-4">
+                            <div key={i} className="w-full min-w-0 shrink-0 snap-center flex flex-col items-center justify-center gap-3 px-4">
                               <p className="text-[11px] text-white/70 text-center">
                                 {i + 1} / {photoCandidates.length}・実際にeBayに出る画像{checked ? `（選択中・${idx + 1}枚目${idx === 0 ? "・メイン" : ""}）` : ""}
                               </p>
@@ -685,7 +685,7 @@ export default function EbayListingModal({
                         placeholder={`概算${estWeightG}`}
                         className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
                       />
-                      <span>梱包込み・分かれば</span>
+                      <span>梱包込み・分かれば（未入力は安全側で少し重め）</span>
                     </div>
                     📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}（
                     {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／

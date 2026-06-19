@@ -39,8 +39,13 @@ const WEIGHT_G: Record<string, number> = {
   その他: 700,
 };
 
+// 重量は基本「不明」前提。カテゴリ概算に安全係数(既定1.15)を掛けて少し重めに見積もる＝送料を気持ち
+// 高めに請求して赤字を防ぐ（送料は購入者負担なので、高めでも損はせず"やや割高"になるだけ＝安全側）。
+// 重さが分かる時はモーダルの「重さ(任意)」入力で実測に上書きされ、この概算は使われない。
+const WEIGHT_SAFETY = Number(process.env.LANDED_WEIGHT_SAFETY) || 1.15;
 export function estimateWeightG(category?: string): number {
-  return WEIGHT_G[category ?? "その他"] ?? 700;
+  const base = WEIGHT_G[category ?? "その他"] ?? 700;
+  return Math.round(base * WEIGHT_SAFETY);
 }
 
 export type ShippingMethod = "airpacket" | "ems";
