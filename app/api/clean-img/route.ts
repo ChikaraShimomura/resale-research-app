@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { cleanupBakedText } from "../../lib/ebay/imageCleanup";
+import { processListingImage } from "../../lib/ebay/imageProcess";
 
 // 表示用の画像プロキシ: 楽天画像を取得→焼き込み文字を背景色で消去(imageCleanup)→JPEGで返す。
 // 各画像は初回だけ処理し、以降は CDN/ブラウザキャッシュ（immutable・1年）で配るのでコスト・遅延は初回のみ。
@@ -26,7 +27,10 @@ const FETCH_HEADERS = {
 };
 
 export async function GET(req: Request) {
-  const u = new URL(req.url).searchParams.get("u") || "";
+  const sp = new URL(req.url).searchParams;
+  const u = sp.get("u") || "";
+  // list=1: eBay出品(enhanceToEps)と同じ processListingImage(1600px正方/白背景/シャープ)も通す＝出品画像と一致するプレビュー(WYSIWYG)。
+  const listMode = sp.get("list") === "1";
   const target = allowedTarget(u);
   if (!target) return new Response("bad url", { status: 400 });
   try {
@@ -34,8 +38,10 @@ export async function GET(req: Request) {
     if (!r.ok) return Response.redirect(target, 302); // 取得失敗 → 元画像へ
     const raw = Buffer.from(await r.arrayBuffer());
     const cleaned = await cleanupBakedText(raw); // 文字消去（キー無/失敗時は元のまま）
-    const jpeg = await sharp(cleaned, { failOn: "none" }).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
-    return new Response(new Uint8Array(jpeg), {
+    const out = listMode
+      ? await processListingImage(cleaned) // eBay出品と同一加工＝WYSIWYG
+      : await sharp(cleaned, { failOn: "none" }).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+    return new Response(new Uint8Array(out), {
       headers: {
         "Content-Type": "image/jpeg",
         "Cache-Control": "public, max-age=31536000, immutable",

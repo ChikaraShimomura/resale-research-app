@@ -298,6 +298,10 @@ export default function EbayListingModal({
 
   // 出品写真の候補（楽天ギャラリー＋API代表画像・重複除去）。ユーザーがチェックで選ぶ。
   const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])])).filter(Boolean);
+  // 拡大プレビューは「実際にeBayへ送る加工後画像」を出す（clean-img の list=1＝enhanceToEpsと同一加工）＝WYSIWYG。
+  // プロキシは楽天系ホストのみ許可なので、楽天画像だけ通し、それ以外は元URL。
+  const ebayPreviewSrc = (url: string) =>
+    /(rakuten\.co\.jp|r10s\.jp)/i.test(url) ? `/api/clean-img?u=${encodeURIComponent(url)}&list=1` : url;
   // チェックの切り替え。候補の並び順を保ったまま selectedImages を作り直す（先頭=メイン写真）。
   const togglePhoto = (url: string) => {
     setSelectedImages((cur) => {
@@ -506,8 +510,9 @@ export default function EbayListingModal({
                           </span>
                           <button type="button" onClick={() => setZoomIndex(null)} aria-label="閉じる" className="p-1"><X size={22} /></button>
                         </div>
-                        <div className="flex-1 flex items-center justify-center px-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                          <img src={u} alt="拡大プレビュー" className="max-w-full max-h-full object-contain" />
+                        <div className="flex-1 flex flex-col items-center justify-center px-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-[11px] text-white/75 mb-1.5">▼ 実際にeBayに出品される画像（加工後プレビュー）</p>
+                          <img src={ebayPreviewSrc(u)} alt="実際にeBayに出品される画像" className="max-w-full max-h-full object-contain bg-white rounded" />
                         </div>
                         <div className="flex items-center gap-2 px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <button
