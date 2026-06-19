@@ -106,24 +106,26 @@ async function checkRakutenItem(itemCode) {
     });
     let data = null;
     try { data = await res.json(); } catch { /* 非JSON */ }
-    if (data && data.error === "not_found") return "dead";
+    if (data && data.error === "not_found") return { status: "dead", itemUrl: null };
     if (res.ok && data && Array.isArray(data.Items)) {
-      if (data.Items.length === 0) return "dead";
+      if (data.Items.length === 0) return { status: "dead", itemUrl: null };
       const item = data.Items[0]?.Item ?? data.Items[0];
-      if (item && Number(item.availability) === 0) return "soldout";
-      return "alive";
+      const itemUrl = item?.itemUrl || null; // 本物のスラッグURL（住宅IPワーカーが実ページを叩くのに使う／番号URLは404）
+      if (item && Number(item.availability) === 0) return { status: "soldout", itemUrl };
+      return { status: "alive", itemUrl };
     }
-    return "unknown";
+    return { status: "unknown", itemUrl: null };
   } catch {
-    return "unknown";
+    return { status: "unknown", itemUrl: null };
   }
 }
 
 async function confirmStatus(itemCode) {
   const first = await checkRakutenItem(itemCode);
-  if (first === "alive" || first === "unknown") return first;
+  if (first.status === "alive" || first.status === "unknown") return first;
   await sleep(1500);
-  return await checkRakutenItem(itemCode);
+  const second = await checkRakutenItem(itemCode);
+  return { status: second.status, itemUrl: second.itemUrl ?? first.itemUrl };
 }
 
 // ========== メイン ==========
@@ -164,41 +166,45 @@ async function main() {
   }
   console.log(`出品中の楽天死活/在庫チェック開始: deal ${targets.length}件 / itemCode ${codes.length}件 (gap ${RAKUTEN_GAP_MS}ms)`);
 
-  // itemCode ごとに状態を1回だけ判定。
+  // itemCode ごとに状態を1回だけ判定。本物URL(itemUrl)も取得して deal に焼く（住宅IPワーカー用）。
   const statusByCode = new Map();
+  const urlByCode = new Map();
   let alive = 0, dead = 0, soldout = 0, unknown = 0;
   for (const code of codes) {
-    const status = await confirmStatus(code);
-    statusByCode.set(code, status);
-    if (status === "alive") alive++;
-    else if (status === "dead") dead++;
-    else if (status === "soldout") soldout++;
+    const r = await confirmStatus(code);
+    statusByCode.set(code, r.status);
+    if (r.itemUrl) urlByCode.set(code, r.itemUrl);
+    if (r.status === "alive") alive++;
+    else if (r.status === "dead") dead++;
+    else if (r.status === "soldout") soldout++;
     else unknown++;
     await sleep(RAKUTEN_GAP_MS);
   }
 
-  // 各 deal に反映。状態が変わった時だけ書く（直前に再読込してマージ＝ユーザー操作との競合窓を最小化）。
-  let updated = 0, cleared = 0;
+  // 各 deal に反映。
+  //  ①本物URL(sourceUrl)のバックフィル：住宅IPワーカーが実ページを叩くのに必須。APIの itemUrl は正しいスラッグURL。
+  //  ②弱いフェイルセーフ：APIが明確に dead/soldout を返した時だけフラグ（rareだが無料の保険）。
+  //    ⚠️APIの availability=alive は信用しない（売切でも alive を返す）。alive でフラグ解除もしない＝判定の権威は住宅IPワーカー(sourceLivenessWorker)。
+  let urled = 0, flagged = 0;
   for (const { key, productId } of targets) {
     const status = statusByCode.get(productId);
-    if (status === undefined || status === "unknown") continue; // 未確認/不明は現状維持
-    const desired = status === "dead" ? "dead" : status === "soldout" ? "soldout" : null; // alive→null
+    const itemUrl = urlByCode.get(productId) || null;
     const fresh = await kvHget(key, productId);
     if (!fresh || typeof fresh !== "object") continue;
-    if (fresh.soldUsd != null || fresh.stoppedAt != null) continue; // この間に売却/停止されたら触らない
-    const current = fresh.sourceStatus ?? null;
-    if (current === desired) continue; // 変化なし＝書かない
-    const next = { ...fresh, sourceCheckedAt: new Date().toISOString() };
-    if (desired) next.sourceStatus = desired;
-    else delete next.sourceStatus;
-    await kvHset(key, productId, next);
-    if (desired) updated++; else cleared++;
+    if (fresh.soldUsd != null || fresh.stoppedAt != null) continue; // 売却/停止されたら触らない
+    const next = { ...fresh };
+    let changed = false;
+    if (itemUrl && fresh.sourceUrl !== itemUrl) { next.sourceUrl = itemUrl; changed = true; urled++; }
+    if (status === "dead" || status === "soldout") {
+      if (next.sourceStatus !== status) { next.sourceStatus = status; next.sourceCheckedAt = new Date().toISOString(); next.sourceCheckedBy = "api"; changed = true; flagged++; }
+    }
+    if (changed) await kvHset(key, productId, next);
   }
 
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
   console.log(
     `完了: itemCode alive ${alive} / 売り切れ ${soldout} / リンク切れ ${dead} / 不明 ${unknown}。` +
-    `フラグ 付与/更新 ${updated}件・解除 ${cleared}件 (${elapsedSec}s)`
+    `本物URL焼き ${urled}件・APIフェイルセーフでフラグ ${flagged}件 (${elapsedSec}s)。実判定は住宅IPワーカー(sourceLivenessWorker.mjs)が担当`
   );
 }
 
