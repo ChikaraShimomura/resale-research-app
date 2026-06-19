@@ -442,9 +442,9 @@ export default function EbayListingModal({
               {photoCandidates.length > 0 && (
                 <div>
                   <label className="block text-[11px] text-gray-500 mb-1">
-                    出品に使う写真（チェックで選択・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）
+                    出品に使う写真（<b>タップで選択</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {photoCandidates.map((u, i) => {
                       const idx = selectedImages.indexOf(u);
                       const checked = idx >= 0;
@@ -452,43 +452,48 @@ export default function EbayListingModal({
                       return (
                         <div
                           key={i}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                            checked ? "border-[#0064D2]" : "border-[#A98B5C]/35"
+                          className={`relative aspect-square rounded-xl overflow-hidden border-[3px] transition-colors ${
+                            checked ? "border-[#0064D2]" : "border-[#A98B5C]/30"
                           } ${disabled && !checked ? "opacity-50" : ""}`}
                         >
-                          {/* 画像タップ＝拡大して確認 */}
-                          <button
-                            type="button"
-                            onClick={() => setZoomIndex(i)}
-                            aria-label={`写真${i + 1}を拡大して確認`}
-                            className="absolute inset-0 w-full h-full"
-                          >
-                            <img src={u} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-cover bg-gray-50" />
-                          </button>
-                          {/* 右上＝選択トグル（拡大しなくても直接選べる） */}
+                          {/* 画像タップ＝そのまま選択（全部を大きく見て直接選べる） */}
                           <button
                             type="button"
                             onClick={() => togglePhoto(u)}
                             disabled={disabled}
                             aria-pressed={checked}
-                            aria-label={checked ? "選択を外す" : "出品に使う"}
-                            className={`absolute top-0.5 right-0.5 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center border ${
-                              checked ? "bg-[#0064D2] text-white border-[#0064D2]" : "bg-white/85 text-gray-500 border-gray-300"
+                            aria-label={checked ? `写真${i + 1}の選択を外す` : `写真${i + 1}を出品に使う`}
+                            className="absolute inset-0 w-full h-full"
+                          >
+                            <img src={ebayPreviewSrc(u)} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-contain bg-white" />
+                          </button>
+                          {/* 選択バッジ（左上・番号）。タップは下の画像ボタンに透過。 */}
+                          <span
+                            className={`absolute top-1 left-1 w-7 h-7 rounded-full text-sm font-black flex items-center justify-center pointer-events-none border ${
+                              checked ? "bg-[#0064D2] text-white border-[#0064D2] shadow" : "bg-white/90 text-gray-400 border-gray-300"
                             }`}
                           >
                             {checked ? idx + 1 : "＋"}
+                          </span>
+                          {/* 右上＝さらにフルスクリーンで拡大（任意） */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setZoomIndex(i); }}
+                            aria-label={`写真${i + 1}をフルスクリーンで拡大`}
+                            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/45 text-white text-xs flex items-center justify-center"
+                          >
+                            🔍
                           </button>
-                          {/* 左下＝拡大ヒント */}
-                          <span className="absolute bottom-0.5 left-0.5 bg-black/45 text-white text-[10px] leading-none rounded px-1 py-0.5 pointer-events-none">🔍</span>
+                          {checked && <span className="absolute inset-0 rounded-lg ring-2 ring-inset ring-[#0064D2] pointer-events-none" />}
                           {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[9px] font-bold text-center py-0.5 pointer-events-none">メイン</span>
+                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[10px] font-bold text-center py-0.5 pointer-events-none">メイン</span>
                           )}
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    写真を<b>タップで拡大して確認</b> → <b>＋で選択</b>。最初の1枚がメイン写真です（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら<b>自分で撮った写真に差し替え</b>を（編集→実物写真を追加）。
+                    写真を<b>タップで選択</b>（もう一度タップで解除）。各画像は<b>実際にeBayに出る加工後</b>です。🔍でさらに大きく確認。最初の1枚がメイン（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
                   </p>
                   {!photoOk && (
                     <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
