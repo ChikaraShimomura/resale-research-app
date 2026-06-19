@@ -545,9 +545,11 @@ export default function EbayListingModal({
                     </p>
                   )}
 
-                  {/* 拡大プレビュー（横スワイプで全写真を流し見＆その場で選択） */}
-                  {zoomIndex !== null && (
-                    <div className="fixed inset-0 z-[110] bg-black/90 flex flex-col" onClick={() => setZoomIndex(null)}>
+                  {/* 拡大プレビュー（横スワイプ）。モーダル本体が overflow-y-auto のため、その中に fixed を置くと
+                      iOS等でスクロールコンテナに閉じ込められ、右上の×の当たり判定がズレて押せなくなる。
+                      document.body へ portal してスクロールコンテナの外に出す（React のイベント伝播は保たれる）。 */}
+                  {zoomIndex !== null && createPortal(
+                    <div className="fixed inset-0 z-[120] bg-black/90 flex flex-col" onClick={() => setZoomIndex(null)}>
                       <button
                         type="button"
                         onClick={() => setZoomIndex(null)}
@@ -582,7 +584,8 @@ export default function EbayListingModal({
                           );
                         })}
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </div>
               )}
