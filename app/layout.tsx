@@ -6,6 +6,7 @@ import "./globals.css";
 import AddToHome from "./components/AddToHome";
 import ConsentBanner from "./components/ConsentBanner";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
+import VersionWatcher from "./components/VersionWatcher";
 import JsonLd from "./components/JsonLd";
 import SourceStopRecap from "./components/SourceStopRecap";
 
@@ -132,6 +133,7 @@ export default async function RootLayout({
         <AddToHome />
         <ConsentBanner />
         <ServiceWorkerRegister />
+        <VersionWatcher />
         <SourceStopRecap />
       </body>
     </html>
