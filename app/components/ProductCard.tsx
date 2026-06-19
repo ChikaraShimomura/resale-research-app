@@ -1,6 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenProductUrl, toEbayMarketUrl } from "../lib/utils";
-import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Package } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck } from "lucide-react";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -57,6 +57,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 無い(旧データ)時だけ、締めたキーワード検索にフォールバック。
   const ebayMarketUrl = product.matchedEbayUrl || toEbayMarketUrl(product.coreKeyword || product.title, (product as { market?: string }).market);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 
   // 「楽天で仕入れる」を押した端末だけ「eBay自動出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
   const [rakutenClicked, setRakutenClicked] = useState(false);
@@ -101,6 +102,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const realCost = source.price + shippingJpy - pointAmount;
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
 
+  // 画像が無い／読み込めない（楽天のリンク切れ画像）商品はカードごと出さない＝「画像無し」を防ぐ。
+  if (!product.imageUrl || imgError) return null;
+
   return (
     <div className={cn(
       "relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border",
@@ -129,12 +133,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             <a href={sourceUrl} rel="noopener noreferrer"
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="楽天市場でこの商品を見る">
-              {product.imageUrl ? (
-                <img src={cleanImg(product.imageUrl)} alt={product.title}
-                  className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
-              ) : (
-                <div aria-hidden="true" className={`w-[92px] h-[92px] bg-gray-50 rounded-xl border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"} flex items-center justify-center text-gray-300`}><Package size={30} /></div>
-              )}
+              <img src={cleanImg(product.imageUrl)} alt={product.title}
+                onError={() => setImgError(true)}
+                className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
               <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
                 楽天で見る
               </span>

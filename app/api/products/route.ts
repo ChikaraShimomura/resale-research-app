@@ -105,8 +105,10 @@ export async function GET() {
       //  ・$800超は米国DDP関税を郵便のZonosで処理できず初心者が扱えない＝カタログから除外
       // (restoredは管理者裁量で常に残す)
       const MAX_DECLARED_USD = 800;
+      const hasImage = (p: ProfitProduct) => !!(p.imageUrl && String(p.imageUrl).trim()); // 「画像無し」カードを出さない
       let priced = ready
         .map(withLandedCost)
+        .filter(hasImage)
         .filter(
           (p) =>
             p.restored ||
@@ -114,7 +116,7 @@ export async function GET() {
               (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
               !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
         );
-      if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost); // 全消しは避ける(fail-open)
+      if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost).filter(hasImage); // 全消しは避ける(画像ありのみ)
 
       return Response.json(
         { products: priced, lastUpdated, stats },
