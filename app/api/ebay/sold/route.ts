@@ -4,6 +4,7 @@ import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../lib/ebay/sellApi";
 import { SKU_MAP_KEY, SKU_MAP_TTL } from "../../../lib/ebay/listing";
 import { recordSold } from "../../../lib/ebay/stats";
+import { recordOrders } from "../../../lib/ebay/orders";
 import { sendToActor } from "../../../lib/push";
 import { FUNNEL_TTL, jstDate, evcKey, evuKey } from "../../../lib/funnel";
 
@@ -78,6 +79,12 @@ export async function POST() {
     } catch {
       /* noop */
     }
+  }
+
+  // 注文(Order)エンティティを保存（買い手住所/発送期限/orderId/lineItem/状態）＝配送管理の土台。
+  // 売却検知(productIds)とは独立に、アプリ出品ラインを含む注文を毎回 upsert する。
+  if (res.orders.length > 0) {
+    await recordOrders(actor, res.orders);
   }
 
   if (productIds.length > 0) {

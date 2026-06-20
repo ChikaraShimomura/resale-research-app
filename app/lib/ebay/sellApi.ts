@@ -73,10 +73,33 @@ export function skuForProduct(productId: string): string {
 // ── 売却の自動検知（Fulfillment API getOrders） ──
 // 自分の売れた注文を読み、アプリ出品(SKU=rr-*)の SKU だけを返す。商品IDへの変換は対応表で route 側が行う。
 // 必要スコープ: sell.fulfillment（未付与＝旧トークンなら needsReconnect を立てる）。
+// Fulfillment Order の生レスポンス（必要分のみ・全フィールド任意）。
 interface OrdersResponse {
   orders?: {
+    orderId?: string;
     creationDate?: string;
-    lineItems?: { sku?: string; lineItemCost?: { value?: string } }[];
+    orderFulfillmentStatus?: string; // NOT_STARTED / IN_PROGRESS / FULFILLED
+    buyer?: { username?: string };
+    fulfillmentStartInstructions?: {
+      shippingStep?: {
+        shipTo?: {
+          fullName?: string;
+          contactAddress?: {
+            addressLine1?: string; addressLine2?: string; city?: string;
+            stateOrProvince?: string; postalCode?: string; countryCode?: string;
+          };
+        };
+      };
+    }[];
+    lineItems?: {
+      lineItemId?: string;
+      sku?: string;
+      title?: string;
+      quantity?: number;
+      lineItemCost?: { value?: string };
+      lineItemFulfillmentStatus?: string;
+      lineItemFulfillmentInstructions?: { shipByDate?: string }; // 発送期限(handling)
+    }[];
   }[];
 }
 
@@ -85,18 +108,53 @@ export interface SoldItem {
   soldUsd: number; // 売値(USD)
   soldAt: string; // 注文日(ISO)
 }
+
+// ── 注文(Order)エンティティ（配送管理の土台）──
+// getOrders が返す情報のうち、これまで捨てていた buyer住所/発送期限/orderId/lineItem/状態 を正規化して保持。
+// 追跡番号の書き戻し(②)・発送期限カウントダウン(③)・欠品リカバリ(⑤)が全部これに乗る。
+export interface EbayShipTo {
+  name?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  stateOrProvince?: string;
+  postalCode?: string;
+  countryCode?: string;
+}
+export interface EbayOrderLine {
+  lineItemId: string;
+  sku: string; // rr-*
+  title?: string;
+  quantity?: number;
+  soldUsd: number;
+  shipByDate?: string; // 発送期限（これを過ぎると late shipment defect）
+  fulfillmentStatus?: string; // lineItemFulfillmentStatus
+}
+export interface EbayOrder {
+  orderId: string;
+  creationDate?: string;
+  fulfillmentStatus?: string; // orderFulfillmentStatus
+  buyerUsername?: string;
+  shipTo?: EbayShipTo;
+  shipByDate?: string; // 注文内ラインの最早 shipByDate（カウントダウン表示用）
+  lines: EbayOrderLine[]; // アプリ出品(rr-*)のラインのみ
+}
+
 export interface SoldItemsResult {
   ok: boolean;
   needsReconnect: boolean; // sell.fulfillment 未付与（再連携が必要）
   partial: boolean; // ページネーション途中でeBayエラー＝全件読めていない（次回も同期が必要）
-  items: SoldItem[];
+  items: SoldItem[]; // 売却検知用（同一SKUは1回）
+  orders: EbayOrder[]; // 注文エンティティ（orderId 単位・アプリ出品ラインを含む注文）
 }
 
-// 売れた注文のうちアプリ出品(SKU=rr-*)の品を、売値・注文日つきで返す（同一SKUは1回）。
+// 売れた注文のうちアプリ出品(SKU=rr-*)の品を、売値・注文日つきで返す（同一SKUは1回）＝売却検知用 items。
+// あわせて orderId 単位の正規化注文 orders（買い手住所/発送期限/状態つき）も返す＝配送管理の土台。
 // 全ページを読み切れたときだけ partial:false。途中でeBayエラーになった場合は、
-// それまでに拾えた items は返しつつ partial:true を立て、呼び出し側で「同期未完了」として扱わせる。
+// それまでに拾えた items/orders は返しつつ partial:true を立て、呼び出し側で「同期未完了」として扱わせる。
 export async function getSoldItems(token: string): Promise<SoldItemsResult> {
   const items: SoldItem[] = [];
+  const ordersOut: EbayOrder[] = [];
   const seen = new Set<string>();
   let offset = 0;
   let reachedEnd = false;
@@ -106,27 +164,62 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
       `/sell/fulfillment/v1/order?limit=200&offset=${offset}`
     );
     // 401/403：初回ページのみスコープ未付与＝再連携。途中ページは一時失敗とみなし、
-    // 既に拾えた items は温存して partial:true（次回も同期させ取りこぼさない）。
+    // 既に拾えた分は温存して partial:true（次回も同期させ取りこぼさない）。
     if (r.status === 401 || r.status === 403) {
-      if (pageReq === 0) return { ok: false, needsReconnect: true, partial: true, items: [] };
-      return { ok: false, needsReconnect: false, partial: true, items };
+      if (pageReq === 0) return { ok: false, needsReconnect: true, partial: true, items: [], orders: [] };
+      return { ok: false, needsReconnect: false, partial: true, items, orders: ordersOut };
     }
     if (!r.ok || !r.data) {
       // ページ途中での失敗：拾えた分は返すが「全件読めていない(partial)」を立てる。
       // ok は誤って成功扱いしないよう false（同期ゲートを進めない）。
-      return { ok: false, needsReconnect: false, partial: true, items };
+      return { ok: false, needsReconnect: false, partial: true, items, orders: ordersOut };
     }
     const orders = r.data.orders ?? [];
     for (const o of orders) {
+      const lines: EbayOrderLine[] = [];
       for (const li of o.lineItems ?? []) {
-        if (isAppSku(li.sku) && !seen.has(li.sku as string)) {
-          seen.add(li.sku as string);
-          items.push({
-            sku: li.sku as string,
-            soldUsd: Number(li.lineItemCost?.value ?? 0) || 0,
-            soldAt: o.creationDate ?? "",
-          });
+        if (!isAppSku(li.sku)) continue;
+        const sku = li.sku as string;
+        const soldUsd = Number(li.lineItemCost?.value ?? 0) || 0;
+        lines.push({
+          lineItemId: li.lineItemId ?? "",
+          sku,
+          title: li.title,
+          quantity: typeof li.quantity === "number" ? li.quantity : undefined,
+          soldUsd,
+          shipByDate: li.lineItemFulfillmentInstructions?.shipByDate,
+          fulfillmentStatus: li.lineItemFulfillmentStatus,
+        });
+        // 売却検知用 items は同一SKUを1回だけ。
+        if (!seen.has(sku)) {
+          seen.add(sku);
+          items.push({ sku, soldUsd, soldAt: o.creationDate ?? "" });
         }
+      }
+      // アプリ出品ラインを含む注文だけ Order として保持。
+      if (lines.length > 0 && o.orderId) {
+        const shipTo = o.fulfillmentStartInstructions?.[0]?.shippingStep?.shipTo;
+        const ca = shipTo?.contactAddress;
+        const shipByDate = lines.map((l) => l.shipByDate).filter(Boolean).sort()[0]; // 最早の期限
+        ordersOut.push({
+          orderId: o.orderId,
+          creationDate: o.creationDate,
+          fulfillmentStatus: o.orderFulfillmentStatus,
+          buyerUsername: o.buyer?.username,
+          shipTo: shipTo
+            ? {
+                name: shipTo.fullName,
+                addressLine1: ca?.addressLine1,
+                addressLine2: ca?.addressLine2,
+                city: ca?.city,
+                stateOrProvince: ca?.stateOrProvince,
+                postalCode: ca?.postalCode,
+                countryCode: ca?.countryCode,
+              }
+            : undefined,
+          shipByDate,
+          lines,
+        });
       }
     }
     if (orders.length < 200) {
@@ -136,7 +229,7 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
     offset += 200;
   }
   // 上限(5ページ=1000注文)に達して打ち切った場合は partial:true（同期未完了として次回も読む）
-  return { ok: true, needsReconnect: false, partial: !reachedEnd, items };
+  return { ok: true, needsReconnect: false, partial: !reachedEnd, items, orders: ordersOut };
 }
 
 // ── 書き込み系（下書き作成の土台） ──
