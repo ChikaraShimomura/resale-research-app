@@ -4,6 +4,7 @@ import { Truck, Wallet } from "lucide-react";
 import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import MyListings from "../components/MyListings";
+import ShipOrders from "../components/ShipOrders";
 
 export const metadata: Metadata = {
   title: "発送",
@@ -34,6 +35,9 @@ export default function ShipPage() {
             <li>追跡番号をeBayに登録 → 売上は<b className="text-gray-800">Payoneer</b>で受け取り</li>
           </ol>
         </div>
+
+        {/* 発送する注文（追跡番号の入力→eBay書き戻し） */}
+        <ShipOrders />
 
         {/* 発送・受け取りのガイド導線 */}
         <div className="grid grid-cols-2 gap-2">
