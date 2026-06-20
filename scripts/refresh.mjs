@@ -2,6 +2,9 @@
 // scripts/refresh.mjs — GitHub Actions バックグラウンド処理
 // フロー: eBay日本発送売れ済み → 日本語KW変換 → 楽天検索 → 画像マッチ → 利益計算
 
+// 着地コスト(国際送料手数料＋米国関税)の計算式は app と共有の SSOT を import（二重在＝ドリフトの罠を解消）。
+import { landedSubtractJpy, USD_JPY as L_USD_JPY } from "../app/lib/ebay/landedCostCore.mjs";
+
 // ========== 設定 ==========
 const RAKUTEN_APP_ID      = process.env.RAKUTEN_APP_ID;
 const RAKUTEN_ACCESS_KEY  = process.env.RAKUTEN_ACCESS_KEY;
@@ -174,22 +177,9 @@ const PRICE_RATIO_MAX = 8;
 // 利益率(%)の下限。これ以下は一覧に出さない（ユーザー指定: 10%以下は除外）。新規・既存の両方に適用。
 const PROFIT_RATE_FLOOR = 10;
 
-// ===== app/lib/ebay/landedCost.ts のミラー（⚠️変更時は両方を同期）=====
-// 「利益商品」の判定を“ネット利益率”（国際送料にかかるeBay手数料＋米国関税を引いた後）で行うための着地コスト。
-// 配信(/api/products の withLandedCost)と同じ式。粗利フロアだけだとネット<10%が利益商品に混じるため、
-// 最終保存の直前にネット利益率でも10%以下を除外する（＝カタログから外す。表示で隠すのではない）。
-const L_USD_JPY = 155, L_DUTY_RATE = 0.1, L_ZONOS_USD = 1.5, L_DUTY_FREE_USD = 100, L_EMS_USD = 120, L_EBAY_FEE = 0.1325, L_WSAFE = 1.15;
-const L_WEIGHT_G = { 'トレカ':150, 'コスメ':350, 'ゲーム':250, 'ゲーム機':1500, 'フィギュア':800, 'ガンプラ':900, 'LEGO':1500, '腕時計':500, 'カメラ':1500, 'アニメ':500, 'おもちゃ':700, 'その他':700 };
-function landedSubtractJpy(category, valueUsd) {
-  const w = Math.round((L_WEIGHT_G[category ?? 'その他'] ?? 700) * L_WSAFE);
-  const ems = valueUsd >= L_EMS_USD || w > 2000;
-  let ship;
-  if (ems) { if (w <= 500) ship = 3900; else if (w <= 1000) ship = 5300; else if (w <= 1500) ship = 6600; else if (w <= 2000) ship = 7900; else ship = 7900 + Math.ceil((w - 2000) / 500) * 1400; }
-  else { const ww = Math.min(2000, Math.max(100, w)); ship = 1200 + Math.ceil((ww - 100) / 100) * 210; }
-  const shippingFee = Math.round(ship * L_EBAY_FEE);
-  const duty = valueUsd <= L_DUTY_FREE_USD ? 0 : Math.round((valueUsd * L_DUTY_RATE + L_ZONOS_USD) * L_USD_JPY);
-  return shippingFee + duty;
-}
+// ===== 着地コストは app/lib/ebay/landedCostCore.mjs に一本化（SSOT・app と共有・上部で import 済み）=====
+// 「利益商品」の判定を“ネット利益率”（国際送料にかかるeBay手数料＋米国関税を引いた後）で行う。
+// 粗利フロアだけだとネット<10%が利益商品に混じるため、最終保存の直前にネット利益率でも10%以下を除外する。
 function netProfitRate(p) {
   const valueUsd = (p.realAvgPrice || 0) / L_USD_JPY;
   const effBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0) - (p.source?.pointAmount ?? 0);

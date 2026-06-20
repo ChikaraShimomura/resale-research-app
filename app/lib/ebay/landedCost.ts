@@ -12,67 +12,21 @@
 //  ・米国関税：$100以下=前払い不要 / $100超〜$800=Zonosで関税前払い(DDP)必須 / $800超=処理不可
 //    郵便ルートの暫定税率は概ね一律10%＋Zonos手数料 約$1.50/件（いずれも未確定＝envで上書き可）
 
-// --- 可変ノブ（制度変更・為替に追従するため env で上書き可能） ---
-const USD_JPY = Number(process.env.LANDED_USD_JPY) || 155; // refresh.mjs / stats.ts と既定一致
-const US_DUTY_RATE = Number(process.env.LANDED_US_DUTY_RATE ?? 0.1); // 郵便ルート暫定の一律関税(係争中)
-const ZONOS_FEE_USD = Number(process.env.LANDED_ZONOS_FEE_USD ?? 1.5); // DDP前払いの処理手数料/件(概算)
-const DUTY_FREE_USD = Number(process.env.LANDED_DUTY_FREE_USD ?? 100); // これ以下は前払い不要(帯・要窓口確認)
-const EMS_VALUE_USD = Number(process.env.LANDED_EMS_VALUE_USD ?? 120); // これ以上は補償付きEMSを前提に見積もる
-// 国際送料そのものは「購入者が負担」(eBayの配送ポリシーで請求)。出品者がかぶるのは、その送料にも
-// かかるeBay販売手数料(約13.25%)の分だけ。送料を重量帯別に正しく設定すれば実費≒請求でほぼ相殺される。
-const EBAY_FEE_RATE = Number(process.env.LANDED_EBAY_FEE_RATE ?? 0.1325);
-
-// カテゴリ別の概算重量(g・梱包込み・安全側に多め)。語彙は refresh.mjs の guessCategory / domesticShipping と揃える。
-// 過小だと赤字を見逃すので、迷ったら重め。代表商品の実測で随時較正する前提。
-const WEIGHT_G: Record<string, number> = {
-  トレカ: 150,
-  コスメ: 350,
-  ゲーム: 250,
-  ゲーム機: 1500,
-  フィギュア: 800,
-  ガンプラ: 900,
-  LEGO: 1500,
-  腕時計: 500,
-  カメラ: 1500,
-  アニメ: 500,
-  おもちゃ: 700,
-  その他: 700,
-};
-
-// 重量は基本「不明」前提。カテゴリ概算に安全係数(既定1.15)を掛けて少し重めに見積もる＝送料を気持ち
-// 高めに請求して赤字を防ぐ（送料は購入者負担なので、高めでも損はせず"やや割高"になるだけ＝安全側）。
-// 重さが分かる時はモーダルの「重さ(任意)」入力で実測に上書きされ、この概算は使われない。
-const WEIGHT_SAFETY = Number(process.env.LANDED_WEIGHT_SAFETY) || 1.15;
-export function estimateWeightG(category?: string): number {
-  const base = WEIGHT_G[category ?? "その他"] ?? 700;
-  return Math.round(base * WEIGHT_SAFETY);
-}
+// --- 着地コストの計算式は landedCostCore.mjs に一本化（SSOT）---
+// app(ここ) と GitHub Actions(refresh.mjs) が同じ式・同じ env ノブ(LANDED_*)を共有する。
+// 以前は landedCost.ts と refresh.mjs に二重在し、refresh 側はハードコードで env を無視していた（ドリフトの罠）。
+import {
+  estimateWeightG,
+  intlShippingJpy,
+  usDutyJpy,
+  EBAY_FEE_RATE,
+  EMS_VALUE_USD,
+  DUTY_FREE_USD,
+} from "./landedCostCore.mjs";
+// 既存の呼び出し元（landedCost.ts から import している箇所）を維持するため再エクスポート。
+export { estimateWeightG, intlShippingJpy, usDutyJpy };
 
 export type ShippingMethod = "airpacket" | "ems";
-
-// 推定重量＋申告価格(USD)から日本郵便の実費(円)を見積もる。高額/重量超はEMS、それ以外はエアパケット。
-export function intlShippingJpy(weightG: number, valueUsd: number): { jpy: number; method: ShippingMethod } {
-  const useEms = valueUsd >= EMS_VALUE_USD || weightG > 2000; // 高額は補償付きEMS推奨／2kg超はエアパケ不可
-  if (useEms) {
-    // EMS第4地帯の確証値に合わせて段階化：500g¥3,900 / 1kg¥5,300 / 1.5kg¥6,600 / 2kg¥7,900。2kg超は概算。
-    let jpy;
-    if (weightG <= 500) jpy = 3900;
-    else if (weightG <= 1000) jpy = 5300;
-    else if (weightG <= 1500) jpy = 6600;
-    else if (weightG <= 2000) jpy = 7900;
-    else jpy = 7900 + Math.ceil((weightG - 2000) / 500) * 1400;
-    return { jpy, method: "ems" };
-  }
-  const w = Math.min(2000, Math.max(100, weightG));
-  const steps = Math.ceil((w - 100) / 100); // 100g起点の100g刻み
-  return { jpy: 1200 + steps * 210, method: "airpacket" };
-}
-
-// 米国輸入関税(DDP前払い)の出品者負担(円)。$100以下は前払い不要＝0。
-export function usDutyJpy(valueUsd: number): number {
-  if (valueUsd <= DUTY_FREE_USD) return 0;
-  return Math.round((valueUsd * US_DUTY_RATE + ZONOS_FEE_USD) * USD_JPY);
-}
 
 export interface LandedCost {
   weightG: number;
