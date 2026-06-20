@@ -73,14 +73,17 @@ function MoneyFlow({ s }: { s: Stats }) {
         )}
       </div>
 
-      {/* 着地の利益（このカードで「利益」を名乗るのはここだけ） */}
-      <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between">
-        <span className="text-[12px] font-bold text-gray-700">
-          あなたの利益{s.totalPoints > 0 ? "（ポイント込み）" : ""}
-        </span>
-        <span className={`text-xl font-black ${loss ? "text-[#2D323B]" : "text-emerald-600"}`}>
-          {signedYen(s.totalProfit)}
-        </span>
+      {/* 着地の利益（現金）。楽天ポイントは「( + ○○ポイント )」で別物として併記する。 */}
+      <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between gap-2">
+        <span className="text-[12px] font-bold text-gray-700">あなたの利益（現金）</span>
+        <div className="text-right">
+          <span className={`text-xl font-black ${loss ? "text-[#2D323B]" : "text-emerald-600"}`}>
+            {signedYen(s.totalProfit)}
+          </span>
+          {s.totalPoints > 0 && (
+            <span className="block text-[11px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</span>
+          )}
+        </div>
       </div>
       {loss && (
         <p className="mt-1 text-[11px] text-[#2D323B] leading-relaxed">
@@ -299,8 +302,11 @@ export default function MyDashboard() {
 
       {/* 累計利益のヒーロー */}
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-5 shadow-sm text-center">
-        <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計）</p>
+        <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計・現金）</p>
         <p className="mt-1 text-4xl font-black text-[#2D323B] tracking-tight">{signedYen(s.totalProfit)}</p>
+        {s.totalPoints > 0 && (
+          <p className="mt-1 text-[13px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
+        )}
         <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}</p>
       </div>
 
@@ -318,7 +324,7 @@ export default function MyDashboard() {
       </div>
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
-        ※ 利益は eBay手数料(13.25%+¥47)・仕入れ値・基本ポイントから計算（為替 $1=¥155）。0と5のつく日など実際のポイントはこれより多い場合があります。
+        ※ 利益（現金）は 売上 − eBay手数料(13.25%+¥47) − 仕入れ値 で計算（為替 $1=¥155）。楽天ポイントは利益に含めず「( + ○○ポイント )」で別表示しています（ポイントはあくまでおまけ）。
       </p>
 
       <HubLinks />

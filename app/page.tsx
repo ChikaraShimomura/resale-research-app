@@ -117,15 +117,17 @@ export default function LandingPage() {
             <div className="flex justify-between"><span>eBayの想定売値</span><span className="text-[#0064D2]">+ ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
             <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
             <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
             <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
             <div className="flex justify-between"><span>米国関税（$100超）</span><span className="text-[#2D323B]">- 目安を差引</span></div>
             <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-[#A98B5C]/35 text-sm">
-              <span>利益</span><span>= ¥X,XXX + XXXpt</span>
+              <span>利益（現金）</span><span>= ¥X,XXX</span>
+            </div>
+            <div className="flex justify-between text-[#FF4466] font-bold">
+              <span>＋ 楽天ポイント（おまけ・別枠）</span><span>+ XXXポイント</span>
             </div>
           </div>
-          <p className="text-[11px] text-gray-400 text-center">全商品の利益計算にはこの計算式を使用しています</p>
+          <p className="text-[11px] text-gray-400 text-center">利益は現金（円）で計算。楽天ポイントは利益に含めず別表示しています（あくまでおまけ）</p>
         </div>
       </section>
 
@@ -146,7 +148,7 @@ export default function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 利益はeBayの想定売値（現在の出品ベース）・楽天ポイント・eBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。<br />
+          ※ 利益（現金）はeBayの想定売値（現在の出品ベース）からeBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。<br />
           実際の利益は状態・競合・為替等により異なります。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">

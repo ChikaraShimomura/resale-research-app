@@ -1,19 +1,12 @@
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { isSold } from "../../lib/sold";
-import { landedCost } from "../../lib/ebay/landedCost";
+import { applyDisplayProfit } from "../../lib/displayProfit";
 
-// カタログに保存されている realProfit は「国際送料前」の粗利。配信時にここで国際送料(目安)＋米国関税を
-// 差し引いて“本当に手元に残る利益”に直す（単一ソース＝二重計上しない／再ビルド不要で制度変更に即追従）。
+// 配信時に realProfit を「現金純利益（ポイントは外す＋国際送料/米国関税を差し引く）」に直す。
+// 変換は app/lib/displayProfit.ts に一本化（ランキング/商品詳細と同一ロジック＝表示の単一ソース）。
 const USD_JPY = 155;
-function withLandedCost(p: ProfitProduct): ProfitProduct {
-  const valueUsd = (p.realAvgPrice || 0) / USD_JPY;
-  const landed = landedCost(p.category, valueUsd);
-  const effBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0) - (p.source?.pointAmount ?? 0);
-  const netProfit = Math.round((p.realProfit ?? 0) - landed.subtractJpy);
-  const netRate = effBuy > 0 ? Math.round((netProfit / effBuy) * 100) : (p.realProfitRate ?? 0);
-  return { ...p, realProfit: netProfit, realProfitRate: netRate };
-}
+const PROFIT_RATE_FLOOR = 10; // 現金純利益率がこの%以下は「利益商品」に含めない（refresh の floor と一致）
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
@@ -107,16 +100,19 @@ export async function GET() {
       const MAX_DECLARED_USD = 800;
       const hasImage = (p: ProfitProduct) => !!(p.imageUrl && String(p.imageUrl).trim()); // 「画像無し」カードを出さない
       let priced = ready
-        .map(withLandedCost)
+        .map(applyDisplayProfit)
         .filter(hasImage)
         .filter(
           (p) =>
             p.restored ||
-            ((p.realProfit ?? 0) > 0 &&
+            ((p.realProfitRate ?? 0) >= PROFIT_RATE_FLOOR && // 現金純利益率が10%以下は利益商品に出さない（ポイント抜き）
               (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
               !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
         );
-      if (priced.length === 0 && ready.length > 0) priced = ready.map(withLandedCost).filter(hasImage); // 全消しは避ける(画像ありのみ)
+      // 全消し（フロア厳格化やゲートで0件）はブラックアウト回避で緩めるが、売切/削除だけは必ず除外する。
+      if (priced.length === 0 && ready.length > 0) {
+        priced = ready.map(applyDisplayProfit).filter(hasImage).filter((p) => p.restored || !deadSourceIds.has(p.id));
+      }
 
       return Response.json(
         { products: priced, lastUpdated, stats },

@@ -118,7 +118,7 @@ export interface SoldDeal {
   imageUrl: string;
   soldAt: string;
   soldJpy: number; // 売れた金額(JPY換算)
-  profitJpy: number; // 利益(手数料・仕入れ・ポイント込み)
+  profitJpy: number; // 現金利益(売上−手数料−仕入れ)。楽天ポイントは含めない＝別枠(points)で扱う
   purchase: number; // 楽天仕入れ(送料込・JPY)
 }
 
@@ -288,7 +288,7 @@ export async function listDealsForUser(
         imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
         soldAt: d.soldAt || "",
         soldJpy: saleJpy,
-        profitJpy: saleJpy - fee - (d.purchase ?? 0) + (d.points ?? 0),
+        profitJpy: saleJpy - fee - (d.purchase ?? 0), // 現金利益（ポイントは含めない＝別枠）
         purchase: d.purchase ?? 0,
       };
     })
@@ -386,8 +386,8 @@ export interface Stats {
   listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・楽天価格+国内送料)
   totalPurchase: number; // 仕入れ合計(JPY・売れたもの)
   totalSales: number; // 売上合計(JPY換算)
-  totalProfit: number; // 利益(売上-仕入れ-手数料+基本ポイント)
-  totalPoints: number; // 基本ポイント累計(売れたもの)
+  totalProfit: number; // 現金利益(売上-仕入れ-手数料)。楽天ポイントは含めない＝totalPoints で別枠
+  totalPoints: number; // 楽天ポイント累計(売れたもの・おまけ。利益には含めない)
   totalFees: number; // eBay手数料合計(JPY)
   avgProfit: number; // 1件あたり平均利益(売れたもの)
   bestProfit: number; // 最も稼いだ1取引の利益
@@ -421,7 +421,7 @@ export async function getStats(actor: string): Promise<Stats> {
   for (const d of sold) {
     const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
     const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
-    const profit = saleJpy - fee - d.purchase + (d.points ?? 0);
+    const profit = saleJpy - fee - d.purchase; // 現金利益（ポイントは含めない＝totalPoints で別集計）
     totalPurchase += d.purchase;
     totalSales += saleJpy;
     totalFees += fee;

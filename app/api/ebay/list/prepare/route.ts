@@ -248,9 +248,9 @@ export async function POST(req: Request) {
   ]);
 
   // 損益分岐(USD)：このeBay価格を下回ると赤字になる下限。「最安で出す」時もここは割らない。
-  // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 仕入れ実質原価(楽天価格+国内送料-ポイント)。
-  const effBuyJpy =
-    product.source.price + (product.source.shippingJpy ?? 0) - (product.source.pointAmount ?? 0);
+  // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(楽天価格+国内送料)。
+  // ※ ポイントは利益に含めない方針なので原価から引かない＝ポイント頼みで赤字ラインを下げない（安全側）。
+  const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
   // 損益分岐に出品者の実負担を織り込む。送料そのものは購入者負担なので引かない。
   // subtractJpy = 「送料にかかるeBay手数料」＋「$100超の米国関税(前払い・立替)」。高額品ほど floor が上がり赤字を防ぐ。
   const landed = landedCost(product.category, Number(priceUsd));

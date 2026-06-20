@@ -182,9 +182,11 @@ const PROFIT_RATE_FLOOR = 10;
 // 粗利フロアだけだとネット<10%が利益商品に混じるため、最終保存の直前にネット利益率でも10%以下を除外する。
 function netProfitRate(p) {
   const valueUsd = (p.realAvgPrice || 0) / L_USD_JPY;
-  const effBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0) - (p.source?.pointAmount ?? 0);
-  const net = Math.round((p.realProfit ?? 0) - landedSubtractJpy(p.category, valueUsd));
-  return effBuy > 0 ? Math.round((net / effBuy) * 100) : (p.realProfitRate ?? 0);
+  // ポイントは利益に含めない＝原価から引かず、realProfit からも足し戻して現金純利益で判定（配信 displayProfit と一致）。
+  const point = p.source?.pointAmount ?? 0;
+  const cashBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0);
+  const net = Math.round((p.realProfit ?? 0) - point - landedSubtractJpy(p.category, valueUsd));
+  return cashBuy > 0 ? Math.round((net / cashBuy) * 100) : 0;
 }
 
 // ========== eBayクエリハッシュ ==========

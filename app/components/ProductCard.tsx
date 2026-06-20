@@ -99,8 +99,10 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
   const shippingJpy = source.shippingJpy ?? 0; // 国内送料概算（利益計算に算入済み）
-  const realCost = source.price + shippingJpy - pointAmount;
   const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
+  // 内訳が realProfit（現金純利益＝ポイント抜き・国際送料/米国関税の控除後）に必ず一致するよう、
+  // 差分を「国際発送まわりの目安（送料のeBay手数料＋関税）」として1行に束ねる。
+  const intlAndDuty = Math.max(0, Math.round(product.realAvgPrice - source.price - shippingJpy - ebayFee - product.realProfit));
 
   // 画像が無い／読み込めない（楽天のリンク切れ画像）商品はカードごと出さない＝「画像無し」を防ぐ。
   if (!product.imageUrl || imgError) return null;
@@ -192,15 +194,22 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
           )}
 
-          {/* 利益（ヒーロー） */}
+          {/* 利益（ヒーロー）：利益は現金（円）だけで出す。楽天ポイントは「( + ○○ポイント )」で別物として併記。 */}
           <div className="mt-2.5 pt-2.5 border-t border-[#A98B5C]/25 flex items-end justify-between gap-2">
             <div className="shrink-0">
-              <p className="text-xs text-gray-400 mb-1">実質利益（最安で売れた時・pt込み）</p>
+              <p className="text-xs text-gray-400 mb-1">利益（最安で売れた時）</p>
               <ProfitRateBadge rate={product.realProfitRate} />
             </div>
-            <p className="text-3xl font-black text-[#2D323B] leading-none whitespace-nowrap">
-              {formatJpy(product.realProfit)}
-            </p>
+            <div className="text-right">
+              <p className="text-3xl font-black text-[#2D323B] leading-none whitespace-nowrap">
+                {formatJpy(product.realProfit)}
+              </p>
+              {pointAmount > 0 && (
+                <p className="text-[12px] font-bold text-[#FF4466] mt-1 whitespace-nowrap">
+                  （ + {pointAmount.toLocaleString()}ポイント）
+                </p>
+              )}
+            </div>
           </div>
 
           {/* 信頼バッジ・相場リンク */}
@@ -221,16 +230,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
           )}
 
-          {/* ポイント二重取り — 1行強調 */}
-          {pointAmount > 0 && (
-            <div className="mt-3 bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-[#FF4466]/20">
-              <span className="inline-flex w-4 h-4 bg-[#FF4466] rounded-full items-center justify-center text-white font-black text-[8px] shrink-0">R</span>
-              <span className="text-xs font-bold text-[#FF4466]">
-                楽天ポイント {pointAmount.toLocaleString()}pt 二重取り
-              </span>
-              <span className="text-xs text-gray-400 ml-auto">実質 {formatJpy(realCost)}</span>
-            </div>
-          )}
         </div>
 
         {/* 明細の展開ボタン */}
@@ -262,28 +261,28 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
                 <span className="font-bold text-emerald-600">送料込み（¥0）</span>
               )}
             </div>
-            {pointAmount > 0 && (
-              <div className="flex justify-between text-[#FF4466]">
-                <span>楽天ポイント還元（{source.pointRate ?? 1}%）</span>
-                <span>+ {formatJpy(pointAmount)}</span>
-              </div>
-            )}
             <div className="flex justify-between text-[#2D323B]">
               <span>eBay手数料（13.25% + ¥47）</span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
+            {intlAndDuty > 0 && (
+              <div className="flex justify-between text-[#2D323B]">
+                <span>国際発送まわりの目安（送料の手数料＋関税）</span>
+                <span>- {formatJpy(intlAndDuty)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-500">
-              <span>国際送料</span>
+              <span>国際送料そのもの</span>
               <span className="font-bold text-emerald-600">購入者負担（¥0）</span>
             </div>
             <div className="flex justify-between font-black text-[#2D323B] pt-1.5 border-t border-[#A98B5C]/35 text-[13px]">
-              <span>実質利益合計</span>
+              <span>利益（現金）</span>
               <span>{formatJpy(product.realProfit)}</span>
             </div>
             {pointAmount > 0 && (
-              <div className="flex justify-between text-[10px] text-gray-400">
-                <span>内訳: 売却益 + ポイント{source.pointRate}%</span>
-                <span>{formatJpy(product.realProfit - pointAmount)} + {pointAmount.toLocaleString()}pt</span>
+              <div className="flex justify-between text-[11px] text-[#FF4466] font-bold">
+                <span>＋ 楽天ポイント（{source.pointRate ?? 1}%・利益とは別のおまけ）</span>
+                <span>{pointAmount.toLocaleString()}ポイント</span>
               </div>
             )}
           </div>

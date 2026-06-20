@@ -59,8 +59,8 @@ export default function RakutenGuidePage() {
         {/* なぜ楽天 */}
         <Card icon={<Coins size={16} />} title="なぜ楽天で仕入れるの？">
           <p className="text-[13px] text-gray-600 leading-relaxed mb-2">
-            ポイント還元のぶん、<b>実質の仕入れコストが下がる</b>からです。たとえば1万円の商品でポイントが2,000pt返ってくれば、
-            実質コストは8,000円。<b>その差がそのまま利益に上乗せ</b>されます。
+            ポイント還元のぶん、<b>お得に仕入れられる</b>からです。たとえば1万円の商品でポイントが2,000pt返ってくれば、
+            次の仕入れに使えて実質8,000円ぶんの価値。<b>ポイントは利益とは別の“おまけ”</b>として貯まります（利益計算には含めません）。
           </p>
           <div className="bg-[#F5F7FA] rounded-xl p-3 text-[12px] text-gray-600 font-mono space-y-1">
             <div className="flex justify-between"><span>商品価格</span><span className="text-[#2D323B]">10,000円</span></div>

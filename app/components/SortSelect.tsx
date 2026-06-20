@@ -3,8 +3,8 @@ import { ProfitProduct } from "../lib/profitFilter";
 
 export type SortOrder = "recommended" | "default" | "rate" | "profit" | "cheap" | "demand" | "rival";
 
-// 実質利益（利益＋ポイント）。利益金額ソート用。
-const profitAmount = (p: ProfitProduct) => p.realProfit + (p.source.pointAmount ?? 0);
+// 利益金額（現金）。配信(/api/products)の realProfit は既に現金純利益（ポイント抜き）なのでそのまま使う。
+const profitAmount = (p: ProfitProduct) => p.realProfit;
 // 仕入れ(送料込)。カードの「仕入れ」表示と一致させる（安い順ソート用）。
 const buyCost = (p: ProfitProduct) => (p.source.price ?? 0) + (p.source.shippingJpy ?? 0);
 
@@ -26,7 +26,7 @@ export function sortProducts(products: ProfitProduct[], order: SortOrder): Profi
       return [...products].sort((a, b) => recoScore(b) - recoScore(a));
     case "rate": // 利益率が高い順
       return [...products].sort((a, b) => b.realProfitRate - a.realProfitRate);
-    case "profit": // 利益金額（実質利益＝利益＋ポイント）が高い順
+    case "profit": // 利益金額（現金）が高い順
       return [...products].sort((a, b) => profitAmount(b) - profitAmount(a));
     case "cheap": // 仕入れが安い順（送料込・少額から始めやすい）
       return [...products].sort((a, b) => buyCost(a) - buyCost(b));

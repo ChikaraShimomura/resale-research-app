@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
+import { applyDisplayProfit } from "../../lib/displayProfit";
 import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
 import { Search, Flame } from "lucide-react";
@@ -20,7 +21,9 @@ function hiResImage(url: string): string {
 async function getProduct(id: string): Promise<ProfitProduct | null> {
   try {
     const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
-    return products?.find((p) => p.id === id) ?? null;
+    const found = products?.find((p) => p.id === id) ?? null;
+    // 配信(/api/products)と同じ「現金純利益（ポイント抜き・着地コスト後）」に揃える＝一覧と詳細で利益が一致。
+    return found ? applyDisplayProfit(found) : null;
   } catch {
     return null;
   }
@@ -33,6 +36,7 @@ async function getHotProducts(excludeId: string, n = 3): Promise<ProfitProduct[]
     if (!products) return [];
     return products
       .filter((p) => p.id !== excludeId)
+      .map(applyDisplayProfit)
       .sort((a, b) => b.realProfitRate - a.realProfitRate)
       .slice(0, n);
   } catch {

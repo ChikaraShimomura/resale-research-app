@@ -25,7 +25,7 @@ function CardScreen() {
             <h3 className="text-[11px] text-gray-800 leading-snug mt-1 font-medium">日本限定フィギュア 特別版（海外で人気）</h3>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-[9px] text-gray-400">仕入れ(送料込)</span>
-              <span className="text-[13px] font-black text-[#2D323B]">¥5,000</span>
+              <span className="text-[13px] font-black text-[#2D323B]">¥7,000</span>
             </div>
           </div>
         </div>
@@ -36,14 +36,13 @@ function CardScreen() {
           </div>
           <div className="mt-2 pt-2 border-t border-[#A98B5C]/25 flex items-end justify-between">
             <div>
-              <p className="text-[8px] text-gray-400 mb-0.5">実質利益（pt込み）</p>
-              <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full text-white bg-orange-500 leading-none">利益率 49%</span>
+              <p className="text-[8px] text-gray-400 mb-0.5">利益（最安で売れた時）</p>
+              <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full text-white bg-orange-500 leading-none">利益率 48%</span>
             </div>
-            <span className="text-2xl font-black text-[#2D323B] leading-none">¥5,860</span>
-          </div>
-          <div className="mt-2 bg-white rounded-lg px-2 py-1.5 flex items-center gap-1.5 border border-[#FF4466]/20">
-            <span className="inline-flex w-3 h-3 bg-[#FF4466] rounded-full items-center justify-center text-white font-black text-[6px] shrink-0">R</span>
-            <span className="text-[10px] font-bold text-[#FF4466]">楽天ポイント 500pt 二重取り</span>
+            <div className="text-right">
+              <span className="block text-2xl font-black text-[#2D323B] leading-none">¥3,360</span>
+              <span className="block text-[10px] font-bold text-[#FF4466] mt-0.5">（ + 700ポイント）</span>
+            </div>
           </div>
         </div>
       </div>
@@ -65,8 +64,8 @@ function BuyScreen() {
       </div>
       <div className="mt-3 bg-[#FFF7E6] border border-[#A98B5C]/30 rounded-xl p-2.5">
         <p className="text-[10px] font-bold text-[#2D323B]">楽天で買うとポイントが貯まる</p>
-        <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">仕入れに使った分にもポイント還元（最大20%）。これがそのまま利益に上乗せされます。</p>
-        <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-black text-[#FF4466]">＋500pt 還元</span>
+        <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">仕入れに使った分にもポイント還元（最大20%）。利益とは別に貯まる“おまけ”です。</p>
+        <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-black text-[#FF4466]">＋700ポイント 還元</span>
       </div>
     </div>
   );
@@ -128,9 +127,10 @@ function ProfitScreen() {
   return (
     <div className="p-3">
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm text-center mb-2">
-        <p className="text-[9px] text-gray-400">このサイトで稼いだ利益（累計）</p>
-        <p className="mt-0.5 text-2xl font-black text-[#2D323B]">¥5,860</p>
-        <p className="text-[9px] text-gray-500">1件 売れました 🎉</p>
+        <p className="text-[9px] text-gray-400">このサイトで稼いだ利益（累計・現金）</p>
+        <p className="mt-0.5 text-2xl font-black text-[#2D323B]">¥3,360</p>
+        <p className="text-[10px] font-bold text-[#FF4466]">（ + 700ポイント）</p>
+        <p className="text-[9px] text-gray-500 mt-0.5">1件 売れました 🎉</p>
       </div>
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
         <p className="text-[11px] font-black text-gray-800 mb-2">お金の流れ</p>
@@ -139,15 +139,15 @@ function ProfitScreen() {
           <span className="text-[11px] font-black text-[#0064D2]">¥12,000</span>
         </div>
         <div className="flex h-5 w-full rounded-md overflow-hidden bg-gray-100">
-          <div style={{ width: "42%" }} className="bg-gray-400" />
+          <div style={{ width: "58%" }} className="bg-gray-400" />
           <div style={{ width: "14%" }} className="bg-[#F0A0A0]" />
-          <div style={{ width: "44%" }} className="bg-emerald-500" />
+          <div style={{ width: "28%" }} className="bg-emerald-500" />
         </div>
         <div className="mt-2 space-y-1">
-          <MoneyRow color="bg-gray-400" label="仕入れ（楽天で払った額）" value="− ¥5,000" />
+          <MoneyRow color="bg-gray-400" label="仕入れ（楽天で払った額）" value="− ¥7,000" />
           <MoneyRow color="bg-[#F0A0A0]" label="eBay手数料" value="− ¥1,640" />
-          <MoneyRow color="bg-emerald-500" label="手数料を引いた残り" value="¥5,360" bold />
-          <MoneyRow color="bg-[#FF4466]" label="楽天ポイント（おまけ）" value="＋ ¥500" />
+          <MoneyRow color="bg-emerald-500" label="利益（現金）" value="¥3,360" bold />
+          <MoneyRow color="bg-[#FF4466]" label="楽天ポイント（おまけ・別枠）" value="＋ 700ポイント" />
         </div>
       </div>
     </div>
@@ -156,7 +156,7 @@ function ProfitScreen() {
 
 const STEPS = [
   { n: "①", title: "利益商品を見つける", caption: "「楽天で安く仕入れて海外で高く売れる」商品を自動で厳選。利益もポイントも計算済み。", Screen: CardScreen },
-  { n: "②", title: "楽天でワンタップ仕入れ", caption: "そのまま楽天で購入。仕入れにもポイントが還元され、利益に上乗せされます。", Screen: BuyScreen },
+  { n: "②", title: "楽天でワンタップ仕入れ", caption: "そのまま楽天で購入。仕入れた分にもポイントが還元され、利益とは別に“おまけ”で貯まります。", Screen: BuyScreen },
   { n: "③", title: "eBayへ自動で出品", caption: "英語タイトル・説明文・写真はすべて自動。内容を確認して出すだけ。", Screen: ListScreen },
   { n: "④", title: "売れたら発送・追跡登録", caption: "国内から国際郵便で発送し、追跡番号を登録。eBayにも自動で反映されます。", Screen: ShipScreen },
   { n: "⑤", title: "利益とポイントが残る", caption: "仕入れ・売上・利益がマイページで一目。楽天ポイントはまるごとおまけ。", Screen: ProfitScreen },
