@@ -1,6 +1,7 @@
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
 import { upsertInventoryLocation, type ShipFromAddress } from "../../../lib/ebay/sellApi";
+import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
 // 発送元（在庫ロケーション）をeBayに登録する。下書き作成の前提。
 export const runtime = "nodejs";
@@ -42,5 +43,12 @@ export async function POST(req: Request) {
     country: "JP",
   });
 
-  return Response.json({ ok: r.ok, error: r.error }, { status: r.ok ? 200 : 502 });
+  if (!r.ok) {
+    const f = friendlyEbayError(r.error);
+    return Response.json(
+      { ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: r.error },
+      { status: 502 }
+    );
+  }
+  return Response.json({ ok: true });
 }

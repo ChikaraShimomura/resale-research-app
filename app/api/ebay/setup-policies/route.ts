@@ -6,6 +6,7 @@ import {
   createNoReturnPolicy,
   createFlatIntlFulfillmentPolicy,
 } from "../../../lib/ebay/sellApi";
+import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
 // ビジネスポリシー一括作成（オプトイン + 支払い + 返品不可 + サイズ別配送）。
 // 各ステップの成否を返すので、失敗箇所と eBay のエラー文がそのまま分かる。
@@ -69,5 +70,13 @@ export async function POST(req: Request) {
   }
 
   const ok = steps.every((s) => s.ok);
-  return Response.json({ ok, steps });
+  // 各ステップの生eBayエラーを端的な要因に変換（生は errorDetail に温存・UIには出さない）。
+  // 未知のステップが1つでもあれば errorKind=unexpected ＝UIで報告導線を出せる。
+  const friendlySteps = steps.map((s) => {
+    if (s.ok || !s.error) return s;
+    const f = friendlyEbayError(s.error);
+    return { ...s, error: f.message, known: f.known, errorDetail: s.error };
+  });
+  const errorKind = friendlySteps.some((s) => !s.ok && (s as { known?: boolean }).known === false) ? "unexpected" : "known";
+  return Response.json({ ok, steps: friendlySteps, errorKind });
 }

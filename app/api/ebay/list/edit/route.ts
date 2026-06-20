@@ -4,6 +4,7 @@ import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getOfferForSku, updateOfferPriceQuantity } from "../../../../lib/ebay/listing";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
+import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
 // GET  ?id=商品ID         → 現在の価格・数量・公開IDを返す（編集モーダルのプリフィル用）
@@ -72,6 +73,9 @@ export async function POST(req: Request) {
   if (!offer) return Response.json({ ok: false, error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。" });
 
   const r = await updateOfferPriceQuantity(token, sku, offer.offerId, opts);
-  if (!r.ok) return Response.json({ ok: false, error: r.error || "更新に失敗しました。" });
+  if (!r.ok) {
+    const f = friendlyEbayError(r.error);
+    return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: r.error });
+  }
   return Response.json({ ok: true });
 }

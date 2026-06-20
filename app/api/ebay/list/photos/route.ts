@@ -5,6 +5,7 @@ import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { getInventoryItem, updateInventoryItemImages } from "../../../../lib/ebay/listing";
 import { uploadHostedPictureFromBinary, uploadHostedPictureFromUrl } from "../../../../lib/ebay/eps";
 import { processRealPhoto } from "../../../../lib/ebay/imageProcess";
+import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 
 // 実物写真をアプリ内で追加する。eBay Picture Services(EPS)に画像をホストし、当該SKUの在庫アイテムの
 // imageUrls を「全EPS」に統一して差し替える（楽天=自前URLとEPSの混在はeBayでエラーになるため）。
@@ -85,13 +86,17 @@ export async function POST(req: Request) {
     else if (!firstErr) firstErr = u.error;
   }
   if (!newEps.length) {
-    return Response.json({ ok: false, error: firstErr || "写真をアップロードできませんでした。" });
+    const f = friendlyEbayError(firstErr);
+    return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: firstErr });
   }
 
   // 楽天(EPS化済) → 実物 の順で統一（全EPS・最大24枚）。
   const merged = [...existingEps, ...newEps].slice(0, 24);
   const upd = await updateInventoryItemImages(token, sku, merged);
-  if (!upd.ok) return Response.json({ ok: false, error: upd.error || "出品への反映に失敗しました。" });
+  if (!upd.ok) {
+    const f = friendlyEbayError(upd.error);
+    return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: upd.error });
+  }
 
   return Response.json({ ok: true, added: newEps.length, total: merged.length });
 }
