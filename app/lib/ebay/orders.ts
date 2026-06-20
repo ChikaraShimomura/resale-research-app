@@ -74,7 +74,7 @@ export async function notifyShipDue(actor: string): Promise<number> {
     const now = Date.now();
     const due: StoredOrder[] = [];
     for (const o of Object.values(all)) {
-      if (!o || isShippedStored(o) || !o.shipByDate) continue;
+      if (!o || o.cancelled || o.shortageHandledAt || isShippedStored(o) || !o.shipByDate) continue;
       const t = new Date(o.shipByDate).getTime();
       if (Number.isNaN(t)) continue;
       const days = Math.ceil((t - now) / 86400000);

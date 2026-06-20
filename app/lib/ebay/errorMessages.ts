@@ -10,12 +10,17 @@ export interface FriendlyError {
 export function friendlyEbayError(raw?: string | null, status?: number): FriendlyError {
   const s = (raw || "").toLowerCase();
   const has = (...keys: string[]) => keys.some((k) => s.includes(k));
+  // eBayがJSON body無しで失敗すると error は "HTTP 401" 等になる。status未渡しでもメッセージからコードを拾う。
+  const code = status ?? (Number((s.match(/\bhttp\s*(\d{3})\b/) || [])[1]) || undefined);
 
-  if (status === 429 || has("rate limit", "too many", "call limit", "exceeded the number"))
+  if (code === 429 || has("rate limit", "too many", "call limit", "exceeded the number"))
     return { message: "eBay側が混み合っています。少し時間をおいて、もう一度お試しください。", known: true };
 
-  if (status === 401 || status === 403 || has("invalid_grant", "unauthorized", "not authorized", "access denied", "invalid token", "token expired"))
+  if (code === 401 || code === 403 || has("invalid_grant", "unauthorized", "not authorized", "access denied", "invalid token", "token expired"))
     return { message: "eBayとの連携が切れています。設定からeBayを再連携してください。", known: true };
+
+  if ((code && code >= 500) || has("internal error", "service unavailable", "bad gateway", "gateway timeout"))
+    return { message: "eBay側で一時的なエラーが発生しています。少し時間をおいて、もう一度お試しください。", known: true };
 
   if (has("merchantlocation", "merchant location", "inventory location", "ship-from", "ship from", "location"))
     return { message: "発送元の住所が未設定です。設定 → 発送元の住所 を登録してください。", known: true };

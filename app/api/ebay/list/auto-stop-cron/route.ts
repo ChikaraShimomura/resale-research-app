@@ -20,15 +20,19 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // ebay_deals:* を走査してアクター一覧を作る。
-  const actors: string[] = [];
-  let cursor = "0";
-  let guard = 0;
-  do {
-    const res: [string | number, string[]] = await kv.scan(cursor, { match: "ebay_deals:*", count: 200 });
-    cursor = String(res[0]);
-    for (const k of res[1]) actors.push(String(k).slice("ebay_deals:".length));
-  } while (cursor !== "0" && ++guard < 1000);
+  // 対象アクター = ebay_deals:* ∪ ebay_orders:*（出品を全部やめた/自動削除された後も未発送注文が残る
+  // アクターを取りこぼさない＝発送期限通知の漏れ防止。注文は deal と独立キーで貯まるため）。
+  const actorSet = new Set<string>();
+  for (const prefix of ["ebay_deals:", "ebay_orders:"]) {
+    let cursor = "0";
+    let guard = 0;
+    do {
+      const res: [string | number, string[]] = await kv.scan(cursor, { match: `${prefix}*`, count: 200 });
+      cursor = String(res[0]);
+      for (const k of res[1]) actorSet.add(String(k).slice(prefix.length));
+    } while (cursor !== "0" && ++guard < 1000);
+  }
+  const actors = [...actorSet];
 
   let totalStopped = 0;
   let totalPruned = 0;

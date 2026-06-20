@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   });
 
   if (!r.ok) {
-    const f = friendlyEbayError(r.error);
+    const f = friendlyEbayError(r.error, r.status);
     return Response.json(
       { ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: r.error },
       { status: 502 }

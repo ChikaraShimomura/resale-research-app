@@ -204,8 +204,9 @@ async function main() {
     // ④ 価格ドリフト：現在の楽天価格が出品時原価(purchase=価格+送料)を閾値以上上回ったら警告を立てる／戻ったら解除。
     //   ※API値は売切判定には使わない方針だが、価格は「値上がりの目安」なので警告(=情報提示)用途に限り使う。
     if (nowJpy && typeof fresh.purchase === "number" && fresh.purchase > 0) {
-      const pct = Math.round(((nowJpy - fresh.purchase) / fresh.purchase) * 100) / 100;
-      if (pct >= DRIFT_PCT) {
+      const raw = (nowJpy - fresh.purchase) / fresh.purchase; // 生比率で閾値判定（先に丸めると9.5%が10%発火する）
+      if (raw >= DRIFT_PCT) {
+        const pct = Math.round(raw * 100) / 100; // 保存/表示用にだけ丸める
         const prev = fresh.priceDrift;
         if (!prev || prev.nowJpy !== nowJpy || prev.pct !== pct) {
           next = { ...next, priceDrift: { nowJpy, pct, at: new Date().toISOString() } };

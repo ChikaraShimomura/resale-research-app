@@ -197,7 +197,11 @@ export async function POST(req: Request) {
   // notready系(本人確認待ち/未登録/連携切れ)は専用UIで扱うので変換しない。生エラーは errorDetail に温存（報告用）。
   if (!result.ok && result.error && !result.needsSellerRegistration && !result.pendingVerification && !result.accountUnusable) {
     const f = friendlyEbayError(result.error);
-    return Response.json({ ...result, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: result.error });
+    // ステップ一覧にも生eBayエラーが残るため、各失敗ステップも友好文化（生は errorDetail に温存）。
+    const steps = result.steps?.map((s) =>
+      s.ok || !s.error ? s : { ...s, error: friendlyEbayError(s.error).message, errorDetail: s.error }
+    );
+    return Response.json({ ...result, steps, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: result.error });
   }
   return Response.json(result);
 }
