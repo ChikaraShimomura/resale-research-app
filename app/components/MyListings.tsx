@@ -6,7 +6,7 @@ import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout" }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string } }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -183,6 +183,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           {d.sourceStatus && (
                             <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
                               ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
+                            </p>
+                          )}
+                          {!d.sourceStatus && d.priceDrift && (
+                            <p className="text-[10px] font-bold leading-tight mt-0.5 text-amber-600">
+                              ⚠️ 仕入れ値が高騰（出品時+{Math.round(d.priceDrift.pct * 100)}%）赤字注意
                             </p>
                           )}
                         </div>

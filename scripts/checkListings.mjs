@@ -106,17 +106,18 @@ async function checkRakutenItem(itemCode) {
     });
     let data = null;
     try { data = await res.json(); } catch { /* 非JSON */ }
-    if (data && data.error === "not_found") return { status: "dead", itemUrl: null };
+    if (data && data.error === "not_found") return { status: "dead", itemUrl: null, priceJpy: null };
     if (res.ok && data && Array.isArray(data.Items)) {
-      if (data.Items.length === 0) return { status: "dead", itemUrl: null };
+      if (data.Items.length === 0) return { status: "dead", itemUrl: null, priceJpy: null };
       const item = data.Items[0]?.Item ?? data.Items[0];
       const itemUrl = item?.itemUrl || null; // 本物のスラッグURL（住宅IPワーカーが実ページを叩くのに使う／番号URLは404）
-      if (item && Number(item.availability) === 0) return { status: "soldout", itemUrl };
-      return { status: "alive", itemUrl };
+      const priceJpy = Number(item?.itemPrice) || null; // 現在の楽天価格（④ 価格ドリフト検知用）
+      if (item && Number(item.availability) === 0) return { status: "soldout", itemUrl, priceJpy };
+      return { status: "alive", itemUrl, priceJpy };
     }
-    return { status: "unknown", itemUrl: null };
+    return { status: "unknown", itemUrl: null, priceJpy: null };
   } catch {
-    return { status: "unknown", itemUrl: null };
+    return { status: "unknown", itemUrl: null, priceJpy: null };
   }
 }
 
@@ -125,7 +126,7 @@ async function confirmStatus(itemCode) {
   if (first.status === "alive" || first.status === "unknown") return first;
   await sleep(1500);
   const second = await checkRakutenItem(itemCode);
-  return { status: second.status, itemUrl: second.itemUrl ?? first.itemUrl };
+  return { status: second.status, itemUrl: second.itemUrl ?? first.itemUrl, priceJpy: second.priceJpy ?? first.priceJpy };
 }
 
 // ========== メイン ==========
@@ -169,11 +170,13 @@ async function main() {
   // itemCode ごとに状態を1回だけ判定。本物URL(itemUrl)も取得して deal に焼く（住宅IPワーカー用）。
   const statusByCode = new Map();
   const urlByCode = new Map();
+  const priceByCode = new Map();
   let alive = 0, dead = 0, soldout = 0, unknown = 0;
   for (const code of codes) {
     const r = await confirmStatus(code);
     statusByCode.set(code, r.status);
     if (r.itemUrl) urlByCode.set(code, r.itemUrl);
+    if (r.priceJpy) priceByCode.set(code, r.priceJpy);
     if (r.status === "alive") alive++;
     else if (r.status === "dead") dead++;
     else if (r.status === "soldout") soldout++;
@@ -186,22 +189,39 @@ async function main() {
   //   楽天APIの availability は売切でも alive を返し、availability===0 も index遅延/一時表示で誤って出うる＝信用できない。
   //   かつ reconcile(取り下げ)は「誰がフラグを立てたか」を問わず停止するため、API由来の soldout は誤停止の温床になる。
   //   → 売切/削除の判定権威は住宅IPワーカー(sourceLivenessWorker)の実ページ(schema.org)のみ。ここはURL供給に徹する。
-  let urled = 0;
+  const DRIFT_PCT = Number(process.env.LISTING_DRIFT_PCT ?? 0.10); // ④ 出品時原価をこの割合以上上回ったら値上がり警告
+  let urled = 0, drifted = 0;
   for (const { key, productId } of targets) {
     const itemUrl = urlByCode.get(productId) || null;
-    if (!itemUrl) continue;
+    const nowJpy = priceByCode.get(productId) || null;
     const fresh = await kvHget(key, productId);
     if (!fresh || typeof fresh !== "object") continue;
     if (fresh.soldUsd != null || fresh.stoppedAt != null) continue; // 売却/停止されたら触らない
-    if (fresh.sourceUrl === itemUrl) continue;                      // 既に同じURL＝書かない
-    await kvHset(key, productId, { ...fresh, sourceUrl: itemUrl });
-    urled++;
+    let next = fresh;
+    let changed = false;
+    // 本物URL(sourceUrl)のバックフィル（住宅IPワーカーが実ページを叩くのに必須）。
+    if (itemUrl && fresh.sourceUrl !== itemUrl) { next = { ...next, sourceUrl: itemUrl }; changed = true; urled++; }
+    // ④ 価格ドリフト：現在の楽天価格が出品時原価(purchase=価格+送料)を閾値以上上回ったら警告を立てる／戻ったら解除。
+    //   ※API値は売切判定には使わない方針だが、価格は「値上がりの目安」なので警告(=情報提示)用途に限り使う。
+    if (nowJpy && typeof fresh.purchase === "number" && fresh.purchase > 0) {
+      const pct = Math.round(((nowJpy - fresh.purchase) / fresh.purchase) * 100) / 100;
+      if (pct >= DRIFT_PCT) {
+        const prev = fresh.priceDrift;
+        if (!prev || prev.nowJpy !== nowJpy || prev.pct !== pct) {
+          next = { ...next, priceDrift: { nowJpy, pct, at: new Date().toISOString() } };
+          changed = true; drifted++;
+        }
+      } else if (fresh.priceDrift) {
+        next = { ...next }; delete next.priceDrift; changed = true; // 正常水準に戻った＝警告解除
+      }
+    }
+    if (changed) await kvHset(key, productId, next);
   }
 
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
   console.log(
     `完了: API参考(alive ${alive}/売切 ${soldout}/リンク切れ ${dead}/不明 ${unknown}) ※API値は不信頼で停止に使わない。` +
-    `本物URL焼き ${urled}件 (${elapsedSec}s)。売切/削除の判定は住宅IPワーカー(sourceLivenessWorker.mjs)が実ページで担当`
+    `本物URL焼き ${urled}件・価格ドリフト警告 ${drifted}件 (${elapsedSec}s)。売切/削除の判定は住宅IPワーカー(sourceLivenessWorker.mjs)が実ページで担当`
   );
 }
 

@@ -42,6 +42,7 @@ export interface Deal {
   stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
   sourceCheckedAt?: string; // 仕入れ元の最終確認日時(ISO)
+  priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の現在価格が出品時原価を閾値以上上回った時に立つ（checkListings cron）
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -109,6 +110,7 @@ export interface LiveDeal {
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
+  priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の値上がり警告（出品時原価を閾値超過）
 }
 export interface SoldDeal {
   id: string;
@@ -258,6 +260,7 @@ export async function listDealsForUser(
       sourceUrl: d.sourceUrl || catInfo[id]?.sourceUrl || undefined,
       listingId: d.listingId,
       sourceStatus: d.sourceStatus, // 楽天の仕入れ元が売り切れ/リンク切れなら⚠️
+      priceDrift: d.priceDrift, // ④ 仕入れ元の値上がり警告
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 
