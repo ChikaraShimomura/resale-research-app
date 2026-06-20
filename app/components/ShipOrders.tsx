@@ -176,6 +176,14 @@ export default function ShipOrders() {
 const APOLOGY_MSG =
   "Hello, I'm very sorry, but this item is unexpectedly out of stock and I'm unable to fulfill your order. I'll cancel it for a full refund right away. I sincerely apologize for the inconvenience.";
 
+// Zonos Prepay（関税前払いアプリ・iOS/Android）。米国宛$100超は発送前に関税前払い→13桁IDが必要。
+const ZONOS_PREPAY_URL = "https://zonos.com/ja/prepay-app";
+// その注文が「米国宛＆申告額>$100」＝Zonos前払いが要るか。申告額はアプリ出品ラインの売値合計(USD)。
+function ddpInfo(o: Order): { needed: boolean; valueUsd: number } {
+  const valueUsd = o.lines.reduce((sum, l) => sum + (l.soldUsd || 0), 0);
+  return { needed: o.shipTo?.countryCode === "US" && valueUsd > 100, valueUsd };
+}
+
 function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }) {
   const [tracking, setTracking] = useState("");
   const [carrier, setCarrier] = useState("JapanPost");
@@ -188,6 +196,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
   const badge = dueBadge(order.shipByDate);
   const isShortage = !!order.shortageHandledAt;
   const ebayOrderUrl = `https://www.ebay.com/sh/ord/details?orderid=${encodeURIComponent(order.orderId)}`;
+  const ddp = ddpInfo(order); // 米国宛$100超なら関税前払い(Zonos)が要る
 
   const submit = async () => {
     const t = tracking.trim();
@@ -283,6 +292,21 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
         </div>
       ) : (
         <>
+          {ddp.needed && (
+            <a
+              href={ZONOS_PREPAY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 active:bg-amber-100"
+            >
+              <span className="text-[13px] shrink-0">🛃</span>
+              <span className="text-[11px] font-bold text-amber-800 leading-tight">
+                Zonosで関税を前払い（米国・申告額 ${Math.round(ddp.valueUsd)}）
+                <span className="block font-normal text-amber-700/80">前払い→13桁の番号を伝票に記載してから発送</span>
+              </span>
+              <ExternalLink size={12} className="ml-auto text-amber-700 shrink-0" />
+            </a>
+          )}
           <div className="flex items-center gap-1.5">
             <input
               value={tracking}
