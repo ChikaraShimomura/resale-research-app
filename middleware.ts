@@ -16,12 +16,12 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
   // 集客の入口（マーケ/SEO）は未ログインでも見せる＝SEOインデックス＋X流入の着地先。
-  // アプリ操作(検索/商品詳細/出品/マイページ/設定/スタジオ)はゲート維持＝登録誘導。
+  // ランキングは「いま稼げる利益商品」のSEO/X流入フックとして公開を維持する。
   if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing") return true;
   if (pathname === "/guide" || pathname.startsWith("/guide/")) return true;
-  // 閲覧（カタログ）も公開＝free=閲覧のフリーミアム＋商品ページの長尾SEO。
-  // 出品・マイページ・設定・スタジオ・管理 は引き続きゲート（＝登録誘導）。
-  if (pathname === "/search" || pathname === "/results" || pathname.startsWith("/product/")) return true;
+  // 2026-06-21: 利益商品そのものが見える画面（検索一覧/検索結果/商品詳細）はログイン必須に変更。
+  // 旧フリーミアム（/search・/results・/product/* 公開）を撤回＝登録誘導を強化。/ranking だけは公開フックとして残す。
+  // 出品・マイページ・設定・スタジオ・管理 も引き続きゲート。
   return false;
 }
 

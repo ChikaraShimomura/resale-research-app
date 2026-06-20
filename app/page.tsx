@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck, BookOpen } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
+import HowItWorksDemo from "./components/HowItWorksDemo";
 import RakutenPointChips from "./components/RakutenPointChips";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
@@ -58,37 +59,13 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* 使い方デモ（動画風・自動再生／実際の画面で一気通貫を見せる。旧①②③の文章説明＝置き換え） */}
+      <HowItWorksDemo />
+
       {/* このサイトで使う3つのサービス（仕入れ→販売→受け取り・信頼ブロック／押すと各ガイドへ） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <TrustBadges withRakuten linked />
       </section>
-
-      {/* 仕組み説明 */}
-      <div className="bg-white border-b border-[#A98B5C]/25 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex items-start justify-center gap-4">
-            {[
-              { step: "①", text: "楽天で仕入れ", sub: "ポイント最大20%還元", color: "bg-[#BF0000]" },
-              { arrow: true },
-              { step: "②", text: "eBayで出品", sub: "海外需要で高値売却", color: "bg-[#0064D2]" },
-              { arrow: true },
-              { step: "③", text: "利益＋ポイント", sub: "ポイント還元も上乗せ", color: "bg-emerald-600" },
-            ].map((item, i) =>
-              "arrow" in item ? (
-                <span key={i} aria-hidden="true" className="text-gray-300 text-xl shrink-0 mt-2">›</span>
-              ) : (
-                <div key={i} className="flex flex-col items-center shrink-0">
-                  <div aria-hidden="true" className={`w-10 h-10 ${item.color} text-white rounded-full flex items-center justify-center text-sm font-black shadow-sm`}>
-                    {item.step}
-                  </div>
-                  <p className="text-xs font-bold text-gray-700 mt-2 text-center whitespace-nowrap">{item.text}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5 text-center whitespace-nowrap">{item.sub}</p>
-                </div>
-              )
-            )}
-          </div>
-        </div>
-      </div>
 
 
       {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション */}
