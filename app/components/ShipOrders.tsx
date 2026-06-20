@@ -138,7 +138,19 @@ export default function ShipOrders() {
             <div key={o.orderId} className="flex items-center gap-2 text-[12px] text-gray-500 border-t border-gray-100 pt-2">
               <PackageCheck size={14} className="text-green-600 shrink-0" />
               <span className="truncate">{o.lines[0]?.title || o.lines[0]?.sku || o.orderId}</span>
-              {o.trackingNumber && <span className="ml-auto font-mono text-[11px] text-gray-400 shrink-0">{o.trackingNumber}</span>}
+              {o.trackingNumber &&
+                (o.carrier === "JapanPost" || !o.carrier ? (
+                  <a
+                    href={`https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=${encodeURIComponent(o.trackingNumber)}&searchKind=S002&locale=ja`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto font-mono text-[11px] text-[#2D323B] underline shrink-0"
+                  >
+                    {o.trackingNumber}
+                  </a>
+                ) : (
+                  <span className="ml-auto font-mono text-[11px] text-gray-400 shrink-0">{o.trackingNumber}</span>
+                ))}
             </div>
           ))}
         </div>
