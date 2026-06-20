@@ -1,6 +1,7 @@
 import { kv } from "@vercel/kv";
 import { reconcileActorStops } from "../../../../lib/ebay/sourceReconcile";
 import { pruneExpiredStops } from "../../../../lib/ebay/stats";
+import { notifyShipDue } from "../../../../lib/ebay/orders";
 
 // cron用：全アクターを走査し、仕入れ元が売切/リンク切れの出品をeBayから自動停止する。
 // 検知(checkListings.mjs)が deal.sourceStatus を立てた直後に、check-listings ワークフローから呼ばれる。
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
 
   let totalStopped = 0;
   let totalPruned = 0;
+  let totalDueNotified = 0;
   for (const actor of actors) {
     try {
       const s = await reconcileActorStops(actor);
@@ -45,6 +47,12 @@ export async function POST(req: Request) {
     } catch {
       /* 削除失敗は次回リトライ */
     }
+    try {
+      // ③ 発送期限が近い/過ぎた未発送注文を本人へ通知（1注文1日1回）。
+      totalDueNotified += await notifyShipDue(actor);
+    } catch {
+      /* 通知失敗は次回リトライ */
+    }
   }
-  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned });
+  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned, dueNotified: totalDueNotified });
 }
