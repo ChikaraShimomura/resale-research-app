@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, PackageCheck, RefreshCw, AlertTriangle } from "lucide-react";
+import { Loader2, PackageCheck, RefreshCw, AlertTriangle, Copy, ExternalLink, Ban } from "lucide-react";
 
 interface Line {
   lineItemId: string;
@@ -31,6 +31,7 @@ interface Order {
   trackingNumber?: string;
   carrier?: string;
   shippedAt?: string;
+  shortageHandledAt?: string; // ⑤ 欠品（仕入れ不可）として記録済み
 }
 
 const isShipped = (o: Order) => !!o.trackingNumber || o.fulfillmentStatus === "FULFILLED";
@@ -146,13 +147,21 @@ export default function ShipOrders() {
   );
 }
 
+const APOLOGY_MSG =
+  "Hello, I'm very sorry, but this item is unexpectedly out of stock and I'm unable to fulfill your order. I'll cancel it for a full refund right away. I sincerely apologize for the inconvenience.";
+
 function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }) {
   const [tracking, setTracking] = useState("");
   const [carrier, setCarrier] = useState("JapanPost");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [showRecover, setShowRecover] = useState(false);
+  const [shortBusy, setShortBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const badge = dueBadge(order.shipByDate);
+  const isShortage = !!order.shortageHandledAt;
+  const ebayOrderUrl = `https://www.ebay.com/sh/ord/details?orderid=${encodeURIComponent(order.orderId)}`;
 
   const submit = async () => {
     const t = tracking.trim();
@@ -178,6 +187,50 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
     }
   };
 
+  // ⑤ 欠品として記録（買い手連絡＋eBayキャンセルの導線へ切替）
+  const markShortage = async () => {
+    setShortBusy(true);
+    try {
+      await fetch("/api/ebay/orders/shortage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.orderId }),
+      }).catch(() => {});
+      onShipped(); // 再読込（欠品対応中に切替）
+    } finally {
+      setShortBusy(false);
+    }
+  };
+
+  const copyApology = async () => {
+    try {
+      await navigator.clipboard.writeText(APOLOGY_MSG);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const recoverLinks = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <a
+        href={ebayOrderUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-gray-700 active:bg-gray-50"
+      >
+        <ExternalLink size={12} /> eBayでキャンセル
+      </a>
+      <button
+        onClick={copyApology}
+        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-gray-700 active:bg-gray-50"
+      >
+        <Copy size={12} /> {copied ? "コピーした" : "謝罪文をコピー"}
+      </button>
+    </div>
+  );
+
   return (
     <div className="border border-gray-100 rounded-xl p-3 space-y-2">
       <div className="flex items-start gap-2">
@@ -187,33 +240,72 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
           </p>
           <p className="text-[11px] text-gray-500 truncate">{addressText(order.shipTo) || `買い手: ${order.buyerUsername || "—"}`}</p>
         </div>
-        {badge && <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>}
+        {!isShortage && badge && (
+          <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+        )}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <input
-          value={tracking}
-          onChange={(e) => setTracking(e.target.value)}
-          placeholder="追跡番号"
-          inputMode="text"
-          className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-gray-200 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
-        />
-        <select
-          value={carrier}
-          onChange={(e) => setCarrier(e.target.value)}
-          className="h-9 px-1.5 rounded-lg border border-gray-200 text-[11px] text-gray-600 bg-white"
-        >
-          <option value="JapanPost">日本郵便</option>
-          <option value="Other">その他</option>
-        </select>
-        <button
-          onClick={submit}
-          disabled={busy || !tracking.trim()}
-          className="h-9 px-3 rounded-lg bg-[#2D323B] text-white text-[12px] font-bold active:opacity-90 disabled:opacity-40 shrink-0 flex items-center gap-1"
-        >
-          {busy ? <Loader2 size={13} className="animate-spin" /> : null} 登録
-        </button>
-      </div>
+      {isShortage ? (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-2 space-y-1.5">
+          <p className="text-[11px] font-bold text-red-700 flex items-center gap-1">
+            <Ban size={12} /> 欠品対応中（仕入れ不可）
+          </p>
+          <p className="text-[10px] text-red-700/90 leading-relaxed">
+            買い手に連絡し、eBayで注文をキャンセル（理由：在庫切れ）してください。買い手には全額返金されます。
+          </p>
+          {recoverLinks}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={tracking}
+              onChange={(e) => setTracking(e.target.value)}
+              placeholder="追跡番号"
+              inputMode="text"
+              className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-gray-200 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
+            />
+            <select
+              value={carrier}
+              onChange={(e) => setCarrier(e.target.value)}
+              className="h-9 px-1.5 rounded-lg border border-gray-200 text-[11px] text-gray-600 bg-white"
+            >
+              <option value="JapanPost">日本郵便</option>
+              <option value="Other">その他</option>
+            </select>
+            <button
+              onClick={submit}
+              disabled={busy || !tracking.trim()}
+              className="h-9 px-3 rounded-lg bg-[#2D323B] text-white text-[12px] font-bold active:opacity-90 disabled:opacity-40 shrink-0 flex items-center gap-1"
+            >
+              {busy ? <Loader2 size={13} className="animate-spin" /> : null} 登録
+            </button>
+          </div>
+
+          {!showRecover ? (
+            <button
+              onClick={() => setShowRecover(true)}
+              className="text-[10px] text-gray-400 underline active:text-gray-600"
+            >
+              仕入れできない（欠品）？
+            </button>
+          ) : (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 space-y-1.5">
+              <p className="text-[10px] text-amber-800 leading-relaxed">
+                楽天で仕入れできない時は、買い手に連絡して eBay の注文をキャンセル（理由：在庫切れ）。下記の導線を使ってください。
+              </p>
+              {recoverLinks}
+              <button
+                onClick={markShortage}
+                disabled={shortBusy}
+                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-red-600 text-white text-[11px] font-bold active:opacity-90 disabled:opacity-50"
+              >
+                {shortBusy ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} 欠品として記録
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
       {err && (
         <p className="flex items-center gap-1 text-[11px] text-red-600">
