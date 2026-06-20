@@ -79,6 +79,7 @@ interface OrdersResponse {
     orderId?: string;
     creationDate?: string;
     orderFulfillmentStatus?: string; // NOT_STARTED / IN_PROGRESS / FULFILLED
+    cancelStatus?: { cancelState?: string }; // NONE_REQUESTED / CANCEL_REQUESTED / CANCELED ...
     buyer?: { username?: string };
     fulfillmentStartInstructions?: {
       shippingStep?: {
@@ -137,6 +138,7 @@ export interface EbayOrder {
   buyerUsername?: string;
   shipTo?: EbayShipTo;
   shipByDate?: string; // 注文内ラインの最早 shipByDate（カウントダウン表示用）
+  cancelled?: boolean; // eBay側でキャンセル(申請含む)＝発送不要
   lines: EbayOrderLine[]; // アプリ出品(rr-*)のラインのみ
 }
 
@@ -218,6 +220,7 @@ export async function getSoldItems(token: string): Promise<SoldItemsResult> {
               }
             : undefined,
           shipByDate,
+          cancelled: !!o.cancelStatus?.cancelState && o.cancelStatus.cancelState !== "NONE_REQUESTED",
           lines,
         });
       }

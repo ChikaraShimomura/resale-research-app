@@ -32,6 +32,7 @@ interface Order {
   carrier?: string;
   shippedAt?: string;
   shortageHandledAt?: string; // ⑤ 欠品（仕入れ不可）として記録済み
+  cancelled?: boolean; // eBay側でキャンセル＝発送不要
 }
 
 const isShipped = (o: Order) => !!o.trackingNumber || o.fulfillmentStatus === "FULFILLED";
@@ -105,8 +106,9 @@ export default function ShipOrders() {
     );
   }
 
-  const pending = orders.filter((o) => !isShipped(o));
+  const pending = orders.filter((o) => !isShipped(o) && !o.cancelled);
   const shipped = orders.filter((o) => isShipped(o));
+  const cancelled = orders.filter((o) => o.cancelled && !isShipped(o)); // eBayでキャンセル済み＝発送不要
 
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm space-y-3">
@@ -151,6 +153,18 @@ export default function ShipOrders() {
                 ) : (
                   <span className="ml-auto font-mono text-[11px] text-gray-400 shrink-0">{o.trackingNumber}</span>
                 ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {cancelled.length > 0 && (
+        <div className="pt-1 space-y-2">
+          <p className="text-[11px] font-bold text-gray-400">キャンセル済み（発送不要）</p>
+          {cancelled.map((o) => (
+            <div key={o.orderId} className="flex items-center gap-2 text-[12px] text-gray-400 border-t border-gray-100 pt-2">
+              <Ban size={14} className="shrink-0" />
+              <span className="truncate">{o.lines[0]?.title || o.lines[0]?.sku || o.orderId}</span>
             </div>
           ))}
         </div>
