@@ -292,6 +292,10 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
         </div>
       ) : (
         <>
+          {/* やること（適応表示）：追跡登録は全宛先で必須・Zonos前払いは米国$100超のみの追加ステップ */}
+          <p className="text-[10px] text-gray-400 leading-tight">
+            {ddp.needed ? "やること：① 関税前払い（Zonos）→ ② 追跡番号を登録" : "やること：発送したら追跡番号を登録"}
+          </p>
           {ddp.needed && (
             <a
               href={ZONOS_PREPAY_URL}
