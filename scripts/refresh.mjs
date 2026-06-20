@@ -214,6 +214,87 @@ function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount, domesticShipJpy = 0) 
   return { profit, profitRate: Math.round((profit / effectiveBuy) * 100) };
 }
 
+// ========== 仕入れ元(楽天)の実ページ照合 ==========
+// 楽天 Item Search API の availability/itemPrice は当てにならない：
+//   ・売り切れでも availability≠0 を返すことがある（→カタログに売切が残り、出品後に欠品事故）。
+//   ・複数タイプ(例 5パック/10パック/1箱)の商品は「最安価格」しか返さない（→最安を1箱の原価と誤認＝利益過大）。
+// 実ページの schema.org(availability / lowPrice / highPrice)は ASCII なのでページの文字コードに関係なく読める。
+const SOURCE_RANGE_RATIO = 1.3;        // highPrice/lowPrice がこれ以上＝原価が一意に決まらない複数タイプとみなす
+const SOURCE_RECONCILE_GAP_MS = 350;   // 楽天への礼儀（checkLinks/diagDcProbe に倣いバースト遮断を避ける）
+const SOURCE_RECONCILE_CONC = 3;
+const SOURCE_RECONCILE_MIN_KEEP = 0.6; // 照合後の残存がこれ未満＝取得異常を疑い結果を破棄(systemic false-positive ブレーキ)
+function realRakutenUrl(srcUrl) {
+  if (!srcUrl) return null;
+  const s = String(srcUrl);
+  // 楽天アフィリ中継(hb.afl.rakuten.co.jp)のときだけ ?pc=<直URL> を取り出す（誤抽出防止のホストガード）
+  if (/hb\.afl\.rakuten\.co\.jp/.test(s)) {
+    const m = s.match(/[?&]pc=([^&]+)/);
+    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+  }
+  if (s.includes('item.rakuten.co.jp')) return s; // 直リンク
+  return null; // 番号URL(/{shop}/{itemCode番号}/)は404になるので組み立てない
+}
+function parsePriceNum(s) { const n = Number(String(s ?? '').replace(/[^\d]/g, '')); return Number.isFinite(n) && n > 0 ? n : null; }
+async function fetchSourceSchema(srcUrl) {
+  const url = realRakutenUrl(srcUrl);
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, redirect: 'follow', signal: AbortSignal.timeout(10000) });
+    if (res.status === 429 || res.status === 503) return { blocked: true };       // レート制限/一時拒否＝以降打ち切り
+    if (!res.ok) return null;                                                      // 取得不可＝fail-open(現状維持)
+    // ※リダイレクト先ドメインで死活を推定しない：楽天ブックス品は item.rakuten.co.jp/book/… が
+    //   books.rakuten.co.jp/… へ正規リダイレクトする(在庫あり)ため誤除外になる。閉店/リンク切れの
+    //   死活判定は既存 checkLinks.mjs の担当。ここは「売切(OutOfStock)」と「価格レンジ」だけ正確に見る。
+    const html = await res.text();
+    // 価格と在庫は主商品Offerのmicrodata(lowPrice/highPrice/availability)から取る。関連商品(recommend)枠には
+    // これらの itemprop が無いため主商品スコープになる。属性順/引用符/カンマ入り数値に強い形で拾う。
+    const lowPrice = parsePriceNum(html.match(/itemprop=["']lowPrice["'][^>]*content=["']?([\d,]+)/i)?.[1]);
+    const highPrice = parsePriceNum(html.match(/itemprop=["']highPrice["'][^>]*content=["']?([\d,]+)/i)?.[1]);
+    const availability = html.match(/itemprop=["']availability["'][^>]*content=["']([^"']+)/i)?.[1] || '';
+    return { soldOut: /OutOfStock|SoldOut|Discontinued/i.test(availability), lowPrice, highPrice };
+  } catch { return null; }
+}
+// finalists を実ページで照合：①OutOfStock/削除は除外 ②価格レンジ大は箱(highPrice)で原価再計算（不採算なら除外）。
+// fail-open：ページ取得できなければ現状維持。systemicブレーキ：大量除外は取得異常とみなし丸ごと破棄。
+async function reconcileSourcePages(products) {
+  const out = new Array(products.length);
+  let idx = 0, dropped = 0, repriced = 0, blocked = false;
+  async function worker() {
+    while (idx < products.length) {
+      const i = idx++;
+      const p = products[i];
+      if (blocked) { out[i] = p; continue; }                         // ブレーキ後は触らない(fail-open)
+      const info = await fetchSourceSchema(p?.source?.url);
+      await sleep(SOURCE_RECONCILE_GAP_MS);
+      if (!info) { out[i] = p; continue; }                           // 取得不可＝現状維持(fail-open)
+      if (info.blocked) { blocked = true; out[i] = p; continue; }    // 429/503＝以降打ち切り
+      if (info.soldOut) { out[i] = null; dropped++; continue; }      // 実ページ売切/削除＝カタログから除外
+      if (info.lowPrice && info.highPrice && info.highPrice / info.lowPrice >= SOURCE_RANGE_RATIO) {
+        const price = info.highPrice;                                // 複数タイプ＝最安でなく箱(高い方)を原価に
+        const pointRate = p.source?.pointRate ?? 1;
+        const pointAmount = Math.floor(price * pointRate / 100);
+        const r = calcProfit(price, p.realAvgPrice, pointAmount, p.source?.shippingJpy ?? 0);
+        if (r.profitRate <= PROFIT_RATE_FLOOR) { out[i] = null; dropped++; continue; } // 箱原価では利益出ず＝除外
+        out[i] = { ...p, source: { ...p.source, price, pointAmount }, realProfit: r.profit, realProfitRate: r.profitRate };
+        repriced++;
+      } else {
+        out[i] = p;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: SOURCE_RECONCILE_CONC }, worker));
+  if (blocked) { console.log('  ⚠️ 実ページ照合: 楽天が429/503を返したため打ち切り（fail-open＝カタログ現状維持）'); return products; }
+  const kept = out.filter(Boolean);
+  // systemic false-positive ブレーキ：取得異常(200のインタースティシャル/地域ブロック等)で大量除外したら丸ごと破棄。
+  // 既存のeBay最安再評価の「>85%落ちたら見送り」ブレーキと同思想（無音の自滅を防ぐ）。
+  if (products.length >= 10 && kept.length / products.length < SOURCE_RECONCILE_MIN_KEEP) {
+    console.log(`  ⚠️ 実ページ照合: 除外が多すぎ(${products.length}→${kept.length})＝取得異常を疑い結果を破棄(fail-open)`);
+    return products;
+  }
+  console.log(`  🔎 仕入れ元実ページ照合: 売切/不採算で除外 ${dropped}件・複数タイプを箱価格で再計算 ${repriced}件 → 残 ${kept.length}件`);
+  return kept;
+}
+
 // 国内送料(楽天ショップ→自分)の概算。送料込み(postageFlag=0)は0。
 // 楽天APIは正確な送料額を返さないため、カテゴリの典型サイズで保守的に概算する（過小利益＝安全側）。
 // 送料別の商品はこの分だけ利益が下がり、閾値割れすれば落ちる＝より正直な利益表示になる。
@@ -1439,6 +1520,14 @@ async function main() {
     } catch (e) { console.error(`  [楽天-first ERROR] ${e.message}`); }
   }
 
+  // 仕入れ元(楽天)の実ページ照合（保存直前・復活マージ前＝復活品は運営が意図して戻すので対象外）。
+  // 楽天APIで取りこぼす「実は売切」「複数タイプの最安誤認」を実ページで補正する。fail-open。
+  try {
+    const reconciled = await reconcileSourcePages(profitableProducts);
+    profitableProducts.length = 0;
+    profitableProducts.push(...reconciled);
+  } catch (e) { console.error('  [source-page reconcile ERROR]', e.message); }
+
   // 手動復活した商品(restored_products)を必ずカタログへ戻す。リフレッシュは毎回カタログを作り直すため、
   // これが無いと運営が手動復活した商品が次のrefreshで消える（出品はpsnapで可能だが検索に出なくなる）。
   // 維持処理の後・保存の直前にマージ＝復活品は除外フィルタを通さず常に残す（運営が意図して戻した商品）。
@@ -1475,7 +1564,7 @@ async function main() {
     ebayJpCount: ebayJpItems.length,
     processedCount: toProcess.length,
     existingCount: existingProducts.length,
-    newCount: profitableProducts.length - existingProducts.length,
+    newCount: Math.max(0, profitableProducts.length - existingProducts.length), // 実ページ照合で既存品が落ちると負になり得るのでクランプ
     profitableCount: profitableProducts.length,
     haikuCalls: haikuCallsToday,
     haikuFail: haikuFailToday,
@@ -1504,7 +1593,7 @@ async function main() {
 ✨ 完了!
   eBay売れ済み: ${ebayJpItems.length}件
   処理: ${toProcess.length}件
-  新規利益商品: ${profitableProducts.length - existingProducts.length}件
+  新規利益商品: ${Math.max(0, profitableProducts.length - existingProducts.length)}件
   DB合計: ${profitableProducts.length}件（480時間TTL）
   画像判定(Claude): Haiku 成功${haikuCallsToday}/不通${haikuFailToday}回 / Sonnet確認 ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
