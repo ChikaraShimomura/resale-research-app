@@ -270,6 +270,27 @@ async function ebayWrite(
   }
 }
 
+// ② 追跡番号の eBay 書き戻し（createShippingFulfillment）。
+// 期限内に登録しないと売上保留の長期化・未着クレーム(INR)の自動敗訴・Top Rated剥奪に直結。
+// lineItems は省略＝注文全体を発送済みにする（アプリ出品は単品注文が主）。carrier 未指定は "Other"。
+export async function createShippingFulfillment(
+  token: string,
+  orderId: string,
+  opts: { trackingNumber: string; carrier?: string; shippedDate?: string }
+): Promise<EbayWriteResult> {
+  const body = {
+    trackingNumber: opts.trackingNumber,
+    shippingCarrierCode: opts.carrier || "Other",
+    shippedDate: opts.shippedDate || new Date().toISOString(),
+  };
+  return ebayWrite(
+    token,
+    "POST",
+    `/sell/fulfillment/v1/order/${encodeURIComponent(orderId)}/shipping_fulfillment`,
+    body
+  );
+}
+
 // 発送元（在庫ロケーション）。固定キーで作成し、出品オファーの merchantLocationKey に使う。
 export const SHIP_FROM_LOCATION_KEY = "jp-ship-from";
 

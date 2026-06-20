@@ -38,6 +38,24 @@ export async function recordOrders(actor: string, orders: EbayOrder[]): Promise<
   }
 }
 
+// ② 追跡番号を注文に記録（eBay書き戻し createShippingFulfillment が成功した後に呼ぶ）。
+export async function markOrderShipped(
+  actor: string,
+  orderId: string,
+  fields: { trackingNumber: string; carrier?: string }
+): Promise<void> {
+  try {
+    const prev = await kv.hget<StoredOrder>(ORDERS_KEY(actor), orderId);
+    if (!prev) return;
+    await kv.hset(ORDERS_KEY(actor), {
+      [orderId]: { ...prev, trackingNumber: fields.trackingNumber, carrier: fields.carrier, shippedAt: new Date().toISOString() },
+    });
+    await kv.expire(ORDERS_KEY(actor), TTL_SECONDS);
+  } catch {
+    /* noop */
+  }
+}
+
 // 保存済み注文を新しい順(注文日降順)で返す。発送待ちビュー等の表示側が使う。
 export async function listOrders(actor: string): Promise<StoredOrder[]> {
   try {
