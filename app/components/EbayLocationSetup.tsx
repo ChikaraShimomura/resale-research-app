@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import ReportableError from "./ReportableError";
 
 interface AddrJa { prefecture: string; city: string; town: string }
 interface AddrEn { stateOrProvince: string; city: string; town: string }
@@ -14,6 +15,8 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   const [manual, setManual] = useState<AddrEn>({ stateOrProvince: "", city: "", town: "" });
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
+  const [errKind, setErrKind] = useState<"known" | "unexpected" | undefined>(undefined);
+  const [errDetail, setErrDetail] = useState<string | undefined>(undefined);
   // 入力ごとに進める世代番号。最新リクエストの応答だけを反映し、順序前後/古い応答の混入を防ぐ。
   const lookupGen = useRef(0);
 
@@ -96,10 +99,14 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       } else {
         setState("error");
         setMsg(r.error || "登録に失敗しました。");
+        setErrKind(r.errorKind);
+        setErrDetail(r.errorDetail);
       }
     } catch {
       setState("error");
       setMsg("通信に失敗しました。");
+      setErrKind("unexpected");
+      setErrDetail(undefined);
     }
   };
 
@@ -180,11 +187,13 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
       >
         {state === "saving" ? "登録中..." : "発送元を登録"}
       </button>
-      {msg && (
+      {state === "error" && msg ? (
+        <ReportableError message={msg} errorKind={errKind} errorDetail={errDetail} where="ebay_location" className="mt-2" />
+      ) : msg ? (
         <p className={`mt-2 text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#2D323B]"}`}>
           {msg}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

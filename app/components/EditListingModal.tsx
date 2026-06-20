@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { X, ImagePlus } from "lucide-react";
 import Spinner from "./Spinner";
+import ReportableError from "./ReportableError";
+
+type ErrInfo = { message: string; errorKind?: "known" | "unexpected"; errorDetail?: string };
 
 // 出品中の「価格・数量」をアプリ内で編集するモーダル。
 // eBay.comを開かずに直せる＝出品の管理がeBayサイト側へ移って詰む原因を作らない。
@@ -21,11 +24,11 @@ export default function EditListingModal({
   const [priceUsd, setPriceUsd] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<ErrInfo | null>(null);
   const [done, setDone] = useState(false);
   const [files, setFiles] = useState<File[]>([]); // 追加する実物写真
   const [uploading, setUploading] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<ErrInfo | null>(null);
   const [photoDone, setPhotoDone] = useState<string | null>(null);
   const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得した楽天ギャラリー
 
@@ -64,10 +67,10 @@ export default function EditListingModal({
         onSaved?.();
         setTimeout(onClose, 900);
       } else {
-        setSaveError(j?.error || "更新に失敗しました。");
+        setSaveError({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
       }
     } catch {
-      setSaveError("通信エラーで更新できませんでした。");
+      setSaveError({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" });
     }
     setSaving(false);
   };
@@ -87,10 +90,10 @@ export default function EditListingModal({
         setFiles([]);
         onSaved?.();
       } else {
-        setPhotoError(j?.error || "写真の追加に失敗しました。");
+        setPhotoError({ message: j?.error || "写真の追加に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
       }
     } catch {
-      setPhotoError("通信エラーで写真を追加できませんでした。");
+      setPhotoError({ message: "通信エラーで写真を追加できませんでした。", errorKind: "unexpected" });
     }
     setUploading(false);
   };
@@ -154,7 +157,7 @@ export default function EditListingModal({
               <span className="text-[10px] text-gray-400 mt-1 block">在庫を持っている数だけにしてください（無在庫で複数を出すと欠品キャンセルの原因に）。</span>
             </label>
 
-            {saveError && <p className="text-[12px] text-[#2D323B] leading-relaxed">{saveError}</p>}
+            {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
 
             <button
               onClick={save}
@@ -195,7 +198,7 @@ export default function EditListingModal({
                 className="block w-full text-[11px] text-gray-600 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-[11px] file:font-bold"
               />
               {files.length > 0 && <p className="text-[11px] text-gray-500 mt-1">{files.length}枚 選択中</p>}
-              {photoError && <p className="text-[12px] text-[#2D323B] mt-1 leading-relaxed">{photoError}</p>}
+              {photoError && <ReportableError message={photoError.message} errorKind={photoError.errorKind} errorDetail={photoError.errorDetail} where="ebay_photos" context={{ productId }} className="mt-1" />}
               {photoDone && <p className="text-[12px] text-emerald-600 mt-1 leading-relaxed">✓ {photoDone}</p>}
               <button
                 onClick={uploadPhotos}

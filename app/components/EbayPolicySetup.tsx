@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, AlertTriangle } from "lucide-react";
+import ReportableError from "./ReportableError";
 
 interface StepResult {
   step: string;
   ok: boolean;
   error?: string;
+  known?: boolean;
+  errorDetail?: string;
 }
 
 // 送料の目安は日本郵便・米国宛の実費ベース：小=軽量エアパケット(〜500g≒¥2,040≒$14)／
@@ -26,6 +29,8 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
   const [msg, setMsg] = useState("");
+  const [errKind, setErrKind] = useState<"known" | "unexpected" | undefined>(undefined);
+  const [errDetail, setErrDetail] = useState<string | undefined>(undefined);
   // 成功後の onDone 遅延発火タイマー。アンマウント/再submitで確実にクリアする。
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -60,6 +65,12 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       });
       const j = await res.json();
       if (Array.isArray(j.steps)) setSteps(j.steps);
+      setErrKind(j.errorKind);
+      setErrDetail(
+        Array.isArray(j.steps)
+          ? j.steps.filter((s: StepResult) => !s.ok).map((s: StepResult) => `${s.step}: ${s.errorDetail || s.error || ""}`).join(" | ")
+          : undefined
+      );
       if (j.ok) {
         setState("done");
         setMsg("送料・支払い・返品の設定を登録しました。");
@@ -162,6 +173,10 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {state === "error" && errKind === "unexpected" && (
+        <ReportableError message="一部の設定で予期せぬエラーが発生しました。" errorKind="unexpected" errorDetail={errDetail} where="ebay_policy" className="mt-1" />
       )}
 
       {msg && (
