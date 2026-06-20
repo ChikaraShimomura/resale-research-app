@@ -8,6 +8,7 @@ import { filterProductImages } from "../../../../lib/ebay/imageFilter";
 import { enhanceToEps } from "../../../../lib/ebay/imageProcess";
 import { recordListed, listDealsForUser } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
+import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getCurrentUserEmail, isComp, getPlan } from "../../../../lib/auth/plan";
 import { PLANS, PAYWALL_ENABLED } from "../../../../lib/plans";
@@ -192,5 +193,11 @@ export async function POST(req: Request) {
     }
   }
 
+  // 生のeBayエラーをユーザー向けの端的な文に変換（既知=要因／未知=「予期せぬエラー」＋報告ボタン）。
+  // notready系(本人確認待ち/未登録/連携切れ)は専用UIで扱うので変換しない。生エラーは errorDetail に温存（報告用）。
+  if (!result.ok && result.error && !result.needsSellerRegistration && !result.pendingVerification && !result.accountUnusable) {
+    const f = friendlyEbayError(result.error);
+    return Response.json({ ...result, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: result.error });
+  }
   return Response.json(result);
 }

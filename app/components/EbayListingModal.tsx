@@ -80,6 +80,8 @@ interface PublishResult {
   pendingVerification?: boolean;
   accountUnusable?: boolean; // アカウントが出品できる状態にない（制限/確認中 等）
   connected?: boolean; // false=連携切れ（再連携が必要）
+  errorKind?: "known" | "unexpected"; // known=要因が特定できた／unexpected=予期せぬエラー（報告ボタンを出す）
+  errorDetail?: string; // 生のeBayエラー（ユーザーには見せず、開発者報告に同梱）
 }
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error";
@@ -293,7 +295,7 @@ export default function EbayListingModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           where: "ebay_listing",
-          message: msg || result?.error || "",
+          message: result?.errorDetail || result?.error || msg || "",
           steps: result?.steps,
           productId: product.id,
           coreKeyword: product.coreKeyword,
@@ -1082,7 +1084,7 @@ export default function EbayListingModal({
               <AlertTriangle size={36} className="mx-auto mb-3 text-[#2D323B]" />
               <p className="text-sm font-bold text-gray-800 text-center mb-2">出品できませんでした</p>
               <p className="text-[12px] text-[#2D323B] text-center mb-3 leading-relaxed break-words">{msg}</p>
-              {result?.steps && result.steps.length > 0 && (
+              {result?.errorKind !== "known" && result?.steps && result.steps.length > 0 && (
                 <ul className="mb-4 space-y-1 bg-gray-50 rounded-xl p-3">
                   {result.steps.map((s, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-[12px]">
@@ -1098,20 +1100,24 @@ export default function EbayListingModal({
                 <ul className="text-[11px] text-amber-900/80 leading-relaxed list-disc pl-4 space-y-0.5">
                   <li>少し時間をおいて<b>もう一度出品</b>（一時的な通信エラーのことがあります）</li>
                   <li>写真が暗い・小さいときは<b>別の写真</b>に差し替える</li>
-                  <li>それでも直らなければ、下のボタンで報告してください</li>
+                  {result?.errorKind !== "known" && <li>それでも直らなければ、下のボタンで報告してください</li>}
                 </ul>
               </div>
-              {/* 予期せぬエラーを開発者に報告（自動修復のための情報を送る） */}
-              <button
-                type="button"
-                onClick={reportError}
-                disabled={reportState !== "idle"}
-                className="w-full h-11 mb-2 bg-[#2D323B] text-white rounded-xl text-sm font-bold active:bg-[#1A1D23] disabled:opacity-50"
-              >
-                {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
-              </button>
-              {reportState === "done" && (
-                <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しください。</p>
+              {/* 予期せぬエラーのときだけ「開発者に報告」を出す（既知エラーは要因が分かっているので不要）。 */}
+              {result?.errorKind !== "known" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={reportError}
+                    disabled={reportState !== "idle"}
+                    className="w-full h-11 mb-2 bg-[#2D323B] text-white rounded-xl text-sm font-bold active:bg-[#1A1D23] disabled:opacity-50"
+                  >
+                    {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
+                  </button>
+                  {reportState === "done" && (
+                    <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しください。</p>
+                  )}
+                </>
               )}
               <div className="flex gap-2">
                 {/* 入力フォームがある時だけ「入力に戻る」。初回準備の失敗（data無し）では空フォームになるため出さない。 */}
