@@ -4,6 +4,7 @@
 // DELETE {email}: 身内から削除（KV管理分のみ）
 import { getCurrentUserEmail } from "../../../lib/auth/plan";
 import { isAdmin, listMasters, addMaster, removeMaster, listRegisteredUsers } from "../../../lib/auth/admin";
+import { supabaseAdminConfigured, listAllAuthUsers } from "../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,10 +13,33 @@ async function ensureAdmin(): Promise<boolean> {
   return isAdmin(await getCurrentUserEmail());
 }
 
-// 身内一覧（env固定/KV管理）＋ 登録済みユーザー候補をまとめて返す。
+// 身内一覧（env固定/KV管理）＋ 登録ユーザー一覧（Supabase優先・無ければKV記録でフォールバック）をまとめて返す。
+// users には isAdmin/isMaster/removable のフラグを付け、検索つきUIでそのまま身内指定/解除できるようにする。
 async function fullState() {
-  const [m, registered] = await Promise.all([listMasters(), listRegisteredUsers()]);
-  return { ...m, registered };
+  const { env, managed } = await listMasters();
+  const masterSet = new Set([...env, ...managed]);
+  const managedSet = new Set(managed);
+
+  let base: { email: string; createdAt?: string; lastSignInAt?: string }[];
+  let source: "supabase" | "kv";
+  if (supabaseAdminConfigured()) {
+    base = await listAllAuthUsers();
+    source = "supabase";
+  } else {
+    base = (await listRegisteredUsers()).map((email) => ({ email }));
+    source = "kv";
+  }
+
+  const users = base
+    .map((u) => ({
+      ...u,
+      isAdmin: isAdmin(u.email),
+      isMaster: masterSet.has(u.email),
+      removable: managedSet.has(u.email), // env固定/管理者は解除不可、KV管理分のみ解除可
+    }))
+    .sort((a, b) => a.email.localeCompare(b.email));
+
+  return { env, managed, source, users };
 }
 
 export async function GET() {

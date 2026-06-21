@@ -1,22 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
-import { UserPlus, X, ShieldCheck, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { UserPlus, X, ShieldCheck, Loader2, Search, BadgeCheck } from "lucide-react";
+
+interface AdminUser {
+  email: string;
+  createdAt?: string;
+  lastSignInAt?: string;
+  isAdmin: boolean;
+  isMaster: boolean;
+  removable: boolean;
+}
 
 // 身内(master)の指定UI。管理者だけが開ける /admin 内で使う。
-// env初期分(COMP_EMAILS)は表示のみ(消せない)、KV管理分は追加/削除できる。
+//  ・手入力で身内に追加
+//  ・登録ユーザー一覧（Supabase優先／service_role未設定時はログイン記録のKVフォールバック）を検索して身内をワンタップ指定/解除
 export default function MastersAdmin() {
   const [env, setEnv] = useState<string[]>([]);
-  const [managed, setManaged] = useState<string[]>([]);
-  const [registered, setRegistered] = useState<string[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [source, setSource] = useState<"supabase" | "kv">("kv");
   const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const apply = (d: { env?: string[]; managed?: string[]; registered?: string[] }) => {
+  const apply = (d: { env?: string[]; users?: AdminUser[]; source?: "supabase" | "kv" }) => {
     setEnv(d.env ?? []);
-    setManaged(d.managed ?? []);
-    setRegistered(d.registered ?? []);
+    setUsers(d.users ?? []);
+    if (d.source) setSource(d.source);
   };
 
   useEffect(() => {
@@ -46,6 +57,13 @@ export default function MastersAdmin() {
     }
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? users.filter((u) => u.email.includes(q)) : users;
+  }, [users, search]);
+
+  const masters = users.filter((u) => u.isMaster); // env固定＋KV管理（登録済みの身内）
+
   return (
     <div>
       <h2 className="text-sm font-black text-gray-800 mb-1 flex items-center gap-1.5">
@@ -55,6 +73,7 @@ export default function MastersAdmin() {
         ここに入れたメールのアカウントは、サブスク無しで全機能を無制限に使えます。<b className="text-gray-700">本人がそのメールで登録/ログイン</b>している必要があります。
       </p>
 
+      {/* 手入力で追加 */}
       <form
         onSubmit={(e) => { e.preventDefault(); if (input.trim()) send("POST", input.trim()); }}
         className="flex gap-2 mb-3"
@@ -77,65 +96,94 @@ export default function MastersAdmin() {
 
       {err && <p className="text-[12px] text-red-600 mb-2">{err}</p>}
 
-      {loading ? (
-        <p className="text-[12px] text-gray-400">読み込み中…</p>
+      {/* 現在の身内 */}
+      <p className="text-[12px] font-bold text-gray-700 mb-1.5">現在の身内</p>
+      {masters.length === 0 && env.length === 0 ? (
+        <p className="text-[11px] text-gray-400 mb-3">まだ身内は登録されていません。</p>
       ) : (
-        <ul className="space-y-1.5">
-          {managed.map((m) => (
-            <li key={m} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-              <span className="flex-1 min-w-0 text-[13px] text-gray-800 break-all">{m}</span>
-              <button
-                onClick={() => send("DELETE", m)}
-                disabled={busy}
-                aria-label={`${m} を削除`}
-                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 active:scale-90 disabled:opacity-40"
-              >
-                <X size={15} />
-              </button>
+        <ul className="space-y-1.5 mb-4">
+          {masters.map((u) => (
+            <li key={u.email} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="flex-1 min-w-0 text-[13px] text-gray-800 break-all">{u.email}</span>
+              {u.removable ? (
+                <button onClick={() => send("DELETE", u.email)} disabled={busy} aria-label={`${u.email} を身内から外す`}
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 active:scale-90 disabled:opacity-40">
+                  <X size={15} />
+                </button>
+              ) : (
+                <span className="text-[10px] text-gray-400 shrink-0">{u.isAdmin ? "管理者" : "固定"}</span>
+              )}
             </li>
           ))}
-          {env.map((m) => (
-            <li key={m} className="flex items-center gap-2 bg-gray-50/60 rounded-lg px-3 py-2">
-              <span className="flex-1 min-w-0 text-[13px] text-gray-500 break-all">{m}</span>
+          {/* env固定で、まだログインしておらず users に出てこない身内も表示 */}
+          {env.filter((e) => !masters.some((m) => m.email === e)).map((e) => (
+            <li key={e} className="flex items-center gap-2 bg-gray-50/60 rounded-lg px-3 py-2">
+              <span className="flex-1 min-w-0 text-[13px] text-gray-500 break-all">{e}</span>
               <span className="text-[10px] text-gray-400 shrink-0">環境変数（固定）</span>
             </li>
           ))}
-          {managed.length === 0 && env.length === 0 && (
-            <li className="text-[12px] text-gray-400">まだ身内は登録されていません。</li>
-          )}
         </ul>
       )}
 
-      {/* 登録済みユーザーから選んで身内にする（ログイン/登録した人が自動で候補に出る） */}
-      {!loading && (
-        <div className="mt-4 pt-3 border-t border-gray-100">
-          <p className="text-[12px] font-bold text-gray-700 mb-1.5">登録済みユーザーから選ぶ</p>
-          {(() => {
-            const masterSet = new Set([...env, ...managed]);
-            const candidates = registered.filter((e) => !masterSet.has(e));
-            if (registered.length === 0)
-              return <p className="text-[11px] text-gray-400">まだ登録ユーザーがいません（ログイン/登録すると自動で候補に出ます）。</p>;
-            if (candidates.length === 0)
-              return <p className="text-[11px] text-gray-400">登録ユーザーは全員すでに身内です。</p>;
-            return (
-              <ul className="space-y-1.5">
-                {candidates.map((e) => (
-                  <li key={e} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                    <span className="flex-1 min-w-0 text-[13px] text-gray-800 break-all">{e}</span>
-                    <button
-                      onClick={() => send("POST", e)}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-[#2D323B] text-white text-[11px] font-bold shrink-0 disabled:opacity-40 active:scale-95"
-                    >
-                      <UserPlus size={12} /> 身内にする
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            );
-          })()}
+      {/* 登録ユーザーを検索して指定 */}
+      <div className="pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[12px] font-bold text-gray-700">登録ユーザーから選ぶ</p>
+          <span className="text-[10px] text-gray-400">{source === "supabase" ? "全登録ユーザー" : "ログイン記録のみ"}</span>
         </div>
-      )}
+
+        {source === "kv" && (
+          <p className="text-[11px] text-amber-600 mb-2 leading-relaxed">
+            ※ <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> 未設定のため、ログイン済みユーザーのみ表示中。全登録を出すにはこの環境変数を設定してください。
+          </p>
+        )}
+
+        <div className="relative mb-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="メールで検索"
+            className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-300 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
+          />
+        </div>
+
+        {loading ? (
+          <p className="text-[12px] text-gray-400">読み込み中…</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-[11px] text-gray-400">{users.length === 0 ? "登録ユーザーがいません。" : "該当するユーザーがいません。"}</p>
+        ) : (
+          <ul className="space-y-1.5 max-h-80 overflow-y-auto">
+            {filtered.map((u) => (
+              <li key={u.email} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-gray-800 break-all">{u.email}</p>
+                  {u.lastSignInAt && (
+                    <p className="text-[10px] text-gray-400">最終ログイン {new Date(u.lastSignInAt).toLocaleDateString("ja-JP")}</p>
+                  )}
+                </div>
+                {u.isAdmin ? (
+                  <span className="text-[10px] font-bold text-[#A98B5C] shrink-0">管理者</span>
+                ) : u.isMaster ? (
+                  u.removable ? (
+                    <button onClick={() => send("DELETE", u.email)} disabled={busy}
+                      className="inline-flex items-center gap-1 h-8 px-3 rounded-full border border-gray-300 text-gray-600 text-[11px] font-bold shrink-0 disabled:opacity-40 active:scale-95">
+                      身内を解除
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#A98B5C] shrink-0"><BadgeCheck size={11} />身内</span>
+                  )
+                ) : (
+                  <button onClick={() => send("POST", u.email)} disabled={busy}
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-[#2D323B] text-white text-[11px] font-bold shrink-0 disabled:opacity-40 active:scale-95">
+                    <UserPlus size={12} /> 身内にする
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
