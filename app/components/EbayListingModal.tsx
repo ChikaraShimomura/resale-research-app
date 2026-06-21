@@ -211,9 +211,8 @@ export default function EbayListingModal({
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);
-      // 出品写真の候補（楽天ギャラリー＋API代表画像）。既定で先頭8枚にチェック（多すぎる時は外せる）。
-      const cands = Array.from(new Set([...(p.refImages ?? []), ...(p.productImages ?? [])])).filter(Boolean);
-      setSelectedImages(cands.slice(0, Math.min(8, MAX_LISTING_PHOTOS)));
+      // 出品写真は自分で選ぶ（既定は未選択）。タップした順がそのまま出品の画像順になる（先頭＝メイン）。
+      setSelectedImages([]);
       setPhase("form");
     })();
     return () => {
@@ -345,13 +344,12 @@ export default function EbayListingModal({
   // プロキシは楽天系ホストのみ許可なので、楽天画像だけ通し、それ以外は元URL。
   const ebayPreviewSrc = (url: string) =>
     /(rakuten\.co\.jp|r10s\.jp)/i.test(url) ? `/api/clean-img?u=${encodeURIComponent(url)}&list=1` : url;
-  // チェックの切り替え。候補の並び順を保ったまま selectedImages を作り直す（先頭=メイン写真）。
+  // チェックの切り替え。選んだ順を保持＝この順番がそのまま出品の画像順になる（先頭=メイン写真）。
   const togglePhoto = (url: string) => {
     setSelectedImages((cur) => {
       if (cur.includes(url)) return cur.filter((u) => u !== url);
       if (cur.length >= MAX_LISTING_PHOTOS) return cur; // 上限超えは追加しない
-      const next = new Set([...cur, url]);
-      return photoCandidates.filter((u) => next.has(u)); // 候補順に並べ直す
+      return [...cur, url]; // 末尾に追加＝タップした順を維持
     });
   };
   // 候補があるのに1枚も選んでいなければ出品させない（写真ゼロの出品を防ぐ）。
@@ -507,7 +505,7 @@ export default function EbayListingModal({
               {photoCandidates.length > 0 && (
                 <div>
                   <label className="block text-[11px] text-gray-500 mb-1">
-                    出品に使う写真（<b>タップで選択</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）<ReqBadge />
+                    出品に使う写真（<b>タップした順に並びます</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）<ReqBadge />
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {photoCandidates.map((u, i) => {
@@ -558,7 +556,7 @@ export default function EbayListingModal({
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    写真を<b>タップで選択</b>（もう一度タップで解除）。各画像は<b>実際にeBayに出る加工後</b>です。🔍でさらに大きく確認。最初の1枚がメイン（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
+                    写真は<b>タップした順に並びます</b>（最初の1枚がメイン・もう一度タップで解除）。各画像は<b>実際にeBayに出る加工後</b>です。🔍でさらに大きく確認（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
                   </p>
                   {!photoOk && (
                     <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">

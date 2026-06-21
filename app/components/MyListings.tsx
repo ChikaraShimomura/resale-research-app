@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban, ShoppingCart } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
-import { toRakutenAffiliateUrl } from "../lib/utils";
+import { toRakutenProductUrl } from "../lib/utils";
 import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
@@ -250,7 +250,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         {/* 追加仕入れ：楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
                             sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
                         <a
-                          href={toRakutenAffiliateUrl(d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`)}
+                          href={toRakutenProductUrl(d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-[#BF0000] text-white text-[11px] font-bold active:bg-[#9E0000]"

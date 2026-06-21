@@ -8,7 +8,6 @@ import { landedSubtractJpy, USD_JPY as L_USD_JPY } from "../app/lib/ebay/landedC
 // ========== 設定 ==========
 const RAKUTEN_APP_ID      = process.env.RAKUTEN_APP_ID;
 const RAKUTEN_ACCESS_KEY  = process.env.RAKUTEN_ACCESS_KEY;
-const RAKUTEN_AFFILIATE_ID = process.env.RAKUTEN_AFFILIATE_ID;
 const EBAY_APP_ID         = process.env.EBAY_APP_ID;
 const EBAY_CLIENT_SECRET  = process.env.EBAY_CLIENT_SECRET;
 const ANTHROPIC_API_KEY   = process.env.ANTHROPIC_API_KEY;
@@ -387,7 +386,6 @@ async function fetchRakutenPage(keyword, page) {
   const params = new URLSearchParams({
     applicationId: RAKUTEN_APP_ID,
     accessKey: RAKUTEN_ACCESS_KEY,
-    affiliateId: RAKUTEN_AFFILIATE_ID,
     hits: '30',
     page: String(page),
     sort: '-reviewCount',
@@ -1128,7 +1126,7 @@ async function processRakutenFirst(haveIds) {
         haveIds.add(r.itemCode);
         out.push({
           id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, images: (r.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), category: cat,
-          source: { site: 'rakuten', siteName: '楽天', price: r.itemPrice, url: r.affiliateUrl || r.itemUrl, pointRate, pointAmount, shippingJpy: shipJpy, postageIncluded: Number(r.postageFlag) === 0 },
+          source: { site: 'rakuten', siteName: '楽天', price: r.itemPrice, url: r.itemUrl || r.affiliateUrl, pointRate, pointAmount, shippingJpy: shipJpy, postageIncluded: Number(r.postageFlag) === 0 }, // 楽天アフィリ廃止：直リンク(itemUrl)を優先保存
           isNew: r.itemName.includes('新品') || r.itemName.includes('未開封'),
           market: 'EBAY_US', coreKeyword,
           ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
