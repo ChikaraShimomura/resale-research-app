@@ -59,15 +59,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 
-  // 「楽天で仕入れる」を押した端末だけ「eBay自動出品」を解放（無在庫の軽い抑止）。端末localStorageで保持。
-  const [rakutenClicked, setRakutenClicked] = useState(false);
-  useEffect(() => {
-    try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
-  }, [product.id]);
+  // 「楽天で仕入れる」を押した端末を localStorage(rkt_) に記録する。オンボーディングの「仕入れた」判定に使う。
   const markRakutenClicked = () => {
-    // 「楽天で仕入れる」押下端末＝eBay出品ゲートを解放（rkt_）。先頭固定は廃止したのでイベント通知は不要。
     try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
-    setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
     logEvent("rakuten_buy");
     recordSourcing();
@@ -131,7 +125,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           {/* 画像 */}
           <div className="shrink-0 relative">
             {/* 画像タップ＝楽天で商品を見る（アフィリ付き・新規タブ）。
-                ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けず、eBay自動出品は解放しない。 */}
+                ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けない（オンボーディングの仕入れ判定に影響させない）。 */}
             <a href={sourceUrl} rel="noopener noreferrer"
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="楽天市場でこの商品を見る">

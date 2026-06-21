@@ -154,7 +154,7 @@ export default function EditListingModal({
                 onChange={(e) => setQuantity(e.target.value)}
                 className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
-              <span className="text-[10px] text-gray-400 mt-1 block">在庫を持っている数だけにしてください（無在庫で複数を出すと欠品キャンセルの原因に）。</span>
+              <span className="text-[10px] text-gray-400 mt-1 block">確保できる数だけにしてください（数が足りないと欠品キャンセルの原因になります）。</span>
             </label>
 
             {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}

@@ -26,13 +26,13 @@ export default function ShipPage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
-        {/* 売れたあとの流れ（無在庫の3ステップ） */}
+        {/* 発送と受け取りの手順（中立な手順表現） */}
         <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
-          <p className="text-[13px] font-black text-gray-800 mb-2">売れたあとの流れ</p>
+          <p className="text-[13px] font-black text-gray-800 mb-2">発送と受け取りの手順</p>
           <ol className="text-[12px] text-gray-600 space-y-2 list-decimal pl-4 leading-relaxed">
-            <li>楽天で同じ商品を<b className="text-gray-800">仕入れる</b>（「出品管理」の各商品の「仕入れ」ボタンから）</li>
-            <li>届いたら梱包して、<b className="text-gray-800">郵便局／国際郵便マイページ</b>から海外発送（追跡あり）</li>
-            <li>追跡番号をeBayに登録 → 売上は<b className="text-gray-800">Payoneer</b>で受け取り</li>
+            <li>商品を梱包して、<b className="text-gray-800">郵便局／国際郵便マイページ</b>から海外発送（追跡あり）</li>
+            <li>追跡番号を<b className="text-gray-800">eBayに登録</b>（未登録だと売上保留・未着クレームの原因）</li>
+            <li>売上は<b className="text-gray-800">Payoneer</b>で受け取り → 日本の銀行へ出金</li>
           </ol>
         </div>
 
