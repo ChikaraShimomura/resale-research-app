@@ -59,11 +59,11 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* 個別サポート（任意・非楽天の唯一の収益導線）。ツールは無料のまま、つまずいた時だけ他社に相談。 */}
+        {/* 個別サポート（任意・非楽天の収益導線）。eBayセラー登録=最初の1回が最大の難所→詰まった時だけ他社(ココナラ)に相談。 */}
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
-          <p className="text-sm font-black text-gray-800 mb-1.5">つまずいたら個別サポート（任意）</p>
+          <p className="text-sm font-black text-gray-800 mb-1.5">eBayのセラー登録でつまずいたら（任意）</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-            eBayのセラー登録や出品でどうしても進めない時は、<b className="text-gray-700">ココナラ（他社サービス）</b>でベテランに相談できます。ツール自体は無料のまま、サポートが欲しい時だけ。
+            海外輸出の副業で<b className="text-gray-700">最大の難所がeBayのセラー登録</b>。でも登録は<b className="text-gray-700">最初の1回だけ</b>なので、よく分かっている人に手伝ってもらうのが結局いちばん早いです。<b className="text-gray-700">ココナラ（他社サービス）なら数千円</b>でベテランに登録・出品をサポートしてもらえます。
           </p>
           <a
             href={COCONALA_URL}

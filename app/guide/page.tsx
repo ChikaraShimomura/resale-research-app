@@ -304,13 +304,13 @@ export default function GuidePage() {
           </Link>
         </div>
 
-        {/* 個別サポート（任意・非楽天）。セラー登録などで詰まった時だけ他社に相談。 */}
+        {/* 個別サポート（任意・非楽天）。eBayセラー登録(最初の1回が最大の難所)で詰まった時だけ他社に相談。 */}
         <p className="text-center text-[12px] text-gray-500 leading-relaxed mt-4">
-          eBayのセラー登録などで詰まったら、{" "}
+          海外輸出でいちばんの難所が<b className="text-gray-700">eBayのセラー登録（最初の1回だけ）</b>。詰まったら{" "}
           <a href={COCONALA_URL} target="_blank" rel="nofollow sponsored noopener noreferrer" className="font-bold text-[#2D323B] underline underline-offset-2">
             ココナラで個別サポート{COCONALA_IS_AD ? "（広告）" : ""}
           </a>
-          {" "}も使えます（ツールは無料のまま）。
+          {" "}で数千円からベテランに手伝ってもらえます。
         </p>
       </main>
 

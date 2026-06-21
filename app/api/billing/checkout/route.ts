@@ -36,9 +36,20 @@ export async function POST(req: Request) {
   const origin = originOf(req);
   const existing = await getBillingState(email);
 
+  // env に Price ID(price_…) ではなく Product ID(prod_…) が設定されていても動くよう、その場合は商品の既定価格に解決する。
+  let lineItemPrice = priceId;
+  if (priceId.startsWith("prod_")) {
+    try {
+      const prod = await stripeRequest(`/products/${priceId}`, {}, "GET");
+      if (prod.default_price) lineItemPrice = String(prod.default_price);
+    } catch {
+      /* 解決できなければそのまま（Stripe側のエラーで気づける） */
+    }
+  }
+
   const params: Record<string, unknown> = {
     mode: "subscription",
-    "line_items[0][price]": priceId,
+    "line_items[0][price]": lineItemPrice,
     "line_items[0][quantity]": 1,
     client_reference_id: email,
     success_url: `${origin}/settings?billing=success`,
