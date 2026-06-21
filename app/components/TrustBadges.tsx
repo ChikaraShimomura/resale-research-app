@@ -33,11 +33,33 @@ const payoPoints: Pt[] = [
 ];
 
 function Card({
-  accent, HeadIcon, name, role, tagline, points, href, linked, external,
+  accent, HeadIcon, name, role, tagline, points, href, linked, external, compact,
 }: {
   accent: string; HeadIcon: LucideIcon; name: string; role?: string; tagline: string;
-  points: Pt[]; href: string; linked: boolean; external?: boolean;
+  points: Pt[]; href: string; linked: boolean; external?: boolean; compact?: boolean;
 }) {
+  // コンパクト3列（ホーム）：アイコン＋社名＋役割＋短い説明だけ。詳細な点リストは省いて横並びを優先。
+  if (compact) {
+    const inner = (
+      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl shadow-sm p-3 h-full flex flex-col items-center text-center gap-1.5">
+        <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${accent}1A` }}>
+          <HeadIcon size={22} style={{ color: accent }} />
+        </div>
+        <p className="text-[14px] font-black text-gray-800 leading-tight">{name}</p>
+        {role && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${accent}1A`, color: accent }}>{role}</span>
+        )}
+        <p className="text-[10px] text-gray-500 leading-snug">{tagline}</p>
+      </div>
+    );
+    if (!linked) return inner;
+    return external ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block active:scale-[0.99] transition-transform">{inner}</a>
+    ) : (
+      <Link href={href} className="block active:scale-[0.99] transition-transform">{inner}</Link>
+    );
+  }
+
   const body = (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl shadow-sm p-4 h-full">
       <div className="flex items-center gap-2.5 mb-3">
@@ -90,12 +112,12 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
         </div>
       </div>
 
-      <div className={`grid gap-3 ${withRakuten ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+      <div className={`grid ${withRakuten ? "grid-cols-3 gap-2" : "grid-cols-1 sm:grid-cols-2 gap-3"}`}>
         {withRakuten && (
-          <Card accent={RAKU} HeadIcon={ShoppingBag} name="楽天" role="仕入れ" tagline="日本最大級のネット通販モール" points={rakuPoints} href="/guide/rakuten" linked={linked} />
+          <Card accent={RAKU} HeadIcon={ShoppingBag} name="楽天" role="仕入れ" tagline="日本最大級の通販モール" points={rakuPoints} href="/guide/rakuten" linked={linked} compact={withRakuten} />
         )}
-        <Card accent={EBAY} HeadIcon={Globe} name="eBay" role={withRakuten ? "販売" : undefined} tagline="世界最大級のフリマサイト" points={ebayPoints} href="https://www.ebay.com/sl/sell" linked={linked} external />
-        <Card accent={PAYO} HeadIcon={Landmark} name="Payoneer" role={withRakuten ? "受け取り" : undefined} tagline="世界の入金・受け取りサービス" points={payoPoints} href="/guide/payoneer-withdraw" linked={linked} />
+        <Card accent={EBAY} HeadIcon={Globe} name="eBay" role={withRakuten ? "販売" : undefined} tagline={withRakuten ? "世界最大級のフリマ" : "世界最大級のフリマサイト"} points={ebayPoints} href="https://www.ebay.com/sl/sell" linked={linked} external compact={withRakuten} />
+        <Card accent={PAYO} HeadIcon={Landmark} name="Payoneer" role={withRakuten ? "受け取り" : undefined} tagline={withRakuten ? "世界の入金・受け取り" : "世界の入金・受け取りサービス"} points={payoPoints} href="/guide/payoneer-withdraw" linked={linked} compact={withRakuten} />
       </div>
 
       <p className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-700">
