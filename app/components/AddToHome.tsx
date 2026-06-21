@@ -1,40 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
-import { X, Share, Copy, Check, ExternalLink, Smartphone } from "lucide-react";
+import { X, Share, Copy, Check, ExternalLink, Smartphone, Plus } from "lucide-react";
+import { canInstallNative, onInstallChange, promptInstall, pwaEnv, type PwaEnv } from "../lib/pwaInstall";
 
 const DISMISS_KEY = "a2hs_dismissed_v1";
 
-interface Env {
-  isIOS: boolean;
-  isAndroid: boolean;
-  inApp: boolean;
-  standalone: boolean;
-}
-
-// beforeinstallprompt は型が標準化されていないので最小限の形で扱う
-type InstallEvent = Event & { prompt: () => void; userChoice: Promise<unknown> };
-
 export default function AddToHome() {
-  const [env, setEnv] = useState<Env | null>(null);
+  const [env, setEnv] = useState<PwaEnv | null>(null);
   const [dismissed, setDismissed] = useState(true);
   const [consentPending, setConsentPending] = useState(true); // Cookie同意が未決の間は出さない（バナー重複回避）
-  const [deferred, setDeferred] = useState<InstallEvent | null>(null);
+  const [canNative, setCanNative] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const ua = navigator.userAgent || "";
-    const isIOS = /iPhone|iPad|iPod/.test(ua);
-    const isAndroid = /Android/.test(ua);
-    // 主要なアプリ内ブラウザ（X/Twitter, Facebook, Instagram, LINE, TikTok 等）
-    const inApp = /Twitter|FBAN|FBAV|Instagram|Line\/|Snapchat|TikTok|musical_ly/i.test(ua);
-    const standalone =
-      window.matchMedia?.("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    setEnv(pwaEnv());
+    setCanNative(canInstallNative());
+    // ネイティブプロンプトの取得状況が変わったら再描画（beforeinstallprompt はグローバル捕捉＝pwaInstall）。
+    const off = onInstallChange(() => setCanNative(canInstallNative()));
 
-    setEnv({ isIOS, isAndroid, inApp, standalone });
-
-    // localStorage がブロックされる環境（アプリ内WebView/プライベートモード等）でも
-    // effect が途中で throw しないようガード。失敗時はバナーを出せる既定値にフォールバック。
     const syncConsent = () => {
       try {
         setConsentPending(localStorage.getItem("cookie_consent_v1") === null);
@@ -48,17 +31,10 @@ export default function AddToHome() {
       setDismissed(false);
     }
     syncConsent();
-
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as InstallEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    // Cookie同意を決めた直後（同一タブ）にもバナー表示判定を更新する
     window.addEventListener("consent-decided", syncConsent);
     window.addEventListener("storage", syncConsent);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
+      off();
       window.removeEventListener("consent-decided", syncConsent);
       window.removeEventListener("storage", syncConsent);
     };
@@ -69,7 +45,11 @@ export default function AddToHome() {
   if (!env.isIOS && !env.isAndroid && !env.inApp) return null;
 
   const close = () => {
-    localStorage.setItem(DISMISS_KEY, "1");
+    try {
+      localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* noop */
+    }
     setDismissed(true);
   };
 
@@ -85,17 +65,12 @@ export default function AddToHome() {
 
   const openInChrome = () => {
     const u = new URL(window.location.href);
-    // Android のアプリ内ブラウザから Chrome へ抜ける intent URL
     window.location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=https;package=com.android.chrome;end`;
   };
 
   const install = async () => {
-    if (!deferred) return;
-    deferred.prompt();
-    const choice = (await deferred.userChoice) as { outcome?: string };
-    setDeferred(null);
-    // 追加を承諾した時だけ恒久 dismiss。キャンセル(dismissed)では閉じず、再訪で再表示できる。
-    if (choice.outcome === "accepted") close();
+    const r = await promptInstall();
+    if (r === "accepted") close(); // 追加を承諾した時だけ恒久 dismiss。キャンセルでは再訪で再表示。
   };
 
   let title: string;
@@ -103,10 +78,10 @@ export default function AddToHome() {
   let actions: React.ReactNode = null;
 
   if (env.inApp) {
-    // アプリ内ブラウザ：まず本物のブラウザで開いてもらう（アプリ起動・ホーム追加の前提）
+    // アプリ内ブラウザ：まず本物のブラウザで開いてもらう（インストールの前提）
     title = "ブラウザで開くと使いやすいよ";
     desc = env.isIOS
-      ? "右上の … →「ブラウザ（Safari）で開く」を選んでね。仕入れアプリの起動やホーム画面追加が使えるようになるよ。"
+      ? "右上の … →「ブラウザ（Safari）で開く」を選んでね。ホーム画面追加が使えるようになるよ。"
       : "右上メニュー →「ブラウザで開く」を選んでね。または下のボタンからどうぞ。";
     actions = (
       <div className="flex flex-wrap gap-2 mt-2">
@@ -122,29 +97,37 @@ export default function AddToHome() {
         </button>
       </div>
     );
-  } else if (env.isAndroid && deferred) {
-    // Android で install プロンプトが取れた場合は1タップ追加
+  } else if (canNative) {
+    // Android/Chrome 等：1タップでインストール（最優先＝一番簡単）
     title = "ホーム画面に追加";
     desc = "アプリのように1タップで開けるよ。Xから何度も探さなくてOK。";
     actions = (
       <div className="mt-2">
         <button onClick={install}
-          className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[#2D323B] rounded-lg px-3 py-1.5 active:bg-[#1A1D23]">
-          <Smartphone size={13} /> ホーム画面に追加
+          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-white bg-[#2D323B] rounded-lg px-4 py-2 active:bg-[#1A1D23]">
+          <Plus size={15} /> ホーム画面に追加
         </button>
       </div>
     );
   } else if (env.isIOS) {
-    title = "ホーム画面に追加";
+    // iOS はプログラムから追加できない＝手順を視覚的に。
+    title = "ホーム画面に追加（かんたん2手）";
     desc = (
-      <>
-        画面下の共有ボタン <Share size={13} className="inline align-[-2px]" /> →「ホーム画面に追加」で、アプリのようにすぐ開けるよ。
-      </>
+      <span className="block space-y-1 mt-0.5">
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-full bg-[#2D323B] text-white text-[9px] font-black flex items-center justify-center shrink-0">1</span>
+          下の<b className="text-gray-700">共有</b><Share size={13} className="inline align-[-2px] text-[#0064D2]" />をタップ
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded-full bg-[#2D323B] text-white text-[9px] font-black flex items-center justify-center shrink-0">2</span>
+          <b className="text-gray-700">「ホーム画面に追加」</b>を選ぶ
+        </span>
+      </span>
     );
   } else {
     // Android で prompt 未取得：メニューからの追加を案内
     title = "ホーム画面に追加";
-    desc = "右上メニュー →「ホーム画面に追加」で、アプリのようにすぐ開けるよ。";
+    desc = "右上メニュー（⋮）→「ホーム画面に追加」で、アプリのようにすぐ開けるよ。";
   }
 
   return (
@@ -158,7 +141,7 @@ export default function AddToHome() {
         </span>
         <div className="flex-1 min-w-0">
           <p className="font-black text-sm text-gray-900">{title}</p>
-          <p className="text-xs text-gray-500 leading-snug mt-0.5">{desc}</p>
+          <div className="text-xs text-gray-500 leading-snug mt-0.5">{desc}</div>
           {actions}
         </div>
         <button onClick={close} aria-label="閉じる"
