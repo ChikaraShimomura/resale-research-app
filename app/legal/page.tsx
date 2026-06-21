@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+// 事業者情報の env(LEGAL_*) を実行時に読む＝envを入れたら再ビルド無しでも反映（静的焼き付き回避）。
+export const dynamic = "force-dynamic";
+
 const ON_REQUEST = "ご請求があれば遅滞なく開示いたします（お問い合わせはメールにて受付）。";
 const OPERATOR = process.env.LEGAL_OPERATOR_NAME?.trim() || "（準備中：env LEGAL_OPERATOR_NAME に氏名を設定）";
 const ADDRESS = process.env.LEGAL_ADDRESS?.trim() || ON_REQUEST;
