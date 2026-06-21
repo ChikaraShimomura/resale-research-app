@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "../../lib/supabase/server";
 import { migrateDeviceDataToAccount } from "../../lib/auth/migrate";
+import { recordRegisteredUser } from "../../lib/auth/admin";
 import { recordFunnelEvent } from "../../lib/funnelServer";
 import { captureSignupReferral } from "../../lib/referralServer";
 
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
     if (data.user) {
       const did = (await cookies()).get("rr_did")?.value;
       if (did) await migrateDeviceDataToAccount(did, `acct:${data.user.id}`);
+      await recordRegisteredUser(data.user.email); // 身内指定の候補リストに記録
       // 確認メール経由の登録完了を計上（from があればナッジ帰属も）。
       await recordFunnelEvent("signup");
       const from = url.searchParams.get("from")?.trim();

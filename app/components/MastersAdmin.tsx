@@ -7,14 +7,16 @@ import { UserPlus, X, ShieldCheck, Loader2 } from "lucide-react";
 export default function MastersAdmin() {
   const [env, setEnv] = useState<string[]>([]);
   const [managed, setManaged] = useState<string[]>([]);
+  const [registered, setRegistered] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const apply = (d: { env?: string[]; managed?: string[] }) => {
+  const apply = (d: { env?: string[]; managed?: string[]; registered?: string[] }) => {
     setEnv(d.env ?? []);
     setManaged(d.managed ?? []);
+    setRegistered(d.registered ?? []);
   };
 
   useEffect(() => {
@@ -102,6 +104,37 @@ export default function MastersAdmin() {
             <li className="text-[12px] text-gray-400">まだ身内は登録されていません。</li>
           )}
         </ul>
+      )}
+
+      {/* 登録済みユーザーから選んで身内にする（ログイン/登録した人が自動で候補に出る） */}
+      {!loading && (
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <p className="text-[12px] font-bold text-gray-700 mb-1.5">登録済みユーザーから選ぶ</p>
+          {(() => {
+            const masterSet = new Set([...env, ...managed]);
+            const candidates = registered.filter((e) => !masterSet.has(e));
+            if (registered.length === 0)
+              return <p className="text-[11px] text-gray-400">まだ登録ユーザーがいません（ログイン/登録すると自動で候補に出ます）。</p>;
+            if (candidates.length === 0)
+              return <p className="text-[11px] text-gray-400">登録ユーザーは全員すでに身内です。</p>;
+            return (
+              <ul className="space-y-1.5">
+                {candidates.map((e) => (
+                  <li key={e} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                    <span className="flex-1 min-w-0 text-[13px] text-gray-800 break-all">{e}</span>
+                    <button
+                      onClick={() => send("POST", e)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-[#2D323B] text-white text-[11px] font-bold shrink-0 disabled:opacity-40 active:scale-95"
+                    >
+                      <UserPlus size={12} /> 身内にする
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            );
+          })()}
+        </div>
       )}
     </div>
   );

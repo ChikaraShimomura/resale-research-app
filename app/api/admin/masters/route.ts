@@ -3,7 +3,7 @@
 // POST   {email}: 身内に追加
 // DELETE {email}: 身内から削除（KV管理分のみ）
 import { getCurrentUserEmail } from "../../../lib/auth/plan";
-import { isAdmin, listMasters, addMaster, removeMaster } from "../../../lib/auth/admin";
+import { isAdmin, listMasters, addMaster, removeMaster, listRegisteredUsers } from "../../../lib/auth/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +12,15 @@ async function ensureAdmin(): Promise<boolean> {
   return isAdmin(await getCurrentUserEmail());
 }
 
+// 身内一覧（env固定/KV管理）＋ 登録済みユーザー候補をまとめて返す。
+async function fullState() {
+  const [m, registered] = await Promise.all([listMasters(), listRegisteredUsers()]);
+  return { ...m, registered };
+}
+
 export async function GET() {
   if (!(await ensureAdmin())) return Response.json({ ok: false, error: "権限がありません。" }, { status: 403 });
-  return Response.json({ ok: true, ...(await listMasters()) });
+  return Response.json({ ok: true, ...(await fullState()) });
 }
 
 export async function POST(req: Request) {
@@ -25,12 +31,12 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "メールアドレスが正しくありません。" }, { status: 400 });
   }
-  return Response.json({ ok: true, ...(await listMasters()) });
+  return Response.json({ ok: true, ...(await fullState()) });
 }
 
 export async function DELETE(req: Request) {
   if (!(await ensureAdmin())) return Response.json({ ok: false, error: "権限がありません。" }, { status: 403 });
   const { email } = (await req.json().catch(() => ({}))) as { email?: string };
   await removeMaster(String(email ?? ""));
-  return Response.json({ ok: true, ...(await listMasters()) });
+  return Response.json({ ok: true, ...(await fullState()) });
 }

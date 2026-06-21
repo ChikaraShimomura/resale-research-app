@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../lib/supabase/server";
 import { migrateDeviceDataToAccount } from "../lib/auth/migrate";
+import { recordRegisteredUser } from "../lib/auth/admin";
 import { recordFunnelEvent } from "../lib/funnelServer";
 import { captureSignupReferral } from "../lib/referralServer";
 import type { AuthState } from "./types";
@@ -51,6 +52,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   if (data.user) {
     await migrateOnSignIn(data.user.id);
     await recordSignup(formData);
+    await recordRegisteredUser(data.user.email); // 身内指定の候補リストに記録
   }
   redirect("/search");
 }
@@ -76,6 +78,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   if (data.session && data.user) {
     await migrateOnSignIn(data.user.id);
     await recordSignup(formData);
+    await recordRegisteredUser(data.user.email); // 身内指定の候補リストに記録
     await captureSignupReferral(); // 紹介コード(ref cookie)があれば成果1件を計上
     redirect("/search");
   }

@@ -5,6 +5,7 @@
 import { kv } from "@vercel/kv";
 
 const MASTERS_KEY = "comp:masters"; // 身内メールのKV集合（管理画面で編集する分）
+const REGISTERED_KEY = "registered_users"; // 登録/ログインしたメールの集合（身内指定の候補リスト用）
 
 function envList(name: string): string[] {
   return (process.env[name] ?? "")
@@ -52,4 +53,25 @@ export async function addMaster(email: string): Promise<void> {
 
 export async function removeMaster(email: string): Promise<void> {
   await kv.srem(MASTERS_KEY, email.trim().toLowerCase());
+}
+
+// 登録/ログインしたユーザーのメールを候補リストに記録（身内指定UIで「登録済みユーザー」から選べるように）。
+// サービスロール鍵を使わずに済むよう、認証成功時にここへ積む（冪等・失敗は無視）。
+export async function recordRegisteredUser(email: string | null | undefined): Promise<void> {
+  const e = (email ?? "").trim().toLowerCase();
+  if (!e || !e.includes("@")) return;
+  try {
+    await kv.sadd(REGISTERED_KEY, e);
+  } catch {
+    /* 記録失敗は無視（候補に出ないだけ） */
+  }
+}
+
+// 登録済みユーザー一覧（身内指定の候補）。
+export async function listRegisteredUsers(): Promise<string[]> {
+  try {
+    return ((await kv.smembers(REGISTERED_KEY)) ?? []).sort();
+  } catch {
+    return [];
+  }
 }
