@@ -1,0 +1,16 @@
+# 依存パッケージの脆弱性・悪意あるパッケージを自動検知し、更新PRを出す（サプライチェーン保護）。
+# セキュリティ自己申告: 3.脆弱性対策 / 4.マルウェア(サプライチェーン)対策 の継続的な実施根拠。
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -7,6 +7,7 @@ import PushSettings from "../components/PushSettings";
 import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
 import PortalButton from "../components/PortalButton";
+import MfaSetup from "../components/MfaSetup";
 import { getPlan } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import { listDealsForUser } from "../lib/ebay/stats";
@@ -110,6 +111,11 @@ export default async function SettingsPage({
             </div>
           </section>
         )}
+
+        {/* 2段階認証（2FA・無料）＝管理画面の必須条件。全ユーザーに任意で提供 */}
+        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
+          <MfaSetup />
+        </section>
 
         {/* プッシュ通知（オン/オフ＋受け取る種類を本人が選べる） */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">

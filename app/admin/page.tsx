@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
+import { createSupabaseServerClient } from "../lib/supabase/server";
 import MastersAdmin from "../components/MastersAdmin";
 
 // 管理者ハブ。ログイン中のメールが ADMIN_EMAILS のときだけ表示（それ以外は404）。
@@ -12,6 +13,14 @@ export const metadata: Metadata = { title: "管理", robots: { index: false } };
 export default async function AdminPage() {
   const email = await getCurrentUserEmail();
   if (!isAdmin(email)) notFound();
+
+  // 管理者は2段階認証(aal2)必須。未登録なら設定へ、未通過(aal1)なら検証ページへ誘導。
+  const supabase = await createSupabaseServerClient();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const hasTotp = (factors?.totp ?? []).some((f) => f.status === "verified");
+  if (!hasTotp) redirect("/settings?mfa=setup");
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.currentLevel !== "aal2") redirect("/auth/mfa?next=/admin");
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">

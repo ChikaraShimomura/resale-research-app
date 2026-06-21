@@ -1,0 +1,47 @@
+name: セキュリティ脆弱性スキャン（依存・定期）
+
+# セキュリティ自己申告の「3. Webアプリの脆弱性対策（定期的な脆弱性診断と修正対応）」「4. マルウェア(サプライチェーン)対策」
+# を継続的に満たすための定期ジョブ。毎週 npm audit を実行し、high以上が出たらメール通知（→Dependabot/手動で修正対応）。
+on:
+  schedule:
+    - cron: "0 0 * * 1" # 毎週月曜 09:00 JST（00:00 UTC）
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 依存をインストール（lock生成・postinstallは実行しない）
+        run: npm install --ignore-scripts
+
+      - name: npm audit（high以上の脆弱性を検出）
+        run: npm audit --audit-level=high
+
+      - name: 脆弱性検出時にメール通知
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.resend.com
+          server_port: 465
+          secure: true
+          username: resend
+          password: ${{ secrets.RESEND_API_KEY }}
+          subject: "⚠️ 輸出ラボ 依存パッケージに脆弱性（npm audit）"
+          to: chikara0323@gmail.com
+          from: "輸出ラボBot <noreply@yushutsu-fukugyo.com>"
+          body: |
+            npm audit で high 以上の脆弱性が検出されました。修正対応をしてください。
+
+            ▼ 詳細（Actionsログ）
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            対応：Dependabot のPRを取り込むか、該当パッケージを更新してください。
