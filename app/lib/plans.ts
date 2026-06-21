@@ -3,8 +3,9 @@
 //
 // 権限は5種類（＋未購読の入口 free）:
 //  - free    : ログイン済み・未購読。閲覧のみ（自動出品0）＝集客の入口。
-//  - amateur : アマチュア ¥500/月。最初の30日（TRIAL_DAYS）無料。
-//  - veteran : ベテラン   ¥2,000/月。
+//  - amateur(表示=ライト)       : ¥500/月。最初の30日（TRIAL_DAYS）無料。
+//  - veteran(表示=スタンダード) : ¥2,000/月。
+// ※ id は内部キー(Stripeのenv名 STRIPE_PRICE_* と対応)・name は画面表示。idは変えない。
 //  - pro     : プロ       ¥3,000/月。
 //  - master  : 身内（管理者が管理画面で指定）。無料・無制限。
 //  - admin   : 管理者（ADMIN_EMAILS）。無料・無制限＋/admin＋身内の指定。
@@ -20,8 +21,8 @@ export interface Plan {
 
 export const PLANS: Record<PlanId, Plan> = {
   free:    { id: "free",    name: "無料",       priceJpy: 0,    listingLimit: 0,        paid: false },
-  amateur: { id: "amateur", name: "アマチュア", priceJpy: 500,  listingLimit: 10,       paid: true  },
-  veteran: { id: "veteran", name: "ベテラン",   priceJpy: 2000, listingLimit: 30,       paid: true  },
+  amateur: { id: "amateur", name: "ライト",     priceJpy: 500,  listingLimit: 10,       paid: true  },
+  veteran: { id: "veteran", name: "スタンダード", priceJpy: 2000, listingLimit: 50,     paid: true  },
   pro:     { id: "pro",     name: "プロ",       priceJpy: 3000, listingLimit: 100,      paid: true  },
   master:  { id: "master",  name: "身内",       priceJpy: 0,    listingLimit: Infinity, paid: false },
   admin:   { id: "admin",   name: "管理者",     priceJpy: 0,    listingLimit: Infinity, paid: false },
@@ -30,7 +31,7 @@ export const PLANS: Record<PlanId, Plan> = {
 // 料金ページに並べる有料プラン（表示順）。
 export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
 
-// アマチュアの無料トライアル日数（最初の30日＝約1ヶ月）。veteran/pro はトライアルなし。
+// ライト(amateur)の無料トライアル日数（最初の30日＝約1ヶ月）。スタンダード/プロ はトライアルなし。
 export const TRIAL_DAYS = 30;
 export function trialDaysFor(plan: PlanId): number {
   return plan === "amateur" ? TRIAL_DAYS : 0;

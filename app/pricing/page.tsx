@@ -6,7 +6,7 @@ import { COCONALA_URL, COCONALA_IS_AD } from "../lib/coconala";
 import { PAYWALL_ENABLED } from "../lib/plans";
 
 // 料金ページ。PAYWALL_ENABLED が立つまでは「現在すべて無料」を明示して課金不安を解消する。
-// 立ったら有料プラン（アマチュア/ベテラン/プロ）の申込カードを出す。
+// 立ったら有料プラン（ライト/スタンダード/プロ）の申込カードを出す。
 export const metadata = {
   title: "料金 | 輸出ラボ",
   alternates: { canonical: "/pricing" },
@@ -32,7 +32,7 @@ export default function PricingPage() {
         {PAYWALL_ENABLED ? (
           <div className="mb-3">
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
-              使う量に合わせて選べます。<br />まずは<b className="text-gray-700">アマチュア（約1ヶ月無料）</b>から。
+              使う量に合わせて選べます。<br />まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
             </p>
             <PlanCards />
           </div>
