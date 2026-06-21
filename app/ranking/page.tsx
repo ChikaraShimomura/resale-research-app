@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTopProfitProducts } from "../lib/topProducts";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
-import { Flame, ArrowRight } from "lucide-react";
+import { Flame, ArrowRight, Lock } from "lucide-react";
 
 export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で毎回ランキング
 
@@ -60,7 +60,7 @@ export default async function RankingPage() {
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
           楽天で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。
-          各商品の<b>楽天仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>を、登録なし・無料で確認できます。
+          各商品の<b>楽天仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>を無料でチェック（上位5件はアプリで公開）。
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
           ※ 海外で売れやすい定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場は現在の出品ベースの<b>想定（目安）</b>で、状態・競合・為替で変わります。
@@ -76,34 +76,47 @@ export default async function RankingPage() {
           </div>
         ) : (
           <ol className="space-y-2.5">
-            {items.map((p, i) => (
-              <li key={p.id}>
-                <Link href={`/product/${encodeURIComponent(p.id)}`}
-                  className="flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50">
-                  <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
-                    {i + 1}
-                  </span>
-                  {p.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
-                    <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                      楽天 {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
-                      <Flame size={13} />{p.realProfitRate}%
+            {items.map((p, i) => {
+              // Top5はモザイク（登録誘導の“ちら見せ”）。6位以降は見せて「実在する」証明にする。
+              const locked = i < 5;
+              return (
+                <li key={p.id}>
+                  <Link href={locked ? "/search" : `/product/${encodeURIComponent(p.id)}`}
+                    className="relative flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50 overflow-hidden">
+                    <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
+                      {i + 1}
                     </span>
-                    <p className="text-[9px] text-gray-400">利益率</p>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                    <div className={`flex items-center gap-3 flex-1 min-w-0 ${locked ? "blur-[5px] select-none" : ""}`} aria-hidden={locked || undefined}>
+                      {p.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
+                        <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
+                          楽天 {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
+                          <Flame size={13} />{p.realProfitRate}%
+                        </span>
+                        <p className="text-[9px] text-gray-400">利益率</p>
+                      </div>
+                    </div>
+                    {locked && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-white/20">
+                        <span className="inline-flex items-center gap-1.5 bg-[#2D323B]/95 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full shadow-lg">
+                          <Lock size={12} /> 登録して見る
+                        </span>
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
           </ol>
         )}
 
