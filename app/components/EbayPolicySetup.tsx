@@ -29,9 +29,26 @@ const DEFAULTS: Record<string, string> = {
   large: String(SHIP_TIER_USD.large),
 };
 
+// 国際発送を許可できる国（アメリカは常に対象＝DOMESTIC）。送料計算は米国基準なので主要英語/EU圏に絞る。
+const COUNTRIES = [
+  { code: "AU", label: "オーストラリア" },
+  { code: "GB", label: "イギリス" },
+  { code: "CA", label: "カナダ" },
+  { code: "DE", label: "ドイツ" },
+  { code: "FR", label: "フランス" },
+  { code: "IT", label: "イタリア" },
+  { code: "ES", label: "スペイン" },
+];
+
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
   const [showEdit, setShowEdit] = useState(false); // 送料を自分で変える（任意）
+  // 発送先の国（アメリカは常に含む）。規定は AU/GB。
+  const [regions, setRegions] = useState<string[]>(["AU", "GB"]);
+  const toggleRegion = (code: string) =>
+    setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
+  // 返品：規定は返品不可。返品可にすると30日・返送料は買い手負担。
+  const [returnsAccepted, setReturnsAccepted] = useState(false);
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
   const [msg, setMsg] = useState("");
@@ -67,6 +84,9 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
           small: vals.small,
           medium: vals.medium,
           large: vals.large,
+          regions,
+          returnsAccepted,
+          returnDays: 30,
         }),
       });
       const j = await res.json();
@@ -153,7 +173,49 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         </div>
       )}
 
-      <p className="text-[12px] text-gray-400">返品の設定：返品不可（No returns）で登録します。<b className="text-gray-500">後からeBayの設定でいつでも変更できます。</b></p>
+      {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
+      <div className="space-y-1.5">
+        <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
+        <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象です。追加で発送したい国を選べます（送料の目安は米国宛ベース。多くの国は同額請求になります）。</p>
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white">アメリカ（必須）</span>
+          {COUNTRIES.map((c) => {
+            const on = regions.includes(c.code);
+            return (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => toggleRegion(c.code)}
+                className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
+                  on ? "bg-[#2D323B]/10 border-[#2D323B]/40 text-[#2D323B]" : "bg-white border-[#A98B5C]/35 text-gray-400"
+                }`}
+              >
+                {on ? "✓ " : ""}{c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 返品ポリシー */}
+      <div className="space-y-1.5">
+        <p className="text-[12px] font-bold text-gray-700">返品</p>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={returnsAccepted}
+            onChange={(e) => setReturnsAccepted(e.target.checked)}
+            className="accent-[#2D323B] w-4 h-4"
+          />
+          <span className="text-[12px] text-gray-700">返品を受け付ける（30日・返送料は買い手負担）</span>
+        </label>
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          {returnsAccepted
+            ? "購入者は到着後30日以内に返品できます（返送料は買い手負担）。安心感で売れやすくなる反面、返品対応の手間は増えます。"
+            : "返品不可で登録します。"}
+          <b className="text-gray-500"> 後からいつでも変更できます。</b>
+        </p>
+      </div>
 
       <button
         onClick={submit}

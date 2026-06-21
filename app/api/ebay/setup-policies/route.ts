@@ -3,17 +3,20 @@ import { getValidAccessToken } from "../../../lib/ebay/tokens";
 import {
   optInSellingPolicyManagement,
   createPaymentPolicy,
-  createNoReturnPolicy,
+  createReturnPolicy,
   createFlatIntlFulfillmentPolicy,
 } from "../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
-// ビジネスポリシー一括作成（オプトイン + 支払い + 返品不可 + サイズ別配送）。
+// ビジネスポリシー一括作成/更新（オプトイン + 支払い + 返品 + サイズ別配送）。
 // 各ステップの成否を返すので、失敗箇所と eBay のエラー文がそのまま分かる。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
+// 国際発送を許可できる国コード（ホワイトリスト）。送料計算は米国基準なので主要英語/EU圏に絞る。
+const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR", "IT", "ES"];
+const DEFAULT_REGIONS = ["AU", "GB"];
 
 export async function POST(req: Request) {
   const conn = await getActorId();
@@ -22,7 +25,15 @@ export async function POST(req: Request) {
   const token = await getValidAccessToken(conn);
   if (!token) return Response.json({ ok: false, error: "eBay未連携です。先に連携してください。" }, { status: 401 });
 
-  let body: { handlingDays?: number; small?: string; medium?: string; large?: string };
+  let body: {
+    handlingDays?: number;
+    small?: string;
+    medium?: string;
+    large?: string;
+    regions?: string[];
+    returnsAccepted?: boolean;
+    returnDays?: number;
+  };
   try {
     body = await req.json();
   } catch {
@@ -33,6 +44,13 @@ export async function POST(req: Request) {
   }
 
   const handlingDays = Number(body.handlingDays) > 0 ? Math.floor(Number(body.handlingDays)) : 7;
+  // 発送先の国：ホワイトリストで濾過し重複除去。未指定/不正は規定(AU/GB)。空配列なら米国のみ(国際発送なし)。
+  const regions = Array.isArray(body.regions)
+    ? [...new Set(body.regions.filter((r) => ALLOWED_REGIONS.includes(r)))]
+    : DEFAULT_REGIONS;
+  // 返品：既定は返品不可。返品可なら期間(日)は1〜90にクランプ(既定30)。
+  const returnsAccepted = body.returnsAccepted === true;
+  const returnDays = returnsAccepted ? Math.min(90, Math.max(1, Math.floor(Number(body.returnDays) || 30))) : 30;
   // 送料は数値(>0)のみ受理し、eBay受理形(小数2桁)へ正規化。非数値/全角/空はここで除外。
   const sizes = [
     { key: "Small", value: body.small },
@@ -55,8 +73,12 @@ export async function POST(req: Request) {
   const pay = await createPaymentPolicy(token, MARKETPLACE);
   steps.push({ step: "支払いポリシー", ok: pay.ok, error: pay.error });
 
-  const ret = await createNoReturnPolicy(token, MARKETPLACE);
-  steps.push({ step: "返品ポリシー（返品不可）", ok: ret.ok, error: ret.error });
+  const ret = await createReturnPolicy(token, MARKETPLACE, returnsAccepted, returnDays);
+  steps.push({
+    step: returnsAccepted ? `返品ポリシー（${returnDays}日返品可・返送料は買い手）` : "返品ポリシー（返品不可）",
+    ok: ret.ok,
+    error: ret.error,
+  });
 
   for (const s of sizes) {
     const f = await createFlatIntlFulfillmentPolicy(
@@ -64,7 +86,8 @@ export async function POST(req: Request) {
       MARKETPLACE,
       `Shipping ${s.key}`,
       String(s.value).trim(),
-      handlingDays
+      handlingDays,
+      regions
     );
     steps.push({ step: `配送ポリシー(${s.key})`, ok: f.ok, error: f.error });
   }

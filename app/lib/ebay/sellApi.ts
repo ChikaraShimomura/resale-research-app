@@ -431,60 +431,78 @@ export async function createPaymentPolicy(token: string, marketplace: string): P
   );
 }
 
-// 返品不可ポリシー
-export async function createNoReturnPolicy(token: string, marketplace: string): Promise<EbayPostResult> {
-  return okIfExists(
-    await ebayPost(token, "/sell/account/v1/return_policy", {
-      name: "No returns",
-      marketplaceId: marketplace,
-      categoryTypes: CATEGORY_TYPES,
-      returnsAccepted: false,
-    })
+// 返品ポリシー（返品不可 or 返品可）。出品は返品ポリシーの先頭1件を参照するため、
+// 既存があれば更新(PUT)・無ければ作成(POST)で「単一ポリシーを上書き」し続ける（設定変更が即反映される）。
+export async function createReturnPolicy(
+  token: string,
+  marketplace: string,
+  returnsAccepted: boolean,
+  returnDays = 30
+): Promise<EbayPostResult> {
+  const body: Record<string, unknown> = returnsAccepted
+    ? {
+        name: "Default return policy",
+        marketplaceId: marketplace,
+        categoryTypes: CATEGORY_TYPES,
+        returnsAccepted: true,
+        returnPeriod: { value: returnDays, unit: "DAY" },
+        returnShippingCostPayer: "BUYER", // 返送料は買い手負担（出品者の赤字を防ぐ）
+        refundMethod: "MONEY_BACK",
+      }
+    : { name: "Default return policy", marketplaceId: marketplace, categoryTypes: CATEGORY_TYPES, returnsAccepted: false };
+  const list = await ebayGet<{ returnPolicies?: { returnPolicyId?: string }[] }>(
+    token,
+    `/sell/account/v1/return_policy?marketplace_id=${marketplace}`
   );
+  const existingId = list.data?.returnPolicies?.[0]?.returnPolicyId;
+  if (existingId) {
+    const put = await ebayWrite(token, "PUT", `/sell/account/v1/return_policy/${existingId}`, body);
+    return put.ok ? { ok: true, status: put.status, id: existingId } : { ok: false, status: put.status, error: put.error };
+  }
+  return ebayPost(token, "/sell/account/v1/return_policy", body);
 }
 
-// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。
+// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。regions＝国際発送を許可する国コード(規定 AU/GB)。
 export async function createFlatIntlFulfillmentPolicy(
   token: string,
   marketplace: string,
   name: string,
   shippingCostUsd: string,
-  handlingDays: number
+  handlingDays: number,
+  regions: string[] = ["AU", "GB"]
 ): Promise<EbayPostResult> {
+  const shippingOptions: Record<string, unknown>[] = [
+    {
+      // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
+      optionType: "DOMESTIC",
+      costType: "FLAT_RATE",
+      shippingServices: [
+        { sortOrder: 1, shippingServiceCode: "USPSPriority", shippingCost: { value: shippingCostUsd, currency: "USD" } },
+      ],
+    },
+  ];
+  // 国際は発送先を絞る（ホワイトリスト）。regions は設定画面(EbayPolicySetup)から変更可（規定 AU/GB）。
+  // 空（米国のみ）の場合は INTERNATIONAL オプション自体を付けない（空 regionIncluded は eBay が弾くため）。
+  if (regions.length > 0) {
+    shippingOptions.push({
+      optionType: "INTERNATIONAL",
+      costType: "FLAT_RATE",
+      shippingServices: [
+        {
+          sortOrder: 1,
+          shippingServiceCode: "USPSPriorityMailInternational",
+          shippingCost: { value: shippingCostUsd, currency: "USD" },
+          shipToLocations: { regionIncluded: regions.map((r) => ({ regionName: r })) },
+        },
+      ],
+    });
+  }
   const body = {
     name,
     marketplaceId: marketplace,
     categoryTypes: CATEGORY_TYPES,
     handlingTime: { value: handlingDays, unit: "DAY" },
-    shippingOptions: [
-      {
-        // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
-        optionType: "DOMESTIC",
-        costType: "FLAT_RATE",
-        shippingServices: [
-          {
-            sortOrder: 1,
-            shippingServiceCode: "USPSPriority",
-            shippingCost: { value: shippingCostUsd, currency: "USD" },
-          },
-        ],
-      },
-      {
-        // 国際は発送先を絞る: オーストラリア(AU)＋イギリス(GB)のみ。国内(DOMESTIC=米国)と合わせて
-        // US/AU/UK の3市場だけが購入可能になる(それ以外の国は「発送対象外」で買えない)。
-        // Worldwide をやめてホワイトリスト化＝出品先を絞る(ユーザー指示 2026-06-18)。広げたい時はここに国コードを足す。
-        optionType: "INTERNATIONAL",
-        costType: "FLAT_RATE",
-        shippingServices: [
-          {
-            sortOrder: 1,
-            shippingServiceCode: "USPSPriorityMailInternational",
-            shippingCost: { value: shippingCostUsd, currency: "USD" },
-            shipToLocations: { regionIncluded: [{ regionName: "AU" }, { regionName: "GB" }] },
-          },
-        ],
-      },
-    ],
+    shippingOptions,
   };
   const post = await ebayPost(token, "/sell/account/v1/fulfillment_policy", body);
   if (post.ok) return post;

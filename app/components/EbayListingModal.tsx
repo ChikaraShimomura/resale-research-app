@@ -9,6 +9,7 @@ import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
+import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -127,9 +128,10 @@ export default function EbayListingModal({
   const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
-  const [handlingDays, setHandlingDays] = useState(7); // 発送までの日数（既定7日）
+  // 発送までの日数・Best Offer は「出品の既定値」（設定で保存・端末単位）を初期値に使う。
+  const [handlingDays, setHandlingDays] = useState(() => readListingDefaults().handlingDays);
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
-  const [bestOffer, setBestOffer] = useState(true); // 値下げ交渉(Best Offer)を受け付ける（既定ON）
+  const [bestOffer, setBestOffer] = useState(() => readListingDefaults().bestOffer);
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
   const [zoomIndex, setZoomIndex] = useState<number | null>(null); // 拡大プレビューを開いた起点index（null=閉じ）
