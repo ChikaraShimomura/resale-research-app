@@ -65,8 +65,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
     try { setRakutenClicked(localStorage.getItem(`rkt_${product.id}`) === "1"); } catch { /* noop */ }
   }, [product.id]);
   const markRakutenClicked = () => {
-    // 同一タブの他ページ（検索/結果一覧）にも仕入れ状態の変化を伝える（先頭固定の再計算用）
-    try { localStorage.setItem(`rkt_${product.id}`, "1"); window.dispatchEvent(new Event("rkt-changed")); } catch { /* noop */ }
+    // 「楽天で仕入れる」押下端末＝eBay出品ゲートを解放（rkt_）。先頭固定は廃止したのでイベント通知は不要。
+    try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
     setRakutenClicked(true);
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
     logEvent("rakuten_buy");

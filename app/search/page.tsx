@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { SortOrder, sortProducts } from "../components/SortSelect";
 import ListControls from "../components/ListControls";
-import { readUnlockedIds, readListedIds, pinUnlockedFirst } from "../lib/unlocked";
+import { readListedIds, pinRestoredFirst } from "../lib/unlocked";
 import { fetchListedIds } from "../lib/ebayListed";
 import { readSort, writeSort } from "../lib/prefs";
 import Pagination, { PAGE_SIZE } from "../components/Pagination";
@@ -21,8 +21,6 @@ export default function SearchPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(true); // 初期はtrueでチラつき防止
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended"); // 既定=総合おすすめ順
-  // 「楽天で仕入れる」を押した（=eBay自動出品アクティブ）商品ID。先頭固定に使う。
-  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   // 自分がeBayに出品済みの商品ID。本人の一覧からは隠して「出品中一覧へ移った」状態にする。
   // listedIds=この端末(localStorage)／accountListedIds=アカウント(サーバー・別端末でも効く)。両方で隠す。
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
@@ -31,7 +29,6 @@ export default function SearchPage() {
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     setSortOrder(readSort());        // 前回の並び替えを復元（ページ移動で初期化されないように）
-    setUnlockedIds(readUnlockedIds());
     setListedIds(readListedIds());
     fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
@@ -43,19 +40,12 @@ export default function SearchPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 仕入れ/出品の状態変化で再計算。
-  // 同一タブ(rkt-changed)では unlocked だけ更新する＝出品成功の直後に listed で当該カードを消すと
-  // その配下の出品完了モーダルごと unmount され成功画面が一瞬で消えるため。出品済みの非表示は
-  // 別タブ(storage)と次回マウント時に反映＝「検索を開き直すと出品中一覧へ移っている」挙動にする。
+  // 出品済みの非表示は別タブ(storage)と次回マウント時に反映＝「検索を開き直すと出品中一覧へ移っている」挙動にする。
+  // （同一タブで即座に消すと、出品完了モーダルごと unmount され成功画面が一瞬で消えるため即時反映はしない）
   useEffect(() => {
-    const refreshUnlocked = () => setUnlockedIds(readUnlockedIds());
-    const refreshAll = () => { setUnlockedIds(readUnlockedIds()); setListedIds(readListedIds()); };
-    window.addEventListener("rkt-changed", refreshUnlocked);
-    window.addEventListener("storage", refreshAll);
-    return () => {
-      window.removeEventListener("rkt-changed", refreshUnlocked);
-      window.removeEventListener("storage", refreshAll);
-    };
+    const refreshListed = () => setListedIds(readListedIds());
+    window.addEventListener("storage", refreshListed);
+    return () => window.removeEventListener("storage", refreshListed);
   }, []);
 
   const dismissBanner = () => {
@@ -72,8 +62,8 @@ export default function SearchPage() {
   // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
   const visible = products.filter(p => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
   const hotCount = visible.filter(p => p.realProfitRate >= 30).length;
-  // 「楽天で仕入れる」を押した商品（eBay自動出品アクティブ）を先頭に固定
-  const sortedProducts = pinUnlockedFirst(sortProducts(visible, sortOrder), unlockedIds);
+  // 運営が手動復活した商品(restored)だけ先頭に固定（楽天仕入れ押下の先頭固定は廃止）。
+  const sortedProducts = pinRestoredFirst(sortProducts(visible, sortOrder));
   const visibleCount = visible.length;
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す

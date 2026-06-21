@@ -38,8 +38,6 @@ export default function ListingHelper({ product, autoOpen = false }: Props) {
   const handleListed = () => {
     try {
       localStorage.setItem(`listed_${product.id}`, "1");
-      // 出品で解放集合(unlockedIds)から外れるため、同一タブの一覧へ再計算を通知
-      window.dispatchEvent(new Event("rkt-changed"));
     } catch {
       /* noop */
     }
