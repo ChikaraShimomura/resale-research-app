@@ -29,9 +29,23 @@ html {
 }
 
 /* 威厳のある見出し：字間をわずかに詰め、和文の約物を詰める（上品・端正に） */
-h1, h2, h3 {
+h1, h2, h3, h4 {
   letter-spacing: -0.018em;
   font-feature-settings: "palt";
+  /* 見出しは各行の長さを均等配分＝「変な位置で2〜3段に割れる／最終行に1〜2文字だけ残る」を防ぐ */
+  text-wrap: balance;
+}
+
+/* 和文の改行を端正に：本文は最終行の孤立文字を抑え、行頭・行末の禁則(kinsoku)を厳格に。
+   word-break:auto-phrase で「海外／では／価値が…」のように文節単位で折り返し＝単語の途中
+   （海/外・作/成・トラブ/ル 等）で切れにくくする。text-wrap/auto-phrase は未対応ブラウザでは
+   無視されるだけの安全な段階的強化（word-break は継承プロパティなので body 指定で全体に効く）。 */
+body {
+  line-break: strict;
+  word-break: auto-phrase;
+}
+p, li, figcaption, dt, dd, summary, blockquote {
+  text-wrap: pretty;
 }
 
 /* 神々しさ：画面上辺のギルド罫（金箔の縁）。スクロールしても常に額縁のように残す */

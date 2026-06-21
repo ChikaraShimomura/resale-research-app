@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Target, Languages, MapPin, TrendingUp, ShieldCheck, BookOpen } from "lucide-react";
+import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import GuideVideo from "./components/GuideVideo";
@@ -47,19 +47,9 @@ export default function LandingPage() {
             <span className="text-yellow-300">ポイントを稼ぎながら</span><br />
             eBayで売る
           </h1>
-          <p className="text-white/80 text-sm leading-relaxed mb-7">
+          <p className="text-white/80 text-sm leading-relaxed">
             仕入れ価格＋ポイント還元で利益を最大化。<br />日本にしかない商品を海外で高く売る。
           </p>
-          <Link href={ctaHref}
-            className="inline-block bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-gray-900 font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-lg">
-            {PAYWALL_ENABLED ? "30日無料で利益商品を見る →" : "登録して利益商品を見る →"}
-          </Link>
-          <div className="mt-3">
-            <Link href="/guide"
-              className="inline-flex items-center gap-1.5 text-white/90 text-sm font-bold border border-white/40 px-5 py-2.5 rounded-xl bg-white/10 backdrop-blur-sm active:bg-white/20">
-              <BookOpen size={15} /> はじめての方へ・使い方ガイド
-            </Link>
-          </div>
         </div>
       </div>
 
