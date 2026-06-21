@@ -6,14 +6,17 @@ import HowItWorksDemo from "./components/HowItWorksDemo";
 import RakutenPointChips from "./components/RakutenPointChips";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
+import { META_DESC } from "./lib/marketing";
+import { PAYWALL_ENABLED } from "./lib/plans";
 
 export const metadata = {
-  description:
-    "楽天で仕入れてeBayで海外に売る副業ツール「輸出ラボ」。利益が出る日本商品を無料でリサーチ、写真だけでほぼ自動のeBay出品まで。英語ほぼ不要・登録30秒。利益（現金）と楽天ポイントを分けて表示します。",
+  description: META_DESC,
   alternates: { canonical: "/" },
 };
 
 export default function LandingPage() {
+  // 有料化後は「登録すれば見える」は誤り（購読が要る）。未購読の主要CTAは /pricing（30日無料）へ誘導。
+  const ctaHref = PAYWALL_ENABLED ? "/pricing" : "/search";
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <TrackView event="visit" />
@@ -48,9 +51,9 @@ export default function LandingPage() {
           <p className="text-white/80 text-sm leading-relaxed mb-7">
             仕入れ価格＋ポイント還元で利益を最大化。<br />日本にしかない商品を海外で高く売る。
           </p>
-          <Link href="/search"
+          <Link href={ctaHref}
             className="inline-block bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-gray-900 font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-lg">
-            登録して利益商品を見る →
+            {PAYWALL_ENABLED ? "30日無料で利益商品を見る →" : "登録して利益商品を見る →"}
           </Link>
           <div className="mt-3">
             <Link href="/guide"
@@ -135,9 +138,9 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-2xl mx-auto px-4 pb-10 text-center">
-        <Link href="/search"
+        <Link href={ctaHref}
           className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
-          登録して利益商品を探す →
+          {PAYWALL_ENABLED ? "30日無料ではじめる →" : "登録して利益商品を探す →"}
         </Link>
         <div className="mt-4">
           <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">

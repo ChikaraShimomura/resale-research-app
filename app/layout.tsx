@@ -9,6 +9,7 @@ import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import VersionWatcher from "./components/VersionWatcher";
 import JsonLd from "./components/JsonLd";
 import SourceStopRecap from "./components/SourceStopRecap";
+import { META_DESC } from "./lib/marketing";
 
 const GA_ID = "G-MT7YQZ7ZMJ";
 
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
     default: "輸出ラボ｜楽天商品をeBayで高く売る",
     template: "%s | 輸出ラボ",
   },
-  description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。日本の商品を海外に輸出して副収入を得たい方向けの無料リサーチツール。",
+  description: META_DESC,
   keywords: ["輸出副業", "せどり", "eBay輸出", "楽天仕入れ", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
   metadataBase: new URL(SITE_URL),
   openGraph: {

@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   const glyphs =
     title + name +
     "輸出ラボ楽天eBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
-    "今日の利益商品日本でこれが海外だと無料で他の商品もプロフィールのリンクから見れますやってみた" +
+    "今日の利益商品日本でこれが海外だと無料で登録して他の商品もプロフィールのリンクから見れますやってみた" +
     "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + "0123456789,%→¥〜";
   const font = await loadJpFont(glyphs);
   const ff = font ? "Noto Sans JP" : "sans-serif";
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", background: CRIMSON, color: "#ffffff", padding: "56px 72px" }}>
-            <div style={{ display: "flex", fontSize: 48, fontWeight: 700, marginBottom: 12 }}>無料で他の利益商品も見れます</div>
+            <div style={{ display: "flex", fontSize: 48, fontWeight: 700, marginBottom: 12 }}>登録して他の利益商品も見れます</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 40 }}>
               <span style={{ display: "flex", fontWeight: 700 }}>輸出ラボ</span>
               <span style={{ display: "flex", opacity: 0.9 }}>yushutsu-fukugyo.com</span>

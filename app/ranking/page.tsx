@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で�
 const SITE = "https://www.yushutsu-fukugyo.com";
 const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜楽天→eBay相場・利益率";
 const DESC =
-  "楽天で仕入れてeBayで売る——いま利益率が高い商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる日本商品の楽天仕入れ値→eBay想定売値・利益率を無料でチェックできます。";
+  "楽天で仕入れてeBayで売る——いま利益率が高い商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる日本商品の楽天仕入れ値→eBay想定売値・利益率の目安をチェック（ランキングは無料公開・各商品の詳細はプランで解放）。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -31,10 +31,10 @@ export default async function RankingPage() {
     name: "eBay輸出の利益商品ランキング",
     description: DESC,
     numberOfItems: items.length,
+    // 商品詳細(/product/*)は購読ゲートでクローラが/registerへ飛ぶため、ListItemにgated URLを載せない（name+positionのみ）。
     itemListElement: items.map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${SITE}/product/${encodeURIComponent(p.id)}`,
       name: p.title.slice(0, 90),
     })),
   };
@@ -60,7 +60,7 @@ export default async function RankingPage() {
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
           楽天で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。
-          各商品の<b>楽天仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>を無料でチェック（上位5件はアプリで公開）。
+          各商品の<b>楽天仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>の目安を毎日更新（ランキングは無料公開・各商品の詳細はプランで解放）。
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
           ※ 海外で売れやすい定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場は現在の出品ベースの<b>想定（目安）</b>で、状態・競合・為替で変わります。
@@ -81,7 +81,7 @@ export default async function RankingPage() {
               const locked = i < 5;
               return (
                 <li key={p.id}>
-                  <Link href={locked ? "/search" : `/product/${encodeURIComponent(p.id)}`}
+                  <Link href={locked ? "/pricing" : `/product/${encodeURIComponent(p.id)}`}
                     className="relative flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50 overflow-hidden">
                     <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
                       {i + 1}
@@ -109,7 +109,7 @@ export default async function RankingPage() {
                     {locked && (
                       <span className="absolute inset-0 flex items-center justify-center bg-white/20">
                         <span className="inline-flex items-center gap-1.5 bg-[#2D323B]/95 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full shadow-lg">
-                          <Lock size={12} /> 登録して見る
+                          <Lock size={12} /> プランで見る
                         </span>
                       </span>
                     )}
@@ -131,7 +131,7 @@ export default async function RankingPage() {
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
-          輸出ラボは、楽天で仕入れてeBayへ輸出・転売する副業のための<b>無料リサーチツール</b>です。利益（現金）は楽天の仕入れ値・eBay手数料(13.25%)・国内送料・米国関税をもとに算出した想定値で、国際送料は購入者負担のため含めていません。楽天ポイントは利益に含めず別枠（おまけ）で扱います。
+          輸出ラボは、楽天で仕入れてeBayへ輸出・転売する副業のための<b>リサーチ＆出品ツール</b>です（ランキングは無料公開・本格利用は月¥500〜）。利益（現金）は楽天の仕入れ値・eBay手数料(13.25%)・国内送料・米国関税をもとに算出した想定値で、国際送料は購入者負担のため含めていません。楽天ポイントは利益に含めず別枠（おまけ）で扱います。
         </p>
       </main>
 

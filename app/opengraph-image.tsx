@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { OG_BADGE } from "./lib/marketing";
 
 // サイト共通の OGP/Twitter カード画像（X・LINE・各SNSでリンク共有時に出る大きな画像）。
 // これが無いと summary_large_image 指定でも画像が出ず、自動投稿の見栄え＝流入が落ちる。
@@ -33,7 +34,7 @@ export default async function OpengraphImage() {
   const brand = "輸出ラボ";
   const lead = "楽天で仕入れて、eBayで売る。";
   const sub = "利益が出る商品を、毎日自動でリサーチ。";
-  const badge = "無料・登録不要";
+  const badge = OG_BADGE;
   const font = await loadJpFont(brand + lead + sub + badge + "楽天eBay");
 
   return new ImageResponse(

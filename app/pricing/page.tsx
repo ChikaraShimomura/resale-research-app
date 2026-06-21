@@ -38,6 +38,16 @@ export default async function PricingPage() {
       <main className="max-w-2xl mx-auto px-4 py-10">
         {PAYWALL_ENABLED ? (
           <div className="mb-3">
+            {/* 転換前の後押し：未購読には「30日無料で解放される価値」を先頭で明示 */}
+            {currentPlan === "free" && (
+              <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 mb-4 text-center shadow-md">
+                <p className="text-base font-black mb-1.5">利益商品はプランで解放</p>
+                <p className="text-[12px] text-white/85 leading-relaxed">
+                  毎日更新の利益商品リサーチと、写真だけの自動出品。<br />
+                  <b className="text-yellow-300">最初の30日は無料</b>でぜんぶ試せます。合わなければ解約するだけ。
+                </p>
+              </div>
+            )}
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
               使う量に合わせて選べます。<br />まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
             </p>
