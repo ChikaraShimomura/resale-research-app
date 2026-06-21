@@ -90,6 +90,7 @@ export default async function PricingPage() {
 
         {/* 法務リンク（有料＝特商法表記を購入導線の近くに置く） */}
         <div className="mt-4 text-center flex items-center justify-center gap-3 flex-wrap">
+          <Link href="/faq" className="text-[11px] text-gray-400 underline">よくある質問</Link>
           <Link href="/legal" className="text-[11px] text-gray-400 underline">特定商取引法に基づく表記</Link>
           <Link href="/terms" className="text-[11px] text-gray-400 underline">利用規約</Link>
           <Link href="/privacy" className="text-[11px] text-gray-400 underline">プライバシー</Link>

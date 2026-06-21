@@ -6,7 +6,6 @@ import EbayListingSetup from "../components/EbayListingSetup";
 import PushSettings from "../components/PushSettings";
 import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
-import PortalButton from "../components/PortalButton";
 import MfaSetup from "../components/MfaSetup";
 import { getPlan } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -101,7 +100,9 @@ export default async function SettingsPage({
                   アップグレード
                 </Link>
               )}
-              {PAYWALL_ENABLED && isPaid && <PortalButton />}
+              {PAYWALL_ENABLED && isPaid && (
+                <Link href="/faq" className="self-center text-[12px] text-gray-400 underline">ご契約の管理・解約について</Link>
+              )}
               {isAdminUser && (
                 <Link href="/admin"
                   className="inline-flex items-center h-10 px-4 rounded-xl border border-[#2D323B]/30 text-[#2D323B] text-[13px] font-bold active:bg-[#2D323B]/5">
@@ -139,8 +140,10 @@ export default async function SettingsPage({
 
         <EbayListingSetup />
 
-        <div className="pt-1 text-center">
-          <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#2D323B]">プライバシーポリシー</Link>
+        <div className="pt-1 text-center flex items-center justify-center gap-3 flex-wrap">
+          <Link href="/faq" className="text-xs text-gray-500 underline hover:text-[#2D323B]">よくある質問</Link>
+          <Link href="/legal" className="text-xs text-gray-500 underline hover:text-[#2D323B]">特定商取引法</Link>
+          <Link href="/privacy" className="text-xs text-gray-500 underline hover:text-[#2D323B]">プライバシー</Link>
         </div>
       </main>
 

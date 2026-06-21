@@ -76,7 +76,7 @@ export default function LegalPage() {
               </Row>
               <Row label="サービスの提供時期">決済の完了後、ただちにご利用いただけます。</Row>
               <Row label="解約・自動更新の停止">
-                いつでも解約できます。<Link href="/settings" className="text-[#2D323B] underline">設定 →「プランを管理・解約」</Link>（Stripeカスタマーポータル）からお手続きください。解約後は次回更新日以降の課金は行われません。
+                いつでも解約できます。<Link href="/faq" className="text-[#2D323B] underline">よくある質問の「解約・プラン変更の方法」</Link>（または設定）から、Stripeの管理画面でお手続きください。解約後は次回更新日以降の課金は行われません。
               </Row>
               <Row label="返品・返金について">
                 サービスの性質上（デジタルサービス）、決済済みの月額料金について日割り返金・返金は原則行っておりません。無料トライアル期間中に解約された場合は課金されません。
