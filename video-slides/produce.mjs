@@ -16,7 +16,7 @@ const BGM = path.join(DIR, 'bgm.wav');
 const FADE = 0.6, LEAD = 0.5, TAIL = 1.1, BGM_VOL = 0.10;
 // ナレーション: VOICEVOX（ローカルエンジン :50021）。声を変えるなら SPEAKER を変更
 const ENGINE = 'http://127.0.0.1:50021';
-const SPEAKER = 8;          // 春日部つむぎ（ノーマル）
+const SPEAKER = 3;          // ずんだもん（ノーマル）
 const SPEED = 1.0;          // 速さ
 const INTONATION = 1.0;     // 抑揚（人らしさ）
 const PITCH = 0.0;          // 高さ
