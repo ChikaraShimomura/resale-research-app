@@ -19,12 +19,14 @@ import {
   estimateWeightG,
   intlShippingJpy,
   usDutyJpy,
+  USD_JPY,
   EBAY_FEE_RATE,
   EMS_VALUE_USD,
   DUTY_FREE_USD,
 } from "./landedCostCore.mjs";
 // 既存の呼び出し元（landedCost.ts から import している箇所）を維持するため再エクスポート。
-export { estimateWeightG, intlShippingJpy, usDutyJpy };
+// USD_JPY も SSOT(landedCostCore・env駆動/既定155) からの再エクスポートに統一＝各所のハードコード155を廃止。
+export { estimateWeightG, intlShippingJpy, usDutyJpy, USD_JPY };
 
 export type ShippingMethod = "airpacket" | "ems";
 

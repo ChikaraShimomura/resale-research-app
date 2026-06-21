@@ -2,13 +2,15 @@
 // 在庫アイテム(PUT) → オファー(POST/PUT) → 公開(publishOffer) を行う。
 // カテゴリ/必須Item Specifics は Taxonomy API で取得（アプリトークン使用）。
 import { skuForProduct } from "./sellApi";
+// USD_JPY は SSOT(landedCostCore・env駆動/既定155)から取得＝各所のハードコード155を一本化（ドリフト防止）。
+import { USD_JPY } from "./landedCostCore.mjs";
 
 const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
 const API = ENV === "sandbox" ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
 
 export const MARKETPLACE = "EBAY_US";
 export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
-export const USD_JPY = 155; // realAvgPrice の換算に使った固定レート（refresh.mjs と一致）
+export { USD_JPY }; // realAvgPrice の換算レート（再エクスポート＝既存の `from "./listing"` 取り込みを維持）
 
 // 楽天のmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠でボケるため、出品時は最大解像度に差し替える。
 // ★ thumbnail.image.rakuten.co.jp(リサイズCDN・_ex=1200でも1200頭打ち)ではなく image.rakuten.co.jp(原寸オリジナル)を使う。

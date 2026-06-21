@@ -16,6 +16,8 @@
 //   ・リダイレクト先ドメインで死活を推定しない：楽天ブックス品は item.rakuten.co.jp/book/… が
 //     books.rakuten.co.jp へ正規リダイレクト(在庫あり)するため。死活(削除/リンク切れ)の主担当は checkLinks。
 //     ここは「売切(OutOfStock)」を主に、明確な HTTP404 のみ dead 扱い。
+//   ・(任意・既定OFF) LIVENESS_DELIST_REDIRECT=1 で「同一ドメイン内の店トップ/楽天ルートへのリダイレクト＝削除」も拾う。
+//     別ドメイン(books等)は除外する保守設計だが、実データ検証が済むまで本番OFF（誤停止を避けるため）。
 //   ・realRakutenUrl/価格レンジ判定の考え方は ①(動画セッション)の refresh.mjs reconcile を踏襲。
 //
 // env: KV_REST_API_URL / KV_REST_API_TOKEN（.env.local から自動読込）
@@ -43,6 +45,10 @@ const BRAKE_MIN_TOTAL = Number(process.env.LIVENESS_BRAKE_MIN ?? 5); // これ�
 const BRAKE_FLAG_RATIO = 0.7;    // soldout+dead がこの割合超＝取得異常を疑い丸ごと破棄
 const MAX_ITEMS = Number(process.env.LIVENESS_MAX ?? 800);
 const DRY = process.env.LIVENESS_DRY !== "0"; // 安全側: 明示的に "0" の時だけ本番書込。未設定/その他はDRY(書込なし=eBay停止なし)。本番タスクは liveness-oneshot.cmd が =0 を明示。
+// 商品削除→店トップ/楽天ルートへのリダイレクトを dead 扱いするか。⚠️既定OFF：
+//   楽天ブックス品の正規リダイレクト(別ドメイン)等で生存品を誤停止する恐れがあり、実データ検証が済むまで本番では無効。
+//   検証後に LIVENESS_DELIST_REDIRECT=1 で有効化する（下の isDelistRedirect は別ドメインは除外＝保守的）。
+const DETECT_REDIRECT_DELIST = process.env.LIVENESS_DELIST_REDIRECT === "1";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -144,6 +150,26 @@ function realRakutenUrl(srcUrl) {
   return null; // 番号URL(/{shop}/{itemCode番号}/)は組み立てない(404になる)
 }
 
+// 商品削除の強いシグナル：元の商品URL(/{shop}/{item}/)が、楽天内の「店トップ(/{shop}/のみ)」や
+// 「楽天ルート」へリダイレクトされた＝商品スラッグを失った＝削除/掲載終了とみなす。
+// ⚠️別ドメイン(books.rakuten.co.jp 等)へのリダイレクトは“正規移動で在庫あり”があるため除外（誤停止防止）。
+function isDelistRedirect(orig, final) {
+  try {
+    if (!final || final === orig) return false;
+    const o = new URL(orig), f = new URL(final);
+    if (!/(^|\.)rakuten\.co\.jp$/.test(f.hostname)) return false; // 楽天ドメイン外は判定しない
+    if (f.hostname === "www.rakuten.co.jp" || f.hostname === "rakuten.co.jp") {
+      return f.pathname === "/" || f.pathname === "";              // 楽天トップへ飛ばされた
+    }
+    if (f.hostname === "item.rakuten.co.jp") {
+      const oseg = o.pathname.replace(/\/+$/, "").split("/").filter(Boolean); // [shop,item]
+      const fseg = f.pathname.replace(/\/+$/, "").split("/").filter(Boolean); // [shop] になっていれば商品消失
+      return oseg.length >= 2 && fseg.length <= 1;
+    }
+    return false;
+  } catch { return false; }
+}
+
 // ========== 実ページ判定 ==========
 // 返り値: "soldout" | "dead" | "alive" | "unknown" | "blocked"
 async function probeOnce(url) {
@@ -154,7 +180,9 @@ async function probeOnce(url) {
       signal: AbortSignal.timeout(15000),
     });
     if (res.status === 429 || res.status === 503) return "blocked";   // レート制限/一時拒否＝以降打ち切り
-    if (res.status === 404) return "dead";                            // 明確な404のみ削除扱い(リダイレクトはdeadにしない)
+    if (res.status === 404) return "dead";                            // 明確な404のみ削除扱い
+    // 任意(既定OFF): 商品が店トップ/楽天ルートへリダイレクトされた＝削除。別ドメインは除外＝保守的。
+    if (DETECT_REDIRECT_DELIST && res.ok && isDelistRedirect(url, res.url)) return "dead";
     if (!res.ok) return "unknown";                                    // その他4xx/5xx＝fail-open(現状維持)
     const html = await res.text();
     if (html.length < 2000) return "unknown";                        // 空/極小＝取得異常(DCブロック等)＝fail-open

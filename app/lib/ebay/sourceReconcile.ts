@@ -12,16 +12,30 @@ export interface AutoStopEntry {
   id: string;
   title: string;
   imageUrl: string;
-  reason: "dead" | "soldout"; // dead=リンク切れ(掲載終了/閉店) / soldout=売り切れ
+  // dead=リンク切れ(掲載終了/閉店) / soldout=売り切れ / overpriced=複数タイプ(箱単位)で原価誤認＝不採算
+  reason: "dead" | "soldout" | "overpriced";
   at: string;
 }
 
 const RECAP_KEY = (actor: string) => `auto_stopped:${actor}`;
 const RECAP_TTL = 30 * 24 * 3600; // ユーザーがモーダルで確認するまで保持(最長30日)
 
-// 1アクターぶん：出品中(未売却・未停止)で sourceStatus が dead/soldout の出品をeBayから取り下げ、
-// 出品停止中へ移し、recapに積む。実際に停止できたぶんを返す（冪等：停止済みは skip）。
-export async function reconcileActorStops(actor: string): Promise<AutoStopEntry[]> {
+// 箱価格(複数タイプ)で原価を誤認＝不採算と判定された商品IDの集合を取得する。
+// refresh.mjs が reconcileSourcePages で `catalog_overpriced_ids`(JSON配列)に毎回 全置換で書く。
+// 「除外するときはeBay出品停止もする」方針の配線：カタログから外すだけでなく、出品中があれば停止する。
+async function fetchOverpricedIds(): Promise<Set<string>> {
+  try {
+    const arr = await kv.get<string[]>("catalog_overpriced_ids");
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+// 1アクターぶん：出品中(未売却・未停止)で「仕入れ元が売切/リンク切れ(dead/soldout) または 箱価格で不採算(overpriced)」の
+// 出品をeBayから取り下げ、出品停止中へ移し、recapに積む。実際に停止できたぶんを返す（冪等：停止済みは skip）。
+// overpricedIds を渡すと再取得しない（cronが全アクターで使い回す用。未指定なら自前取得＝単発呼び出し用）。
+export async function reconcileActorStops(actor: string, overpricedIds?: Set<string>): Promise<AutoStopEntry[]> {
   const token = await getValidAccessToken(actor);
   if (!token) return []; // 連携切れ等は何もしない（次回再連携後に拾う）
   let deals: Record<string, Deal> = {};
@@ -30,12 +44,19 @@ export async function reconcileActorStops(actor: string): Promise<AutoStopEntry[
   } catch {
     return [];
   }
+  const overpriced = overpricedIds ?? (await fetchOverpricedIds());
   const stopped: AutoStopEntry[] = [];
   for (const [productId, d] of Object.entries(deals)) {
     if (!d || typeof d !== "object") continue;
     if (d.soldUsd != null || d.stoppedAt != null) continue; // 売却済み/停止済みは対象外
-    const reason = d.sourceStatus;
-    if (reason !== "dead" && reason !== "soldout") continue; // 検知フラグが立っているものだけ
+    // 停止理由：仕入れ元の死活(dead/soldout・実ページ権威)＞箱価格不採算(overpriced・refresh判定)。
+    const reason: AutoStopEntry["reason"] | null =
+      d.sourceStatus === "dead" || d.sourceStatus === "soldout"
+        ? d.sourceStatus
+        : overpriced.has(productId)
+        ? "overpriced"
+        : null;
+    if (!reason) continue; // 検知フラグが立っているものだけ
     const sku = d.sku ?? skuForProduct(productId);
     const r = await withdrawListingForSku(token, sku); // 冪等(未公開でもok)
     if (!r.ok) continue; // 失敗は次回リトライ（フラグは残る）

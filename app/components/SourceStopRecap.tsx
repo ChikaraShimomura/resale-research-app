@@ -7,13 +7,14 @@ interface Entry {
   id: string;
   title: string;
   imageUrl: string;
-  reason: "dead" | "soldout";
+  reason: "dead" | "soldout" | "overpriced";
   at: string;
 }
 
 const REASON: Record<Entry["reason"], string> = {
   soldout: "仕入れ元が売り切れ",
   dead: "仕入れ元がリンク切れ（掲載終了・閉店）",
+  overpriced: "仕入れ元が複数タイプ（箱単位で不採算）",
 };
 
 export default function SourceStopRecap() {
@@ -74,7 +75,7 @@ export default function SourceStopRecap() {
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
           <h2 className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            仕入れ元（楽天）が売り切れ・リンク切れになった下記を、<b>あなたの評価を守るため</b>自動で出品停止しました。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から再出品）。
+            仕入れ元（楽天）に問題が出た下記を、<b>あなたの評価を守るため</b>自動で出品停止しました（売り切れ・リンク切れ・箱単位で不採算など）。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から再出品）。
           </p>
         </div>
         <ul className="max-h-[46vh] overflow-y-auto divide-y divide-gray-50">

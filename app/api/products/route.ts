@@ -2,10 +2,10 @@ import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { isSold } from "../../lib/sold";
 import { applyDisplayProfit } from "../../lib/displayProfit";
+import { USD_JPY } from "../../lib/ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155)に統一
 
 // 配信時に realProfit を「現金純利益（ポイントは外す＋国際送料/米国関税を差し引く）」に直す。
 // 変換は app/lib/displayProfit.ts に一本化（ランキング/商品詳細と同一ロジック＝表示の単一ソース）。
-const USD_JPY = 155;
 const PROFIT_RATE_FLOOR = 10; // 現金純利益率がこの%以下は「利益商品」に含めない（refresh の floor と一致）
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
@@ -32,7 +32,7 @@ async function getRestoredProducts(): Promise<ProfitProduct[]> {
 
 export async function GET() {
   try {
-    const [profitable, lastUpdated, stats, restored, wmHash, srcStatus] = await Promise.all([
+    const [profitable, lastUpdated, stats, restored, wmHash, srcStatus, overpricedArr] = await Promise.all([
       kvReadOnly.get<ProfitProduct[]>("profitable_products"),
       kvReadOnly.get<string>("last_updated"),
       kvReadOnly.get<Record<string, unknown>>("refresh_stats"),
@@ -41,6 +41,8 @@ export async function GET() {
       kvReadOnly.hgetall<Record<string, unknown>>("product_watermark").catch(() => ({})),
       // 仕入れ元(楽天)の売切/削除フラグ（住宅IPワーカー sourceLivenessWorker が実ページ確認して記録）。
       kvReadOnly.hgetall<Record<string, unknown>>("catalog_source_status").catch(() => ({})),
+      // 箱価格(複数タイプ)で原価誤認＝不採算の商品ID（refresh が記録）。一覧からも隠す（防御的・通常はカタログ除外済み）。
+      kvReadOnly.get<string[]>("catalog_overpriced_ids").catch(() => []),
     ]);
 
     // 透かし入り（値が "1"/1）の商品IDは一覧から除外する（商品データは消さない＝可逆。記録ベース）。
@@ -59,6 +61,8 @@ export async function GET() {
         })
         .map(([id]) => id)
     );
+    // 箱価格で不採算の商品も一覧から隠す（同じ「見せない」集合に合流）。
+    for (const id of Array.isArray(overpricedArr) ? overpricedArr : []) deadSourceIds.add(id);
 
     // 復活商品をカタログへ合流（カタログに既にあるidは重複させない）。復活分は先頭側（新着扱い）。
     const base = Array.isArray(profitable) ? profitable : [];

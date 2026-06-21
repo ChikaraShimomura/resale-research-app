@@ -8,7 +8,7 @@ import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
-import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId } from "../lib/ebay/landedCost";
+import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -89,7 +89,7 @@ type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" |
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
 const FAST_UNDERCUT = 0.05; // 「はやく」＝「最安」からさらに5%オフ（最速で売る）
-const USD_JPY = 155; // USD→JPY 表示用の固定レート（refresh.mjs / app/lib/ebay/listing.ts と一致）
+// USD_JPY は SSOT(landedCostCore・env駆動/既定155)から import に統一（旧:ローカル155）。クライアントでは既定155に解決。
 const HIGH_MARKUP = 0.10; // 「高値出品」＝eBay相場(中央値)から10%高く
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。

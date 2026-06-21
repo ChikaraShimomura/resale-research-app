@@ -1,7 +1,9 @@
 import { kv } from "@vercel/kv";
 import { reconcileActorStops } from "../../../../lib/ebay/sourceReconcile";
 import { pruneExpiredStops } from "../../../../lib/ebay/stats";
-import { notifyShipDue } from "../../../../lib/ebay/orders";
+import { notifyShipDue, recordOrders } from "../../../../lib/ebay/orders";
+import { getValidAccessToken, loadTokens } from "../../../../lib/ebay/tokens";
+import { getSoldItems } from "../../../../lib/ebay/sellApi";
 
 // cron用：全アクターを走査し、仕入れ元が売切/リンク切れの出品をeBayから自動停止する。
 // 検知(checkListings.mjs)が deal.sourceStatus を立てた直後に、check-listings ワークフローから呼ばれる。
@@ -34,12 +36,23 @@ export async function POST(req: Request) {
   }
   const actors = [...actorSet];
 
+  // 箱価格(複数タイプ)で原価誤認＝不採算の商品ID集合を1回だけ取得し、各アクターで使い回す
+  // （refresh が catalog_overpriced_ids に全置換で書く。出品中があれば下で自動停止＝「除外時はeBay停止も」）。
+  let overpricedIds = new Set<string>();
+  try {
+    const arr = await kv.get<string[]>("catalog_overpriced_ids");
+    overpricedIds = new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    /* 取得失敗時は空集合＝overpriced停止はスキップ（dead/soldoutは従来どおり効く） */
+  }
+
   let totalStopped = 0;
   let totalPruned = 0;
   let totalDueNotified = 0;
+  let totalOrdersIngested = 0;
   for (const actor of actors) {
     try {
-      const s = await reconcileActorStops(actor);
+      const s = await reconcileActorStops(actor, overpricedIds);
       totalStopped += s.length;
     } catch {
       /* 1アクターの失敗で全体を止めない */
@@ -52,11 +65,29 @@ export async function POST(req: Request) {
       /* 削除失敗は次回リトライ */
     }
     try {
-      // ③ 発送期限が近い/過ぎた未発送注文を本人へ通知（1注文1日1回）。
+      // 注文(Order)の取り込み＝サーバー側で実行（従来はクライアントの /api/ebay/sold 起動のみ）。
+      // これが無いと、離席中のユーザーには新規注文がKVに入らず ③発送期限通知が一度も発火しない。
+      // 連携あり＆sell.fulfillment 付きトークンのアクターだけ eBay を叩く（無トークン/旧スコープは即skip）。
+      const stored = await loadTokens(actor);
+      if (stored?.scopes?.includes("sell.fulfillment")) {
+        const token = await getValidAccessToken(actor);
+        if (token) {
+          const res = await getSoldItems(token);
+          if (!res.needsReconnect && res.orders.length > 0) {
+            await recordOrders(actor, res.orders);
+            totalOrdersIngested += res.orders.length;
+          }
+        }
+      }
+    } catch {
+      /* 取込失敗は次回リトライ（notifyShipDue は既存の保存分で動く） */
+    }
+    try {
+      // ③ 発送期限が近い/過ぎた未発送注文を本人へ通知（1注文1日1回）。上の取込で新規注文も対象になる。
       totalDueNotified += await notifyShipDue(actor);
     } catch {
       /* 通知失敗は次回リトライ */
     }
   }
-  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned, dueNotified: totalDueNotified });
+  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned, ordersIngested: totalOrdersIngested, dueNotified: totalDueNotified });
 }

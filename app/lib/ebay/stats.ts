@@ -2,8 +2,9 @@
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
 import { toRakutenProductUrl } from "../utils";
-
-export const USD_JPY = 155; // listing.ts と一致
+// USD_JPY は SSOT(landedCostCore・env駆動/既定155)に一本化（旧:ハードコード155）。再エクスポートで既存consumer維持。
+import { USD_JPY } from "./landedCostCore.mjs";
+export { USD_JPY };
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
 

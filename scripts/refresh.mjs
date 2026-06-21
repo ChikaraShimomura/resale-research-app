@@ -250,6 +250,7 @@ async function fetchSourceSchema(srcUrl) {
 // fail-open：ページ取得できなければ現状維持。systemicブレーキ：大量除外は取得異常とみなし丸ごと破棄。
 async function reconcileSourcePages(products) {
   const out = new Array(products.length);
+  const overpricedIds = []; // 箱価格(複数タイプ)で原価誤認＝不採算で除外したID。eBay出品の自動停止に使う
   let idx = 0, dropped = 0, repriced = 0, blocked = false;
   async function worker() {
     while (idx < products.length) {
@@ -266,7 +267,7 @@ async function reconcileSourcePages(products) {
         const pointRate = p.source?.pointRate ?? 1;
         const pointAmount = Math.floor(price * pointRate / 100);
         const r = calcProfit(price, p.realAvgPrice, pointAmount, p.source?.shippingJpy ?? 0);
-        if (r.profitRate <= PROFIT_RATE_FLOOR) { out[i] = null; dropped++; continue; } // 箱原価では利益出ず＝除外
+        if (r.profitRate <= PROFIT_RATE_FLOOR) { out[i] = null; dropped++; overpricedIds.push(p.id); continue; } // 箱原価では利益出ず＝除外（出品中があればeBayも停止）
         out[i] = { ...p, source: { ...p.source, price, pointAmount }, realProfit: r.profit, realProfitRate: r.profitRate };
         repriced++;
       } else {
@@ -283,7 +284,10 @@ async function reconcileSourcePages(products) {
     console.log(`  ⚠️ 実ページ照合: 除外が多すぎ(${products.length}→${kept.length})＝取得異常を疑い結果を破棄(fail-open)`);
     return products;
   }
-  console.log(`  🔎 仕入れ元実ページ照合: 売切/不採算で除外 ${dropped}件・複数タイプを箱価格で再計算 ${repriced}件 → 残 ${kept.length}件`);
+  // 箱価格で不採算の商品IDをグローバルに記録（正常完了時のみ全置換＝復活した商品は自動で外れる）。
+  // auto-stop-cron / reconcile が消費し、出品中があればeBayから自動停止する（「除外時はeBay停止も」の配線）。
+  try { await kvSet('catalog_overpriced_ids', overpricedIds, 480 * 3600); } catch (e) { console.error('catalog_overpriced_ids write error:', e.message); }
+  console.log(`  🔎 仕入れ元実ページ照合: 売切/不採算で除外 ${dropped}件(うち箱価格不採算 ${overpricedIds.length}件)・複数タイプを箱価格で再計算 ${repriced}件 → 残 ${kept.length}件`);
   return kept;
 }
 

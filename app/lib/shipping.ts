@@ -1,8 +1,8 @@
 import { ProfitProduct } from "./profitFilter";
+// 為替(USD_JPY)・EMS切替閾値(EMS_VALUE_USD)は SSOT(landedCostCore・env駆動/既定155・120)に一本化（ハードコード廃止）。
+import { USD_JPY, EMS_VALUE_USD } from "./ebay/landedCostCore.mjs";
 
 // 海外発送・通関のための補助情報を商品から自動生成する（純ロジック）。
-// 為替は refresh.mjs と合わせる（USD 155円）。
-const USD_TO_JPY = 155;
 
 type Cat = "figure" | "card" | "game" | "gunpla" | "lego" | "camera" | "watch" | "anime" | "other";
 
@@ -45,14 +45,14 @@ export interface ShippingHelp {
 export function shippingHelp(product: ProfitProduct): ShippingHelp {
   const cat = detectCategory(product.title);
   const c = CUSTOMS[cat];
-  const valueUsd = Math.max(1, Math.round(product.realAvgPrice / USD_TO_JPY));
+  const valueUsd = Math.max(1, Math.round(product.realAvgPrice / USD_JPY));
 
   // 価格帯で発送方法を提案。eBayは実質「追跡必須」なので追跡のある方法のみを出す。
   // ※2025/12末で「小形包装物の書留(追跡)」は終了。追跡付きの小型便は「国際エアパケット」
   //   (旧・国際eパケットライト／2026/6/1に改名・全世界対応・2kgまで)に一本化されている。
   let method: string;
   let methodNote: string;
-  if (valueUsd >= 120) {
+  if (valueUsd >= EMS_VALUE_USD) {
     method = "EMS（国際スピード郵便）";
     methodNote = "高額は追跡＋補償ありのEMSが安心（〜30kg）。";
   } else {

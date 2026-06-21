@@ -1,5 +1,6 @@
 import { ProfitProduct } from "./profitFilter";
 import { landedCost } from "./ebay/landedCost";
+import { USD_JPY } from "./ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155)に統一
 
 // 表示用の「正直な現金純利益」へ変換する単一ソース（配信/ランキング/商品詳細で共用）。
 //
@@ -12,7 +13,6 @@ import { landedCost } from "./ebay/landedCost";
 //
 // ※ calcProfit(refresh) は realProfit を「ポイントを原価控除した粗利」として保存し続ける。
 //   ここで pointAmount を足し戻して現金化するので、保存形式を変えなくても二重計上にならない。
-const USD_JPY = 155;
 
 export function applyDisplayProfit(p: ProfitProduct): ProfitProduct {
   const valueUsd = (p.realAvgPrice || 0) / USD_JPY;
