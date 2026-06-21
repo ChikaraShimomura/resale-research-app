@@ -77,7 +77,8 @@ export function middleware(req: NextRequest) {
   // ・eBayのアカウント削除通知(webhook)　・cron(cron-job.org)からの自動停止(route側でCRON_SECRET検証)。
   const isExternalWebhook =
     pathname === "/api/ebay/account-deletion" ||
-    pathname === "/api/ebay/list/auto-stop-cron";
+    pathname === "/api/ebay/list/auto-stop-cron" ||
+    pathname === "/api/billing/webhook"; // Stripe(署名検証で正当性を確認)
   if (pathname.startsWith("/api/") && isMutation && !isExternalWebhook) {
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");

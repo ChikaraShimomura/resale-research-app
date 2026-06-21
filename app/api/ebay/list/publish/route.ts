@@ -10,7 +10,7 @@ import { recordListed, listDealsForUser } from "../../../../lib/ebay/stats";
 import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
-import { getCurrentUserEmail, isComp, getPlan } from "../../../../lib/auth/plan";
+import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
 import { PLANS, PAYWALL_ENABLED } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
@@ -52,9 +52,9 @@ export async function POST(req: Request) {
   const product = await getProductById(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
 
-  // 行為者のメール/コンプ枠。コンプ枠(あなた＋身内=マスター無料)は満了・プラン上限の対象外。
-  const email = await getCurrentUserEmail();
-  const comp = isComp(email);
+  // 行為者のプラン。admin/master(あなた＋身内=無料・無制限)は満了・プラン上限の対象外。
+  const plan = await getPlan();
+  const comp = isUnlimited(plan);
   const did = (await cookies()).get("rr_did")?.value ?? actor;
 
   // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(端末)まで。既に出した端末は再出品OK(冪等)。
@@ -73,8 +73,7 @@ export async function POST(req: Request) {
 
   // プラン上限(同時出品数)ゲート。Stripe決済が稼働するまで PAYWALL_ENABLED=OFF で無効（既存挙動を壊さない）。
   if (PAYWALL_ENABLED && !comp) {
-    const plan = await getPlan(); // コンプ→master / それ以外→free（決済連携後は購読状態で解決）
-    const limit = PLANS[plan].listingLimit;
+    const limit = PLANS[plan].listingLimit; // plan は上で解決済み（admin/master/amateur/veteran/pro/free）
     // limit>0 のときだけ enforce。free(=0)は「未購読＝ゲート対象外」扱いとし、Stripe未実装の間に全員ロックアウトしない。
     if (Number.isFinite(limit) && limit > 0) {
       const { live } = await listDealsForUser(actor);

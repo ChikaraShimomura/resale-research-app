@@ -1,0 +1,55 @@
+// 管理者(admin)と身内(master)の判定・指定。サーバー専用。
+// admin  = ADMIN_EMAILS（env・あなた）。/admin に入れて身内を指定できる。
+// master = COMP_EMAILS（envの初期身内・編集不可）∪ KV集合 comp:masters（管理画面で追加/削除）。
+// メールはソースに直書きせず env。公開リポジトリ対策。
+import { kv } from "@vercel/kv";
+
+const MASTERS_KEY = "comp:masters"; // 身内メールのKV集合（管理画面で編集する分）
+
+function envList(name: string): string[] {
+  return (process.env[name] ?? "")
+    .toLowerCase()
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const ADMIN_EMAILS = envList("ADMIN_EMAILS");
+const COMP_EMAILS = envList("COMP_EMAILS"); // 初期身内（env・UIからは消せない）
+
+export function isAdmin(email: string | null): boolean {
+  return !!email && ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+// 身内（master）か。env初期身内 or KVで指定された身内。
+export async function isMaster(email: string | null): Promise<boolean> {
+  if (!email) return false;
+  const e = email.toLowerCase();
+  if (COMP_EMAILS.includes(e)) return true;
+  try {
+    return (await kv.sismember(MASTERS_KEY, e)) === 1;
+  } catch {
+    return false;
+  }
+}
+
+// 管理画面用：身内の一覧。env(消せない) と KV(消せる) を分けて返す。
+export async function listMasters(): Promise<{ env: string[]; managed: string[] }> {
+  let managed: string[] = [];
+  try {
+    managed = (await kv.smembers(MASTERS_KEY)) ?? [];
+  } catch {
+    /* KV障害時は空 */
+  }
+  return { env: COMP_EMAILS, managed: managed.sort() };
+}
+
+export async function addMaster(email: string): Promise<void> {
+  const e = email.trim().toLowerCase();
+  if (!e || !e.includes("@")) throw new Error("invalid_email");
+  await kv.sadd(MASTERS_KEY, e);
+}
+
+export async function removeMaster(email: string): Promise<void> {
+  await kv.srem(MASTERS_KEY, email.trim().toLowerCase());
+}

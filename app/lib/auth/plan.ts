@@ -1,18 +1,13 @@
 // 行為者のプラン解決。サーバー専用。
-// コンプ枠(COMP_EMAILS)＝マスター無料。それ以外は当面 free（Stripe購読連携は決済実装後）。
+// 解決順: admin(ADMIN_EMAILS) → master(身内=COMP_EMAILS∪KV) → 購読(amateur/veteran/pro) → free。
+// 決済(Stripe)が未設定/未購読なら自然に free に落ちる＝既存挙動は壊さない。
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../supabase/server";
 import { PlanId } from "../plans";
+import { isAdmin, isMaster } from "./admin";
+import { billingPlanFor } from "../billing";
 
-// あなた＋身内＝常にマスター無料。メールはソースに直書きせず Vercel 環境変数で持つ（公開リポジトリ対策）。
-// 例: COMP_EMAILS="you@example.com,family@example.com"
-const COMP_EMAILS = (process.env.COMP_EMAILS ?? "")
-  .toLowerCase()
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-// 現在サインイン中ユーザーのメール（COMP判定用）。未サインイン/未設定なら null。
+// 現在サインイン中ユーザーのメール（プラン判定用）。未サインイン/未設定なら null。
 export async function getCurrentUserEmail(): Promise<string | null> {
   if (!isSupabaseConfigured()) return null;
   const jar = await cookies();
@@ -26,15 +21,16 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   }
 }
 
-// コンプ枠(マスター無料)か。
-export function isComp(email: string | null): boolean {
-  return !!email && COMP_EMAILS.includes(email.toLowerCase());
+// 同時出品上限・満了(SOLD)の対象外（無制限）プランか。admin/master=あなた＋身内。
+export function isUnlimited(plan: PlanId): boolean {
+  return plan === "admin" || plan === "master";
 }
 
-// 行為者のプラン。今は「コンプ=master / それ以外=free」。決済実装後にここで Stripe 購読状態を読む。
+// 行為者のプラン。admin/master を最優先で判定し、なければ Stripe 購読状態で解決。
 export async function getPlan(): Promise<PlanId> {
   const email = await getCurrentUserEmail();
-  if (isComp(email)) return "master";
-  // TODO(決済): Stripe の購読状態を読んで beginner〜master / トライアル中 を返す。
-  return "free";
+  if (!email) return "free";
+  if (isAdmin(email)) return "admin";
+  if (await isMaster(email)) return "master";
+  return billingPlanFor(email); // amateur/veteran/pro（有効購読時）/ それ以外 free
 }

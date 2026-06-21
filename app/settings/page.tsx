@@ -7,6 +7,9 @@ import TrustBadges from "../components/TrustBadges";
 import PushSettings from "../components/PushSettings";
 import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
+import PortalButton from "../components/PortalButton";
+import { getPlan } from "../lib/auth/plan";
+import { PLANS, PAYWALL_ENABLED } from "../lib/plans";
 
 export const metadata: Metadata = {
   title: "設定",
@@ -19,6 +22,9 @@ export default async function SettingsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   await searchParams;
+  const plan = await getPlan();
+  const isAdminUser = plan === "admin";
+  const isPaid = plan === "amateur" || plan === "veteran" || plan === "pro";
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
@@ -43,6 +49,31 @@ export default async function SettingsPage({
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <InstallButton />
         </section>
+
+        {/* プラン（PAYWALL_ENABLED時のみ表示）。現在のプラン・申込/解約・管理者導線。 */}
+        {(PAYWALL_ENABLED || isAdminUser) && (
+          <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
+            <h2 className="text-sm font-black text-gray-800 mb-1">プラン</h2>
+            <p className="text-[13px] text-gray-600 mb-3">
+              現在のプラン：<b className="text-[#2D323B]">{PLANS[plan].name}</b>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {PAYWALL_ENABLED && !isPaid && plan !== "master" && !isAdminUser && (
+                <Link href="/pricing"
+                  className="inline-flex items-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+                  プランを見る
+                </Link>
+              )}
+              {PAYWALL_ENABLED && isPaid && <PortalButton />}
+              {isAdminUser && (
+                <Link href="/admin"
+                  className="inline-flex items-center h-10 px-4 rounded-xl border border-[#2D323B]/30 text-[#2D323B] text-[13px] font-bold active:bg-[#2D323B]/5">
+                  管理画面
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* プッシュ通知（オン/オフ＋受け取る種類を本人が選べる） */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
