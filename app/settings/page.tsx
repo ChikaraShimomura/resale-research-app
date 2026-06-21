@@ -3,7 +3,6 @@ import Link from "next/link";
 import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import EbayListingSetup from "../components/EbayListingSetup";
-import TrustBadges from "../components/TrustBadges";
 import PushSettings from "../components/PushSettings";
 import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
@@ -40,11 +39,6 @@ export default async function SettingsPage({
       </header>
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
-        {/* eBay・Payoneerの信頼バッジ（連携/登録の不安をその場でケア） */}
-        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
-          <TrustBadges />
-        </section>
-
         {/* アプリとして使う（ホーム画面に追加）＝バナーを閉じた後でもいつでもここから追加できる常設導線 */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <InstallButton />
