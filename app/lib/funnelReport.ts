@@ -5,6 +5,8 @@ import {
   FUNNEL_LABELS,
   SIGNUP_EVENTS,
   SIGNUP_LABELS,
+  BILLING_EVENTS,
+  BILLING_LABELS,
   jstDate,
   evcKey,
   evuKey,
@@ -37,6 +39,7 @@ export interface WeeklyReport {
     listed: number;
     sold: number;
     signups: number;
+    subscribed: number; // 収益ファネル：課金成立（期間内・回数）
     bottleneck: string | null;
   };
 }
@@ -115,10 +118,11 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   const periodEnd = thisDates[0]; // 新しい方
   const periodStart = thisDates[thisDates.length - 1]; // 古い方
 
-  const [steps, prevSteps, signupSteps, referrals] = await Promise.all([
+  const [steps, prevSteps, signupSteps, billingSteps, referrals] = await Promise.all([
     fetchRangeStats(thisDates, FUNNEL_EVENTS, FUNNEL_LABELS),
     fetchRangeStats(prevDates, FUNNEL_EVENTS, FUNNEL_LABELS),
     fetchRangeStats(thisDates, SIGNUP_EVENTS, SIGNUP_LABELS), // 会員登録（線形ファネル外・別枠）
+    fetchRangeStats(thisDates, BILLING_EVENTS, BILLING_LABELS), // 収益ファネル（課金転換・別枠）
     getReferralStats(), // 紹介経由（インフルエンサー）＝コード別の累計クリック/登録
   ]);
 
@@ -128,6 +132,10 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   const visits = byEvent(steps, "visit")?.unique ?? 0;
   const listed = byEvent(steps, "listed")?.count ?? 0;
   const sold = byEvent(steps, "sold")?.count ?? 0;
+  const subscribed = byEvent(billingSteps, "subscribed")?.count ?? 0;
+  // 収益ファネルの全体転換：課金壁到達(端末)→購読成立(端末)。
+  const paywallU = byEvent(billingSteps, "paywall_hit")?.unique ?? 0;
+  const subscribedU = byEvent(billingSteps, "subscribed")?.unique ?? 0;
 
   // 最大の離脱ポイント＝直前ステップからの継続率が最も低い箇所（母数がある所のみ）。
   let bottleneck: string | null = null;
@@ -173,6 +181,22 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
       </tr>`;
     })
     .join("");
+
+  // ── 収益ファネル（課金転換）。直前比＝ユニーク端末の継続率。 ──
+  const billingRows = billingSteps
+    .map((s, i) => {
+      const conv = i === 0 ? "—" : pct(s.unique, billingSteps[i - 1].unique);
+      const zebra = i % 2 === 0 ? "#ffffff" : "#fafafa";
+      return `
+      <tr style="background:${zebra}">
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#111">${i + 1}. ${s.label}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#111"><b>${s.count}</b></td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#111">${s.unique}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#6b7280">${conv}</td>
+      </tr>`;
+    })
+    .join("");
+  const overallBillingConv = pct(subscribedU, paywallU); // 壁到達→購読の全体転換
 
   // ── 紹介経由（インフルエンサー）＝コード別の累計クリック/登録（成果報酬の精算用） ──
   const referralTotalSignups = referrals.reduce((a, r) => a + r.signups, 0);
@@ -254,6 +278,23 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
       ・「合計」＝期間内にログイン/登録した端末数。「└ ◯◯経由」＝そのナッジのリンクから登録に至った内訳。<br>
     </p>
 
+    <h3 style="color:#16a34a;font-size:14px;margin:18px 0 6px">💳 収益ファネル（課金転換）</h3>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #f0f0f0;border-radius:8px;overflow:hidden">
+      <thead>
+        <tr style="background:#F0FDF4">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#166534;font-weight:600">ステップ</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#166534;font-weight:600">回数</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#166534;font-weight:600">端末数</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;color:#166534;font-weight:600">直前比</th>
+        </tr>
+      </thead>
+      <tbody>${billingRows}</tbody>
+    </table>
+    <p style="font-size:11px;color:#9ca3af;margin:6px 0 0;line-height:1.6">
+      ・<b>壁到達→購読の全体転換：${overallBillingConv}</b>（未購読が利益商品に弾かれてから課金に至った割合）。<br>
+      ・「課金壁に到達」＝未購読が利益商品/検索/商品詳細でブロックされ /pricing に誘導された回数。
+    </p>
+
     <h3 style="color:#1d4ed8;font-size:14px;margin:18px 0 6px">🔗 紹介経由（インフルエンサー・累計）</h3>
     <table style="width:100%;border-collapse:collapse;border:1px solid #f0f0f0;border-radius:8px;overflow:hidden">
       <thead>
@@ -290,6 +331,14 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
     "会員登録（ログイン）",
     ...signupSteps.map((s) => `・${s.label}: ${s.unique}端末 / ${s.count}回`),
     "",
+    "収益ファネル（課金転換）",
+    ...billingSteps.map(
+      (s, i) =>
+        `・${s.label}: ${s.unique}端末 / ${s.count}回` +
+        (i === 0 ? "" : ` (直前比 ${pct(s.unique, billingSteps[i - 1].unique)})`)
+    ),
+    `壁到達→購読: ${overallBillingConv}`,
+    "",
     `紹介経由（累計）: 登録${referralTotalSignups}件 / クリック${referralTotalClicks}`,
     ...(referrals.length
       ? referrals.map((r) => `・${r.code}: 登録${r.signups}件 / クリック${r.clicks}`)
@@ -301,9 +350,9 @@ export async function buildWeeklyReport(endDate?: string): Promise<WeeklyReport>
   return {
     periodStart,
     periodEnd,
-    subject: `📊 行動ログ週次 ${periodStart}〜${periodEnd}｜訪問${visits}・登録${signups}・出品${listed}・売却${sold}`,
+    subject: `📊 行動ログ週次 ${periodStart}〜${periodEnd}｜訪問${visits}・登録${signups}・購読${subscribed}・出品${listed}・売却${sold}`,
     html,
     text,
-    summary: { visits, listed, sold, signups, bottleneck },
+    summary: { visits, listed, sold, signups, subscribed, bottleneck },
   };
 }

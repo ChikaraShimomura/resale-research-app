@@ -3,6 +3,7 @@ import { ProfitProduct } from "../../lib/profitFilter";
 import { isSold } from "../../lib/sold";
 import { applyDisplayProfit } from "../../lib/displayProfit";
 import { canViewCatalog } from "../../lib/auth/plan";
+import { recordFunnelEvent } from "../../lib/funnelServer";
 import { USD_JPY } from "../../lib/ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155)に統一
 
 // 配信時に realProfit を「現金純利益（ポイントは外す＋国際送料/米国関税を差し引く）」に直す。
@@ -35,6 +36,7 @@ export async function GET() {
   // 利益商品は購読者(＋身内/管理者)だけに配信。未購読(free)・未ログインには空＋needsPlanを返す＝データ自体を渡さない。
   // PAYWALL_ENABLED が OFF の間は canViewCatalog が常に true（＝既存挙動のまま）。
   if (!(await canViewCatalog())) {
+    await recordFunnelEvent("paywall_hit"); // 収益ファネル：未購読が利益商品で課金壁に到達
     return Response.json(
       { products: [], lastUpdated: null, needsPlan: true },
       { headers: { "Cache-Control": "private, no-store" } }

@@ -33,12 +33,13 @@ function ResultsContent() {
   // listedIds=この端末(localStorage)／accountListedIds=アカウント(サーバー・別端末でも効く)。両方で隠す。
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
   const [accountListedIds, setAccountListedIds] = useState<Set<string>>(new Set());
+  const [gated, setGated] = useState(false); // 未購読で課金壁に弾かれた＝results_viewを計上しない（水増し防止）
 
   useEffect(() => {
     setLoading(true);
     fetchProducts()
       .then(({ products, lastUpdated, needsPlan }) => {
-        if (needsPlan) { router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
+        if (needsPlan) { setGated(true); router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
         setAllProducts(products);
         setLastUpdated(lastUpdated);
       })
@@ -65,10 +66,12 @@ function ResultsContent() {
     window.addEventListener("storage", refreshListed); // 別タブ
     return () => window.removeEventListener("storage", refreshListed);
   }, []);
-  // 一覧閲覧（ファネル計測）。2回目以降の検索（keyword変化）でも発火させ過少計上を防ぐ。
+  // 一覧閲覧（ファネル計測）。課金壁で弾かれた未購読(gated)や読込中は計上しない＝水増し防止。
+  // 読込完了後、keyword変化でも発火させ過少計上を防ぐ。
   useEffect(() => {
+    if (loading || gated) return;
     logEvent("results_view");
-  }, [keyword]);
+  }, [keyword, loading, gated]);
 
   const filtered = useMemo(() => {
     const q = keyword.toLowerCase().trim();

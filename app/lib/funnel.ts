@@ -56,8 +56,18 @@ export const SIGNUP_LABELS: Record<SignupEvent, string> = {
   signup_from_article: "└ ガイド記事経由",
 };
 
-// /api/track と recordFunnelEvent が受け付けるイベントの allowlist（線形ファネル＋登録）。
-export const TRACKED_EVENTS: readonly string[] = [...FUNNEL_EVENTS, ...SIGNUP_EVENTS];
+// 収益ファネル（有料化後の課金導線）。線形ファネルには乗せない（離脱率/継続率の計算を歪めないため別枠）。
+// paywall_hit=未購読が利益商品で課金壁に到達(/pricing誘導)、checkout_start=申込ボタン押下、subscribed=課金成立(Webhook)。
+export const BILLING_EVENTS = ["paywall_hit", "checkout_start", "subscribed"] as const;
+export type BillingEvent = (typeof BILLING_EVENTS)[number];
+export const BILLING_LABELS: Record<BillingEvent, string> = {
+  paywall_hit: "課金壁に到達（未購読）",
+  checkout_start: "申し込みを開始",
+  subscribed: "購読成立（課金）",
+};
+
+// /api/track と recordFunnelEvent が受け付けるイベントの allowlist（線形ファネル＋登録＋収益）。
+export const TRACKED_EVENTS: readonly string[] = [...FUNNEL_EVENTS, ...SIGNUP_EVENTS, ...BILLING_EVENTS];
 
 // 集計キーの有効期間（100 日）。
 export const FUNNEL_TTL = 100 * 24 * 60 * 60;

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Check, Loader2, BadgeCheck } from "lucide-react";
 import { PLANS, PAID_PLAN_IDS, TRIAL_DAYS, planRank, type PlanId } from "../lib/plans";
+import { logEvent } from "../lib/analytics";
 
 // 料金ページの有料プランカード。現在のプランに応じて出し分ける：
 //  ・未購読(free) → Checkout で新規申込（「申し込む」/「無料ではじめる」）
@@ -18,6 +19,7 @@ export default function PlanCards({ currentPlan = "free" }: { currentPlan?: Plan
   const subscribe = async (planId: PlanId) => {
     setBusy(planId);
     setErr(null);
+    logEvent("checkout_start"); // 収益ファネル：申し込み開始（Stripe Checkoutへ）
     try {
       const r = await fetch("/api/billing/checkout", {
         method: "POST",

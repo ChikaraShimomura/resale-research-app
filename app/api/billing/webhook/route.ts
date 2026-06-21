@@ -2,6 +2,7 @@
 // 署名(STRIPE_WEBHOOK_SECRET)で正当性を検証＝外部POSTだが各自トークンで確認するため middleware の同一オリジン検査からは除外する。
 import { verifyStripeEvent } from "../../../lib/stripe";
 import { setBillingState, emailForCustomer, planForPriceId, type BillingState } from "../../../lib/billing";
+import { recordFunnelEvent } from "../../../lib/funnelServer";
 import type { PlanId } from "../../../lib/plans";
 
 export const runtime = "nodejs";
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
         };
         await setBillingState(email, state);
       }
+      await recordFunnelEvent("subscribed"); // 収益ファネル：課金成立を計上（チェックアウト完了＝新規購読）
     } else if (type === "customer.subscription.created" || type === "customer.subscription.updated") {
       await applySubscription(obj);
     } else if (type === "customer.subscription.deleted") {
