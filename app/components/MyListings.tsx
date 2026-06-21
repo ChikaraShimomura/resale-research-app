@@ -69,6 +69,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const [relistBusy, setRelistBusy] = useState<string | null>(null); // 再出品の商品データ取得中
   const [editDeal, setEditDeal] = useState<LiveDeal | null>(null); // アプリ内編集（価格・数量）モーダルで開く出品
   const [livenessStale, setLivenessStale] = useState(false); // 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている
+  const [planInfo, setPlanInfo] = useState<{ planName: string; limit: number | null; liveCount: number } | null>(null); // プラン上限ナッジ用
 
   // 「再出品」：現行カタログ/アーカイブから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
   const relist = async (productId: string) => {
@@ -86,7 +87,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const load = () =>
     fetch("/api/ebay/deals", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); })
+      .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); setPlanInfo(j.ok ? (j.planInfo ?? null) : null); })
       .catch(() => { setLive([]); setStopped([]); setSold([]); });
   useEffect(() => { load(); }, []);
   // 売切検知ワーカー(住宅IP)の鮮度を確認。停止中(stale)なら在庫チェックが遅れている＝降格表示する。
@@ -151,6 +152,27 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
             ⚠️ 在庫の自動チェックが一時停止中です。仕入れ元（楽天）の売り切れ検知が遅れる場合があります。
             <span className="font-normal text-amber-700/80">出品中の商品は、念のため楽天側の在庫もご確認ください。</span>
           </p>
+        </div>
+      )}
+
+      {/* プラン上限ナッジ：同時出品が上限の8割以上で表示。到達なら強め＋アップグレード導線。 */}
+      {show.includes("live") && planInfo?.limit != null && planInfo.liveCount / planInfo.limit >= 0.8 && (
+        <div className={`rounded-xl border px-4 py-3 ${planInfo.liveCount >= planInfo.limit ? "border-amber-300 bg-amber-50" : "border-[#A98B5C]/30 bg-[#A98B5C]/5"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-bold text-gray-800">
+                同時出品 {planInfo.liveCount} / {planInfo.limit}件（{planInfo.planName}）
+              </p>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                {planInfo.liveCount >= planInfo.limit
+                  ? "上限に達しています。もっと出すにはアップグレードを。"
+                  : "上限が近づいています。"}
+              </p>
+            </div>
+            <a href="/pricing" className="shrink-0 inline-flex items-center h-9 px-3 rounded-lg bg-[#2D323B] text-white text-[12px] font-bold active:bg-[#1A1D23]">
+              アップグレード
+            </a>
+          </div>
         </div>
       )}
 

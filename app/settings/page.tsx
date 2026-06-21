@@ -8,6 +8,8 @@ import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
 import PortalButton from "../components/PortalButton";
 import { getPlan } from "../lib/auth/plan";
+import { getActorId } from "../lib/auth/actor";
+import { listDealsForUser } from "../lib/ebay/stats";
 import { PLANS, PAYWALL_ENABLED } from "../lib/plans";
 
 export const metadata: Metadata = {
@@ -24,6 +26,18 @@ export default async function SettingsPage({
   const plan = await getPlan();
   const isAdminUser = plan === "admin";
   const isPaid = plan === "amateur" || plan === "veteran" || plan === "pro";
+  // 使用量メーター（同時出品数 / 上限）。購読者のみ・eBay未連携なら0。
+  const limit = PLANS[plan].listingLimit;
+  let liveCount = 0;
+  if (PAYWALL_ENABLED && isPaid) {
+    try {
+      const actor = await getActorId();
+      if (actor) liveCount = (await listDealsForUser(actor)).live.length;
+    } catch {
+      /* 取得失敗は0扱い（メーターは控えめに） */
+    }
+  }
+  const nearLimit = Number.isFinite(limit) && limit > 0 && liveCount / limit >= 0.8;
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
@@ -51,11 +65,39 @@ export default async function SettingsPage({
             <p className="text-[13px] text-gray-600 mb-3">
               現在のプラン：<b className="text-[#2D323B]">{PLANS[plan].name}</b>
             </p>
+
+            {/* 使用量メーター（同時出品 X / 上限）。上限が近い/到達ならアップグレードを促す。 */}
+            {PAYWALL_ENABLED && isPaid && Number.isFinite(limit) && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between text-[12px] text-gray-600 mb-1">
+                  <span>同時出品</span>
+                  <span className="tabular-nums font-bold text-gray-800">{liveCount} / {limit}件</span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full ${liveCount >= limit ? "bg-amber-500" : "bg-[#A98B5C]"}`}
+                    style={{ width: `${Math.min(100, Math.round((liveCount / limit) * 100))}%` }}
+                  />
+                </div>
+                {liveCount >= limit ? (
+                  <p className="text-[11px] text-amber-700 mt-1.5 font-bold">上限に達しています。アップグレードでもっと出品できます。</p>
+                ) : nearLimit ? (
+                  <p className="text-[11px] text-amber-600 mt-1.5">上限が近づいています。</p>
+                ) : null}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               {PAYWALL_ENABLED && !isPaid && plan !== "master" && !isAdminUser && (
                 <Link href="/pricing"
                   className="inline-flex items-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
                   プランを見る
+                </Link>
+              )}
+              {PAYWALL_ENABLED && isPaid && plan !== "pro" && (
+                <Link href="/pricing"
+                  className="inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+                  アップグレード
                 </Link>
               )}
               {PAYWALL_ENABLED && isPaid && <PortalButton />}

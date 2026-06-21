@@ -31,6 +31,12 @@ export const PLANS: Record<PlanId, Plan> = {
 // 料金ページに並べる有料プラン（表示順）。
 export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
 
+// プランの序列（アップグレード/ダウングレード判定用）。free<ライト<スタンダード<プロ。身内/管理者は無制限=最上位扱い。
+const PLAN_RANK: Record<PlanId, number> = { free: 0, amateur: 1, veteran: 2, pro: 3, master: 9, admin: 9 };
+export function planRank(id: PlanId): number {
+  return PLAN_RANK[id] ?? 0;
+}
+
 // ライト(amateur)の無料トライアル日数（最初の30日＝約1ヶ月）。スタンダード/プロ はトライアルなし。
 export const TRIAL_DAYS = 30;
 export function trialDaysFor(plan: PlanId): number {

@@ -1,6 +1,8 @@
 import { kv } from "@vercel/kv";
 import { getActorId } from "../../../lib/auth/actor";
 import { listDealsForUser, deleteDealsWithSku, recordSold, USD_JPY } from "../../../lib/ebay/stats";
+import { getPlan, isUnlimited } from "../../../lib/auth/plan";
+import { PLANS, PAYWALL_ENABLED } from "../../../lib/plans";
 
 // マイページ「出品中の商品」の一覧と手動調整（出品をやめた／実は売れていた）。
 // 端末(アクター)単位の KV ハッシュ ebay_deals を読み書きする。eBay は叩かない。
@@ -15,7 +17,16 @@ export async function GET() {
   const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, live: [], stopped: [], sold: [] });
   const { live, stopped, sold } = await listDealsForUser(actor);
-  return Response.json({ ok: true, live, stopped, sold }, { headers: { "Cache-Control": "private, no-store" } });
+  // プラン上限情報（出品管理画面の上限ナッジ用）。PAYWALL有効＆無制限でない時だけ limit を返す。
+  const plan = await getPlan();
+  const limit = PLANS[plan].listingLimit;
+  const planInfo = {
+    plan,
+    planName: PLANS[plan].name,
+    limit: PAYWALL_ENABLED && !isUnlimited(plan) && Number.isFinite(limit) ? limit : null,
+    liveCount: live.length,
+  };
+  return Response.json({ ok: true, live, stopped, sold, planInfo }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 // POST: { action: "remove" | "sold", productId, soldJpy? }

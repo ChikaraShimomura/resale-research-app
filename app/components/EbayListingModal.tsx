@@ -7,7 +7,7 @@ import { formatJpy } from "../lib/utils";
 import { track, logEvent } from "../lib/analytics";
 import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
-import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock } from "lucide-react";
+import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 
@@ -83,9 +83,10 @@ interface PublishResult {
   connected?: boolean; // false=連携切れ（再連携が必要）
   errorKind?: "known" | "unexpected"; // known=要因が特定できた／unexpected=予期せぬエラー（報告ボタンを出す）
   errorDetail?: string; // 生のeBayエラー（ユーザーには見せず、開発者報告に同梱）
+  planLimitReached?: boolean; // 同時出品数がプラン上限に到達（アップグレード誘導画面を出す）
 }
 
-type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error";
+type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error" | "limit";
 
 // 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
 const FAST_DISCOUNT = 0.08;
@@ -280,6 +281,7 @@ export default function EbayListingModal({
       finishOk(res);
       return;
     }
+    if (res.planLimitReached) { setResult(res); setPhase("limit"); return; } // 上限到達→アップグレード誘導
     setResult(res);
     if (res.needsSellerRegistration || res.pendingVerification || res.accountUnusable) setPhase("notready");
     else {
@@ -326,6 +328,7 @@ export default function EbayListingModal({
       return;
     }
     if (res.ok) finishOk(res);
+    else if (res.planLimitReached) { setResult(res); setPhase("limit"); } // 上限到達→アップグレード誘導
     else {
       setConfirmErr(true);
       setCooldown(40); // 失敗後は数十秒待ってから再試行（メール到着前の連打を抑止）
@@ -1098,6 +1101,28 @@ export default function EbayListingModal({
                 )}
                 <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
               </div>
+            </div>
+          )}
+
+          {phase === "limit" && (
+            <div className="py-6 text-center">
+              <Crown size={36} className="mx-auto mb-3 text-[#A98B5C]" />
+              <p className="text-sm font-bold text-gray-800 mb-2">出品の上限に達しました</p>
+              <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
+                {result?.error || "現在のプランの同時出品上限に達しました。"}
+              </p>
+              <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
+                上のプランにすると、もっと多く同時に出品できます（スタンダード50件／プロ100件）。
+              </p>
+              <a
+                href="/pricing"
+                className="flex items-center justify-center gap-1.5 w-full h-12 bg-[#2D323B] text-white rounded-xl text-sm font-black active:bg-[#1A1D23] mb-2"
+              >
+                <Crown size={16} /> プランをアップグレード →
+              </a>
+              <button onClick={onClose} className="w-full h-11 bg-gray-100 rounded-xl text-sm font-bold text-gray-600">
+                閉じる
+              </button>
             </div>
           )}
 

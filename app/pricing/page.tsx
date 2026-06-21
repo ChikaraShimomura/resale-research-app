@@ -4,6 +4,7 @@ import BottomNav from "../components/BottomNav";
 import PlanCards from "../components/PlanCards";
 import { COCONALA_URL, COCONALA_IS_AD } from "../lib/coconala";
 import { PAYWALL_ENABLED } from "../lib/plans";
+import { getPlan } from "../lib/auth/plan";
 
 // 料金ページ。PAYWALL_ENABLED が立つまでは「現在すべて無料」を明示して課金不安を解消する。
 // 立ったら有料プラン（ライト/スタンダード/プロ）の申込カードを出す。
@@ -16,7 +17,9 @@ export const metadata = {
 // 後からenvを変えても反映されない（＝再ビルド必須）。動的化して env を切り替えたら即反映されるようにする。
 export const dynamic = "force-dynamic";
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // ログイン購読者には現在のプランを反映して「ご利用中／アップグレード」を出し分ける。
+  const currentPlan = PAYWALL_ENABLED ? await getPlan() : "free";
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-[#2D323B] px-3 py-3 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
@@ -38,7 +41,7 @@ export default function PricingPage() {
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
               使う量に合わせて選べます。<br />まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
             </p>
-            <PlanCards />
+            <PlanCards currentPlan={currentPlan} />
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-8 text-center">
