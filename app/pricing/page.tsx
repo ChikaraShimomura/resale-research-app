@@ -12,6 +12,10 @@ export const metadata = {
   alternates: { canonical: "/pricing" },
 };
 
+// PAYWALL_ENABLED(サーバーenv)を「実行時」に評価する。静的生成だとビルド時のenvが焼き付き、
+// 後からenvを変えても反映されない（＝再ビルド必須）。動的化して env を切り替えたら即反映されるようにする。
+export const dynamic = "force-dynamic";
+
 export default function PricingPage() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
