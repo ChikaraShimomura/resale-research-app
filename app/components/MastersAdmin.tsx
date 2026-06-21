@@ -62,6 +62,11 @@ export default function MastersAdmin() {
     return q ? users.filter((u) => u.email.includes(q)) : users;
   }, [users, search]);
 
+  // 表示は最大10件（出しすぎ防止）。検索は全件対象なので、超過分は絞り込みで到達できる。
+  const LIST_LIMIT = 10;
+  const shown = filtered.slice(0, LIST_LIMIT);
+  const hiddenCount = filtered.length - shown.length;
+
   const masters = users.filter((u) => u.isMaster); // env固定＋KV管理（登録済みの身内）
 
   return (
@@ -153,8 +158,8 @@ export default function MastersAdmin() {
         ) : filtered.length === 0 ? (
           <p className="text-[11px] text-gray-400">{users.length === 0 ? "登録ユーザーがいません。" : "該当するユーザーがいません。"}</p>
         ) : (
-          <ul className="space-y-1.5 max-h-80 overflow-y-auto">
-            {filtered.map((u) => (
+          <ul className="space-y-1.5">
+            {shown.map((u) => (
               <li key={u.email} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] text-gray-800 break-all">{u.email}</p>
@@ -182,6 +187,9 @@ export default function MastersAdmin() {
               </li>
             ))}
           </ul>
+        )}
+        {hiddenCount > 0 && (
+          <p className="text-[11px] text-gray-400 mt-2">他 {hiddenCount} 件。検索で絞り込めます。</p>
         )}
       </div>
     </div>
