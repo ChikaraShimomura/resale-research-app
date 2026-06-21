@@ -560,6 +560,13 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
   // 公開できない時、下書き(在庫+オファー)は保存済み。状態別にやさしく案内する。
+  // ⓪ 出品上限(件数/金額)に到達。「制限中(accountUnusable)」やセラー登録未完と混同しないよう"先に"判定し、
+  //    生エラーを温存して route 側の friendlyEbayError で「上限の引き上げ」を案内する（notready扱いにしない）。
+  const sellingLimit =
+    !pub.ok &&
+    /selling limit|monthly selling limit|number of items you can list|items you can list|maximum number of items you|exceed.*selling|reached your (selling|listing)|amount you can sell|value you can sell|21919303|21916920|21919508/i.test(
+      pub.error ?? ""
+    );
   // ① Payoneerの本人確認(KYC)待ち＝登録済みだが審査中。eBayの長い定型HTMLはそのまま出さない。
   const pendingVerify =
     !pub.ok &&
@@ -570,6 +577,7 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   const needsReg =
     !pub.ok &&
     !pendingVerify &&
+    !sellingLimit &&
     /SELLING_PRIVILEGE_REQUIRED|seller'?s account|create a seller|need .*seller account|register to sell/i.test(pub.error ?? "");
   // ③ アカウントが出品できる状態にない（制限/一時停止/出品権限の停止 等）。bug ではないので
   //    「開発者に報告」ではなく、利用者向けの落ち着いた注意書きへ回す。
@@ -577,6 +585,7 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
     !pub.ok &&
     !pendingVerify &&
     !needsReg &&
+    !sellingLimit &&
     /suspended|restricted|account.*(hold|holds|blocked|disabled|not eligible|ineligible|limited|inactive)|not (allowed|permitted) to (list|sell)|cannot (list|sell)|selling.*(restricted|blocked|limited|not allowed)/i.test(
       pub.error ?? ""
     );

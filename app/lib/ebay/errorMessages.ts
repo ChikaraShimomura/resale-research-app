@@ -13,7 +13,24 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
   // eBayがJSON body無しで失敗すると error は "HTTP 401" 等になる。status未渡しでもメッセージからコードを拾う。
   const code = status ?? (Number((s.match(/\bhttp\s*(\d{3})\b/) || [])[1]) || undefined);
 
-  if (code === 429 || has("rate limit", "too many", "call limit", "exceeded the number"))
+  // eBayアカウントの出品上限（出品できる「件数」または「合計金額」の上限）に到達。
+  // 新規/実績の浅い出品者にeBayが課す制限。レート制限(下)より先に判定する（"exceeded the number" 等の紛らわしい文面対策）。
+  if (has(
+    "selling limit", "selling limits", "monthly selling limit", "account based selling limit",
+    "limit for the number of items", "number of items you can list", "items you can list",
+    "maximum number of items you", "exceed your selling", "exceeded your selling",
+    "reached your selling", "you've reached your limit", "amount you can sell", "value you can sell",
+    "21919303", "21916920", "21919508",
+  ))
+    return {
+      message:
+        "eBayアカウントの出品上限（出品できる件数、または合計金額の上限）に達しています。これは新しい・実績の浅い出品者にeBayが設定している制限です。" +
+        "eBayの「Seller Hub（マイeBay → 販売）」から上限の引き上げをリクエストできます（販売実績を積むと自動で上がることもあります）。" +
+        "上限が上がるまでは、出品する件数や価格を抑えてお試しください。",
+      known: true,
+    };
+
+  if (code === 429 || has("rate limit", "too many", "call limit", "exceeded the number of calls"))
     return { message: "eBay側が混み合っています。少し時間をおいて、もう一度お試しください。", known: true };
 
   if (code === 401 || code === 403 || has("invalid_grant", "unauthorized", "not authorized", "access denied", "invalid token", "token expired"))
