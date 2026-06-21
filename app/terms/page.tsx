@@ -121,7 +121,7 @@ export default function TermsPage() {
             <p>本規約は日本法に準拠します。本サービスに関して紛争が生じた場合は、東京地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
           </Section>
 
-          <p className="mt-7 text-[12px] text-gray-400">制定日：2026年6月18日 ／ 運営者：輸出ラボ（お問い合わせ：support@yushutsu-fukugyo.com）／ 事業者の名称・住所等は有料サービス開始時に「特定商取引法に基づく表記」で開示します。</p>
+          <p className="mt-7 text-[12px] text-gray-400">制定日：2026年6月18日 ／ お問い合わせ：support@yushutsu-fukugyo.com ／ 事業者情報・価格・解約等は<Link href="/legal" className="text-[#2D323B] underline">特定商取引法に基づく表記</Link>をご覧ください。</p>
         </article>
       </main>
 
