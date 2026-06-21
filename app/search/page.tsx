@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
@@ -16,6 +17,7 @@ import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
 export default function SearchPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -33,7 +35,8 @@ export default function SearchPage() {
     fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     fetchProducts()
-      .then(({ products, lastUpdated }) => {
+      .then(({ products, lastUpdated, needsPlan }) => {
+        if (needsPlan) { router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
         setProducts(products);
         setLastUpdated(lastUpdated);
       })

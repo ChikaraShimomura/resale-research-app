@@ -1,5 +1,5 @@
 "use client";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import SearchForm from "../components/SearchForm";
@@ -18,6 +18,7 @@ import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch, Search } from "lucide-react";
 
 function ResultsContent() {
+  const router = useRouter();
   const params = useSearchParams();
   const keyword = params.get("q") ?? "";
 
@@ -36,7 +37,8 @@ function ResultsContent() {
   useEffect(() => {
     setLoading(true);
     fetchProducts()
-      .then(({ products, lastUpdated }) => {
+      .then(({ products, lastUpdated, needsPlan }) => {
+        if (needsPlan) { router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
         setAllProducts(products);
         setLastUpdated(lastUpdated);
       })

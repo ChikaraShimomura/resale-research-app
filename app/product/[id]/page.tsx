@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { canViewCatalog } from "../../lib/auth/plan";
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { applyDisplayProfit } from "../../lib/displayProfit";
@@ -85,6 +87,9 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  // 未購読(free)・未ログインには利益商品を見せない＝/pricing へ誘導（PAYWALL OFF時は素通り）。
+  if (!(await canViewCatalog())) redirect("/pricing");
+
   const { id } = await params;
   const sp = await searchParams;
   const autoListing = sp.list === "1"; // 設定完了→出品画面へ戻ってきたら自動で開く
