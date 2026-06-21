@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, AlertTriangle } from "lucide-react";
 import ReportableError from "./ReportableError";
+import { SHIP_TIER_USD } from "../lib/ebay/landedCost"; // 既定送料のSSOT（landedCostと一致＝利益計算の前提と揃う）
 
 interface StepResult {
   step: string;
@@ -14,14 +15,19 @@ interface StepResult {
 // 送料の目安は日本郵便・米国宛の実費ベース：小=軽量エアパケット(〜500g≒¥2,040≒$14)／
 // 中=〜1.2kg(≒¥3,500≒$23)／大=2kgやEMS・高額品(補償付き・$25〜)。アプリが商品の重さ・価格で自動選択する。
 const SIZE_FIELDS = [
-  { key: "small", label: "小（〜500g・軽量）の送料（USD）", placeholder: "14" },
-  { key: "medium", label: "中（〜1.2kg）の送料（USD）", placeholder: "25" },
-  { key: "large", label: "大（2kgやEMS・高額品）の送料（USD）", placeholder: "45" },
+  { key: "small", label: "小（〜500g・軽量）の送料（USD）", placeholder: String(SHIP_TIER_USD.small) },
+  { key: "medium", label: "中（〜1.2kg）の送料（USD）", placeholder: String(SHIP_TIER_USD.medium) },
+  { key: "large", label: "大（2kgやEMS・高額品）の送料（USD）", placeholder: String(SHIP_TIER_USD.large) },
 ] as const;
 
 // 送料の既定値（USD）。送り先の国に関わらず同じ料金で、サイズで料金が変わる。ユーザー入力は任意で、最初からこの値が入る。
-// 既定は日本郵便・米国宛の実費に合わせた目安（赤字を出さない安全側）。
-const DEFAULTS: Record<string, string> = { handlingDays: "7", small: "14", medium: "25", large: "45" };
+// 既定は日本郵便・米国宛の実費に合わせた目安（赤字を出さない安全側）＝landedCostのSSOT(SHIP_TIER_USD)と一致。
+const DEFAULTS: Record<string, string> = {
+  handlingDays: "7",
+  small: String(SHIP_TIER_USD.small),
+  medium: String(SHIP_TIER_USD.medium),
+  large: String(SHIP_TIER_USD.large),
+};
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });

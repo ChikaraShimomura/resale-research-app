@@ -11,6 +11,13 @@ export const DUTY_FREE_USD = Number(process.env.LANDED_DUTY_FREE_USD ?? 100);
 export const EMS_VALUE_USD = Number(process.env.LANDED_EMS_VALUE_USD ?? 120);
 export const EBAY_FEE_RATE = Number(process.env.LANDED_EBAY_FEE_RATE ?? 0.1325);
 export const WEIGHT_SAFETY = Number(process.env.LANDED_WEIGHT_SAFETY) || 1.15;
+// 配送サイズ別の既定送料(USD・買い手への請求額)。EbayPolicySetup の既定とここをSSOTで一致させる(env上書き可)。
+// 利益計算が「請求でどこまで実費を相殺できるか」を見積もるのにも使う(定額では届かない不足を正直に引くため)。
+export const SHIP_TIER_USD = {
+  small: Number(process.env.LANDED_SHIP_SMALL_USD ?? 14),
+  medium: Number(process.env.LANDED_SHIP_MEDIUM_USD ?? 25),
+  large: Number(process.env.LANDED_SHIP_LARGE_USD ?? 45),
+};
 
 // カテゴリ別の概算重量(g・梱包込み・安全側に多め)。語彙は refresh.mjs の guessCategory / domesticShipping と揃える。
 export const WEIGHT_G = {
@@ -57,8 +64,29 @@ export function usDutyJpy(valueUsd) {
   return Math.round((valueUsd * US_DUTY_RATE + ZONOS_FEE_USD) * USD_JPY);
 }
 
-// 利益/損益分岐から差し引く合計(= 送料にかかるeBay手数料 + 米国関税)。category から重量を概算。
+// 推定重量＋申告価格から配送サイズ(small/medium/large)を選ぶ。出品ポリシー選択と利益計算で共用(SSOT)。
+// 高額(EMS必須)は重量に関わらず大に寄せる(補償付き=送料が高いため)。
+/** @returns {"small"|"medium"|"large"} */
+export function recommendShippingTier(weightG, valueUsd) {
+  if (valueUsd >= EMS_VALUE_USD) return "large"; // $120超=EMS(補償付き・高送料)前提で大サイズへ
+  if (weightG <= 500) return "small";   // エアパケット〜¥2,040
+  if (weightG <= 1200) return "medium"; // エアパケット〜¥3,500前後
+  return "large";                       // 〜2kg / EMS帯
+}
+
+// 定額送料(その品の最適サイズの請求額)では実費に届かない不足分(円・出品者負担)。0以上。
+// 定額3段では重量帯/EMSの実費を完全には捉えられない(特に大=EMS高額重量物)。この不足を利益/損益分岐から
+// 正直に差し引くことで、表示利益が実態とズレない(「請求=実費で相殺」前提の穴を塞ぐ)。
+export function shipShortfallJpy(weightG, valueUsd) {
+  const realJpy = intlShippingJpy(weightG, valueUsd).jpy;
+  const tier = recommendShippingTier(weightG, valueUsd);
+  const chargeJpy = (SHIP_TIER_USD[tier] || 0) * USD_JPY;
+  return Math.max(0, Math.round(realJpy - chargeJpy));
+}
+
+// 利益/損益分岐から差し引く合計(= 送料にかかるeBay手数料 + 米国関税 + 定額送料で届かない不足)。category から重量を概算。
 export function landedSubtractJpy(category, valueUsd) {
-  const ship = intlShippingJpy(estimateWeightG(category), valueUsd);
-  return Math.round(ship.jpy * EBAY_FEE_RATE) + usDutyJpy(valueUsd);
+  const weightG = estimateWeightG(category);
+  const ship = intlShippingJpy(weightG, valueUsd);
+  return Math.round(ship.jpy * EBAY_FEE_RATE) + usDutyJpy(valueUsd) + shipShortfallJpy(weightG, valueUsd);
 }

@@ -21,12 +21,14 @@ import {
   usDutyJpy,
   USD_JPY,
   EBAY_FEE_RATE,
-  EMS_VALUE_USD,
   DUTY_FREE_USD,
+  recommendShippingTier,
+  SHIP_TIER_USD,
+  shipShortfallJpy,
 } from "./landedCostCore.mjs";
 // 既存の呼び出し元（landedCost.ts から import している箇所）を維持するため再エクスポート。
-// USD_JPY も SSOT(landedCostCore・env駆動/既定155) からの再エクスポートに統一＝各所のハードコード155を廃止。
-export { estimateWeightG, intlShippingJpy, usDutyJpy, USD_JPY };
+// USD_JPY/サイズ別定額/推奨サイズも SSOT(landedCostCore) からの再エクスポートに統一＝各所のハードコードを廃止。
+export { estimateWeightG, intlShippingJpy, usDutyJpy, USD_JPY, recommendShippingTier, SHIP_TIER_USD };
 
 export type ShippingMethod = "airpacket" | "ems";
 
@@ -36,7 +38,8 @@ export interface LandedCost {
   shippingMethod: ShippingMethod;
   shippingFeeJpy: number; // 購入者が払う送料にかかるeBay手数料(=出品者負担。送料自体は購入者負担)
   dutyJpy: number; // 米国関税(DDP前払い・出品者立替)
-  subtractJpy: number; // 利益/損益分岐から差し引く合計(= 送料へのeBay手数料 + 関税)
+  shortfallJpy: number; // 定額送料(最適サイズの請求額)では実費に届かない不足(=出品者負担)。0なら請求が実費をカバー
+  subtractJpy: number; // 利益/損益分岐から差し引く合計(= 送料へのeBay手数料 + 関税 + 送料不足)
   needsDutyPrepay: boolean; // $100超＝Zonos前払い＋指定郵便局が必要
 }
 
@@ -45,15 +48,17 @@ export function landedCostForWeight(weightG: number, valueUsd: number): LandedCo
   const ship = intlShippingJpy(weightG, valueUsd);
   const dutyJpy = usDutyJpy(valueUsd);
   // 送料そのものは購入者負担(配送ポリシーで請求)。出品者がかぶるのは(1)その送料にかかるeBay手数料
-  // (2)$100超の関税(前払い)の2つだけ。重量帯別に送料を正しく設定すれば実費≒請求でほぼ相殺される前提。
+  // (2)$100超の関税(前払い) (3)定額送料では実費に届かない不足(shortfall)。重量帯別の定額が実費に届けば(3)は0。
   const shippingFeeJpy = Math.round(ship.jpy * EBAY_FEE_RATE);
+  const shortfallJpy = shipShortfallJpy(weightG, valueUsd);
   return {
     weightG,
     shippingJpy: ship.jpy,
     shippingMethod: ship.method,
     shippingFeeJpy,
     dutyJpy,
-    subtractJpy: shippingFeeJpy + dutyJpy,
+    shortfallJpy,
+    subtractJpy: shippingFeeJpy + dutyJpy + shortfallJpy,
     needsDutyPrepay: valueUsd > DUTY_FREE_USD,
   };
 }
@@ -64,15 +69,9 @@ export function landedCost(category: string | undefined, valueUsd: number): Land
 }
 
 // ====== 配送ポリシー(small/medium/large)の選択 ======
-// 既存3ポリシー構造を壊さず、選択を「重さ＋高額(EMS必須)」基準にする。
-// 高額品はEMS(補償)前提で送料が高いので重量に関わらず大サイズ、それ以外は重量帯で。
+// recommendShippingTier は SSOT(landedCostCore) に移動＝利益計算の送料不足見積りと同一ロジックを共用。
+// ここでは pickShippingPolicyId 用に型だけ保持し、関数本体は core からの再エクスポート(上)を使う。
 export type ShippingTier = "small" | "medium" | "large";
-export function recommendShippingTier(weightG: number, valueUsd: number): ShippingTier {
-  if (valueUsd >= EMS_VALUE_USD) return "large"; // $120超=EMS(補償付き・高送料)前提で大サイズ送料に寄せる
-  if (weightG <= 500) return "small"; // エアパケット〜¥2,040
-  if (weightG <= 1200) return "medium"; // エアパケット〜¥3,500前後
-  return "large"; // 〜2kg/EMS帯
-}
 
 // 配送ポリシー一覧(名前に small/medium/large を含む)から、tier に合うポリシーIDを選ぶ。
 // 該当が無ければ medium→先頭にフォールバック。

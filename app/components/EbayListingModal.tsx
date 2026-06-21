@@ -368,6 +368,12 @@ export default function EbayListingModal({
     data?.effBuyJpy != null && liveLanded
       ? Math.round((((data.effBuyJpy + 47 + liveLanded.subtractJpy) / (1 - 0.1325)) / USD_JPY) * 100) / 100
       : Number(data?.floorUsd) || 0;
+  // 最適サイズ（自動選択中の配送ポリシー）と、その定額請求が実費をカバーできているかの判定。
+  const recoChoice = data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId) || null;
+  const recoRealJpy = liveLanded?.shippingJpy ?? 0;
+  const recoChargeJpy = recoChoice ? Math.round(Number(recoChoice.costUsd) * USD_JPY) : 0;
+  const recoCovers = recoChargeJpy >= recoRealJpy;
+  const recoGapJpy = Math.max(0, recoRealJpy - recoChargeJpy);
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
@@ -763,27 +769,41 @@ export default function EbayListingModal({
                 <p className="text-[10px] text-gray-400 mt-0.5">在庫数。1個だけならそのままでOK（最大30）</p>
               </div>
 
-              {/* 送料サイズ */}
+              {/* 送料サイズ（アプリが重さ・価格から最適サイズを自動選択。実費カバーを明示） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）<OptBadge /><span className="ml-1 text-[9px] text-gray-400">自動選択</span></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）<OptBadge /><span className="ml-1 text-[9px] text-gray-400">最適サイズを自動選択</span></label>
                 {data.shipping.length > 0 ? (
-                  <select
-                    value={shippingId}
-                    onChange={(e) => setShippingId(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
-                  >
-                    {data.shipping.map((s) => (
-                      <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
-                        {shippingLabel(s.name)}（{shippingHint(s.name)}・${s.costUsd}）
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    {recoChoice && (
+                      <div className={`rounded-xl px-3 py-2 mb-1.5 text-[11px] leading-relaxed border ${recoCovers ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+                        📦 この商品の最適サイズ：<b className="text-gray-800">{shippingLabel(recoChoice.name)}</b>
+                        （{liveLanded?.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット"}・約{effWeightG}g）<br />
+                        設定送料 <b>${recoChoice.costUsd}</b> ／ 実費の目安 {formatJpy(recoRealJpy)}
+                        {recoCovers ? (
+                          <b className="text-emerald-700"> → ✅ カバーできています（赤字になりません）</b>
+                        ) : (
+                          <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心です）</b>
+                        )}
+                      </div>
+                    )}
+                    <select
+                      value={shippingId}
+                      onChange={(e) => setShippingId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
+                    >
+                      {data.shipping.map((s) => (
+                        <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
+                          {shippingLabel(s.name)}（{shippingHint(s.name)}・${s.costUsd}）{s.fulfillmentPolicyId === data.recommendedShippingId ? "（おすすめ）" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 ) : (
                   <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
                     配送ポリシーが見つかりません。設定で「発送設定」を完了してください。
                   </p>
                 )}
-                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担（国際発送・一律）です</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担。重さ・価格から最適サイズを自動で選んでいます（変更も可）。</p>
               </div>
 
               {/* 発送までの日数（handling time） */}
