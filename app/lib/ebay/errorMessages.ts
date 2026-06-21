@@ -15,11 +15,15 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
 
   // eBayアカウントの出品上限（出品できる「件数」または「合計金額」の上限）に到達。
   // 新規/実績の浅い出品者にeBayが課す制限。レート制限(下)より先に判定する（"exceeded the number" 等の紛らわしい文面対策）。
+  // ※実エラー実測(2026-06-19, 8件)＝「This listing would cause you to exceed the amount you can list. You can list up to $X more
+  //   in total sales this month ... selling-limits?id=4107」。"selling-limits"(URL・ハイフン)/"amount you can list"/"you can list up to"
+  //   /"total sales this month"/"request to list more" が確実な手掛かり。スペース有りの "selling limit" だけだと取りこぼす。
   if (has(
-    "selling limit", "selling limits", "monthly selling limit", "account based selling limit",
-    "limit for the number of items", "number of items you can list", "items you can list",
-    "maximum number of items you", "exceed your selling", "exceeded your selling",
-    "reached your selling", "you've reached your limit", "amount you can sell", "value you can sell",
+    "selling-limits", "selling limit", "selling limits", "monthly selling limit",
+    "amount you can list", "you can list up to", "total sales this month", "request to list more",
+    "number of items you can list", "items you can list", "maximum number of items you",
+    "exceed your selling", "exceeded your selling", "reached your selling", "you've reached your limit",
+    "amount you can sell", "value you can sell",
     "21919303", "21916920", "21919508",
   ))
     return {
