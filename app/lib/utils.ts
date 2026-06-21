@@ -13,10 +13,10 @@ export function safeHttpUrl(url: string | undefined | null): string {
   }
 }
 
-// 楽天商品ページへの「非アフィリエイトの直リンク」を返す。
-// 【方針】当サービスは転売支援のため、楽天アフィリエイト規約（せどり・転売促進サイトへのアフィリリンク掲載禁止）
-// に抵触しないよう、楽天アフィリエイトから撤退。リンクは成果報酬の付かない直リンクにする。
-// 既存データの source.url はアフィリ中継URL(hb.afl.rakuten.co.jp/.../?pc=<直URL>)なので、pc= の直URLを取り出す。
+// 楽天商品ページへの「非アフィリエイトの直リンク」を返す（アフィリ中継から pc= の直URLを取り出す）。
+// 仕入れボタンのアフィリは toRakutenAffiliateUrl で復活させたが、本関数は「報酬を付けたくない箇所」用に残す
+// （例：deal保存時の sourceUrl・直URLが要る処理）。
+// 既存データの source.url はアフィリ中継URL(hb.afl.rakuten.co.jp/.../?pc=<直URL>)。
 export function toRakutenProductUrl(productUrl: string): string {
   const safe = safeHttpUrl(productUrl);
   if (!safe) return "";
@@ -31,6 +31,28 @@ export function toRakutenProductUrl(productUrl: string): string {
   } catch {
     return safe;
   }
+}
+
+// 楽天「仕入れ」リンク用のアフィリエイトURL。⚠️ リスク承知の上でアフィリを復活（ユーザー判断・転売促進/自己購入で規約違反の可能性は承知）。
+// source.url は通常 hb.afl の中継URL（アフィリID埋め込み済み）なので、剥がさずそのまま使う＝成果報酬が乗る。
+// 直リンクしか無い場合は NEXT_PUBLIC_RAKUTEN_AFFILIATE_ID があれば中継URLで包む（未設定なら直リンク＝報酬なしのフォールバック）。
+export function toRakutenAffiliateUrl(productUrl: string): string {
+  const safe = safeHttpUrl(productUrl);
+  if (!safe) return "";
+  try {
+    const u = new URL(safe);
+    if (/(^|\.)rakuten\.co\.jp$/i.test(u.hostname) && (u.pathname.startsWith("/hgc") || u.pathname.startsWith("/hsc"))) {
+      return safe; // 既にアフィリ中継（報酬付き）→そのまま使う
+    }
+  } catch {
+    /* noop */
+  }
+  const direct = toRakutenProductUrl(safe);
+  const aid = process.env.NEXT_PUBLIC_RAKUTEN_AFFILIATE_ID;
+  if (aid && direct) {
+    return `https://hb.afl.rakuten.co.jp/hgc/${aid}/?pc=${encodeURIComponent(direct)}&m=${encodeURIComponent(direct)}`;
+  }
+  return direct;
 }
 
 export function cn(...inputs: ClassValue[]) {

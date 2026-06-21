@@ -1,5 +1,5 @@
 "use client";
-import { formatJpy, cn, toRakutenProductUrl, toEbayMarketUrl } from "../lib/utils";
+import { formatJpy, cn, toRakutenAffiliateUrl, toEbayMarketUrl } from "../lib/utils";
 import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck } from "lucide-react";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
@@ -50,7 +50,8 @@ function TrustBadge({ count }: { count: number }) {
 
 export default function ProductCard({ product, ebaySold = false, autoOpenListing = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean }) {
   const { source } = product;
-  const sourceUrl = toRakutenProductUrl(source.url);
+  // 仕入れボタン/画像リンクは楽天アフィリURL（source.url の hb.afl 中継をそのまま使う＝成果報酬付き）。⚠️リスク承知で復活。
+  const sourceUrl = toRakutenAffiliateUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
   // 「相場を確認」は、画像照合で一致した実物(matchedEbayUrl)を最優先＝必ず同一商品に着地。
