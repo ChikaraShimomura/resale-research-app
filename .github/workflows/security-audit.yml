@@ -28,7 +28,7 @@ jobs:
 
       - name: 脆弱性検出時にメール通知
         if: failure()
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@v17
         with:
           server_address: smtp.resend.com
           server_port: 465
