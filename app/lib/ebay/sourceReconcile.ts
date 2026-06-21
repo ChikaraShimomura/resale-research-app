@@ -59,7 +59,19 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
     if (!reason) continue; // 検知フラグが立っているものだけ
     const sku = d.sku ?? skuForProduct(productId);
     const r = await withdrawListingForSku(token, sku); // 冪等(未公開でもok)
-    if (!r.ok) continue; // 失敗は次回リトライ（フラグは残る）
+    if (!r.ok) {
+      // 取り下げ失敗＝eBayにゾンビ出品が残るリスク（楽天売切なのにeBay売出中＝欠品販売に直結）。
+      // 無音でリトライし続けず、失敗回数を deal に記録。続くようなら MyListings が手動対応を促す。
+      try {
+        const fails = (Number(d.stopFailedCount) || 0) + 1;
+        await kv.hset(`ebay_deals:${actor}`, {
+          [productId]: { ...d, stopFailedCount: fails, stopFailedAt: new Date().toISOString() },
+        });
+      } catch {
+        /* noop */
+      }
+      continue;
+    }
     // sku未保存の旧deal×自己修復SKU(rr-{id}-{乱数})だと基本SKUでオファーが当たらず ended=false(未検出)になり得る。
     // その場合「本当に取り下げた確証なし」なので停止扱い/recapにせず次回送り（誤報告＝実出品が残るのを防ぐ）。
     if (!r.ended && !d.sku) continue;

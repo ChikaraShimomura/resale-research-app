@@ -5,8 +5,12 @@ import JsonLd from "../components/JsonLd";
 import GuideVideo from "../components/GuideVideo";
 import RakutenPrepCard from "../components/RakutenPrepCard";
 import { ARTICLES } from "./articles";
+import { COCONALA_URL, COCONALA_IS_AD } from "../lib/coconala";
 
 export const metadata = {
+  title: "楽天×eBay輸出のはじめ方ガイド｜仕入れ→出品→発送→入金を5ステップで",
+  description:
+    "楽天で仕入れてeBayで売る副業の始め方を、初めてでも分かるように5ステップで解説。eBayセラー登録・出品・国際発送・利益の受け取り（Payoneer）まで、英語ほぼ不要・登録なしで読めます。",
   alternates: { canonical: "/guide" },
 };
 
@@ -243,9 +247,13 @@ export default function GuidePage() {
           <div className="flex flex-col gap-2">
             {ARTICLES.map((a) => (
               <Link key={a.slug} href={`/guide/${a.slug}`}
-                className="flex items-center gap-2 bg-white border border-[#A98B5C]/25 rounded-2xl px-4 py-3.5 shadow-sm active:bg-gray-50">
-                <span className="text-[13px] font-bold text-gray-800 leading-snug flex-1 min-w-0">{a.title}</span>
-                <ChevronRight size={16} className="text-gray-400 shrink-0" />
+                className="block bg-white border border-[#A98B5C]/25 rounded-2xl px-4 py-3.5 shadow-sm active:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-bold text-gray-800 leading-snug flex-1 min-w-0">{a.title}</span>
+                  <ChevronRight size={16} className="text-gray-400 shrink-0" />
+                </div>
+                {/* 冒頭(lead)を2行プレビュー＝どの記事が自分の悩みに効くか判り回遊が上がる(lead は静的・ビルド時完結) */}
+                <p className="text-[11px] text-gray-500 leading-relaxed mt-1 line-clamp-2">{a.lead}</p>
               </Link>
             ))}
           </div>
@@ -258,15 +266,17 @@ export default function GuidePage() {
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
               <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>楽天ポイント還元</span><span className="text-[#FF4466]">+ XXXpt</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
               <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
               <div className="flex justify-between"><span>米国関税（$100超）</span><span className="text-[#2D323B]">- 目安を差引</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-[#A98B5C]/35 text-sm">
-                <span>利益</span><span>= ¥X,XXX ＋ XXXpt</span>
+                <span>利益（現金）</span><span>= ¥X,XXX</span>
+              </div>
+              <div className="flex justify-between text-[#FF4466] font-bold">
+                <span>＋ 楽天ポイント（おまけ・別枠）</span><span>+ XXXポイント</span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 text-center mt-2.5">全商品この計算式で利益を算出しています（国際送料は購入者負担。$100超の米国関税と送料にかかるeBay手数料は出品者負担として差し引き済み）</p>
+            <p className="text-[11px] text-gray-400 text-center mt-2.5">利益は現金（円）で算出。楽天ポイントは利益に含めず別表示（おまけ）。国際送料は購入者負担、$100超の米国関税と送料にかかるeBay手数料は出品者負担として差し引き済み。</p>
           </div>
         </div>
 
@@ -293,6 +303,15 @@ export default function GuidePage() {
             利益商品を探す →
           </Link>
         </div>
+
+        {/* 個別サポート（任意・非楽天）。セラー登録などで詰まった時だけ他社に相談。 */}
+        <p className="text-center text-[12px] text-gray-500 leading-relaxed mt-4">
+          eBayのセラー登録などで詰まったら、{" "}
+          <a href={COCONALA_URL} target="_blank" rel="nofollow sponsored noopener noreferrer" className="font-bold text-[#2D323B] underline underline-offset-2">
+            ココナラで個別サポート{COCONALA_IS_AD ? "（広告）" : ""}
+          </a>
+          {" "}も使えます（ツールは無料のまま）。
+        </p>
       </main>
 
       <BottomNav />

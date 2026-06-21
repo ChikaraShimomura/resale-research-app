@@ -44,6 +44,8 @@ export interface Deal {
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
   sourceCheckedAt?: string; // 仕入れ元の最終確認日時(ISO)
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の現在価格が出品時原価を閾値以上上回った時に立つ（checkListings cron）
+  stopFailedCount?: number; // 自動取り下げ(reconcileActorStops)の連続失敗回数。一定超で「手動でeBayから取り下げを」とUI表示
+  stopFailedAt?: string; // 最後に自動取り下げが失敗した日時(ISO)
   soldUsd?: number; // eBay売値(USD)
   soldAt?: string;
 }
@@ -112,6 +114,7 @@ export interface LiveDeal {
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の値上がり警告（出品時原価を閾値超過）
+  stopFailedCount?: number; // 自動取り下げが繰り返し失敗（一定超で「手動でeBayから取り下げを」と表示）
 }
 export interface SoldDeal {
   id: string;
@@ -262,6 +265,7 @@ export async function listDealsForUser(
       listingId: d.listingId,
       sourceStatus: d.sourceStatus, // 楽天の仕入れ元が売り切れ/リンク切れなら⚠️
       priceDrift: d.priceDrift, // ④ 仕入れ元の値上がり警告
+      stopFailedCount: d.stopFailedCount, // 自動取り下げ連続失敗（手動対応を促す）
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 

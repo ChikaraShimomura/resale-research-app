@@ -317,6 +317,8 @@ async function main() {
         if (!DRY) {
           const next = { ...fresh, sourceCheckedAt: new Date().toISOString(), sourceCheckedBy: "page" };
           delete next.sourceStatus; // 実ページが在庫ありと言うならフラグ解除
+          delete next.stopFailedCount; // 在庫復活＝自動取り下げ対象でなくなるので失敗カウントもクリア
+          delete next.stopFailedAt;
           await kvHset(key, field, next);
         }
         cleared++;

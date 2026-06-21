@@ -123,13 +123,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           )}
         </article>
 
-        {/* CTA */}
+        {/* CTA（記事経由の登録は from=article でファネルに帰属＝記事SEOの効果を週次で測れる） */}
         <div className="mt-5 grid grid-cols-1 gap-2">
           <Link href="/ranking" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
             🔥 いま稼げる利益商品ランキングを見る <ArrowRight size={16} />
           </Link>
-          <Link href="/search" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
-            利益商品をさがす
+          <Link href="/register?from=article" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
+            登録して利益商品を見る
           </Link>
         </div>
 

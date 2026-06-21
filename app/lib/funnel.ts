@@ -42,6 +42,7 @@ export const SIGNUP_EVENTS = [
   "signup_from_sold",
   "signup_from_connect",
   "signup_from_filter",
+  "signup_from_article",
 ] as const;
 export type SignupEvent = (typeof SIGNUP_EVENTS)[number];
 
@@ -52,6 +53,7 @@ export const SIGNUP_LABELS: Record<SignupEvent, string> = {
   signup_from_sold: "└ 売却ナッジ経由",
   signup_from_connect: "└ 連携ナッジ経由",
   signup_from_filter: "└ 並び替え/絞り込み経由",
+  signup_from_article: "└ ガイド記事経由",
 };
 
 // /api/track と recordFunnelEvent が受け付けるイベントの allowlist（線形ファネル＋登録）。

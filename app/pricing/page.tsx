@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, ExternalLink } from "lucide-react";
 import BottomNav from "../components/BottomNav";
+import { COCONALA_URL, COCONALA_IS_AD } from "../lib/coconala";
 
 // 料金ページ。有料機能は未実装のため「現在すべて無料」を明示し、課金不安を解消する。
 // （以前は /search への redirect だったが、無料であることを伝える機会を回収する）
@@ -41,6 +42,22 @@ export default function PricingPage() {
           >
             利益商品を見る →
           </Link>
+        </div>
+
+        {/* 個別サポート（任意・非楽天の唯一の収益導線）。ツールは無料のまま、つまずいた時だけ他社に相談。 */}
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
+          <p className="text-sm font-black text-gray-800 mb-1.5">つまずいたら個別サポート（任意）</p>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
+            eBayのセラー登録や出品でどうしても進めない時は、<b className="text-gray-700">ココナラ（他社サービス）</b>でベテランに相談できます。ツール自体は無料のまま、サポートが欲しい時だけ。
+          </p>
+          <a
+            href={COCONALA_URL}
+            target="_blank"
+            rel="nofollow sponsored noopener noreferrer"
+            className="inline-flex items-center gap-1.5 bg-white border border-[#2D323B]/30 text-[#2D323B] font-bold px-6 py-3 rounded-xl text-sm active:bg-gray-50"
+          >
+            ココナラでサポートを探す{COCONALA_IS_AD ? "（広告）" : ""} <ExternalLink size={14} />
+          </a>
         </div>
       </main>
 

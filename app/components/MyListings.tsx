@@ -6,7 +6,7 @@ import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string } }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -67,6 +67,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const [relistProduct, setRelistProduct] = useState<ProfitProduct | null>(null); // 再出品モーダルで開く商品
   const [relistBusy, setRelistBusy] = useState<string | null>(null); // 再出品の商品データ取得中
   const [editDeal, setEditDeal] = useState<LiveDeal | null>(null); // アプリ内編集（価格・数量）モーダルで開く出品
+  const [livenessStale, setLivenessStale] = useState(false); // 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている
 
   // 「再出品」：現行カタログ/アーカイブから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
   const relist = async (productId: string) => {
@@ -87,6 +88,13 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); })
       .catch(() => { setLive([]); setStopped([]); setSold([]); });
   useEffect(() => { load(); }, []);
+  // 売切検知ワーカー(住宅IP)の鮮度を確認。停止中(stale)なら在庫チェックが遅れている＝降格表示する。
+  useEffect(() => {
+    fetch("/api/ops/liveness", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setLivenessStale(j?.fresh === false))
+      .catch(() => {});
+  }, []);
 
   // 「出品停止」：eBayの出品(オファー)を取り下げて終了し、出品停止中一覧へ移す。
   const stopListing = async (productId: string) => {
@@ -135,6 +143,16 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
 
   return (
     <div className="space-y-3">
+      {/* 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている時の降格バナー（出品中がある時だけ） */}
+      {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
+          <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
+            ⚠️ 在庫の自動チェックが一時停止中です。仕入れ元（楽天）の売り切れ検知が遅れる場合があります。
+            <span className="font-normal text-amber-700/80">出品中の商品は、念のため楽天側の在庫もご確認ください。</span>
+          </p>
+        </div>
+      )}
+
       {/* 出品中の商品（0件でも表示） */}
       {show.includes("live") && (
       <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
@@ -188,6 +206,17 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           {!d.sourceStatus && d.priceDrift && (
                             <p className="text-[10px] font-bold leading-tight mt-0.5 text-amber-600">
                               ⚠️ 仕入れ値が高騰（出品時+{Math.round(d.priceDrift.pct * 100)}%）赤字注意
+                            </p>
+                          )}
+                          {(d.stopFailedCount ?? 0) >= 3 && (
+                            <p className="text-[10px] font-bold leading-tight mt-0.5 text-red-600">
+                              ⚠️ 自動の出品停止に失敗しています。
+                              {d.listingId ? (
+                                <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="noopener noreferrer" className="underline">eBayで手動取り下げ</a>
+                              ) : (
+                                "eBayで手動取り下げ"
+                              )}
+                              を行ってください（欠品販売の防止）。
                             </p>
                           )}
                         </div>

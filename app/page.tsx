@@ -8,6 +8,8 @@ import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
 
 export const metadata = {
+  description:
+    "楽天で仕入れてeBayで海外に売る副業ツール「輸出ラボ」。利益が出る日本商品を無料でリサーチ、写真だけでほぼ自動のeBay出品まで。英語ほぼ不要・登録30秒。利益（現金）と楽天ポイントを分けて表示します。",
   alternates: { canonical: "/" },
 };
 
