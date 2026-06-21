@@ -3,7 +3,7 @@
 //
 // 権限は5種類（＋未購読の入口 free）:
 //  - free    : ログイン済み・未購読。閲覧のみ（自動出品0）＝集客の入口。
-//  - amateur : アマチュア ¥500/月。最初の2ヶ月（TRIAL_DAYS）無料。
+//  - amateur : アマチュア ¥500/月。最初の30日（TRIAL_DAYS）無料。
 //  - veteran : ベテラン   ¥2,000/月。
 //  - pro     : プロ       ¥3,000/月。
 //  - master  : 身内（管理者が管理画面で指定）。無料・無制限。
@@ -30,8 +30,8 @@ export const PLANS: Record<PlanId, Plan> = {
 // 料金ページに並べる有料プラン（表示順）。
 export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
 
-// アマチュアの無料トライアル日数（最初の2ヶ月）。veteran/pro はトライアルなし。
-export const TRIAL_DAYS = 60;
+// アマチュアの無料トライアル日数（最初の30日＝約1ヶ月）。veteran/pro はトライアルなし。
+export const TRIAL_DAYS = 30;
 export function trialDaysFor(plan: PlanId): number {
   return plan === "amateur" ? TRIAL_DAYS : 0;
 }

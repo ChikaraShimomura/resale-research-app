@@ -46,7 +46,7 @@ export default function PlanCards() {
                 <span className="text-[12px] text-gray-400">/月</span>
               </p>
               {trial && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">最初の{TRIAL_DAYS}日間（約2ヶ月）無料</p>
+                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">最初の{TRIAL_DAYS}日間（約1ヶ月）無料</p>
               )}
               <ul className="mt-3 space-y-1.5 text-[12px] text-gray-600 flex-1">
                 <li className="flex items-center gap-1.5">

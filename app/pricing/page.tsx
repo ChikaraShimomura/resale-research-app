@@ -32,7 +32,7 @@ export default function PricingPage() {
         {PAYWALL_ENABLED ? (
           <div className="mb-3">
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
-              使う量に合わせて選べます。<br />まずは<b className="text-gray-700">アマチュア（約2ヶ月無料）</b>から。
+              使う量に合わせて選べます。<br />まずは<b className="text-gray-700">アマチュア（約1ヶ月無料）</b>から。
             </p>
             <PlanCards />
           </div>
