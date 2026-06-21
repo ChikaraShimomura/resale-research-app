@@ -69,7 +69,7 @@ async function applySubscription(sub: Obj): Promise<void> {
     status: String(sub.status ?? "active"),
     customerId: sub.customer ? String(sub.customer) : undefined,
     subscriptionId: sub.id ? String(sub.id) : undefined,
-    currentPeriodEnd: typeof sub.current_period_end === "number" ? sub.current_period_end : undefined,
+    currentPeriodEnd: currentPeriodEndOf(sub),
     updatedAt: Math.floor(Date.now() / 1000),
   });
 }
@@ -87,4 +87,13 @@ function priceIdOf(sub: Obj): string | null {
   const items = (sub.items as Obj | undefined)?.data as Obj[] | undefined;
   const price = items?.[0]?.price as Obj | undefined;
   return price?.id ? String(price.id) : null;
+}
+
+// 期限(unix)。旧APIは subscription.current_period_end、新API(2025-03.basil〜)は
+// subscription.items.data[].current_period_end に移動したため両対応。表示用なので無ければ undefined。
+function currentPeriodEndOf(sub: Obj): number | undefined {
+  if (typeof sub.current_period_end === "number") return sub.current_period_end;
+  const items = (sub.items as Obj | undefined)?.data as Obj[] | undefined;
+  const cpe = items?.[0]?.current_period_end;
+  return typeof cpe === "number" ? cpe : undefined;
 }
