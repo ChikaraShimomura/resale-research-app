@@ -1,15 +1,17 @@
 name: Background Refresh (Rakuten + eBay + Claude Haiku)
 
 on:
-  # 2026-06-22 再開（ユーザー指示）: ランキング/カタログを定期更新するため週1回の自動実行を有効化。
-  #   Anthropic(Haiku/Sonnet)課金は発生するが、画像マッチは30日キャッシュ(img_match5:)＋checked_ids(恒久)で
-  #   「新規eBay売れ済みアイテムのみ」を処理するため、週1なら低コスト（1回あたりの上限は MAX_PROCESS）。
-  #   ⚠️ profitable_products のTTLは20日（refresh.mjs: 480h）。更新が20日以上途絶えるとカタログ=ランキングが
-  #      空になるため、週1更新はTTL切れ防止も兼ねる（7日 < 20日で安全マージンあり）。
-  #   一時停止したい時はこの schedule をコメントアウトするだけ（手動は workflow_dispatch で随時）。
+  # 2026-06-22 日次に変更（ユーザー指示）。月額の上限を「¥10,000未満」に収めるため1回の処理量を絞る:
+  #   費用は処理件数に比例（実測: 800件処理＝Haiku750+Sonnet253≈$5/回）。日次=月30回なので、
+  #   1回 ≲$2 に抑えれば月 ≲$60(≒¥9,000) で確実に¥1万を切る。→ 下の env で
+  #   MAX_PROCESS=200・PRICE_VERIFY_BUDGET=50・IMG_MATCH_SONNET_BUDGET=200 に下げ、1回≈$1.5〜2にキャップ。
+  #   画像マッチは30日キャッシュ(img_match5:)＋checked_ids(恒久)で新規分のみ処理＝定常はさらに安い。
+  #   未処理バックログ(約2,300件)は 200件/日 ≈ 12日で消化→以後は新規分だけ。
+  #   profitable_productsのTTLは20日なので日次更新ならTTL切れ(ランキング空)も当然防げる。
+  #   速く埋めたい時だけ workflow_dispatch で手動実行（必要なら一時的に MAX_PROCESS を上げる）。
   schedule:
-    - cron: '0 6 * * 0'   # 毎週日曜 06:00 UTC = 日曜 15:00 JST（週1）。頻度を上げたい時は 0 0 * * * (毎日) に変更
-  workflow_dispatch:          # 手動実行ボタン（今すぐ更新したい時・スケジュール外で回したい時）
+    - cron: '0 16 * * *'   # 毎日 16:00 UTC = 翌01:00 JST（低トラフィック帯）。コストを抑えたい時は週1 '0 6 * * 0' に戻す
+  workflow_dispatch:          # 手動実行ボタン（今すぐ更新・スポット増量したい時）
 
 jobs:
   refresh:
@@ -36,9 +38,9 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
           RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
-          IMG_MATCH_SONNET_BUDGET: '600'  # ②精度保護: Sonnet確認の予算(既定300)を引き上げ、予算切れでHaiku単独承認(フェイルオープン)に落ちるのを防ぐ
-          MAX_PROCESS: '800'  # steady値。残りpool＋新クエリを24hごとに少しずつ処理(1回あたりのコストを抑える)。急ぐ時だけ一時的に上げる
-          PRICE_VERIFY_BUDGET: '150'  # steady値。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
+          IMG_MATCH_SONNET_BUDGET: '200'  # 日次コスト上限用。MAX_PROCESS=200ならSonnet確認は通常~60件で頭打ち＝この200は事実上バインドせず精度は維持（保険の天井）
+          MAX_PROCESS: '200'  # 日次の費用キャップ（1回≈$1.5〜2／月≲¥9,000）。バックログは~12日で消化。速く埋めたい時だけ手動実行で一時的に上げる
+          PRICE_VERIFY_BUDGET: '50'  # 日次コスト上限用に150→50。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
         run: node scripts/refresh.mjs
 
       # 商品取得(refresh)の直後に透かし検知も実行(option A)。新商品の透かし入りを一覧から除外。
