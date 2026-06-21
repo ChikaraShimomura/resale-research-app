@@ -1,11 +1,15 @@
 name: Background Refresh (Rakuten + eBay + Claude Haiku)
 
 on:
-  # 🛑 コスト停止中（2026-06-17・ユーザー指示）: 自動実行(schedule)を一時停止。
-  #    Anthropic(Haiku/Sonnet)課金が発生するため。再開は下記 cron のコメントを外すだけ。
-  # schedule:
-  #   - cron: '0 0 * * *'   # 24時間ごと(利用者が少ない間。増えたら 0 */6 * * * に戻す)
-  workflow_dispatch:          # 手動実行ボタン（必要な時だけ手動でカタログ更新）
+  # 2026-06-22 再開（ユーザー指示）: ランキング/カタログを定期更新するため週1回の自動実行を有効化。
+  #   Anthropic(Haiku/Sonnet)課金は発生するが、画像マッチは30日キャッシュ(img_match5:)＋checked_ids(恒久)で
+  #   「新規eBay売れ済みアイテムのみ」を処理するため、週1なら低コスト（1回あたりの上限は MAX_PROCESS）。
+  #   ⚠️ profitable_products のTTLは20日（refresh.mjs: 480h）。更新が20日以上途絶えるとカタログ=ランキングが
+  #      空になるため、週1更新はTTL切れ防止も兼ねる（7日 < 20日で安全マージンあり）。
+  #   一時停止したい時はこの schedule をコメントアウトするだけ（手動は workflow_dispatch で随時）。
+  schedule:
+    - cron: '0 6 * * 0'   # 毎週日曜 06:00 UTC = 日曜 15:00 JST（週1）。頻度を上げたい時は 0 0 * * * (毎日) に変更
+  workflow_dispatch:          # 手動実行ボタン（今すぐ更新したい時・スケジュール外で回したい時）
 
 jobs:
   refresh:
