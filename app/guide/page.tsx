@@ -186,6 +186,27 @@ export default function GuidePage() {
           />
         </div>
 
+        {/* 手順の動画（eBay登録・出金）。ホームの「eBay登録・出金の動画も見る →」の着地。 */}
+        <div className="mb-6">
+          <SectionTitle>動画で手順を見る</SectionTitle>
+          <div className="flex flex-col gap-4">
+            <GuideVideo
+              title="eBayのセラー登録のしかた"
+              src="/videos/ebay-seller-guide.mp4"
+              poster="/videos/ebay-seller-guide-poster.jpg"
+              durationLabel="約2分"
+              note="※ 最初の難所＝eBayのセラー登録の流れを、画面つきで解説します。"
+            />
+            <GuideVideo
+              title="売上の受け取り（Payoneer出金）"
+              src="/videos/payoneer-withdraw-guide.mp4"
+              poster="/videos/payoneer-withdraw-guide-poster.jpg"
+              durationLabel="約1分"
+              note="※ eBayの売上をPayoneer経由で日本の銀行口座に出金する流れです。"
+            />
+          </div>
+        </div>
+
         {/* 始める前の準備（楽天経済圏でポイント＝利益を底上げ） */}
         <div className="mb-6">
           <SectionTitle>始める前の準備</SectionTitle>

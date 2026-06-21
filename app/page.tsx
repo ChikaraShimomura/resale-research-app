@@ -2,8 +2,7 @@ import Link from "next/link";
 import { Target, Languages, MapPin, TrendingUp, ShieldCheck, BookOpen } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
-import HowItWorksDemo from "./components/HowItWorksDemo";
-import RakutenPointChips from "./components/RakutenPointChips";
+import GuideVideo from "./components/GuideVideo";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
 import { META_DESC } from "./lib/marketing";
@@ -64,16 +63,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* 使い方デモ（動画風・自動再生／実際の画面で一気通貫を見せる。旧①②③の文章説明＝置き換え） */}
-      <HowItWorksDemo />
-
-      {/* このサイトで使う3つのサービス（仕入れ→販売→受け取り・信頼ブロック／押すと各ガイドへ） */}
-      <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
-        <TrustBadges withRakuten linked />
-      </section>
-
-
-      {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション */}
+      {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション（先頭＝まず不安を解く） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <div className="flex items-center gap-2 mb-1.5">
           <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
@@ -103,41 +93,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 仕入れ前の楽天SPU準備（ポイント還元を底上げ・小さく横並び） */}
-      <section className="max-w-2xl mx-auto px-4 pt-4">
-        <RakutenPointChips />
+      {/* はじめてガイド動画（全体像・ナレーション付き／いま作った1分動画） */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <GuideVideo
+          title="まずは動画で全体像（約1分）"
+          src="/videos/guide-overview.mp4"
+          poster="/videos/guide-overview-poster.jpg"
+          durationLabel="約1分"
+          note="※ 仕入れ→出品→発送→入金までの流れを、やさしい音声ナレーションつきでまとめています。"
+        />
+        <div className="mt-3 text-center">
+          <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
+            eBay登録・出金の動画も見る →
+          </Link>
+        </div>
       </section>
 
-      {/* 利益計算の説明 */}
-      <section className="max-w-2xl mx-auto px-4 pt-6 pb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
-          <h2 className="text-sm font-black text-gray-800">利益の計算方法</h2>
-        </div>
-        <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
-          <div className="flex justify-end mb-2">
-            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">例</span>
-          </div>
-          <div className="bg-[#F5F7FA] rounded-xl p-4 text-xs text-gray-600 space-y-2 font-mono mb-3">
-            <div className="flex justify-between"><span>eBayの想定売値</span><span className="text-[#0064D2]">+ ¥XX,XXX</span></div>
-            <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
-            <div className="flex justify-between"><span>国内送料（送料別は概算）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>eBay手数料（13.25%+¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
-            <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
-            <div className="flex justify-between"><span>米国関税（$100超）</span><span className="text-[#2D323B]">- 目安を差引</span></div>
-            <div className="flex justify-between font-black text-emerald-600 pt-2 border-t border-[#A98B5C]/35 text-sm">
-              <span>利益（現金）</span><span>= ¥X,XXX</span>
-            </div>
-            <div className="flex justify-between text-[#FF4466] font-bold">
-              <span>＋ 楽天ポイント（おまけ・別枠）</span><span>+ XXXポイント</span>
-            </div>
-          </div>
-          <p className="text-[11px] text-gray-400 text-center">利益は現金（円）で計算。楽天ポイントは利益に含めず別表示しています（あくまでおまけ）</p>
-        </div>
+      {/* このサイトで使う3つのサービス（仕入れ→販売→受け取り・信頼ブロック／押すと各ガイドへ） */}
+      <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
+        <TrustBadges withRakuten linked />
       </section>
 
       {/* CTA */}
-      <section className="max-w-2xl mx-auto px-4 pb-10 text-center">
+      <section className="max-w-2xl mx-auto px-4 pt-6 pb-10 text-center">
         <Link href={ctaHref}
           className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
           {PAYWALL_ENABLED ? "30日無料ではじめる →" : "登録して利益商品を探す →"}
