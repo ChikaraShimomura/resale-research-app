@@ -509,6 +509,10 @@ export async function createFlatIntlFulfillmentPolicy(
     marketplaceId: marketplace,
     categoryTypes: CATEGORY_TYPES,
     handlingTime: { value: handlingDays, unit: "DAY" },
+    // ⚠️ globalShipping は fulfillment policy の最上位プロパティ。国際発送オプションがあるのにこれが null だと
+    //    eBay が「Global shipping field is null #20403」でポリシー作成/更新を弾く（実害: 配送ポリシー保存が失敗）。
+    //    自前で国際発送する（INTERNATIONAL オプションを明示構成）ので eBay の Global Shipping Program は使わない＝false。
+    globalShipping: false,
     shippingOptions,
   };
   const post = await ebayPost(token, "/sell/account/v1/fulfillment_policy", body);
