@@ -44,7 +44,8 @@ const SANE_LO = Number(process.env.EBAY_SOLD_SANE_LO ?? 0.2); // 現相場×こ�
 const SANE_HI = Number(process.env.EBAY_SOLD_SANE_HI ?? 5);   // 現相場×これ超は破棄
 const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
 const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
-const DEBUG = process.env.EBAY_SOLD_DEBUG === "1"; // 先頭商品で実HTMLの中身を診断ダンプ
+const TEST_KW = process.env.EBAY_SOLD_TEST || ""; // 指定すると カタログでなく このキーワード1件だけ診断（パーサ検証用）
+const DEBUG = process.env.EBAY_SOLD_DEBUG === "1" || !!TEST_KW; // テスト時は自動でDEBUG
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -113,8 +114,9 @@ const isBlocked = (html) => /Pardon Our Interruption|Checking your browser|verif
 async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定"); process.exit(1); }
   console.log(`eBay sold worker: DRY=${DRY} MAX=${MAX} GAP=${GAP_MS}ms USD_JPY=${USD_JPY}`);
-  const catalog = (await kvGet("profitable_products")) || [];
+  const catalog = TEST_KW ? [{ id: "test", coreKeyword: TEST_KW, realAvgPrice: 0 }] : ((await kvGet("profitable_products")) || []);
   if (!Array.isArray(catalog) || !catalog.length) { console.log("カタログ空"); return; }
+  if (TEST_KW) console.log(`★テストモード: "${TEST_KW}"`);
 
   try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでない可能性"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
 
