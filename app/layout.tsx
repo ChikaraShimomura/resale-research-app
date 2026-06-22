@@ -35,7 +35,7 @@ const SITE_LD = {
       name: "輸出ラボ",
       url: SITE_URL,
       logo: `${SITE_URL}/icon.svg`,
-      description: "楽天で仕入れてeBayで売る、輸出転売の利益商品リサーチツール。",
+      description: "eBay輸出（個人輸出）の利益商品リサーチ＆出品ツール。",
     },
     {
       "@type": "WebSite",
@@ -67,24 +67,24 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "輸出ラボ｜楽天商品をeBayで高く売る",
+    default: "輸出ラボ｜eBay輸出の利益商品リサーチ",
     template: "%s | 輸出ラボ",
   },
   description: META_DESC,
-  keywords: ["輸出副業", "せどり", "eBay輸出", "楽天仕入れ", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
+  keywords: ["輸出副業", "せどり", "eBay輸出", "個人輸出", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     url: SITE_URL,
     siteName: "輸出ラボ",
-    title: "輸出ラボ｜楽天商品をeBayで高く売る",
-    description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
+    title: "輸出ラボ｜eBay輸出の利益商品リサーチ",
+    description: "eBay輸出で利益率が高い商品を自動でリストアップ。日本の人気商品を海外へ。",
     locale: "ja_JP",
   },
   twitter: {
     card: "summary_large_image",
-    title: "輸出ラボ｜楽天商品をeBayで高く売る",
-    description: "楽天で仕入れてeBayで売る！利益率が高い商品を自動でリストアップ。",
+    title: "輸出ラボ｜eBay輸出の利益商品リサーチ",
+    description: "eBay輸出で利益率が高い商品を自動でリストアップ。日本の人気商品を海外へ。",
   },
   verification: {
     google: "GGgOF1LGPqzP6qIa95QjVH1iaMw0HuFZUMZALrg5Lck",

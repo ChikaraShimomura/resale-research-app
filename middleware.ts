@@ -15,6 +15,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/legal" || pathname === "/faq" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
+  // SNS共有カード画像(OG/Twitter)はクローラ(Twitterbot/facebookexternalhit)が未ログインで取得する＝公開必須。
+  // ゲートすると /register(HTML)へ307され、X等でカード画像が一切出ない。ネスト経路(例: /ranking/opengraph-image)も許可。
+  if (pathname.endsWith("/opengraph-image") || pathname.endsWith("/twitter-image")) return true;
   // 集客の入口（マーケ/SEO）は未ログインでも見せる＝SEOインデックス＋X流入の着地先。
   // ランキングは「いま稼げる利益商品」のSEO/X流入フックとして公開を維持する。
   if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing") return true;

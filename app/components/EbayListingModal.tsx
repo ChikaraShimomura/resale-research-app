@@ -126,6 +126,7 @@ export default function EbayListingModal({
   const [priceUsd, setPriceUsd] = useState("");
   const [weightInput, setWeightInput] = useState(""); // 重さ(任意・g・梱包込み)。入力すると送料/損益分岐を再計算
   const [showWeight, setShowWeight] = useState(false); // 重さ入力欄は既定で隠し、押したら開く
+  const [acceptLoss, setAcceptLoss] = useState(false); // 損益分岐を下回る価格でも「承知の上で」確認した時だけ出品可（警告＋確認で続行）
   const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
@@ -371,6 +372,10 @@ export default function EbayListingModal({
     data?.effBuyJpy != null && liveLanded
       ? Math.round((((data.effBuyJpy + 47 + liveLanded.subtractJpy) / (1 - 0.1325)) / USD_JPY) * 100) / 100
       : Number(data?.floorUsd) || 0;
+  // 損益分岐(floor)未満の価格＝赤字の恐れ。出すには「承知の上で」確認チェックが要る（ハードブロックはせず警告＋確認で続行可）。
+  const belowFloor = floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd;
+  // 価格が floor 以上に戻ったら確認をリセット＝再び下回ったら必ず再チェックさせる（確認の使い回し防止）。
+  useEffect(() => { if (!belowFloor) setAcceptLoss(false); }, [belowFloor]);
   // 最適サイズ（自動選択中の配送ポリシー）と、その定額請求が実費をカバーできているかの判定。
   const recoChoice = data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId) || null;
   const recoRealJpy = liveLanded?.shippingJpy ?? 0;
@@ -729,10 +734,21 @@ export default function EbayListingModal({
                     </span>
                   </div>
                 )}
-                {floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd && (
-                  <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5 leading-relaxed">
-                    ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
-                  </p>
+                {belowFloor && (
+                  <div className="mt-1.5">
+                    <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
+                      ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
+                    </p>
+                    <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptLoss}
+                        onChange={(e) => setAcceptLoss(e.target.checked)}
+                        className="accent-[#2D323B] w-4 h-4 mt-0.5 shrink-0"
+                      />
+                      <span className="text-[11px] text-[#2D323B] leading-relaxed">赤字の可能性を承知の上で、このまま出品する</span>
+                    </label>
+                  </div>
                 )}
               </div>
 
@@ -912,7 +928,7 @@ export default function EbayListingModal({
               {/* 出品ボタン */}
               <button
                 onClick={publish}
-                disabled={!canPublish}
+                disabled={!canPublish || (belowFloor && !acceptLoss)}
                 className="w-full h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] disabled:opacity-40"
               >
                 この内容でeBayに出品する

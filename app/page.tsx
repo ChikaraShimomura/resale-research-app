@@ -68,8 +68,8 @@ export default function LandingPage() {
             { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブルを防げます。" },
           ].map(({ Icon, t, d }, i) => (
             <div key={i} className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
-              <div className="w-8 h-8 rounded-full bg-[#2D323B]/10 flex items-center justify-center mb-2">
-                <Icon size={16} className="text-[#2D323B]" />
+              <div className="w-9 h-9 rounded-full bg-[#A98B5C]/10 ring-1 ring-[#A98B5C]/30 flex items-center justify-center mb-2.5">
+                <Icon size={17} strokeWidth={1.75} className="text-[#2D323B]" />
               </div>
               <p className="text-[13px] font-black text-gray-800 mb-1">{t}</p>
               <p className="text-[11px] text-gray-500 leading-relaxed">{d}</p>

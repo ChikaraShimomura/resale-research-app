@@ -8,16 +8,24 @@ import { Flame, ArrowRight, Lock } from "lucide-react";
 export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で毎回ランキング
 
 const SITE = "https://www.yushutsu-fukugyo.com";
-const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜楽天→eBay相場・利益率";
+const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜想定売値・利益率";
 const DESC =
-  "楽天で仕入れてeBayで売る——いま利益率が高い商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる日本商品の楽天仕入れ値→eBay想定売値・利益率の目安をチェック（ランキングは無料公開・各商品の詳細はプランで解放）。";
+  "eBay輸出でいま利益率が高い日本の商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる商品の想定売値・利益率の目安をチェック（ランキングは無料公開・各商品の詳細はプランで解放）。";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESC,
   alternates: { canonical: "/ranking" },
-  openGraph: { title: TITLE, description: DESC, type: "website", url: `${SITE}/ranking` },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESC },
+  // 独自 openGraph を持つページは親(layout)のOG画像を継承せず置き換える＝og:image が消える。
+  // そのため共通カード画像(/opengraph-image・middlewareで公開許可済み)を明示参照して付与する。
+  openGraph: {
+    title: TITLE,
+    description: DESC,
+    type: "website",
+    url: `${SITE}/ranking`,
+    images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESC, images: ["/twitter-image"] },
 };
 
 const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
