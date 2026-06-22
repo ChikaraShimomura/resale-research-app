@@ -64,12 +64,10 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const sourceUrl = toRakutenProductUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
-  // リンク先：落札ベース表示の商品は「eBay落札済み」検索へ（表示価格＝直近落札と一致させる）。
-  // それ以外は画像照合で一致した実物(matchedEbayUrl)最優先→無ければ現在出品の相場検索へフォールバック。
+  // 確認リンクは常に「eBay落札済み（実売価）」検索へ統一（全商品・ユーザー方針2026-06-23）。
+  // 落札データが無い薄い商品でも、eBayの落札ページに飛ばす＝実売価/需要の薄さがそのまま見える。
   const market = (product as { market?: string }).market;
-  const ebayMarketUrl = product.soldBased
-    ? toEbayMarketUrl(product.coreKeyword || product.title, market, true)
-    : product.matchedEbayUrl || toEbayMarketUrl(product.coreKeyword || product.title, market);
+  const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, market, true);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 
@@ -232,9 +230,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               {ebayMarketUrl && (
                 <a href={ebayMarketUrl} target="_blank" rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  aria-label={product.soldBased ? "eBayの直近落札価格を確認する" : "eBayでこの価格以上の出品を確認する"}
+                  aria-label="eBayの直近落札価格を確認する"
                   className="inline-flex items-center gap-0.5 text-xs text-blue-500 font-bold hover:underline ml-auto py-1">
-                  {product.soldBased ? "eBay落札価格を見る" : "eBayで相場を確認"} <ExternalLink size={10} />
+                  eBay落札価格を見る <ExternalLink size={10} />
                 </a>
               )}
             </div>
