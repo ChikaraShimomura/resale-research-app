@@ -18,6 +18,8 @@ export async function POST(req: Request) {
 
   const type = String(event.type ?? "");
   const obj = ((event.data as Obj | undefined)?.object as Obj | undefined) ?? {};
+  // 単調性ガード用: Stripeイベントの発生時刻(created)。到着時刻でなくこれで新旧比較（setBillingStateが古いものを破棄）。
+  const eventTs = Number((event as { created?: number }).created) || Math.floor(Date.now() / 1000);
 
   try {
     if (type === "checkout.session.completed") {
@@ -32,13 +34,13 @@ export async function POST(req: Request) {
           status: "active", // 後続の subscription.updated が正確な状態で上書きする
           customerId,
           subscriptionId: obj.subscription ? String(obj.subscription) : undefined,
-          updatedAt: Math.floor(Date.now() / 1000),
+          updatedAt: eventTs,
         };
         await setBillingState(email, state);
       }
       await recordFunnelEvent("subscribed"); // 収益ファネル：課金成立を計上（チェックアウト完了＝新規購読）
     } else if (type === "customer.subscription.created" || type === "customer.subscription.updated") {
-      await applySubscription(obj);
+      await applySubscription(obj, eventTs);
     } else if (type === "customer.subscription.deleted") {
       const email = await resolveEmail(obj);
       if (email) {
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
           status: "canceled",
           customerId: obj.customer ? String(obj.customer) : undefined,
           subscriptionId: obj.id ? String(obj.id) : undefined,
-          updatedAt: Math.floor(Date.now() / 1000),
+          updatedAt: eventTs,
         });
       }
     }
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
 }
 
 // subscription オブジェクトから課金状態を組み立てて保存。
-async function applySubscription(sub: Obj): Promise<void> {
+async function applySubscription(sub: Obj, eventTs: number): Promise<void> {
   const email = await resolveEmail(sub);
   if (!email) return;
   const priceId = priceIdOf(sub);
@@ -72,7 +74,7 @@ async function applySubscription(sub: Obj): Promise<void> {
     customerId: sub.customer ? String(sub.customer) : undefined,
     subscriptionId: sub.id ? String(sub.id) : undefined,
     currentPeriodEnd: currentPeriodEndOf(sub),
-    updatedAt: Math.floor(Date.now() / 1000),
+    updatedAt: eventTs,
   });
 }
 

@@ -58,7 +58,21 @@ const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0",
 };
 
+// SSRF対策: 取得先は楽天の画像CDN(https・rakuten.co.jp / r10s.jp 系)のみ許可。
+// 出品画像は楽天ギャラリー由来なのでこれで十分。内部/プライベートIPやメタデータ宛のサーバー発リクエストを遮断。
+// ※ /api/clean-img の ALLOW と同じ。変更時は両方そろえること。
+const ALLOW_HOST = /(^|\.)(rakuten\.co\.jp|r10s\.jp)$/i;
+function isAllowedImageUrl(u: string): boolean {
+  try {
+    const url = new URL(u);
+    return url.protocol === "https:" && ALLOW_HOST.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 async function fetchImage(url: string): Promise<Buffer | null> {
+  if (!isAllowedImageUrl(url)) return null; // 許可外ホストは取得しない（SSRF遮断・出品は元URLにフォールバック）
   try {
     const res = await fetch(url, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) });
     if (!res.ok) return null;

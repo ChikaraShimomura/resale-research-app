@@ -46,7 +46,8 @@ jobs:
         id: fetch
         run: |
           code=$(curl -s -o auto-repair-input.json -w "%{http_code}" \
-            "$SITE/api/report/error?secret=${{ secrets.CRON_SECRET }}&consume=1&limit=20" || echo "000")
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "$SITE/api/report/error?consume=1&limit=20" || echo "000")
           if [ "$code" != "200" ]; then echo "fetch failed: $code"; echo "has=false" >> "$GITHUB_OUTPUT"; exit 0; fi
           count=$(node -e "try{const d=require('./auto-repair-input.json');console.log((d.reports||[]).length)}catch(e){console.log(0)}")
           echo "count=$count" >> "$GITHUB_OUTPUT"

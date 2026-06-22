@@ -50,6 +50,13 @@ export async function getBillingState(email: string | null): Promise<BillingStat
 }
 
 export async function setBillingState(email: string, state: BillingState): Promise<void> {
+  // 単調性ガード: 既存より古い(updatedAt が小さい)イベントは破棄。
+  // Webhookの順序逆転/再送で「解約→有効」のように新しい課金状態が古い値へ巻き戻るのを防ぐ。
+  // 呼出側は state.updatedAt に Stripe イベントの created(発生時刻) を入れること（到着時刻ではなく）。
+  try {
+    const prev = await kv.get<BillingState>(emailKey(email));
+    if (prev && typeof prev.updatedAt === "number" && state.updatedAt < prev.updatedAt) return;
+  } catch { /* 取得失敗時はそのまま書く（可用性優先） */ }
   await kv.set(emailKey(email), state);
   if (state.customerId) await kv.set(customerKey(state.customerId), email.toLowerCase());
 }

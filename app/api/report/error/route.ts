@@ -58,8 +58,19 @@ export async function POST(req: Request) {
 
   const h = await headers();
   const actor = (await cookies()).get("rr_did")?.value || "anon";
+  // 攻撃者制御の巨大文字列でKV(error_reports)を肥大化させないよう、主要フィールドに長さ/件数上限を掛ける。
+  const cap = (v: unknown, n: number): string | undefined => (typeof v === "string" ? v.slice(0, n) : undefined);
+  const aspects = body.aspects && typeof body.aspects === "object"
+    ? Object.fromEntries(Object.entries(body.aspects).slice(0, 50).map(([k, v]) => [String(k).slice(0, 64), String(v ?? "").slice(0, 256)]))
+    : undefined;
   const report = {
     ...body,
+    message: cap(body.message, 2000),
+    note: cap(body.note, 2000),
+    coreKeyword: cap(body.coreKeyword, 200),
+    productId: cap(body.productId, 128),
+    steps: Array.isArray(body.steps) ? body.steps.slice(0, 30) : body.steps,
+    aspects,
     actor,
     ua: h.get("user-agent")?.slice(0, 300) || "",
     ts: new Date().toISOString(),
@@ -110,7 +121,8 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const url = new URL(req.url);
-  if (!secret || url.searchParams.get("secret") !== secret) {
+  // 認証: Authorization: Bearer <CRON_SECRET> 必須（?secret= はログ/Referer露出面が広く、consume=1でキューを抜けるため廃止）。
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));

@@ -38,12 +38,21 @@ export async function saveSubscription(actor: string, sub: WebPushSub, prefs: Pu
 export async function updatePrefs(actor: string, endpoint: string, prefs: PushPrefs): Promise<void> {
   try {
     const cur = await kv.hget<StoredSub>(SUBS_KEY, endpoint);
-    if (cur) await kv.hset(SUBS_KEY, { [endpoint]: { ...cur, prefs, ts: Date.now() } });
+    // 所有者チェック: その購読が呼出元(actor)のものでなければ何もしない（他人の通知設定を書き換えるIDORを防ぐ）。
+    if (cur && cur.actor === actor) await kv.hset(SUBS_KEY, { [endpoint]: { ...cur, prefs, ts: Date.now() } });
   } catch { /* noop */ }
 }
 
-export async function removeSubscription(endpoint: string): Promise<void> {
-  try { await kv.hdel(SUBS_KEY, endpoint); } catch { /* noop */ }
+// actor を渡すと「本人の購読のときだけ」削除する（公開API＝ユーザー操作用のIDOR防止）。
+// actor 省略時は無条件削除（sendOne の失効購読の内部掃除専用）。
+export async function removeSubscription(endpoint: string, actor?: string): Promise<void> {
+  try {
+    if (actor) {
+      const cur = await kv.hget<StoredSub>(SUBS_KEY, endpoint);
+      if (!cur || cur.actor !== actor) return; // 他人の購読は解除しない
+    }
+    await kv.hdel(SUBS_KEY, endpoint);
+  } catch { /* noop */ }
 }
 
 // この actor の購読が持つ prefs（設定UIの初期状態用）。無ければ null。

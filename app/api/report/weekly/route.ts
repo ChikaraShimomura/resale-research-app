@@ -11,16 +11,12 @@ export const maxDuration = 30;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(req: Request) {
-  // 認証：Vercel Cron は CRON_SECRET 設定時に Authorization: Bearer を自動付与する。
-  // 手動実行用に ?secret= も許可。CRON_SECRET 未設定の環境（ローカル）では素通り。
+  // 認証：Authorization: Bearer <CRON_SECRET> 必須（Vercel Cron/GitHub Actions とも Bearer で送る）。
+  // ?secret= はログ/Referer露出面が広いため廃止。CRON_SECRET 未設定はフェイルクローズ＝401（他cronと統一・無認可発火防止）。
   const secret = process.env.CRON_SECRET;
   const url = new URL(req.url);
-  if (secret) {
-    const bearer = req.headers.get("authorization");
-    const qs = url.searchParams.get("secret");
-    if (bearer !== `Bearer ${secret}` && qs !== secret) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const dateParam = url.searchParams.get("date");

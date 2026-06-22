@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: 週次レポートを送信（route をトリガー）
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/api/report/weekly?secret=${{ secrets.CRON_SECRET }}")
+          code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "$SITE/api/report/weekly")
           echo "HTTP $code"
           test "$code" = "200"
 
