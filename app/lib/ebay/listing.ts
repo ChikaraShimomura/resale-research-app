@@ -1,7 +1,7 @@
 // eBay 出品（楽天画像を使った完全自動公開）のサーバー専用ロジック。
 // 在庫アイテム(PUT) → オファー(POST/PUT) → 公開(publishOffer) を行う。
 // カテゴリ/必須Item Specifics は Taxonomy API で取得（アプリトークン使用）。
-import { skuForProduct } from "./sellApi";
+import { skuForProduct, isNoOpUpdate } from "./sellApi";
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)から取得＝各所のハードコード155を一本化（ドリフト防止）。
 import { USD_JPY } from "./landedCostCore.mjs";
 
@@ -365,7 +365,8 @@ async function setPolicyHandlingTime(
   delete rest.warnings;
   const body = { ...rest, handlingTime: { value: days, unit: "DAY" } };
   const put = await ebayFetch(token, "PUT", `/sell/account/v1/fulfillment_policy/${policyId}`, body);
-  return { ok: put.ok, error: put.error };
+  // 発送日数が既に同値なら eBay は 20403「same as in the system」で弾くが、これは変更不要＝成功扱い。
+  return { ok: put.ok || isNoOpUpdate(put.error), error: put.ok || isNoOpUpdate(put.error) ? undefined : put.error };
 }
 
 // ── 状態(condition)をカテゴリ対応に補正 ──

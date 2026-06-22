@@ -415,6 +415,14 @@ function okIfExists(r: EbayPostResult): EbayPostResult {
   return r;
 }
 
+// eBayの「更新内容が現状と完全に同一＝変更なし」(errorId 20403 /
+// "...information in the request is the same as in the system")は実質成功。
+// 望む設定が既にその通り入っている状態なので、更新(PUT)が変更なしで弾かれても失敗扱いにしない
+// （冪等な保存・再実行で「設定済みなのに失敗表示」になるのを防ぐ）。listing.ts の handlingTime 更新でも共用。
+export function isNoOpUpdate(error?: string): boolean {
+  return (error ?? "").toLowerCase().includes("same as in the system");
+}
+
 // Business Policies の有効化。すでに有効なら eBay はエラーを返すが、その場合も成功扱いにする。
 export async function optInSellingPolicyManagement(token: string): Promise<EbayPostResult> {
   const r = await ebayPost(token, "/sell/account/v1/program/opt_in", {
@@ -464,7 +472,8 @@ export async function createReturnPolicy(
   const existingId = list.data?.returnPolicies?.[0]?.returnPolicyId;
   if (existingId) {
     const put = await ebayWrite(token, "PUT", `/sell/account/v1/return_policy/${existingId}`, body);
-    return put.ok ? { ok: true, status: put.status, id: existingId } : { ok: false, status: put.status, error: put.error };
+    // 変更なし(20403 "same as in the system")＝既に望む内容で存在＝成功扱い。
+    return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id: existingId } : { ok: false, status: put.status, error: put.error };
   }
   return ebayPost(token, "/sell/account/v1/return_policy", body);
 }
@@ -527,5 +536,6 @@ export async function createFlatIntlFulfillmentPolicy(
   const id = list.data?.fulfillmentPolicies?.find((p) => p.name === name)?.fulfillmentPolicyId;
   if (!id) return post; // 既存IDを特定できなければ元のエラーを返す
   const put = await ebayWrite(token, "PUT", `/sell/account/v1/fulfillment_policy/${id}`, body);
-  return put.ok ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
+  // 変更なし(20403 "same as in the system")＝既に望む内容で存在＝成功扱い。
+  return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
 }
