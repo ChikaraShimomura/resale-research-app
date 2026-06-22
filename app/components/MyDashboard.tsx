@@ -65,11 +65,11 @@ function MoneyFlow({ s }: { s: Stats }) {
 
       {/* 凡例＋金額（「利益」という語は最後の着地行だけに使い、混同を避ける） */}
       <div className="mt-3 space-y-1.5">
-        <Legend color="bg-gray-400" label="仕入れ（楽天で払った額）" value={`− ${yen(cost)}`} />
+        <Legend color="bg-gray-400" label="仕入れ（支払った額）" value={`− ${yen(cost)}`} />
         <Legend color="bg-[#F0A0A0]" label="eBay手数料" value={`− ${yen(fee)}`} />
         <Legend color="bg-emerald-500" label="手数料を引いた残り" value={signedYen(grossTrue)} bold />
         {s.totalPoints > 0 && (
-          <Legend color="bg-[#FF4466]" label="楽天ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
+          <Legend color="bg-[#FF4466]" label="ポイント（おまけ）" value={`+ ${yen(s.totalPoints)}`} />
         )}
       </div>
 
@@ -285,7 +285,7 @@ export default function MyDashboard() {
             <p className="text-sm font-black text-gray-800">出品中です（{s.listedCount}件）</p>
             {s.listedPurchase > 0 && (
               <p className="text-[12px] text-gray-600 mt-0.5">
-                仕入れ合計（楽天で払った額）<b className="text-gray-800">{yen(s.listedPurchase)}</b>
+                仕入れ合計（支払った額）<b className="text-gray-800">{yen(s.listedPurchase)}</b>
               </p>
             )}
             <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
@@ -327,7 +327,7 @@ export default function MyDashboard() {
       </div>
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
-        ※ 利益（現金）は 売上 − eBay手数料(13.25%+¥47) − 仕入れ値 で計算（為替 $1=¥155）。楽天ポイントは利益に含めず「( + ○○ポイント )」で別表示しています（ポイントはあくまでおまけ）。
+        ※ 利益（現金）は 売上 − eBay手数料(13.25%+¥47) − 仕入れ値 で計算（為替 $1=¥155）。ポイントは利益に含めず「( + ○○ポイント )」で別表示しています（ポイントはあくまでおまけ）。
       </p>
 
       <HubLinks />

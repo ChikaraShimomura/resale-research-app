@@ -149,8 +149,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
           <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
-            ⚠️ 在庫の自動チェックが一時停止中です。仕入れ元（楽天）の売り切れ検知が遅れる場合があります。
-            <span className="font-normal text-amber-700/80">出品中の商品は、念のため楽天側の在庫もご確認ください。</span>
+            ⚠️ 在庫の自動チェックが一時停止中です。仕入れ元の売り切れ検知が遅れる場合があります。
+            <span className="font-normal text-amber-700/80">出品中の商品は、念のため仕入れ先の在庫もご確認ください。</span>
           </p>
         </div>
       )}
@@ -223,7 +223,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           </p>
                           {d.sourceStatus && (
                             <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
-                              ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
+                              ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
                             </p>
                           )}
                           {!d.sourceStatus && d.priceDrift && (
@@ -315,7 +315,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         )}
                         {d.sourceStatus && (
                           <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
-                            ⚠️ 楽天で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
+                            ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
                           </p>
                         )}
                       </div>
