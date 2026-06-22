@@ -3,18 +3,21 @@
 // eBayの「売却済み(Sold/Completed)」ページをスクレイプし、カタログ各商品の直近落札中央値(JPY)を
 // KV `ebay_sold:{productId}` に保存する。Marketplace Insights API(承認制)を待たない回避策A。
 //
-// 【Pixel/Termuxで動く】Chromium不要の純node fetch。ただし“ブラウザ並み”に振る舞う：
-//   実Chromeのヘッダ一式(sec-ch-ua等)＋トップで Cookie を温める＋Referer＋商品間の間隔をランダム化。
-//   eBayの403は主にIP起因＝住宅IP(Pixel/このPC)なら通る見込み。DC IP(GitHub Actions等)は不可。
-//   ※楽天死活ワーカー(sourceLivenessWorker.mjs)と同じTermux運用に乗せられる。
-//   ※もし住宅IPでも弾かれる時は EBAY_SOLD_BROWSER=1 で実ブラウザ版(別途)に切替（PC専用）。
+// 【Pixel/Termuxで動く】Chromium不要の純node fetch＋ブラウザ並みヘッダ/Cookie。eBayの403は主にIP起因＝
+//   住宅IP(Pixel/このPC)で通る見込み。DC IP(GitHub Actions等)は不可。楽天死活ワーカーと同じTermux運用に乗る。
+//
+// 【UI変更に強くする＝多層ガード（誤データでカタログ相場を汚さない／壊れたら気づく）】
+//   1) パース健全性：1商品で価格が取れない＝サンプル不足→書かない（個別スキップ）。
+//   2) 値の妥当性：落札中央値が「その商品の現eBay相場(realAvgPrice)」から極端に乖離(×0.2未満/×5超)は
+//      パース誤り(送料や別商品を拾った等)とみなし破棄。
+//   3) 系統的失敗ブレーキ：1回の実行で 失敗率(ブロック+0件+妥当性NG) が高い＝eBayのUI変更/IPブロックの疑い
+//      → その実行の書込を“全部”中止（一部の通った分も書かない＝汚染回避）＋status を unhealthy で記録。
+//   4) 監視：`ebay_sold_status` に毎回サマリを残す（cron監視→メール通知に使える）。
+//   5) 失効：各値は TTL(既定7日)。ワーカーが壊れて止まれば自然失効→消費側は現在出品相場へ自動フォールバック。
 //
 // 使い方(PowerShell/Termux・リポジトリ直下):
 //   EBAY_SOLD_DRY=1 EBAY_SOLD_MAX=5 node scripts/ebaySoldWorker.mjs   # 試運転(書込なし)
 //   EBAY_SOLD_DRY=0 node scripts/ebaySoldWorker.mjs                    # 本書込
-//
-// env: KV_REST_API_URL / KV_REST_API_TOKEN(.env.local自動) / LANDED_USD_JPY(既定155)
-//      EBAY_SOLD_DRY=0で本書込 / EBAY_SOLD_MAX / EBAY_SOLD_GAP_MS / EBAY_SOLD_TTL_H / EBAY_SOLD_FRESH_H
 
 import fs from "node:fs";
 try {
@@ -32,26 +35,23 @@ const USD_JPY = Number(process.env.LANDED_USD_JPY) || 155;
 
 const DRY = process.env.EBAY_SOLD_DRY !== "0";
 const MAX = Number(process.env.EBAY_SOLD_MAX ?? 60);
-const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 4000); // 基準。実際は×1〜2.2でゆらぐ
+const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 4000);
 const TTL_S = Number(process.env.EBAY_SOLD_TTL_H ?? 168) * 3600;
 const FRESH_S = Number(process.env.EBAY_SOLD_FRESH_H ?? 36) * 3600;
 const MIN_SAMPLE = 3;
+const SANE_LO = Number(process.env.EBAY_SOLD_SANE_LO ?? 0.2); // 現相場×これ未満は破棄
+const SANE_HI = Number(process.env.EBAY_SOLD_SANE_HI ?? 5);   // 現相場×これ超は破棄
+const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
+const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
 const jitterGap = () => sleep(Math.round(GAP_MS * rnd(1, 2.2)));
 
-// ===== ブラウザ並みのヘッダ＋Cookieジャー（人間っぽさ＝弾かれ回避） =====
 const cookieJar = {};
-function cookieHeader() {
-  const s = Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join("; ");
-  return s || undefined;
-}
+const cookieHeader = () => Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join("; ") || undefined;
 function storeCookies(res) {
-  try {
-    const sc = res.headers.getSetCookie?.() ?? [];
-    for (const c of sc) { const kv = c.split(";")[0]; const i = kv.indexOf("="); if (i > 0) cookieJar[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); }
-  } catch {}
+  try { for (const c of res.headers.getSetCookie?.() ?? []) { const kv = c.split(";")[0]; const i = kv.indexOf("="); if (i > 0) cookieJar[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); } } catch {}
 }
 function browserHeaders(referer) {
   const h = {
@@ -59,12 +59,9 @@ function browserHeaders(referer) {
     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "sec-ch-ua": '"Chromium";v="126", "Google Chrome";v="126", "Not.A/Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": referer ? "same-origin" : "none",
-    "Sec-Fetch-User": "?1",
+    "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": '"Windows"',
+    "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": referer ? "same-origin" : "none", "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1",
   };
   if (referer) h.Referer = referer;
@@ -73,59 +70,39 @@ function browserHeaders(referer) {
 }
 
 async function kvGet(key) {
-  try {
-    const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: H });
-    const r = (await res.json()).result;
-    if (r == null) return null;
-    try { return JSON.parse(r); } catch { return r; }
-  } catch { return null; }
+  try { const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: H }); const r = (await res.json()).result; if (r == null) return null; try { return JSON.parse(r); } catch { return r; } } catch { return null; }
 }
 async function kvSetJson(key, val, ttl) {
-  const url = `${KV_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(JSON.stringify(val))}?EX=${ttl}`;
-  const res = await fetch(url, { method: "POST", headers: H });
-  return res.ok;
+  try { const res = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(JSON.stringify(val))}?EX=${ttl}`, { method: "POST", headers: H }); return res.ok; } catch { return false; }
 }
 
 function parseSoldUsd(html) {
-  const prices = [];
-  const re = /s-item__price[^$]{0,40}\$([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const v = parseFloat(m[1].replace(/,/g, ""));
-    if (Number.isFinite(v) && v > 0) prices.push(v);
-  }
-  return prices.length > 1 ? prices.slice(1) : prices; // 先頭=プレースホルダを捨てる
+  const prices = []; const re = /s-item__price[^$]{0,40}\$([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g; let m;
+  while ((m = re.exec(html)) !== null) { const v = parseFloat(m[1].replace(/,/g, "")); if (Number.isFinite(v) && v > 0) prices.push(v); }
+  return prices.length > 1 ? prices.slice(1) : prices;
 }
 function trimmedMedian(arr) {
-  const a = arr.filter((x) => x > 0).sort((x, y) => x - y);
-  if (a.length === 0) return null;
-  const cut = a.length >= 8 ? Math.floor(a.length * 0.1) : 0;
-  const t = a.slice(cut, a.length - cut);
-  const mid = Math.floor(t.length / 2);
+  const a = arr.filter((x) => x > 0).sort((x, y) => x - y); if (!a.length) return null;
+  const cut = a.length >= 8 ? Math.floor(a.length * 0.1) : 0; const t = a.slice(cut, a.length - cut); const mid = Math.floor(t.length / 2);
   return { median: t.length % 2 ? t[mid] : (t[mid - 1] + t[mid]) / 2, count: a.length };
 }
-
 async function get(url, referer) {
   const res = await fetch(url, { headers: browserHeaders(referer), redirect: "follow", signal: AbortSignal.timeout(20000) });
-  storeCookies(res);
-  const html = await res.text();
-  return { status: res.status, html };
+  storeCookies(res); return { status: res.status, html: await res.text() };
 }
-function isBlocked(html) {
-  return /Pardon Our Interruption|Checking your browser|verify you are a human|to continue, please|captcha/i.test(html.slice(0, 4000));
-}
+const isBlocked = (html) => /Pardon Our Interruption|Checking your browser|verify you are a human|to continue, please|captcha/i.test(html.slice(0, 4000));
 
 async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定"); process.exit(1); }
-  console.log(`eBay sold worker (fetch): DRY=${DRY} MAX=${MAX} GAP=${GAP_MS}ms USD_JPY=${USD_JPY}`);
+  console.log(`eBay sold worker: DRY=${DRY} MAX=${MAX} GAP=${GAP_MS}ms USD_JPY=${USD_JPY}`);
   const catalog = (await kvGet("profitable_products")) || [];
-  if (!Array.isArray(catalog) || catalog.length === 0) { console.log("カタログ空"); return; }
+  if (!Array.isArray(catalog) || !catalog.length) { console.log("カタログ空"); return; }
 
-  // ウォームアップ：トップで Cookie を温める（いきなり検索しない＝人間的）。
-  try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでないかも"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
+  try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでない可能性"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
 
   const now = Math.floor(Date.now() / 1000);
-  let done = 0, wrote = 0, blocked = 0, thin = 0, skipped = 0;
+  const buffer = []; // 健全な実行のときだけ最後にまとめて書く（汚染回避）
+  let done = 0, blocked = 0, thin = 0, implausible = 0, ok = 0, skipped = 0;
   for (const p of catalog) {
     if (done >= MAX) break;
     const id = p?.id, kw = p?.coreKeyword || p?.title;
@@ -134,20 +111,37 @@ async function main() {
     if (prev?.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
 
     done++;
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
     let r;
-    try { r = await get(url, "https://www.ebay.com/"); } catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
+    try { r = await get(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`, "https://www.ebay.com/"); }
+    catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
     if (typeof r.status !== "number" || r.status >= 400) { blocked++; console.log(`  ⛔ ${r.status} : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(15000, 30000))); continue; }
-    if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${kw.slice(0, 40)}（バックオフ）`); await sleep(Math.round(rnd(30000, 60000))); continue; }
+    if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(30000, 60000))); continue; }
 
     const stat = trimmedMedian(parseSoldUsd(r.html));
     if (!stat || stat.count < MIN_SAMPLE) { thin++; console.log(`  ・サンプル不足(${stat?.count ?? 0}) : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
     const medianJpy = Math.round(stat.median * USD_JPY);
-    const rec = { median: medianJpy, medianUsd: Math.round(stat.median * 100) / 100, count: stat.count, soldBased: true, at: new Date().toISOString() };
-    console.log(`  ✅ ${stat.count}件 中央$${rec.medianUsd}→¥${medianJpy} : ${kw.slice(0, 40)}`);
-    if (!DRY) { if (await kvSetJson(`ebay_sold:${id}`, rec, TTL_S)) wrote++; }
+    // 妥当性：現eBay相場(realAvgPrice JPY)から極端に乖離＝パース誤り疑い→破棄。
+    const anchor = Number(p?.realAvgPrice) || 0;
+    if (anchor > 0 && (medianJpy < anchor * SANE_LO || medianJpy > anchor * SANE_HI)) {
+      implausible++; console.log(`  ⚠️ 妥当性NG ¥${medianJpy} vs 現相場¥${anchor}（破棄） : ${kw.slice(0, 40)}`); await jitterGap(); continue;
+    }
+    ok++;
+    buffer.push({ key: `ebay_sold:${id}`, rec: { median: medianJpy, medianUsd: Math.round(stat.median * 100) / 100, count: stat.count, soldBased: true, at: new Date().toISOString() } });
+    console.log(`  ✅ ${stat.count}件 中央$${(stat.median).toFixed(2)}→¥${medianJpy} : ${kw.slice(0, 40)}`);
     await jitterGap();
   }
-  console.log(`完了: 処理${done} / 書込${wrote}${DRY ? "(DRY)" : ""} / ブロック${blocked} / サンプル不足${thin} / 新鮮スキップ${skipped}`);
+
+  // 系統的失敗ブレーキ：失敗率が高い＝UI変更/IPブロックの疑い→この実行は何も書かない（汚染回避）。
+  const failRatio = done ? (blocked + thin + implausible) / done : 0;
+  const healthy = !(done >= BRAKE_MIN && failRatio > BRAKE_RATIO);
+  let wrote = 0;
+  if (!healthy) {
+    console.error(`🚨 異常率 ${(failRatio * 100).toFixed(0)}%（ブロック${blocked}/0件${thin}/妥当性NG${implausible} of ${done}）＝eBay UI変更 or IPブロックの疑い。書込を全中止。要確認。`);
+  } else if (!DRY) {
+    for (const b of buffer) { if (await kvSetJson(b.key, b.rec, TTL_S)) wrote++; }
+  }
+  // 監視用サマリ（cron→メール通知に使える）。
+  await kvSetJson("ebay_sold_status", { at: new Date().toISOString(), healthy, done, ok, wrote, blocked, thin, implausible, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);
+  console.log(`完了: 処理${done}/通過${ok}/書込${wrote}${DRY ? "(DRY)" : ""} ブロック${blocked} 不足${thin} 妥当性NG${implausible} 新鮮skip${skipped} healthy=${healthy}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
