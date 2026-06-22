@@ -6,6 +6,7 @@ import { recordFunnelEvent } from "../../lib/funnelServer";
 import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { applyDisplayProfit } from "../../lib/displayProfit";
+import { applySoldComp } from "../../lib/ebay/soldComp";
 import ProductCard from "../../components/ProductCard";
 import BottomNav from "../../components/BottomNav";
 import { Search, Flame } from "lucide-react";
@@ -25,8 +26,10 @@ async function getProduct(id: string): Promise<ProfitProduct | null> {
   try {
     const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
     const found = products?.find((p) => p.id === id) ?? null;
-    // 配信(/api/products)と同じ「現金純利益（ポイント抜き・着地コスト後）」に揃える＝一覧と詳細で利益が一致。
-    return found ? applyDisplayProfit(found) : null;
+    if (!found) return null;
+    // 配信(/api/products)と同じ「eBay直近落札ベース＋現金純利益（ポイント抜き・着地コスト後）」に揃える＝一覧と詳細で一致。
+    const [withSold] = await applySoldComp([found]);
+    return applyDisplayProfit(withSold ?? found);
   } catch {
     return null;
   }
@@ -37,8 +40,8 @@ async function getHotProducts(excludeId: string, n = 3): Promise<ProfitProduct[]
   try {
     const products = await kvReadOnly.get<ProfitProduct[]>("profitable_products");
     if (!products) return [];
-    return products
-      .filter((p) => p.id !== excludeId)
+    const withSold = await applySoldComp(products.filter((p) => p.id !== excludeId));
+    return withSold
       .map(applyDisplayProfit)
       .sort((a, b) => b.realProfitRate - a.realProfitRate)
       .slice(0, n);
@@ -58,7 +61,7 @@ export async function generateMetadata({
     return { title: "商品が見つかりません", robots: { index: false } };
   }
   const title = product.title.slice(0, 60);
-  const desc = `楽天¥${product.source.price.toLocaleString()} → eBay最安¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`;
+  const desc = `楽天¥${product.source.price.toLocaleString()} → ${product.soldBased ? "eBay落札" : "eBay最安"}¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`;
   const img = hiResImage(product.imageUrl);
   const images = img ? [img] : [];
   return {
@@ -141,7 +144,7 @@ export default async function ProductPage({
     "@type": "Product",
     name: product.title,
     ...(product.imageUrl ? { image: [hiResImage(product.imageUrl)] } : {}),
-    description: `楽天¥${product.source.price.toLocaleString()} → eBay最安¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`,
+    description: `楽天¥${product.source.price.toLocaleString()} → ${product.soldBased ? "eBay落札" : "eBay最安"}¥${product.realAvgPrice.toLocaleString()} ／ 利益率${product.realProfitRate}%。日本の商品を海外へ。`,
     category: product.category,
     offers: {
       "@type": "Offer",

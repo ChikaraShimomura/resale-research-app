@@ -117,7 +117,7 @@ export default function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 利益（現金）はeBayの想定売値（現在の出品ベース）からeBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。<br />
+          ※ 利益（現金）はeBayの想定売値（直近の落札価格ベース）からeBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。<br />
           実際の利益は状態・競合・為替等により異なります。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">

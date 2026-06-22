@@ -58,7 +58,8 @@ const EBAY_NOISE_WORDS =
 // 商品を一意に決める識別子。6語制限で切り捨てると別の変種が並ぶため、検索語に必ず含める。
 const isIdToken = (t: string) => /\d/.test(t) || /[A-Za-z].*-.*[A-Za-z0-9]/.test(t);
 
-export function toEbayMarketUrl(keyword: string, market?: string): string {
+// sold=true で「落札済み(Sold/Completed)」検索に飛ばす（落札価格ベース表示の商品の確認リンク用）。
+export function toEbayMarketUrl(keyword: string, market?: string, sold = false): string {
   const mk = market && EBAY_SEARCH_BASE[market] ? market : "EBAY_US";
   const base = EBAY_SEARCH_BASE[mk];
   const tokens = (keyword || "")
@@ -76,6 +77,8 @@ export function toEbayMarketUrl(keyword: string, market?: string): string {
   const names = tokens.filter((t) => !isIdToken(t)).slice(0, ids.length > 0 ? 2 : 4);
   const picked = ids.length > 0 ? [...ids, ...names] : [...names, ...ids];
   const q = (picked.length ? picked : tokens.slice(0, 6)).join(" ") || (keyword || "").slice(0, 40);
-  return `${base}?${new URLSearchParams({ _nkw: q }).toString()}`;
+  const params: Record<string, string> = { _nkw: q };
+  if (sold) { params.LH_Sold = "1"; params.LH_Complete = "1"; params._sop = "13"; } // 落札済み・終了が新しい順
+  return `${base}?${new URLSearchParams(params).toString()}`;
 }
 

@@ -55,7 +55,7 @@ export default async function ProfitSampleStrip() {
       </p>
       {/* 打消し表示（景表法）：/ranking・/guide・ホームfooterと同じく、数値は確定利益でなく想定（目安）である旨を明示 */}
       <p className="text-[10px] text-gray-400 mt-1.5 text-center leading-relaxed">
-        ※ eBay想定売値・利益率はeBayの現在出品ベースの<b>想定（目安）</b>で、状態・競合・為替などにより変動します。
+        ※ eBay想定売値・利益率はeBayの直近落札（実売値）ベースの<b>想定（目安）</b>で、状態・競合・為替などにより変動します。
       </p>
     </div>
   );

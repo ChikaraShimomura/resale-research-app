@@ -5,6 +5,7 @@ import { getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { createSupabaseServerClient } from "../lib/supabase/server";
 import MastersAdmin from "../components/MastersAdmin";
+import AdminStopOverstated from "../components/AdminStopOverstated";
 
 // 管理者ハブ。ログイン中のメールが ADMIN_EMAILS のときだけ表示（それ以外は404）。
 export const dynamic = "force-dynamic";
@@ -39,6 +40,11 @@ export default async function AdminPage() {
         {/* 身内(master)の指定。ここに入れたメールのアカウントは無料・無制限になる。 */}
         <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <MastersAdmin />
+        </section>
+
+        {/* eBay直近落札で赤字になった出品中商品の一括停止。 */}
+        <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
+          <AdminStopOverstated />
         </section>
 
         {/* 既存の運営ツールへの導線。 */}
