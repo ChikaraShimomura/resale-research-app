@@ -7,9 +7,10 @@ import { saveTokens, tokenEncryptionReady } from "../../../lib/ebay/tokens";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 出品から来た連携なら ?list=<商品ID> を復元して /settings に渡し、出品対象に戻れるようにする。
+// 出品から来た連携なら ?list=<商品ID> を復元して eBayアカウント設定画面に渡し、出品対象に戻れるようにする。
+// 戻り先は eBay 連携UI(EbayConnect/EbayListingSetup)を載せた /settings/ebay（輸出ラボ自体の設定 /settings とは分離）。
 function back(req: Request, status: "connected" | "error", list?: string | null): Response {
-  const u = new URL(`/settings?ebay=${status}`, req.url);
+  const u = new URL(`/settings/ebay?ebay=${status}`, req.url);
   if (list) u.searchParams.set("list", list);
   return Response.redirect(u, 302);
 }

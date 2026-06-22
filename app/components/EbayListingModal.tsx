@@ -438,7 +438,7 @@ export default function EbayListingModal({
                     sessionStorage.setItem("ebay_list_after", product.id);
                     localStorage.setItem("ebay_list_after", product.id);
                   } catch { /* noop */ }
-                  router.push(`/settings?list=${encodeURIComponent(product.id)}`);
+                  router.push(`/settings/ebay?list=${encodeURIComponent(product.id)}`);
                 }}
                 className="inline-flex items-center justify-center gap-1.5 h-12 px-7 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
               >

@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
-import EbayListingSetup from "../components/EbayListingSetup";
 import PushSettings from "../components/PushSettings";
-import ListingDefaultsSettings from "../components/ListingDefaultsSettings";
 import InstallButton from "../components/InstallButton";
 import MfaSetup from "../components/MfaSetup";
 import { getPlan } from "../lib/auth/plan";
@@ -12,8 +10,10 @@ import { getActorId } from "../lib/auth/actor";
 import { listDealsForUser } from "../lib/ebay/stats";
 import { PLANS, PAYWALL_ENABLED } from "../lib/plans";
 
+// 「輸出ラボアカウント設定」＝このサービス自体のアカウント設定（アプリ追加・プラン/課金・2段階認証・通知）。
+// eBay連携・送料・発送元などの「eBayアカウント設定」は別ページ /settings/ebay に分離（混在を避ける）。
 export const metadata: Metadata = {
-  title: "設定",
+  title: "輸出ラボアカウント設定",
   robots: { index: false },
 };
 
@@ -43,11 +43,11 @@ export default async function SettingsPage({
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
-          <Link href="/search" aria-label="検索に戻る"
+          <Link href="/mypage" aria-label="マイページに戻る"
             className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
             ‹
           </Link>
-          <span className="text-white font-black text-base tracking-tight">設定</span>
+          <span className="text-white font-black text-base tracking-tight">輸出ラボアカウント設定</span>
           <div className="ml-auto"><AuthButton /></div>
         </div>
       </header>
@@ -123,22 +123,18 @@ export default async function SettingsPage({
           <PushSettings />
         </section>
 
-        {/* 出品の既定値（Best Offer・発送までの日数を毎回選ばなくて済むように） */}
-        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
-          <ListingDefaultsSettings />
-        </section>
-
-        <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
-          <h2 className="text-sm font-black text-gray-800 mb-1">eBayの設定（準備・いつでも更新）</h2>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            連携・送料・発送先の国・返品・発送元などをここで設定します。<b className="text-gray-700">完了後も各STEPを開けば、いつでも内容を更新できます</b>（送料や発送先を変えたいときもここから）。eBayのパスワードは渡されません。
+        {/* eBay関連（連携・送料・発送先・返品・発送元・出品の既定値）は別ページに分離。ここからは入口だけ。 */}
+        <Link href="/settings/ebay"
+          className="block bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm active:bg-gray-50">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex w-7 h-7 rounded-full bg-[#0064D2] items-center justify-center text-white font-black text-[11px] shrink-0">e</span>
+            <h2 className="text-sm font-black text-gray-800 flex-1">eBayアカウント設定</h2>
+            <span aria-hidden="true" className="text-gray-300 text-base shrink-0">›</span>
+          </div>
+          <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
+            eBayとの連携・送料・発送先の国・返品・発送元・出品の既定値はこちら。<b className="text-gray-700">出品の準備や設定変更はこのページから。</b>
           </p>
-          <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
-            ※ 連携情報はこの端末（ブラウザ）に紐づけて暗号化保存されます。共有端末では使用後にSTEP1の「連携を解除」をしてください。
-          </p>
-        </section>
-
-        <EbayListingSetup />
+        </Link>
 
         <div className="pt-1 text-center flex items-center justify-center gap-3 flex-wrap">
           <Link href="/faq" className="text-xs text-gray-500 underline hover:text-[#2D323B]">よくある質問</Link>

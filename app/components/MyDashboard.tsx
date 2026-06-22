@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, ArrowRight, Settings, BookOpen } from "lucide-react";
+import { Package, Truck, ArrowRight, Settings, BookOpen, Store, type LucideIcon } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
 
@@ -182,18 +182,21 @@ function RankBlock({ s }: { s: Stats }) {
 // マイページのハブ導線（出品管理・発送・設定・ガイドへ）。出品中/停止中の一覧は「出品管理」タブ、
 // 売れた一覧と発送/受け取りは「発送」タブへ集約したので、ここからそれぞれへ送る。
 function HubLinks() {
-  const items = [
+  // 設定は「輸出ラボアカウント設定(/settings)」と「eBayアカウント設定(/settings/ebay)」に分離。
+  // 別物（自社サービスのアカウント vs 連携先eBayのアカウント）なので入口から2つに分ける。
+  const items: { href: string; Icon: LucideIcon; label: string; full?: boolean }[] = [
     { href: "/listings", Icon: Package, label: "出品管理" },
     { href: "/ship", Icon: Truck, label: "発送・受け取り" },
-    { href: "/settings", Icon: Settings, label: "設定" },
-    { href: "/guide", Icon: BookOpen, label: "使い方ガイド" },
+    { href: "/settings", Icon: Settings, label: "輸出ラボアカウント設定" },
+    { href: "/settings/ebay", Icon: Store, label: "eBayアカウント設定" },
+    { href: "/guide", Icon: BookOpen, label: "使い方ガイド", full: true },
   ];
   return (
     <div className="grid grid-cols-2 gap-2">
-      {items.map(({ href, Icon, label }) => (
+      {items.map(({ href, Icon, label, full }) => (
         <Link key={href} href={href}
-          className="flex items-center justify-center gap-1.5 h-11 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 active:bg-gray-50">
-          <Icon size={15} className="text-gray-500" /> {label}
+          className={`flex items-center justify-center gap-1.5 min-h-[44px] px-2 py-1.5 rounded-xl bg-white border border-[#A98B5C]/25 shadow-sm text-[12px] font-bold text-gray-700 text-center leading-tight active:bg-gray-50 ${full ? "col-span-2" : ""}`}>
+          <Icon size={15} className="text-gray-500 shrink-0" /> {label}
         </Link>
       ))}
     </div>
