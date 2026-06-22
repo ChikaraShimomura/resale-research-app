@@ -242,6 +242,32 @@ interface EbayWriteResult {
   error?: string;
 }
 
+// eBayのエラーレスポンスを「longMessage + 該当フィールド(parameters) + #errorId」の1行に整形する。
+// ⚠️ message だけだと "Invalid ." のように"何が"invalidかが落ちて原因が追えない（実害: 配送ポリシーPUTの失敗が
+//    "Invalid ."としか出ず診断不能だった）。longMessage と parameters（不正フィールド名/値）は必ず残す。POST/PUT/DELETE 共通。
+interface EbayErrorBody {
+  errors?: {
+    errorId?: number;
+    message?: string;
+    longMessage?: string;
+    parameters?: { name?: string; value?: string }[];
+  }[];
+  [k: string]: unknown;
+}
+function formatEbayError(data: EbayErrorBody | null, status: number): string {
+  const e0 = data?.errors?.[0];
+  if (!e0) return `HTTP ${status}`;
+  const params = (e0.parameters ?? [])
+    .map((p) => `${p.name ?? ""}=${p.value ?? ""}`)
+    .filter((s) => s !== "=")
+    .join(", ");
+  return (
+    [e0.longMessage || e0.message, params && `(${params})`, e0.errorId && `#${e0.errorId}`]
+      .filter(Boolean)
+      .join(" ") || `HTTP ${status}`
+  );
+}
+
 async function ebayWrite(
   token: string,
   method: "POST" | "PUT" | "DELETE",
@@ -262,8 +288,8 @@ async function ebayWrite(
     if (res.ok) return { ok: true, status: res.status };
     let error = `HTTP ${res.status}`;
     try {
-      const j = (await res.json()) as { errors?: { message?: string }[] };
-      if (j?.errors?.[0]?.message) error = j.errors[0].message;
+      const j = (await res.json()) as EbayErrorBody;
+      error = formatEbayError(j, res.status);
     } catch {
       /* noop */
     }
@@ -357,17 +383,11 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
-    const data = (await res.json().catch(() => null)) as
-      | {
-          errors?: {
-            errorId?: number;
-            message?: string;
-            longMessage?: string;
-            parameters?: { name?: string; value?: string }[];
-          }[];
-          [k: string]: unknown;
-        }
-      | null;
+    const data = (await res.json().catch(() => null)) as (EbayErrorBody & {
+      paymentPolicyId?: string;
+      returnPolicyId?: string;
+      fulfillmentPolicyId?: string;
+    }) | null;
     if (res.ok || res.status === 201 || res.status === 204) {
       const id =
         (data?.paymentPolicyId as string) ??
@@ -376,21 +396,8 @@ async function ebayPost(token: string, path: string, body: unknown): Promise<Eba
         undefined;
       return { ok: true, status: res.status, id };
     }
-    // eBayの詳細エラー（longMessage + 該当フィールド + errorId）を組み立てる
-    const e0 = data?.errors?.[0];
-    let error: string;
-    if (e0) {
-      const params = (e0.parameters ?? [])
-        .map((p) => `${p.name ?? ""}=${p.value ?? ""}`)
-        .filter((s) => s !== "=")
-        .join(", ");
-      error = [e0.longMessage || e0.message, params && `(${params})`, e0.errorId && `#${e0.errorId}`]
-        .filter(Boolean)
-        .join(" ");
-    } else {
-      error = `HTTP ${res.status}`;
-    }
-    return { ok: false, status: res.status, error };
+    // eBayの詳細エラー（longMessage + 該当フィールド + errorId）を組み立てる（POST/PUT/DELETE 共通）
+    return { ok: false, status: res.status, error: formatEbayError(data, res.status) };
   } catch (e) {
     return { ok: false, status: 0, error: (e as Error).message };
   }
