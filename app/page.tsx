@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Target, Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
+import { Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import GuideVideo from "./components/GuideVideo";
@@ -36,19 +36,14 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ヒーロー */}
-      <div className="bg-gradient-to-br from-[#2D323B] via-[#2D323B] to-[#1A1D23] text-white">
-        <div className="max-w-2xl mx-auto px-6 py-10 text-center">
-          <p className="text-xs font-bold bg-white/20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-4 backdrop-blur-sm">
-            <Target size={13} /> 楽天ポイント × eBay輸出
-          </p>
-          <h1 className="text-2xl font-black mb-3 leading-snug">
-            楽天で買って<br />
-            <span className="text-yellow-300">ポイントを稼ぎながら</span><br />
-            eBayで売る
+      {/* ヒーロー（コンパクト＝すぐ下に動画） */}
+      <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white">
+        <div className="max-w-2xl mx-auto px-6 py-5 text-center">
+          <h1 className="text-xl font-black leading-snug">
+            在庫ゼロで、<span className="text-[#D8C089]">eBay輸出</span>を副業に
           </h1>
-          <p className="text-white/80 text-sm leading-relaxed">
-            仕入れ価格＋ポイント還元で利益を最大化。<br />日本にしかない商品を海外で高く売る。
+          <p className="text-white/75 text-[13px] leading-relaxed mt-1.5">
+            利益が出る商品が、ひと目でわかる。
           </p>
         </div>
       </div>
