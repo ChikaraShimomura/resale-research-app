@@ -53,6 +53,23 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* ホーム紹介動画＝ファーストビュー直下。画面内でミュート自動再生＋「音声をオン」（焼き込み字幕で内容は伝わる） */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <GuideVideo
+          title="在庫ゼロで始めるeBay輸出（約2分）"
+          src="/videos/home-intro.mp4"
+          poster="/videos/home-intro-poster.jpg"
+          durationLabel="約2分"
+          autoplayInView
+          note="※ 相場・利益率は想定／目安で、利益を保証するものではありません。eBay等の各種ポリシーは公式をご確認のうえご利用ください。／ 音声 VOICEVOX:ずんだもん"
+        />
+        <div className="mt-3 text-center">
+          <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
+            eBay登録・出金の動画も見る →
+          </Link>
+        </div>
+      </section>
+
       {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション（先頭＝まず不安を解く） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <div className="flex items-center gap-2 mb-1.5">
@@ -79,22 +96,6 @@ export default function LandingPage() {
         <div className="mt-3 text-center">
           <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             はじめ方を画像つきガイドで見る →
-          </Link>
-        </div>
-      </section>
-
-      {/* はじめてガイド動画（全体像・ナレーション付き／いま作った1分動画） */}
-      <section className="max-w-2xl mx-auto px-4 pt-6">
-        <GuideVideo
-          title="まずは動画で全体像（約1分）"
-          src="/videos/guide-overview.mp4"
-          poster="/videos/guide-overview-poster.jpg"
-          durationLabel="約1分"
-          note="※ 仕入れ→出品→発送→入金までの流れを、やさしい音声ナレーションつきでまとめています。"
-        />
-        <div className="mt-3 text-center">
-          <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
-            eBay登録・出金の動画も見る →
           </Link>
         </div>
       </section>

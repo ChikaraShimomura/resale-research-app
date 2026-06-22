@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <style>
   :root{
-    --crimson:#BF0000; --crimson-dark:#9E0000; --pink:#FF4466;
+    --crimson:#2D323B; --crimson-dark:#1A1D23; --pink:#A98B5C;
     --ink:#1f2430; --gray:#5b6472; --bg:#F5F7FA;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -72,7 +72,7 @@
   /* ---------- TITLE / OUTRO ---------- */
   .cover{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;padding:0 96px;color:#fff;gap:14px;
-    background:radial-gradient(120% 80% at 50% 0%,#D81010 0%,var(--crimson) 42%,var(--crimson-dark) 100%);}
+    background:radial-gradient(120% 80% at 50% 0%,#3A4250 0%,var(--crimson) 42%,var(--crimson-dark) 100%);}
   .cover .kbrand{font-weight:800;font-size:40px;letter-spacing:1px;opacity:.95;
     border:3px solid rgba(255,255,255,.5);border-radius:999px;padding:14px 38px;margin-bottom:40px;}
   .cover h1{font-weight:800;font-size:92px;line-height:1.22;letter-spacing:1px;
@@ -101,7 +101,7 @@
     if(d.type==='title'){
       stage.innerHTML=
         '<div class="cover">'+
-          '<div class="kbrand">輸出ラボ ガイド</div>'+
+          '<div class="kbrand">'+esc(d.kbrand||'輸出ラボ ガイド')+'</div>'+
           (d.icons?('<div class="icons">'+esc(d.icons)+'</div>'):'')+
           '<h1>'+fmt(d.title)+'</h1>'+
           (d.helper?('<div class="sub">'+fmt(d.helper)+'</div>'):'')+

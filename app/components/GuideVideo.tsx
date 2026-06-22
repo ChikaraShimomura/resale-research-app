@@ -1,4 +1,6 @@
-import { PlayCircle } from "lucide-react";
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { PlayCircle, Volume2 } from "lucide-react";
 
 type GuideVideoProps = {
   /** カード見出し */
@@ -13,11 +15,15 @@ type GuideVideoProps = {
   durationLabel?: string;
   /** 動画の下に出す一言 */
   note?: string;
+  /** 画面内に入ったらミュートで自動再生し「音声をオン」ボタンを出す（ホーム用）。
+   *  音付き自動再生はブラウザがブロックするため、ミュート自動再生＋焼き込み字幕で内容を伝える方式。 */
+  autoplayInView?: boolean;
 };
 
 /**
  * 縦型(9:16)ガイド動画の埋め込みカード。
  * 既定はローカルMP4を再生。YouTubeに上げたら youTubeId を渡すだけで切替できる。
+ * autoplayInView=true で「画面内ミュート自動再生＋音声オン」モード（ホームのファーストビュー用）。
  */
 export default function GuideVideo({
   title,
@@ -26,7 +32,43 @@ export default function GuideVideo({
   poster,
   durationLabel,
   note,
+  autoplayInView,
 }: GuideVideoProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [showUnmute, setShowUnmute] = useState(false);
+
+  // 画面内に入ったらミュート再生／外れたら一時停止（IntersectionObserver）。
+  useEffect(() => {
+    if (!autoplayInView || youTubeId) return;
+    const v = videoRef.current;
+    const w = wrapRef.current;
+    if (!v || !w) return;
+    v.muted = true; // ミュートでないと自動再生がブロックされる
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            v.play().then(() => setShowUnmute(v.muted)).catch(() => {});
+          } else {
+            v.pause();
+          }
+        }
+      },
+      { threshold: 0.5 }
+    );
+    io.observe(w);
+    return () => io.disconnect();
+  }, [autoplayInView, youTubeId]);
+
+  const enableSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    setShowUnmute(false);
+    v.play().catch(() => {});
+  };
+
   return (
     <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -40,7 +82,7 @@ export default function GuideVideo({
       </div>
 
       <div className="mx-auto w-full max-w-[320px]">
-        <div className="relative rounded-2xl overflow-hidden bg-black shadow-md" style={{ aspectRatio: "9 / 16" }}>
+        <div ref={wrapRef} className="relative rounded-2xl overflow-hidden bg-black shadow-md" style={{ aspectRatio: "9 / 16" }}>
           {youTubeId ? (
             <iframe
               className="absolute inset-0 w-full h-full"
@@ -51,14 +93,32 @@ export default function GuideVideo({
               allowFullScreen
             />
           ) : (
-            <video
-              className="absolute inset-0 w-full h-full object-contain"
-              src={src}
-              poster={poster}
-              controls
-              preload="metadata"
-              playsInline
-            />
+            <>
+              <video
+                ref={videoRef}
+                className="absolute inset-0 w-full h-full object-contain"
+                src={src}
+                poster={poster}
+                controls
+                preload="metadata"
+                playsInline
+              />
+              {autoplayInView && showUnmute && (
+                <button
+                  type="button"
+                  onClick={enableSound}
+                  aria-label="音声をオンにする"
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/30"
+                >
+                  <span className="w-16 h-16 rounded-full bg-[#2D323B]/90 ring-2 ring-white/70 flex items-center justify-center text-white">
+                    <Volume2 size={28} />
+                  </span>
+                  <span className="text-[13px] font-bold text-white bg-black/55 px-3.5 py-1.5 rounded-full">
+                    タップで音声を出す
+                  </span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

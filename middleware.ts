@@ -136,6 +136,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   // 静的アセット・画像最適化を除外（CSP/cookie 処理は HTML と API のみで十分）
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|mp4|webm|mov|m4v)$).*)",
   ],
 };

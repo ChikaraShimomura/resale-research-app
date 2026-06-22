@@ -1,4 +1,5 @@
 {
+  "home": { "fullName": "home-intro", "segments": [] },
   "overview": {
     "fullName": "guide-overview",
     "segments": []
