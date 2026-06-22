@@ -1552,6 +1552,8 @@ async function main() {
   profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);
   await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+  // 直近落札のAI同一判定（Pixelが集めた候補 ebay_soldcand を楽天画像と照合）。カタログ確定後＝失敗してもカタログは無事。
+  try { await verifySoldComps(profitableProducts); } catch (e) { console.error('落札AI検証エラー(スキップ):', e?.message); }
   await kvArchiveProducts(profitableProducts); // 出品アーカイブを更新（カタログ落ち後も仕入れた人が出品できるように）
   await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
   await kvSet('refresh_stats', {
@@ -1592,6 +1594,42 @@ async function main() {
   画像判定(Claude): Haiku 成功${haikuCallsToday}/不通${haikuFailToday}回 / Sonnet確認 ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
+}
+
+// 直近落札のAI同一判定（消費側 applySoldComp が使う ebay_soldprice を「実物に紐づく確定値」へ昇格）。
+//   Pixel(住宅IP)が ebay_soldcand:{id} に直近落札の候補(価格/実物URL/画像URL/タイトル)を集める。
+//   ここ(GitHub・Anthropic鍵あり・eBay画像は公開CDNでDC IPでも取れる)で、楽天画像×落札画像を isImageMatch で照合：
+//   直近1件で一致したら即採用、ダメなら直近5件まで。一致したらその実物の価格＋URLで ebay_soldprice を verified 確定。
+//   5件とも不一致→ ebay_soldprice は Pixel の中央値のまま据え置き（=利益商品を減らさない・別物リンクは出さない）。
+async function verifySoldComps(catalog) {
+  if (!ANTHROPIC_API_KEY) { console.log('落札AI検証: ANTHROPIC_API_KEY無しでスキップ'); return; }
+  const MAX_SOLD_VERIFY = Number(process.env.SOLD_VERIFY_MAX ?? 150); // 1回で検証する「候補あり商品」の上限
+  let verified = 0, noMatch = 0, processed = 0;
+  for (const p of catalog) {
+    if (processed >= MAX_SOLD_VERIFY) break;
+    if (!p?.id || !p.imageUrl) continue;
+    const cand = await kvGet(`ebay_soldcand:${p.id}`);
+    const cards = Array.isArray(cand?.cards) ? cand.cards : null;
+    if (!cards || !cards.length) continue;
+    processed++;
+    const cat = p.category || guessCategory(p.title || '');
+    const risky = (cat === 'コスメ' || cat === 'フィギュア' || cat === 'ガンプラ'); // 確信HIGHゲート対象
+    let matched = null;
+    for (const card of cards.slice(0, 5)) { // 直近1件→不一致なら5件まで
+      if (!card?.img || !card?.url || !(card.price > 0)) continue;
+      const same = await isImageMatch(p.imageUrl, card.img, { rakutenTitle: p.title, ebayTitle: card.title || '', rakutenQuantity: 1, strict: risky });
+      if (same) { matched = card; break; }
+    }
+    if (matched) {
+      await kvSet(`ebay_soldprice:${p.id}`, {
+        median: matched.price, medianUsd: Math.round((matched.price / L_USD_JPY) * 100) / 100,
+        count: cand.windowCount || 1, windowDays: 30, soldBased: true, verified: true,
+        soldUrl: matched.url, at: new Date().toISOString(),
+      }, 168 * 3600);
+      verified++;
+    } else { noMatch++; }
+  }
+  console.log(`落札AI検証: 確定${verified} / 不一致${noMatch}(中央値据え置き) / 候補あり処理${processed}`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

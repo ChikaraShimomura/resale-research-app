@@ -93,10 +93,13 @@ function ageDays(dateStr) { const t = Date.parse(dateStr); return Number.isNaN(t
 //   （eBayの厳格な "Brand New" だけに絞ると新品系の出来高を取りこぼし、誤って落札不足になるため）。
 const isUsedCond = (s) => /pre-?owned|\bused\b|中古|ジャンク|junk|for parts|not working|seller refurbished/i.test(s);
 function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
-  const chunks = html.split(/s-card__caption/);
-  const prices = []; let dated = 0, withWindow = 0, usedSkipped = 0; const items = Math.max(0, chunks.length - 1);
+  // s-card__image を区切りに1カード=1チャンク（画像→落札日→コンディション→URL→価格が同じチャンクに収まる）。
+  // ※カード数(items)は s-card__caption の数で別途数える（s-card__image は1カードに複数出るので区切り用途のみ）。
+  const chunks = html.split(/class=s-card__image/);
+  const items = (html.match(/s-card__caption/g) || []).length;
+  const prices = []; const cards = []; let dated = 0, withWindow = 0, usedSkipped = 0;
   for (let i = 1; i < chunks.length; i++) {
-    const c = chunks[i].slice(0, 4000); // このカードは先頭から「落札日 → コンディション → … → 価格」の順に並ぶ。次caption手前まででよい。
+    const c = chunks[i].slice(0, 4500);
     // 落札日: "Sold Mon DD, YYYY"（"Sold"接頭辞の有無どちらも許容＝将来表記揺れに強く）。
     const dm = c.match(/Sold\s+([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/) || c.match(/([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/);
     let age = null; if (dm) { age = ageDays(dm[1]); if (age != null) dated++; }
@@ -111,9 +114,16 @@ function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
     let jpy = null;
     if (pj) jpy = parseInt(pj[1].replace(/,/g, ""), 10);
     else if (pd) jpy = Math.round(parseFloat(pd[1].replace(/,/g, "")) * usdJpy);
-    if (jpy > 0) prices.push(jpy);
+    if (!(jpy > 0)) continue;
+    prices.push(jpy);
+    // 候補（AI同一判定の材料）：高解像度画像(data-defer-load=s-l500)優先・タイトルはimg alt・実物URL。
+    const im = c.match(/data-defer-load=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/) || c.match(/src=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/);
+    const um = c.match(/https:\/\/www\.ebay\.com\/itm\/(\d+)/);
+    const al = c.match(/alt="([^"]{3,140})"/);
+    if (im && um) cards.push({ price: jpy, ageDays: Math.round(age), url: `https://www.ebay.com/itm/${um[1]}`, img: im[1], title: al ? al[1].trim() : "" });
   }
-  return { prices, items, dated, withWindow, usedSkipped };
+  cards.sort((a, b) => a.ageDays - b.ageDays); // 直近(落札が新しい)順＝検証は先頭から
+  return { prices, items, dated, withWindow, usedSkipped, cards };
 }
 function trimmedMedian(arr) {
   const a = arr.filter((x) => x > 0).sort((x, y) => x - y); if (!a.length) return null;
@@ -146,6 +156,7 @@ async function main() {
 
   const now = Math.floor(Date.now() / 1000);
   const buffer = []; // 健全な実行のときだけ最後にまとめて書く（汚染回避）
+  const candBuffer = []; // 直近落札の候補(URL/画像/タイトル)。GitHub側refreshがAI同一判定して ebay_soldprice を確定させる材料
   const auditRows = [];
   let calcProfit, landedSubtractJpy;
   if (AUDIT) {
@@ -190,7 +201,9 @@ async function main() {
     }
     ok++;
     buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
-    console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy} : ${kw.slice(0, 40)}`);
+    // 直近落札の候補（最大5件・直近順）。refresh(GitHub・Anthropic鍵あり)がAI同一判定して実物URL付きで確定する。
+    if (parsed.cards?.length) candBuffer.push({ key: `ebay_soldcand:${id}`, rec: { cards: parsed.cards.slice(0, 5), windowCount: parsed.withWindow, at: new Date().toISOString() } });
+    console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy}（候補${parsed.cards?.length ?? 0}） : ${kw.slice(0, 40)}`);
     if (AUDIT) {
       // 配信(displayProfit)と同一式で「現在出品相場ベース」と「落札ベース」の現金純利益率を出して比較。
       const point = p.source?.pointAmount ?? 0, ship = p.source?.shippingJpy ?? 0;
@@ -219,6 +232,7 @@ async function main() {
     else console.error(`🚨 異常率 ${(failRatio * 100).toFixed(0)}%（ブロック${blocked}/妥当性NG${implausible}/落札日不可${dateFail} of ${done}）＝eBay UI変更 or IPブロックの疑い。書込を全中止。要確認。`);
   } else if (!DRY && !AUDIT) {
     for (const b of buffer) { if (await kvSetJson(b.key, b.rec, TTL_S)) wrote++; }
+    for (const b of candBuffer) { await kvSetJson(b.key, b.rec, TTL_S); } // 候補（AI同一判定用）。TTLは soldprice と同じ
   }
   // 監視用サマリ（cron→メール通知に使える）。監査モードは書き込まない（汚さない）。
   if (!AUDIT) await kvSetJson("ebay_soldprice_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, done, ok, wrote, blocked, thin, implausible, dateFail, noCard, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);

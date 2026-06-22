@@ -16,4 +16,5 @@ export interface ProfitProduct extends Product {
   soldBased?: boolean;          // true なら realAvgPrice/利益は「eBay直近落札中央値」ベース（false/未設定＝現在出品相場）
   soldCount30d?: number;        // 直近windowDays(既定30日)の落札件数（需要の目安バッジ）
   soldWindowDays?: number;      // 落札件数の対象日数（既定30）
+  soldUrl?: string;             // AI同一判定が通った実物の落札URL（確認リンクを同一商品に着地させる）
 }

@@ -64,10 +64,10 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const sourceUrl = toRakutenProductUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
-  // 確認リンクは常に「eBay落札済み（実売価）」検索へ統一（全商品・ユーザー方針2026-06-23）。
-  // 落札データが無い薄い商品でも、eBayの落札ページに飛ばす＝実売価/需要の薄さがそのまま見える。
+  // 確認リンク：AI同一判定が通った実物の落札URL(soldUrl)があればそれへ直行＝別物が出ない。
+  // 無ければ「eBay落札済み検索」へ（全商品で落札ページに統一・ユーザー方針2026-06-23）。
   const market = (product as { market?: string }).market;
-  const ebayMarketUrl = toEbayMarketUrl(product.coreKeyword || product.title, market, true);
+  const ebayMarketUrl = product.soldUrl || toEbayMarketUrl(product.coreKeyword || product.title, market, true);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 

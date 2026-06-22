@@ -16,6 +16,8 @@ interface SoldRec {
   count?: number;
   windowDays?: number;
   soldBased?: boolean;
+  verified?: boolean;   // refresh のAI同一判定で「実物に紐づく」と確定した落札（soldUrl 付き）
+  soldUrl?: string;     // 同一判定が通った実物の落札URL（確認リンクをこれに飛ばす＝別物が出ない）
   at?: string;
 }
 
@@ -56,6 +58,7 @@ export async function applySoldComp(products: ProfitProduct[]): Promise<ProfitPr
       soldBased: true,
       soldCount30d: Number(r.count) || 0,
       soldWindowDays: Number(r.windowDays) || 30,
+      soldUrl: r.verified && r.soldUrl ? r.soldUrl : undefined, // AI確定した実物の落札URL（確認リンク用）
     };
   });
 }
