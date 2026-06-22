@@ -27,9 +27,9 @@ SEEN_CAP = 400
 MIN_FOLL = 300                  # 著者フォロワーの下限(小さすぎる相手は価値薄)
 MAX_FOLL = 30000               # 上限(大きすぎると埋もれて気づかれない)。自分の2〜10倍帯を狙う目安
 FRESH_HOURS = 3                # この時間内の投稿だけ(リプは鮮度が命)
-MAX_CANDIDATES = 5
-DRAFT_TOP = 3                   # 上位この件数だけ下書き案を生成
-MAX_RESULTS = 10               # 1回の検索で取る件数(=読み取りコスト)。倹約モードで最小の10
+MAX_CANDIDATES = 10
+DRAFT_TOP = 5                   # 上位この件数だけ下書き案を生成(Haikuは安価)
+MAX_RESULTS = 40               # 1回の検索で取る件数(=読み取りコスト)。候補10件を出すにはフィルタ後の母数が要るため 10→40 に増量(その分コスト増)
 
 SELF = os.environ.get("TWITTER_SELF_USERNAME", "").lstrip("@").lower()
 
