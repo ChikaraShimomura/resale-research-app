@@ -44,6 +44,7 @@ const SANE_LO = Number(process.env.EBAY_SOLD_SANE_LO ?? 0.2); // 現相場×こ�
 const SANE_HI = Number(process.env.EBAY_SOLD_SANE_HI ?? 5);   // 現相場×これ超は破棄
 const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
 const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
+const DEBUG = process.env.EBAY_SOLD_DEBUG === "1"; // 先頭商品で実HTMLの中身を診断ダンプ
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -135,9 +136,16 @@ async function main() {
     if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(30000, 60000))); continue; }
 
     const parsed = parseSoldWithin(r.html, WINDOW_DAYS);
+    if (DEBUG && done === 1) {
+      const h = r.html;
+      console.log(`  [DEBUG] htmlLen=${h.length} status=${r.status} priceMarkers=${(h.match(/s-item__price/g) || []).length} 'Sold 'raw=${(h.match(/Sold\s/g) || []).length} liChunks=${h.split(/<li[^>]*class="[^"]*s-item[^"]*"/i).length - 1} hasTitle=${/s-item__title/.test(h)} noResults=${/0 results|didn't match any|No exact matches/i.test(h)}`);
+      console.log(`  [DEBUG] price samples=${JSON.stringify([...h.matchAll(/s-item__price[^$]{0,40}\$([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g)].slice(0, 3).map((m) => m[1]))}`);
+      console.log(`  [DEBUG] sold-date samples=${JSON.stringify([...h.matchAll(/Sold\s+([^<]{3,22})/g)].slice(0, 3).map((m) => m[1].trim()))}`);
+      console.log(`  [DEBUG] parsed items=${parsed.items} dated=${parsed.dated} window=${parsed.prices.length} query="${kw.slice(0, 70)}"`);
+    }
     if (parsed.items >= 5 && parsed.dated === 0) { dateFail++; console.log(`  ⚠️ 落札日が取れない(items${parsed.items}/dated0)＝Sold日付のUI変更疑い : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
     const stat = trimmedMedian(parsed.prices);
-    if (!stat || stat.count < MIN_SAMPLE) { thin++; console.log(`  ・直近${WINDOW_DAYS}日の落札が不足(${stat?.count ?? 0}件) : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
+    if (!stat || stat.count < MIN_SAMPLE) { thin++; console.log(`  ・落札不足(窓内${stat?.count ?? 0}/items${parsed.items}/dated${parsed.dated}) : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
     const medianJpy = Math.round(stat.median * USD_JPY);
     // 妥当性：現eBay相場(realAvgPrice JPY)から極端に乖離＝パース誤り疑い→破棄。
     const anchor = Number(p?.realAvgPrice) || 0;
