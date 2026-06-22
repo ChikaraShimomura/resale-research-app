@@ -15,7 +15,10 @@ export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
 // 国際発送を許可できる国コード（ホワイトリスト）。送料計算は米国基準なので主要英語/EU圏に絞る。
-const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR", "IT", "ES"];
+// ⚠️ IT(イタリア)/ES(スペイン)は不可：EBAY_US の配送ポリシーでは発送先に登録できず、
+//    createFulfillmentPolicy が errorId=216347「unsupported destinations for this marketplace」で落ちる
+//    （EUのVAT/輸入規制絡み）。UI(EbayPolicySetup の COUNTRIES)と必ず一致させること。
+const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR"];
 const DEFAULT_REGIONS = ["AU", "GB"];
 
 export async function POST(req: Request) {

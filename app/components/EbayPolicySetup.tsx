@@ -30,14 +30,16 @@ const DEFAULTS: Record<string, string> = {
 };
 
 // 国際発送を許可できる国（アメリカは常に対象＝DOMESTIC）。送料計算は米国基準なので主要英語/EU圏に絞る。
+// ⚠️ イタリア(IT)・スペイン(ES)は入れない：EBAY_US の配送ポリシーでは発送先として登録できず、
+//    createFulfillmentPolicy が errorId=216347「Few unsupported destinations found ... for this marketplace」で
+//    ポリシー作成全体を失敗させる（EUのVAT/輸入規制絡みで eBay 側が個別指定を弾く）。AU/GB/CA/DE/FR は許可される。
+//    eBay が他国を制限した場合もここから外すこと（サーバーは regions をそのまま regionName に渡すため）。
 const COUNTRIES = [
   { code: "AU", label: "オーストラリア" },
   { code: "GB", label: "イギリス" },
   { code: "CA", label: "カナダ" },
   { code: "DE", label: "ドイツ" },
   { code: "FR", label: "フランス" },
-  { code: "IT", label: "イタリア" },
-  { code: "ES", label: "スペイン" },
 ];
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
