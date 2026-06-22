@@ -13,16 +13,16 @@ const WORK = path.join(DIR, '_work');
 const CACHE = path.join(DIR, 'audio', 'cache');
 const BGM = path.join(DIR, 'bgm.wav');
 
-const FADE = 0.6, LEAD = 0.5, TAIL = 1.1, BGM_VOL = 0.10;
+const FADE = 0.5, LEAD = 0.45, TAIL = 0.85, BGM_VOL = 0.10;
 // ナレーション: VOICEVOX（ローカルエンジン :50021）。声を変えるなら SPEAKER を変更
 const ENGINE = 'http://127.0.0.1:50021';
 const SPEAKER = 3;          // ずんだもん（ノーマル）
-const SPEED = 1.0;          // 速さ
+const SPEED = 1.1;          // 速さ（テンポUP）
 const INTONATION = 1.0;     // 抑揚（人らしさ）
 const PITCH = 0.0;          // 高さ
 const VOLUME = 2.2;         // 音量（VOICEVOXは素が小さめなので持ち上げる）
 
-const VLABEL = { home: '利益商品ランキング', overview: 'はじめてガイド', ebay: 'eBay登録ガイド', payoneer: 'Payoneer出金ガイド' };
+const VLABEL = { home: '', overview: 'はじめてガイド', ebay: 'eBay登録ガイド', payoneer: 'Payoneer出金ガイド' };
 
 const plans = JSON.parse(fs.readFileSync(path.join(DIR, 'plans.json'), 'utf8'));
 const narration = JSON.parse(fs.readFileSync(path.join(DIR, 'narration.json'), 'utf8'));

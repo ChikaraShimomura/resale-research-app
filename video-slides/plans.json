@@ -9,15 +9,14 @@
         "slides": [
           {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"輸出ラボ","title":"在庫ゼロで、\n世界に売る","helper":"在庫を持たずに、日本の商品を海外へ\neBay輸出を“ほぼ自動”で","hold":4},
           {"type":"screen","image":"h_ranking_items","badge":"利益商品リサーチ","title":"利益が出る商品を\n毎日、自動で","helper":"国内では普通でも、海外だと数倍で売れることも\n“利益が出やすい商品”を自動でリストアップ","hold":6},
-          {"type":"screen","image":"h_ranking_top","badge":"相場・利益率","title":"手元に残る\n“利益の目安”まで","helper":"想定売値・利益率を表示\n国際送料や関税まで引いた目安だから、選ぶだけ","hold":6},
-          {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"かんたん出品","title":"選ぶだけで\neBayへ自動出品","helper":"英語タイトル・カテゴリ・説明文まで自動\n価格は損益分岐を自動計算で、赤字も避けやすい","hold":6},
+          {"type":"screen","image":"h_ranking_top","badge":"相場・利益率","title":"相場と利益の目安が\nひと目で","helper":"想定売値・利益率を表示\n国際送料や関税まで引いた目安だから、選ぶだけ","hold":6},
+          {"type":"screen","image":"a_modal_top","badge":"かんたん出品","title":"選ぶだけで\neBayへ自動出品","helper":"英語タイトル・説明文・カテゴリまで自動で用意\n価格も損益分岐を自動計算で、赤字を避けやすい","hold":7},
           {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"在庫リスクなし","title":"売れてから仕入れる\nだから在庫リスクなし","helper":"先に出品 → 売れてから仕入れ\nあなたが日本から発送。売れ残りなし","hold":5},
-          {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"安心の自動ストップ","title":"仕入れ先が売切→\n出品を自動ストップ","helper":"“売れたのに仕入れ先が無い”を自動ケア\n※検知が遅れることも。出品中はご自身でも確認を","hold":6},
+          {"type":"screen","image":"a_listings","badge":"出品管理","title":"出品中も、\nこの画面で管理","helper":"仕入れ先が売切れたら自動ストップ＋価格や数量も編集\n※検知が遅れることも。出品中はご自身でも確認を","hold":7},
           {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"売れたあともラク","title":"売れたら自動検知\n発送までスムーズ","helper":"あとは仕入れて発送するだけ\n関税の前払いが必要なケースもお知らせ","hold":5},
+          {"type":"screen","image":"a_mypage","badge":"成績は見える化","title":"成績は、\nぜんぶ見える化","helper":"売上・利益・ポイント・月ごとの推移\nそして称号まで、ひと目で分かる","hold":7},
           {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"値崩れ防止","title":"出品が集中しすぎない\n自動クローズ","helper":"同じ商品への偏りで値崩れしないよう\n一定数に達したら自動でクローズ","hold":5},
-          {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"あとから編集OK","title":"価格も数量も\nマイページから","helper":"出品後もアプリで変更できる\neBayの画面を触る必要なし","hold":4},
-          {"type":"title","kbrand":"輸出ラボ","image":null,"badge":"そのほかも充実","title":"成績・通知・\nガイドも","helper":"利益はマイページで見える化\nプッシュ通知・週次レポート・始め方ガイド","hold":5},
-          {"type":"outro","image":null,"badge":"yushutsu-fukugyo.com","title":"在庫ゼロで、\n世界へ。","helper":"まずは“利益が出る相場”を見るところから\n※相場・利益率は想定・目安で、利益を保証するものではありません\n音声 VOICEVOX:ずんだもん","hold":6}
+          {"type":"outro","image":null,"badge":"無料ではじめる → yushutsu-fukugyo.com","title":"さあ、\nあなたの番。","helper":"まずは無料で、利益が出る相場をのぞいてみよう\n※相場・利益率は想定・目安／利益を保証するものではありません　音声 VOICEVOX:ずんだもん","hold":6}
         ]
       }
     },

@@ -142,7 +142,7 @@
     // screen
     stage.innerHTML=
       '<div class="screen">'+
-        '<div class="topbar"><span class="brand">輸出ラボ<span class="b2">'+esc(d.vlabel||'')+'</span></span>'+
+        '<div class="topbar"><span class="brand">輸出ラボ'+(d.vlabel?'<span class="b2">'+esc(d.vlabel)+'</span>':'')+'</span>'+
           (d.vtitle?('<span class="vtitle">'+esc(d.vtitle)+'</span>'):'')+'</div>'+
         '<div class="imgwrap"><div class="imgcard"><img id="shot" src="'+esc(d.img)+'"></div></div>'+
         '<div class="caption"><span class="accent"></span>'+
