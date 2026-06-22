@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 // scripts/ebaySoldWorker.mjs
-// 住宅IPワーカー：eBayの「売却済み(Sold/Completed)」検索ページをスクレイプして、カタログ各商品の
-// 直近落札価格の中央値(JPY)を KV `ebay_sold:{productId}` に保存する。
-// Marketplace Insights API(承認制)を待たずに“実落札”相場を取るための非公式手段(A案)。
+// eBayの「売却済み(Sold/Completed)」ページを実ブラウザ(Playwright/Chromium)で“人が見てる”ように開いて、
+// カタログ各商品の直近落札中央値(JPY)を KV `ebay_sold:{productId}` に保存する。
+// Marketplace Insights API(承認制)を待たずに実落札相場を取る回避策A。
 //
-// 【なぜ住宅IPでしか動かないか】
-//   eBayの /sch ページは GitHub Actions 等のデータセンターIPから 403 で弾かれる（実測）。
-//   住宅IP（このPC/Pixel+Termux）なら通る。楽天死活ワーカー(sourceLivenessWorker.mjs)と同じ理由・同じ運用。
+// 【人間っぽい挙動】素のfetchはボット判定で弾かれる(403)。実Chromium＋本物の指紋/Cookie/言語、
+//   トップページから入る、スクロール、リクエスト間隔ランダム化、ブロック検知でバックオフ。
+// 【実行環境】Chromiumが要る＝住宅IPのPCで実行（DC IPは403／Termuxはchromium不可）。
+//   楽天死活ワーカー(sourceLivenessWorker.mjs)はTermux継続、eBay落札はこのPC担当。
 //
-// 【安全則】
-//   ・DRY 既定ON：明示的に EBAY_SOLD_DRY=0 の時だけ KV へ書込む（未設定/その他は書かない）。
-//   ・403/タイムアウト/サンプル<MIN は書かない（その商品はスキップ＝既存値を壊さない）。
-//   ・礼儀：リクエスト間に GAP、同時実行は低め、1回の処理上限 MAX。
-//   ・直近 FRESH_H 時間以内に取得済みの商品は再取得しない（負荷分散）。
+// 使い方(PowerShell・リポジトリ直下):
+//   $env:EBAY_SOLD_DRY=1; $env:EBAY_SOLD_MAX=5; node scripts/ebaySoldWorker.mjs   # 試運転(書込なし)
+//   $env:EBAY_SOLD_DRY=0; node scripts/ebaySoldWorker.mjs                          # 本書込
+//   $env:EBAY_SOLD_HEADFUL=1 ...  # ブラウザ画面を表示して回す(より人間的・目視確認用)
 //
-// env: KV_REST_API_URL / KV_REST_API_TOKEN（.env.local 自動読込）/ LANDED_USD_JPY（既定155）
-//      EBAY_SOLD_DRY=0 で本番書込 / EBAY_SOLD_MAX / EBAY_SOLD_GAP_MS / EBAY_SOLD_TTL_H / EBAY_SOLD_FRESH_H
+// env: KV_REST_API_URL / KV_REST_API_TOKEN(.env.local自動) / LANDED_USD_JPY(既定155)
+//      EBAY_SOLD_DRY=0で本書込 / EBAY_SOLD_MAX / EBAY_SOLD_GAP_MS / EBAY_SOLD_TTL_H / EBAY_SOLD_FRESH_H / EBAY_SOLD_HEADFUL
 
 import fs from "node:fs";
+import { chromium } from "playwright";
+
 try {
   const envPath = new URL("../.env.local", import.meta.url);
   for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
@@ -29,17 +31,19 @@ try {
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const H = { Authorization: `Bearer ${KV_TOKEN}` };
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const USD_JPY = Number(process.env.LANDED_USD_JPY) || 155;
 
-const DRY = process.env.EBAY_SOLD_DRY !== "0";        // 既定: 書かない
-const MAX = Number(process.env.EBAY_SOLD_MAX ?? 60);  // 1回の処理上限
-const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 2500); // eBayへの礼儀（弾かれ防止）
-const TTL_S = Number(process.env.EBAY_SOLD_TTL_H ?? 168) * 3600; // 保存TTL(既定7日)
-const FRESH_S = Number(process.env.EBAY_SOLD_FRESH_H ?? 36) * 3600; // この時間内に取得済みは再取得しない
+const DRY = process.env.EBAY_SOLD_DRY !== "0";
+const MAX = Number(process.env.EBAY_SOLD_MAX ?? 60);
+const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 4000); // 基準間隔（実際は ×1〜2 でゆらぐ）
+const TTL_S = Number(process.env.EBAY_SOLD_TTL_H ?? 168) * 3600;
+const FRESH_S = Number(process.env.EBAY_SOLD_FRESH_H ?? 36) * 3600;
+const HEADFUL = process.env.EBAY_SOLD_HEADFUL === "1";
 const MIN_SAMPLE = 3;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const rnd = (a, b) => a + Math.random() * (b - a);       // 人間っぽいゆらぎ
+const jitterGap = () => sleep(Math.round(GAP_MS * rnd(1, 2.2))); // 商品間：4〜8.8秒で不規則
 
 async function kvGet(key) {
   try {
@@ -50,86 +54,98 @@ async function kvGet(key) {
   } catch { return null; }
 }
 async function kvSetJson(key, val, ttl) {
-  // 値はJSON文字列で保存（@vercel/kv も raw REST も get時に JSON.parse する＝整合）。
   const url = `${KV_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(JSON.stringify(val))}?EX=${ttl}`;
   const res = await fetch(url, { method: "POST", headers: H });
   return res.ok;
 }
 
-// eBay 売却済みページから価格(USD)配列を抽出。.s-item__price（枯れたマークアップ）ベース。
-function parseSoldUsd(html) {
-  const prices = [];
-  // 各 s-item__price の直後の最初の $金額を拾う（ネストspanに強い）。範囲表記は低い方を採用。
-  const re = /s-item__price[^$]{0,40}\$([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const v = parseFloat(m[1].replace(/,/g, ""));
-    if (Number.isFinite(v) && v > 0) prices.push(v);
-  }
-  // 先頭は「Shop on eBay」プレースホルダのことが多い＝1件目を捨てる（2件以上ある時のみ）。
-  return prices.length > 1 ? prices.slice(1) : prices;
-}
-
-// 外れ値トリム＋中央値。
 function trimmedMedian(arr) {
   const a = arr.filter((x) => x > 0).sort((x, y) => x - y);
   if (a.length === 0) return null;
-  const cut = a.length >= 8 ? Math.floor(a.length * 0.1) : 0; // 上下10%トリム（8件以上時）
+  const cut = a.length >= 8 ? Math.floor(a.length * 0.1) : 0;
   const t = a.slice(cut, a.length - cut);
   const mid = Math.floor(t.length / 2);
   const med = t.length % 2 ? t[mid] : (t[mid - 1] + t[mid]) / 2;
   return { median: med, count: a.length };
 }
 
-async function fetchSold(keyword) {
-  const q = encodeURIComponent(keyword.slice(0, 120));
-  // Sold + Completed, 終了が新しい順(_sop=13), 1ページ60件, US。
-  const url = `https://www.ebay.com/sch/i.html?_nkw=${q}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9", Accept: "text/html" },
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!res.ok) return { ok: false, status: res.status };
-    const html = await res.text();
-    const usd = parseSoldUsd(html);
-    return { ok: true, usd };
-  } catch (e) {
-    return { ok: false, status: "err:" + (e?.name || e?.message) };
+// 人間っぽいスクロール（数回・不規則）。lazy-load を促し挙動を自然に。
+async function humanScroll(page) {
+  const steps = Math.round(rnd(2, 4));
+  for (let i = 0; i < steps; i++) {
+    await page.mouse.wheel(0, Math.round(rnd(500, 1100)));
+    await sleep(Math.round(rnd(350, 900)));
   }
+}
+
+// 1商品ぶん：検索ページを開き、価格(USD)配列を返す。block時は {blocked:true}。
+async function scrapeSold(page, keyword) {
+  const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`;
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  // ボット検問ページの検知
+  const body = (await page.title()) + " " + (await page.evaluate(() => document.body?.innerText?.slice(0, 400) || ""));
+  if (/Pardon Our Interruption|Checking your browser|verify you are a human|robot|captcha/i.test(body)) return { blocked: true };
+  await page.waitForSelector(".s-item__price", { timeout: 12000 }).catch(() => {});
+  await humanScroll(page);
+  const texts = await page.$$eval(".s-item__price", (els) => els.map((e) => e.textContent || ""));
+  // "$24.99" / "$10.00 to $20.00" → 数値(範囲は低い方)
+  let usd = texts.map((t) => {
+    const m = t.replace(/,/g, "").match(/\$([0-9]+(?:\.[0-9]{1,2})?)/);
+    return m ? parseFloat(m[1]) : 0;
+  }).filter((v) => v > 0);
+  if (usd.length > 1) usd = usd.slice(1); // 先頭=「Shop on eBay」プレースホルダを捨てる
+  return { usd };
 }
 
 async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定"); process.exit(1); }
-  console.log(`eBay sold worker: DRY=${DRY} MAX=${MAX} GAP=${GAP_MS}ms USD_JPY=${USD_JPY}`);
-
+  console.log(`eBay sold worker (browser): DRY=${DRY} MAX=${MAX} GAP=${GAP_MS}ms headful=${HEADFUL} USD_JPY=${USD_JPY}`);
   const catalog = (await kvGet("profitable_products")) || [];
   if (!Array.isArray(catalog) || catalog.length === 0) { console.log("カタログ空"); return; }
+
+  const browser = await chromium.launch({ headless: !HEADFUL, args: ["--disable-blink-features=AutomationControlled"] });
+  const ctx = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    locale: "en-US",
+    timezoneId: "America/New_York",
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "Accept-Language": "en-US,en;q=0.9" },
+  });
+  await ctx.addInitScript(() => { Object.defineProperty(navigator, "webdriver", { get: () => undefined }); });
+  const page = await ctx.newPage();
+
+  // ウォームアップ：まずトップへ寄って Cookie を温める（いきなり検索しない＝人間的）。
+  try {
+    await page.goto("https://www.ebay.com", { waitUntil: "domcontentloaded", timeout: 30000 });
+    for (const l of ["Accept all", "Accept All", "同意"]) { try { await page.click(`text=${l}`, { timeout: 1500 }); break; } catch {} }
+    await sleep(Math.round(rnd(1200, 2500)));
+  } catch {}
 
   const now = Math.floor(Date.now() / 1000);
   let done = 0, wrote = 0, blocked = 0, thin = 0, skipped = 0;
   for (const p of catalog) {
     if (done >= MAX) break;
-    const id = p?.id;
-    const kw = p?.coreKeyword || p?.title;
+    const id = p?.id, kw = p?.coreKeyword || p?.title;
     if (!id || !kw) continue;
-
-    // 直近取得済みはスキップ（負荷分散）。
     const prev = await kvGet(`ebay_sold:${id}`);
-    if (prev && prev.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
+    if (prev?.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
 
     done++;
-    const r = await fetchSold(kw);
-    if (!r.ok) { blocked++; console.log(`  ⛔ ${String(r.status)} : ${kw.slice(0, 40)}`); await sleep(GAP_MS); continue; }
-    const stat = trimmedMedian(r.usd);
-    if (!stat || stat.count < MIN_SAMPLE) { thin++; console.log(`  ・サンプル不足(${stat?.count ?? 0}) : ${kw.slice(0, 40)}`); await sleep(GAP_MS); continue; }
-
+    let r;
+    try { r = await scrapeSold(page, kw); } catch (e) { r = { blocked: false, err: e?.message }; }
+    if (r?.blocked) {
+      blocked++; console.log(`  ⛔ ブロック検問: ${kw.slice(0, 40)}（長めにバックオフ）`);
+      await sleep(Math.round(rnd(30000, 60000))); continue; // 検問が出たら大きく待つ
+    }
+    const stat = r?.usd ? trimmedMedian(r.usd) : null;
+    if (!stat || stat.count < MIN_SAMPLE) { thin++; console.log(`  ・サンプル不足(${stat?.count ?? 0}) : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
     const medianJpy = Math.round(stat.median * USD_JPY);
     const rec = { median: medianJpy, medianUsd: Math.round(stat.median * 100) / 100, count: stat.count, soldBased: true, at: new Date().toISOString() };
     console.log(`  ✅ ${stat.count}件 中央$${rec.medianUsd}→¥${medianJpy} : ${kw.slice(0, 40)}`);
     if (!DRY) { if (await kvSetJson(`ebay_sold:${id}`, rec, TTL_S)) wrote++; }
-    await sleep(GAP_MS);
+    await jitterGap();
   }
-  console.log(`完了: 処理${done} / 書込${wrote}${DRY ? "(DRY=書込なし)" : ""} / ブロック${blocked} / サンプル不足${thin} / 新鮮スキップ${skipped}`);
+  await browser.close();
+  console.log(`完了: 処理${done} / 書込${wrote}${DRY ? "(DRY)" : ""} / ブロック${blocked} / サンプル不足${thin} / 新鮮スキップ${skipped}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
