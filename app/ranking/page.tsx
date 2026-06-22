@@ -67,8 +67,8 @@ export default async function RankingPage() {
           eBay輸出の利益商品ランキング
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          楽天で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。
-          各商品の<b>楽天仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>の目安を毎日更新（ランキングは無料公開・各商品の詳細はプランで解放）。
+          国内で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。
+          各商品の<b>仕入れ値 → eBay想定売値（現在の相場ベース）→ 利益率</b>の目安を毎日更新（ランキングは無料公開・各商品の詳細はプランで解放）。
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
           ※ 海外で売れやすい定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場は現在の出品ベースの<b>想定（目安）</b>で、状態・競合・為替で変わります。
@@ -104,7 +104,7 @@ export default async function RankingPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
                         <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                          楽天 {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                          仕入れ {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -139,7 +139,7 @@ export default async function RankingPage() {
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
-          輸出ラボは、楽天で仕入れてeBayへ輸出・転売する副業のための<b>リサーチ＆出品ツール</b>です（ランキングは無料公開・本格利用は月¥500〜）。利益（現金）は楽天の仕入れ値・eBay手数料(13.25%)・国内送料・米国関税をもとに算出した想定値で、国際送料は購入者負担のため含めていません。楽天ポイントは利益に含めず別枠（おまけ）で扱います。
+          輸出ラボは、国内で仕入れてeBayへ輸出する副業のための<b>リサーチ＆出品ツール</b>です（ランキングは無料公開・本格利用は月¥500〜）。利益（現金）は仕入れ値・eBay手数料(13.25%)・国内送料・米国関税をもとに算出した想定値で、国際送料は購入者負担のため含めていません。ポイントは利益に含めず別枠（おまけ）で扱います。
         </p>
       </main>
 

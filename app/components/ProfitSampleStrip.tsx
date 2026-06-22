@@ -39,7 +39,7 @@ export default async function ProfitSampleStrip() {
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-bold text-gray-800 leading-snug line-clamp-1">{p.title}</p>
               <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
-                楽天 {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定{" "}
+                仕入れ {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定{" "}
                 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
               </p>
             </div>
