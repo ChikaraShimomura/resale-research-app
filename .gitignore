@@ -64,6 +64,7 @@ rakuten-ref/
 *_tmp.json
 *.backup.json
 
-# eBay sold scraper の一時ファイル（診断HTML/Cookie）
+# eBay sold scraper の一時ファイル（診断HTML/Cookie/監査ログ）
 scripts/_ebay_*.html
 scripts/ebay_cookies.txt
+scripts/_audit.log

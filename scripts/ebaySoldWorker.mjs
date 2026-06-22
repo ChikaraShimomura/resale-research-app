@@ -49,6 +49,7 @@ const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗�
 const TEST_KW = process.env.EBAY_SOLD_TEST || ""; // 指定すると カタログでなく このキーワード1件だけ診断（パーサ検証用）
 const DEBUG = process.env.EBAY_SOLD_DEBUG === "1" || !!TEST_KW; // テスト時は自動でDEBUG
 const DUMP = process.env.EBAY_SOLD_DUMP === "1"; // 先頭商品の生HTMLを scripts/_ebay_dump.html に保存（共有して原因解析）
+const AUDIT = process.env.EBAY_SOLD_AUDIT === "1"; // 既存カタログを落札ベースで再判定し過大評価品を洗い出す（書込なし）
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -88,16 +89,22 @@ async function kvSetJson(key, val, ttl) {
 // 落札日プレースホルダ(先頭の"Shop on eBay"広告)は caption が無いので chunks[0] に入り自然に除外される。
 // 返り値: { prices(窓内・JPY), items(カード数=caption数), dated(落札日が取れた数), withWindow(窓内カード数) }。
 function ageDays(dateStr) { const t = Date.parse(dateStr); return Number.isNaN(t) ? null : (Date.now() - t) / 86400000; }
-function parseSoldWithin(html, windowDays, usdJpy) {
+// コンディション判定：明確に「中古」のものだけ除外する。"New (Other)"/"New other (see details)" 等の新品系は残す
+//   （eBayの厳格な "Brand New" だけに絞ると新品系の出来高を取りこぼし、誤って落札不足になるため）。
+const isUsedCond = (s) => /pre-?owned|\bused\b|中古|ジャンク|junk|for parts|not working|seller refurbished/i.test(s);
+function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   const chunks = html.split(/s-card__caption/);
-  const prices = []; let dated = 0, withWindow = 0; const items = Math.max(0, chunks.length - 1);
+  const prices = []; let dated = 0, withWindow = 0, usedSkipped = 0; const items = Math.max(0, chunks.length - 1);
   for (let i = 1; i < chunks.length; i++) {
-    const c = chunks[i].slice(0, 4000); // このカードは先頭から「落札日 → … → 価格」の順に並ぶ。次caption手前まででよい。
+    const c = chunks[i].slice(0, 4000); // このカードは先頭から「落札日 → コンディション → … → 価格」の順に並ぶ。次caption手前まででよい。
     // 落札日: "Sold Mon DD, YYYY"（"Sold"接頭辞の有無どちらも許容＝将来表記揺れに強く）。
     const dm = c.match(/Sold\s+([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/) || c.match(/([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/);
     let age = null; if (dm) { age = ageDays(dm[1]); if (age != null) dated++; }
     if (age == null || age < -1 || age > windowDays) continue; // 窓外/日付不明は採用しない
     withWindow++;
+    // コンディション(s-card__subtitle の先頭テキスト)。新品商品(wantNew)では中古カードを除外＝新品同士で比較。
+    const cm = c.match(/s-card__subtitle[^>]*>\s*<span[^>]*>([^<]{2,40})/);
+    if (wantNew && cm && isUsedCond(cm[1])) { usedSkipped++; continue; }
     // 価格: このカードの最初の s-card__price。JPY=円直値 / $=USD×レート。それ以外の通貨は採らない。
     const pj = c.match(/s-card__price[^>]*>\s*(?:JPY|¥)\s*([0-9][0-9,]*)/);
     const pd = pj ? null : c.match(/s-card__price[^>]*>\s*(?:US\s*)?\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
@@ -106,7 +113,7 @@ function parseSoldWithin(html, windowDays, usdJpy) {
     else if (pd) jpy = Math.round(parseFloat(pd[1].replace(/,/g, "")) * usdJpy);
     if (jpy > 0) prices.push(jpy);
   }
-  return { prices, items, dated, withWindow };
+  return { prices, items, dated, withWindow, usedSkipped };
 }
 function trimmedMedian(arr) {
   const a = arr.filter((x) => x > 0).sort((x, y) => x - y); if (!a.length) return null;
@@ -139,6 +146,13 @@ async function main() {
 
   const now = Math.floor(Date.now() / 1000);
   const buffer = []; // 健全な実行のときだけ最後にまとめて書く（汚染回避）
+  const auditRows = [];
+  let calcProfit, landedSubtractJpy;
+  if (AUDIT) {
+    ({ calcProfit } = await import("../app/lib/ebay/profitCore.mjs"));
+    ({ landedSubtractJpy } = await import("../app/lib/ebay/landedCostCore.mjs"));
+    console.log("★監査モード: 既存カタログを落札ベースで再判定（書込なし・現状○→落札✕＝過大評価を洗い出す）");
+  }
   let done = 0, blocked = 0, thin = 0, implausible = 0, dateFail = 0, ok = 0, skipped = 0, noCard = 0;
   for (const p of catalog) {
     if (done >= MAX) break;
@@ -146,7 +160,7 @@ async function main() {
     if (!id || !rawKw) continue;
     const kw = cleanKeyword(rawKw) || rawKw; // 清掃後が空なら元に戻す
     const prev = await kvGet(`ebay_soldprice:${id}`);
-    if (prev?.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
+    if (!AUDIT && prev?.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
 
     done++;
     let r;
@@ -156,13 +170,13 @@ async function main() {
     if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(30000, 60000))); continue; }
 
     if (DUMP && done === 1) { try { fs.writeFileSync(new URL("./_ebay_dump.html", import.meta.url), r.html); console.log(`  [DUMP] scripts/_ebay_dump.html に保存 (${r.html.length} bytes)。git add/commit/push で共有してください`); } catch (e) { console.log("  [DUMP] 保存失敗:", e?.message); } }
-    const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY);
+    const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, p?.isNew !== false); // カタログ新品は新品落札のみで比較
     if (DEBUG && done === 1) {
       const h = r.html;
       console.log(`  [DEBUG] htmlLen=${h.length} status=${r.status} s-card__price=${(h.match(/s-card__price/g) || []).length} s-card__caption=${(h.match(/s-card__caption/g) || []).length} noResults=${/0 results|didn't match any|No exact matches/i.test(h)}`);
       console.log(`  [DEBUG] sold-date samples=${JSON.stringify([...h.matchAll(/s-card__caption[^>]*>\s*<span[^>]*>([^<]{3,30})/g)].slice(0, 3).map((m) => m[1].trim()))}`);
       console.log(`  [DEBUG] price samples=${JSON.stringify([...h.matchAll(/s-card__price[^>]*>\s*([^<]{1,16})/g)].slice(0, 5).map((m) => m[1].trim()))}`);
-      console.log(`  [DEBUG] parsed cards=${parsed.items} dated=${parsed.dated} inWindow=${parsed.withWindow} priced=${parsed.prices.length} query="${kw.slice(0, 70)}"`);
+      console.log(`  [DEBUG] parsed cards=${parsed.items} dated=${parsed.dated} inWindow=${parsed.withWindow} 中古除外=${parsed.usedSkipped} priced=${parsed.prices.length} query="${kw.slice(0, 70)}"`);
     }
     if (parsed.items >= 5 && parsed.dated === 0) { dateFail++; console.log(`  ⚠️ 落札日が取れない(items${parsed.items}/dated0)＝Sold日付のUI変更疑い : ${kw.slice(0, 40)}`); await jitterGap(); continue; }
     if (parsed.items === 0) noCard++; // カードが1枚も無い＝本当に売れてない or マークアップ刷新（後でブレーキ判定）
@@ -177,6 +191,18 @@ async function main() {
     ok++;
     buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
     console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy} : ${kw.slice(0, 40)}`);
+    if (AUDIT) {
+      // 配信(displayProfit)と同一式で「現在出品相場ベース」と「落札ベース」の現金純利益率を出して比較。
+      const point = p.source?.pointAmount ?? 0, ship = p.source?.shippingJpy ?? 0;
+      const cashBuy = (p.source?.price ?? 0) + ship;
+      const netOf = (ebayJpy, gross) => Math.round((gross ?? 0) - point - landedSubtractJpy(p.category, (ebayJpy || 0) / USD_JPY));
+      const rateOf = (net) => (cashBuy > 0 ? Math.round((net / cashBuy) * 100) : 0);
+      const rateList = rateOf(netOf(anchor, p.realProfit));               // 現状(現在出品相場)の純利益率
+      const soldGross = calcProfit(p.source?.price ?? 0, medianJpy, point, ship).profit;
+      const netSold = netOf(medianJpy, soldGross);
+      const rateSold = rateOf(netSold);                                   // 落札ベースの純利益率
+      auditRows.push({ id, kw: kw.slice(0, 46), listing: anchor, sold: medianJpy, count: stat.count, rateList, rateSold, netSold, overstated: rateList >= 10 && rateSold < 10 });
+    }
     await jitterGap();
   }
 
@@ -191,11 +217,21 @@ async function main() {
   if (!healthy) {
     if (cardBreak) console.error(`🚨 商品カードが取れない（カード0件=${noCard}/${done}・通過0）＝eBayのHTML刷新(パーサ崩壊)の疑い。書込を全中止。parseSoldWithin の s-card__* セレクタ要確認。`);
     else console.error(`🚨 異常率 ${(failRatio * 100).toFixed(0)}%（ブロック${blocked}/妥当性NG${implausible}/落札日不可${dateFail} of ${done}）＝eBay UI変更 or IPブロックの疑い。書込を全中止。要確認。`);
-  } else if (!DRY) {
+  } else if (!DRY && !AUDIT) {
     for (const b of buffer) { if (await kvSetJson(b.key, b.rec, TTL_S)) wrote++; }
   }
-  // 監視用サマリ（cron→メール通知に使える）。
-  await kvSetJson("ebay_soldprice_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, done, ok, wrote, blocked, thin, implausible, dateFail, noCard, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);
+  // 監視用サマリ（cron→メール通知に使える）。監査モードは書き込まない（汚さない）。
+  if (!AUDIT) await kvSetJson("ebay_soldprice_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, done, ok, wrote, blocked, thin, implausible, dateFail, noCard, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);
   console.log(`完了(直近${WINDOW_DAYS}日): 処理${done}/通過${ok}/書込${wrote}${DRY ? "(DRY)" : ""} ブロック${blocked} 落札不足${thin} 妥当性NG${implausible} 落札日不可${dateFail} カード0${noCard} 新鮮skip${skipped} healthy=${healthy}`);
+
+  if (AUDIT) {
+    const over = auditRows.filter((a) => a.overstated);
+    console.log(`\n===== 監査結果：eBay直近落札ベースで再判定 =====`);
+    console.log(`判定できた: ${auditRows.length}件 / 🔴過大評価(現状○→落札✕): ${over.length}件 / 判定不可(落札薄・取得失敗): ${thin + blocked + implausible}件`);
+    for (const a of auditRows.sort((x, y) => x.rateSold - y.rateSold)) {
+      console.log(`  ${a.overstated ? "🔴過大" : "  OK  "} 現相場¥${a.listing}(率${a.rateList}%) → 落札¥${a.sold}×${a.count}件(率${a.rateSold}%) : ${a.kw}`);
+    }
+    if (over.length) console.log(`\n--- 過大評価の商品ID（削除/出品停止の対象候補） ---\n${over.map((a) => a.id).join("\n")}`);
+  }
 }
 main().catch((e) => { console.error(e); process.exit(1); });
