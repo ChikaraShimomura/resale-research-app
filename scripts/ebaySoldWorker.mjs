@@ -46,6 +46,7 @@ const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
 const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
 const TEST_KW = process.env.EBAY_SOLD_TEST || ""; // 指定すると カタログでなく このキーワード1件だけ診断（パーサ検証用）
 const DEBUG = process.env.EBAY_SOLD_DEBUG === "1" || !!TEST_KW; // テスト時は自動でDEBUG
+const DUMP = process.env.EBAY_SOLD_DUMP === "1"; // 先頭商品の生HTMLを scripts/_ebay_dump.html に保存（共有して原因解析）
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -137,6 +138,7 @@ async function main() {
     if (typeof r.status !== "number" || r.status >= 400) { blocked++; console.log(`  ⛔ ${r.status} : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(15000, 30000))); continue; }
     if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${kw.slice(0, 40)}`); await sleep(Math.round(rnd(30000, 60000))); continue; }
 
+    if (DUMP && done === 1) { try { fs.writeFileSync(new URL("./_ebay_dump.html", import.meta.url), r.html); console.log(`  [DUMP] scripts/_ebay_dump.html に保存 (${r.html.length} bytes)。git add/commit/push で共有してください`); } catch (e) { console.log("  [DUMP] 保存失敗:", e?.message); } }
     const parsed = parseSoldWithin(r.html, WINDOW_DAYS);
     if (DEBUG && done === 1) {
       const h = r.html;
