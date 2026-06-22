@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // scripts/ebaySoldWorker.mjs
 // eBayの「売却済み(Sold/Completed)」ページをスクレイプし、カタログ各商品の直近落札中央値(JPY)を
-// KV `ebay_sold:{productId}` に保存する。Marketplace Insights API(承認制)を待たない回避策A。
+// KV `ebay_soldprice:{productId}` に保存する。Marketplace Insights API(承認制)を待たない回避策A。
+// ⚠️キー名は `ebay_soldprice:`。別機能の売却検知 `ebay_sold:{actor}`(ユーザーの売れた商品マップ・180日)と
+//   名前空間を分けるため。`ebay_sold:` は使わない（商品idとactor idの衝突でユーザーデータ破壊を防ぐ）。
 //
 // 【Pixel/Termuxで動く】Chromium不要の純node fetch＋ブラウザ並みヘッダ/Cookie。eBayの403は主にIP起因＝
 //   住宅IP(Pixel/このPC)で通る見込み。DC IP(GitHub Actions等)は不可。楽天死活ワーカーと同じTermux運用に乗る。
@@ -12,7 +14,7 @@
 //      パース誤り(送料や別商品を拾った等)とみなし破棄。
 //   3) 系統的失敗ブレーキ：1回の実行で 失敗率(ブロック+0件+妥当性NG) が高い＝eBayのUI変更/IPブロックの疑い
 //      → その実行の書込を“全部”中止（一部の通った分も書かない＝汚染回避）＋status を unhealthy で記録。
-//   4) 監視：`ebay_sold_status` に毎回サマリを残す（cron監視→メール通知に使える）。
+//   4) 監視：`ebay_soldprice_status` に毎回サマリを残す（cron監視→メール通知に使える）。
 //   5) 失効：各値は TTL(既定7日)。ワーカーが壊れて止まれば自然失効→消費側は現在出品相場へ自動フォールバック。
 //
 // 使い方(PowerShell/Termux・リポジトリ直下):
@@ -143,7 +145,7 @@ async function main() {
     const id = p?.id, rawKw = p?.coreKeyword || p?.title;
     if (!id || !rawKw) continue;
     const kw = cleanKeyword(rawKw) || rawKw; // 清掃後が空なら元に戻す
-    const prev = await kvGet(`ebay_sold:${id}`);
+    const prev = await kvGet(`ebay_soldprice:${id}`);
     if (prev?.at && now - Math.floor(new Date(prev.at).getTime() / 1000) < FRESH_S) { skipped++; continue; }
 
     done++;
@@ -173,7 +175,7 @@ async function main() {
       implausible++; console.log(`  ⚠️ 妥当性NG ¥${medianJpy} vs 現相場¥${anchor}（破棄） : ${kw.slice(0, 40)}`); await jitterGap(); continue;
     }
     ok++;
-    buffer.push({ key: `ebay_sold:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
+    buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
     console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy} : ${kw.slice(0, 40)}`);
     await jitterGap();
   }
@@ -193,7 +195,7 @@ async function main() {
     for (const b of buffer) { if (await kvSetJson(b.key, b.rec, TTL_S)) wrote++; }
   }
   // 監視用サマリ（cron→メール通知に使える）。
-  await kvSetJson("ebay_sold_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, done, ok, wrote, blocked, thin, implausible, dateFail, noCard, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);
+  await kvSetJson("ebay_soldprice_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, done, ok, wrote, blocked, thin, implausible, dateFail, noCard, failRatio: Math.round(failRatio * 100) }, 14 * 24 * 3600);
   console.log(`完了(直近${WINDOW_DAYS}日): 処理${done}/通過${ok}/書込${wrote}${DRY ? "(DRY)" : ""} ブロック${blocked} 落札不足${thin} 妥当性NG${implausible} 落札日不可${dateFail} カード0${noCard} 新鮮skip${skipped} healthy=${healthy}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
