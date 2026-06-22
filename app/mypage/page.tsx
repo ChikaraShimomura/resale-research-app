@@ -17,7 +17,7 @@ export default async function MyPage() {
   const isAdminUser = (await getPlan()) === "admin"; // 管理者だけ「管理」導線を出す
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/search" aria-label="検索に戻る"

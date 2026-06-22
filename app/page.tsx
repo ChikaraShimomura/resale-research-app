@@ -21,7 +21,7 @@ export default function LandingPage() {
       <TrackView event="visit" />
 
       {/* ヘッダー */}
-      <header className="bg-[#2D323B] px-4 py-3 shadow-sm">
+      <header className="bg-[#2D323B] px-4 py-3 shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm">

@@ -22,7 +22,7 @@ export default async function ReferralsAdminPage({
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA]">
-      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 max-w-2xl mx-auto">
           <span className="text-white font-black text-base tracking-tight">紹介(成果報酬)集計</span>

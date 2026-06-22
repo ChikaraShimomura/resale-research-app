@@ -58,7 +58,7 @@ export default async function StudioPage() {
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
-      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] shadow-sm sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
           <Link href="/" aria-label="トップへ"
