@@ -1,17 +1,18 @@
 name: Background Refresh (Rakuten + eBay + Claude Haiku)
 
+# スケジューリングは外部cron（cron-job.org）から workflow_dispatch で叩く運用（check-listings / tweet-yushutsu と同方式）。
+# GitHub Actions の schedule は時刻が不正確（遅延・混雑時スキップ・スケジュール変更直後の発火漏れ）で、
+# 実際に2026-06-17以降6日間 止まっていた実績があるため使わない。cron-job.org 側を「毎日1回」に設定＝確実・無料。
+# 推奨時刻 16:00 UTC（=翌01:00 JST・低トラフィック帯）。手動実行は Actions UI（この workflow_dispatch）から。
+# コスト: 1回 ≈$1.5〜2（MAX_PROCESS=200）。日次=月30回 ≈¥9,000（¥1万枠内）。速く埋めたい時だけ手動で追加実行。
+# 未処理バックログ(約2,300件)は 200件/日 ≈12日で消化→以後は新規分だけ。profitable_products TTL=20日なので日次ならTTL切れも防げる。
 on:
-  # 2026-06-22 日次に変更（ユーザー指示）。月額の上限を「¥10,000未満」に収めるため1回の処理量を絞る:
-  #   費用は処理件数に比例（実測: 800件処理＝Haiku750+Sonnet253≈$5/回）。日次=月30回なので、
-  #   1回 ≲$2 に抑えれば月 ≲$60(≒¥9,000) で確実に¥1万を切る。→ 下の env で
-  #   MAX_PROCESS=200・PRICE_VERIFY_BUDGET=50・IMG_MATCH_SONNET_BUDGET=200 に下げ、1回≈$1.5〜2にキャップ。
-  #   画像マッチは30日キャッシュ(img_match5:)＋checked_ids(恒久)で新規分のみ処理＝定常はさらに安い。
-  #   未処理バックログ(約2,300件)は 200件/日 ≈ 12日で消化→以後は新規分だけ。
-  #   profitable_productsのTTLは20日なので日次更新ならTTL切れ(ランキング空)も当然防げる。
-  #   速く埋めたい時だけ workflow_dispatch で手動実行（必要なら一時的に MAX_PROCESS を上げる）。
-  schedule:
-    - cron: '0 16 * * *'   # 毎日 16:00 UTC = 翌01:00 JST（低トラフィック帯）。コストを抑えたい時は週1 '0 6 * * 0' に戻す
-  workflow_dispatch:          # 手動実行ボタン（今すぐ更新・スポット増量したい時）
+  workflow_dispatch:
+
+# 二重実行防止（手動 + cron-job.org が重なっても1本だけ走らせる）。
+concurrency:
+  group: refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
