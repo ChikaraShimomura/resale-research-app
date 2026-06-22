@@ -12,4 +12,8 @@ export interface ProfitProduct extends Product {
   matchedEbayImageUrl?: string; // 同・画像（監査用）
   matchedEbayTitle?: string;    // 同・タイトル（監査・相場絞り込み用）
   restored?: boolean;           // 運営が手動で復活させた商品（一覧の先頭に固定して見つけやすくする）
+  // 直近落札ベースの相場（ebaySoldWorker が ebay_soldprice:{id} に保存→配信時 applySoldComp が反映）。
+  soldBased?: boolean;          // true なら realAvgPrice/利益は「eBay直近落札中央値」ベース（false/未設定＝現在出品相場）
+  soldCount30d?: number;        // 直近windowDays(既定30日)の落札件数（需要の目安バッジ）
+  soldWindowDays?: number;      // 落札件数の対象日数（既定30）
 }

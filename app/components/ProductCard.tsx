@@ -32,6 +32,16 @@ function ProfitRateBadge({ rate }: { rate: number }) {
   );
 }
 
+// 直近の実落札件数（eBayで実際に売れた数）＝需要の最強シグナル。ebaySoldWorker→applySoldComp 由来。
+function SoldBadge({ count, days }: { count: number; days: number }) {
+  if (!(count > 0)) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700">
+      <Flame size={12} />直近{days}日 {count}件落札
+    </span>
+  );
+}
+
 function TrustBadge({ count }: { count: number }) {
   if (count >= 15) return (
     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500"><Flame size={12} />信頼大</span>
@@ -179,7 +189,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-[#A98B5C]/25">
           {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-400">eBay最安値<span className="text-[10px] text-gray-300 ml-0.5">（あなたの想定売値）</span></span>
+            <span className="text-xs text-gray-400">{product.soldBased ? "eBay直近落札" : "eBay最安値"}<span className="text-[10px] text-gray-300 ml-0.5">（あなたの想定売値）</span></span>
             <span className="text-lg font-bold text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</span>
           </div>
           {product.realMedianPrice != null && product.realMedianPrice > product.realAvgPrice && (
@@ -207,10 +217,12 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
           </div>
 
-          {/* 信頼バッジ・相場リンク */}
-          {product.realCount > 0 && (
+          {/* 信頼バッジ・相場リンク（落札ベースなら実落札件数=需要シグナルを優先） */}
+          {(product.realCount > 0 || product.soldBased) && (
             <div className="flex items-center gap-x-3 gap-y-1 mt-3 flex-wrap">
-              <TrustBadge count={product.realCount} />
+              {product.soldBased
+                ? <SoldBadge count={product.soldCount30d ?? 0} days={product.soldWindowDays ?? 30} />
+                : <TrustBadge count={product.realCount} />}
               {product.avgDaysToSell != null && (
                 <span className="text-xs text-gray-400">落札まで平均{product.avgDaysToSell}日</span>
               )}
@@ -241,7 +253,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         {showBreakdown && (
           <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 text-[12px] text-gray-600 space-y-1.5 border border-[#A98B5C]/25">
             <div className="flex justify-between">
-              <span>eBay最安値（早く売れる価格）</span>
+              <span>{product.soldBased ? "eBay直近落札（実売値）" : "eBay最安値（早く売れる価格）"}</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#2D323B]">

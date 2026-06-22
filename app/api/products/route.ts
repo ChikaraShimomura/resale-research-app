@@ -2,6 +2,7 @@ import { kvReadOnly } from "../../lib/kv";
 import { ProfitProduct } from "../../lib/profitFilter";
 import { isSold } from "../../lib/sold";
 import { applyDisplayProfit } from "../../lib/displayProfit";
+import { applySoldComp } from "../../lib/ebay/soldComp";
 import { canViewCatalog } from "../../lib/auth/plan";
 import { recordFunnelEvent } from "../../lib/funnelServer";
 import { USD_JPY } from "../../lib/ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155)に統一
@@ -107,6 +108,9 @@ export async function GET() {
 
       // セーフティ：ゲートで全消え(ギャラリーワーカー停止・全TTL失効など)した時はブラックアウトを避け全件出す。
       if (ready.length === 0 && merged.length > 0) ready = merged;
+
+      // eBay直近落札 × 楽天で利益を再判定（新鮮な落札中央値がある商品だけ反映・無ければ現在出品相場のまま）。
+      ready = await applySoldComp(ready);
 
       // 国際送料・米国関税を差し引いて利益を正直化。
       //  ・net≤0(構造赤字)は隠す
