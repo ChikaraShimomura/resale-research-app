@@ -63,3 +63,7 @@ rakuten-ref/
 # 一時データ/バックアップ（診断やリフレッシュの使い捨て出力・コミットしない）
 *_tmp.json
 *.backup.json
+
+# eBay sold scraper の一時ファイル（診断HTML/Cookie）
+scripts/_ebay_*.html
+scripts/ebay_cookies.txt
