@@ -558,7 +558,16 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   }
 
   // 4) 公開
-  const pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
+  // eBayの在庫アイテムは結果整合性があり、PUT直後の publishOffer が在庫(availability)をまだ見つけられず
+  // #25604「Availability not found（Please try again）」を返すことがある（intermittent）。
+  // その場合だけ、在庫アイテムの availability を冪等PUTで再アサート＋短時間待ちして、最大2回まで再公開する。
+  let pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
+  for (let attempt = 1; attempt <= 2 && !pub.ok && /25604|availability not found/i.test(pub.error ?? ""); attempt++) {
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
+    await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, itemBody);
+    pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
+    steps.push({ step: `在庫の反映待ちで公開を再試行（${attempt}回目）`, ok: pub.ok, error: pub.ok ? undefined : pub.error });
+  }
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
   // 公開できない時、下書き(在庫+オファー)は保存済み。状態別にやさしく案内する。
   // ⓪ 出品上限(件数/金額)に到達。「制限中(accountUnusable)」やセラー登録未完と混同しないよう"先に"判定し、
