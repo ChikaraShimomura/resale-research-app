@@ -23,6 +23,20 @@ function upscaleListingImage(url: string): string {
   return url.replace(/_ex=\d+x\d+/, "_ex=1200x1200"); // 別形式は従来どおりサイズ指定を上げる
 }
 
+// 説明文（プレーンテキスト）を eBay 用の簡易HTMLに整形する。
+// & < > をエスケープ → 見出し(【…】)とQ.行を太字 → 改行を <br>。
+// 出品(createAndPublish)と最適化(reviseInventoryItemContent 経由)で同じ見た目にするため共用する。
+export function descriptionToHtml(text: string): string {
+  return (text || "")
+    .slice(0, 4000)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .split("\n")
+    .map((l) => (/^\s*(【|Q\.|■)/.test(l) ? `<b>${l}</b>` : l))
+    .join("<br>");
+}
+
 // SKU→商品ID の対応表（端末単位）。売却検知の逆引きに使う。
 export const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 // 逆引き表のTTL（2年）。長期在庫の出品が売れる前に失効しないよう、出品時に設定し
@@ -464,15 +478,7 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   const qty = Math.min(30, Math.max(1, Math.floor(input.quantity || 1)));
 
   // 説明文を eBay 用の簡易HTMLに整形（編集UIではプレーンのまま、公開時だけ変換）。
-  // & < > をエスケープ → 見出し(【…】)とQ.行を太字 → 改行を <br>。
-  const descHtml = (input.description || input.title)
-    .slice(0, 4000)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .split("\n")
-    .map((l) => (/^\s*(【|Q\.)/.test(l) ? `<b>${l}</b>` : l))
-    .join("<br>");
+  const descHtml = descriptionToHtml(input.description || input.title);
 
   // 状態をカテゴリが受け付ける値に補正（NEW非対応カテゴリでの #25021 を防ぐ。取得失敗時は無補正）。
   const condEnum = await resolveCondition(token, input.categoryId, input.condition);
@@ -734,4 +740,67 @@ export async function updateInventoryItemImages(
   if (item.packageWeightAndSize != null) body.packageWeightAndSize = item.packageWeightAndSize;
   const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, body);
   return { ok: r.ok, error: r.error };
+}
+
+// ── 出品の「タイトル・説明・Item Specifics」を改訂（返品最小化テンプレへの最適化） ──
+// 在庫アイテムをGETし、product.title / product.description / product.aspects だけ差し替えてPUT。
+// 価格・数量・状態(condition)・画像(imageUrls)・梱包サイズ等は読み取った値をそのまま再送して変えない
+//（最適化＝買い手に見える文言だけを直す。在庫や状態を偽らない）。aspects は既存にマージし、渡した項目だけ上書きする。
+export async function reviseInventoryItemContent(
+  token: string,
+  sku: string,
+  fields: { title?: string; descriptionHtml?: string; aspects?: Record<string, string> }
+): Promise<{ ok: boolean; error?: string }> {
+  const item = await getInventoryItem(token, sku);
+  if (!item) {
+    return { ok: false, error: "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
+  }
+  const prevProduct = (item.product as Record<string, unknown>) ?? {};
+  const prevAspects = (prevProduct.aspects as Record<string, string[]>) ?? {};
+  // 既存のItem Specificsを土台に、渡された項目（製造国=Japan・確信できるブランド）だけ上書きする。
+  const aspects: Record<string, string[]> = { ...prevAspects };
+  for (const [k, v] of Object.entries(fields.aspects ?? {})) {
+    if (k && v && v.trim()) aspects[k] = [v.trim()];
+  }
+  const product: Record<string, unknown> = { ...prevProduct, aspects };
+  if (fields.title && fields.title.trim()) product.title = fields.title.trim().slice(0, 80);
+  if (fields.descriptionHtml) product.description = fields.descriptionHtml;
+  const body: Record<string, unknown> = { product };
+  // 不変項目はGET値をそのまま再送（PUTは全置換のため欠かすと消える）。
+  if (item.availability != null) body.availability = item.availability;
+  if (item.condition != null) body.condition = item.condition;
+  if (item.conditionDescription != null) body.conditionDescription = item.conditionDescription;
+  if (item.packageWeightAndSize != null) body.packageWeightAndSize = item.packageWeightAndSize;
+  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, body);
+  return { ok: r.ok, error: r.error };
+}
+
+// 公開中の出品の「説明文」をオファー側にも反映する。
+// publish時に offer.listingDescription を設定しているため、在庫アイテムの product.description だけを変えても
+// View Item の説明が変わらない（eBay仕様: 両方あれば offer.listingDescription が優先）。
+// GETしたオファーをそのまま戻し、説明だけ差し替えてPUTする（価格/数量/ポリシー/カテゴリは保持＝変えない）。
+// オファーが無い（未公開）なら変更不要＝成功扱い（在庫アイテム側の説明で足りる）。
+export async function updateOfferListingDescription(
+  token: string,
+  sku: string,
+  descriptionHtml: string
+): Promise<{ ok: boolean; error?: string }> {
+  const r = await ebayFetch(
+    token,
+    "GET",
+    `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${MARKETPLACE}`
+  );
+  const offer = (r.data as { offers?: Record<string, unknown>[] } | null)?.offers?.[0];
+  if (!offer?.offerId) return { ok: true }; // 未公開（オファー無し）
+  const offerId = offer.offerId as string;
+  const body: Record<string, unknown> = { ...offer, listingDescription: descriptionHtml };
+  // PUTが受け付けない読み取り専用フィールドは除く。
+  delete body.offerId;
+  delete body.listing;
+  delete body.status;
+  delete body.warnings;
+  const put = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, body);
+  // 変更なし(20403 same as in the system)＝既に同内容＝成功扱い。
+  if (put.ok || isNoOpUpdate(put.error)) return { ok: true };
+  return { ok: false, error: put.error };
 }

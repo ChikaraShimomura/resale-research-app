@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban, ShoppingCart } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban, ShoppingCart, Sparkles } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { toRakutenProductUrl } from "../lib/utils";
 import EbayListingModal from "./EbayListingModal";
@@ -70,6 +70,9 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const [editDeal, setEditDeal] = useState<LiveDeal | null>(null); // アプリ内編集（価格・数量）モーダルで開く出品
   const [livenessStale, setLivenessStale] = useState(false); // 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている
   const [planInfo, setPlanInfo] = useState<{ planName: string; limit: number | null; liveCount: number } | null>(null); // プラン上限ナッジ用
+  const [optimizedIds, setOptimizedIds] = useState<Set<string>>(new Set()); // 現テンプレ版で最適化済みの商品ID（ボタンのグレーアウト用）
+  const [optBusy, setOptBusy] = useState<string | null>(null); // 最適化中の商品ID
+  const [optErr, setOptErr] = useState<Record<string, string>>({}); // 最適化エラー（商品ID→文言）
 
   // 「再出品」：現行カタログ/アーカイブから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
   const relist = async (productId: string) => {
@@ -90,6 +93,37 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); setPlanInfo(j.ok ? (j.planInfo ?? null) : null); })
       .catch(() => { setLive([]); setStopped([]); setSold([]); });
   useEffect(() => { load(); }, []);
+  // 現テンプレ版で「最適化済み」の出品を取得（ボタンのグレーアウト/「最適化済み」表示に使う）。
+  useEffect(() => {
+    if (!show.includes("live")) return;
+    fetch("/api/ebay/list/optimize", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => { if (j?.ok && Array.isArray(j.optimized)) setOptimizedIds(new Set<string>(j.optimized)); })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 「最適化」：既存eBay出品のタイトル・説明・Item Specifics を返品最小化テンプレに改訂する（AIゼロ＝課金なし）。
+  // 価格・数量・状態は変えない。同テンプレ版で済みなら no-op（サーバーが版で判定）。
+  const optimize = async (productId: string) => {
+    setOptBusy(productId);
+    setOptErr((e) => { const n = { ...e }; delete n[productId]; return n; });
+    try {
+      const j = await fetch("/api/ebay/list/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      }).then((r) => r.json());
+      if (j.ok) {
+        setOptimizedIds((s) => new Set(s).add(productId));
+      } else {
+        setOptErr((e) => ({ ...e, [productId]: j.error || "最適化に失敗しました。時間をおいてお試しください。" }));
+      }
+    } catch {
+      setOptErr((e) => ({ ...e, [productId]: "通信エラーで最適化できませんでした。" }));
+    }
+    setOptBusy(null);
+  };
+
   // 売切検知ワーカー(住宅IP)の鮮度を確認。停止中(stale)なら在庫チェックが遅れている＝降格表示する。
   useEffect(() => {
     fetch("/api/ops/liveness", { cache: "no-store" })
@@ -278,6 +312,24 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           <Pencil size={13} /> 商品の編集
                         </button>
                       </div>
+                      {/* 最適化：タイトル・説明・Item Specifics を「返品されにくい」テンプレに自動で整える（無料・何度押しても課金なし）。 */}
+                      {optimizedIds.has(d.id) ? (
+                        <button
+                          disabled
+                          className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-[#A98B5C]/30 bg-gray-50 text-gray-400 text-[11px] font-bold cursor-default"
+                        >
+                          <Sparkles size={13} /> 最適化済み
+                        </button>
+                      ) : (
+                        <button
+                          disabled={optBusy === d.id}
+                          onClick={() => optimize(d.id)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-[#A98B5C]/40 bg-[#A98B5C]/10 text-[#7A6336] text-[11px] font-bold disabled:opacity-40 active:bg-[#A98B5C]/20"
+                        >
+                          {optBusy === d.id ? <><Spinner size={12} /> 最適化中…</> : <><Sparkles size={13} /> 最適化（返品されにくく）</>}
+                        </button>
+                      )}
+                      {optErr[d.id] && <p className="text-[10px] text-red-600 leading-tight">{optErr[d.id]}</p>}
                     </div>
                   )}
                 </li>
