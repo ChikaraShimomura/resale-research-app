@@ -14,6 +14,18 @@ const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 const TTL_SECONDS = 730 * 24 * 60 * 60; // 取引履歴は2年保持（出品/出荷の都度 expire を再延長）
 const STOPPED_TTL_MS = 24 * 60 * 60 * 1000; // 出品停止中に入ってから24時間で自動削除（一覧・記録から消す）
 
+// 満了(SOLD)枠＝1商品を同時出品中の出品者(actor)集合。publish が acquire、出品停止/やめた/売却で必ず release する。
+// メンバーは台帳(ebay_deals:{actor})と同じ actor に統一（旧実装は端末did基準で、複数端末の多重消費＋解放不能＝枠が
+// 永久占有され商品が誤って満了化するバグがあった）。キーは商品ID共有。release が無いと枠がリークし続ける。
+const LISTING_ACTORS_KEY = (productId: string) => `listing_actors:${productId}`;
+export async function releaseListingSlot(actor: string, productId: string): Promise<void> {
+  try {
+    await kv.srem(LISTING_ACTORS_KEY(productId), actor);
+  } catch {
+    /* noop（解放失敗は90日TTLで自然失効） */
+  }
+}
+
 // 「実際に出品できた商品」だけを通す判定を返す。
 // 旧仕様では下書き/本人確認待ちでも deal を記録していたため、SKU対応表に載っているものだけを
 // 「出品中/出品実績」として扱う（公開できなかった取りこぼしを集計から除外する）。
@@ -97,6 +109,7 @@ export async function recordSold(
     const base: Deal = existing ?? { purchase: 0, points: 0, title: "", listedAt: soldAt };
     await kv.hset(DEALS_KEY(actor), { [productId]: { ...base, soldUsd, soldAt } });
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
+    await releaseListingSlot(actor, productId); // 売却＝eBay出品終了→満了枠を解放（次の出品者に空ける）
   } catch {
     /* noop */
   }
@@ -338,6 +351,7 @@ export async function markStopped(actor: string, productId: string): Promise<voi
     if (!existing) return;
     await kv.hset(DEALS_KEY(actor), { [productId]: { ...existing, stoppedAt: new Date().toISOString() } });
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
+    await releaseListingSlot(actor, productId); // 出品停止＝もう競合しない→満了枠を解放
   } catch {
     /* noop */
   }
@@ -347,6 +361,7 @@ export async function markStopped(actor: string, productId: string): Promise<voi
 export async function removeDeal(actor: string, productId: string): Promise<void> {
   try {
     await kv.hdel(DEALS_KEY(actor), productId);
+    await releaseListingSlot(actor, productId); // 取引削除＝満了枠も解放
   } catch {
     /* noop */
   }

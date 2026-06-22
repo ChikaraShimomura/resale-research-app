@@ -1,5 +1,4 @@
 import { kv } from "@vercel/kv";
-import { cookies } from "next/headers";
 import { getActorId } from "../../../../lib/auth/actor";
 import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
@@ -55,14 +54,14 @@ export async function POST(req: Request) {
   // 行為者のプラン。admin/master(あなた＋身内=無料・無制限)は満了・プラン上限の対象外。
   const plan = await getPlan();
   const comp = isUnlimited(plan);
-  const did = (await cookies()).get("rr_did")?.value ?? actor;
 
-  // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(端末)まで。既に出した端末は再出品OK(冪等)。
+  // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(出品者=アカウント)まで。既に出した本人は再出品OK(冪等)。
+  // メンバーは台帳(ebay_deals:{actor})と同じ actor に統一。端末did基準だと複数端末で多重消費＋停止/売却で解放できない。
   if (!comp) {
     try {
       if (
         (await kv.scard(`listing_actors:${product.id}`)) >= SOLD_THRESHOLD &&
-        !(await kv.sismember(`listing_actors:${product.id}`, did))
+        !(await kv.sismember(`listing_actors:${product.id}`, actor))
       ) {
         return Response.json({ ok: false, error: `この商品は出品上限（${SOLD_THRESHOLD}人）に達しました（満了）。別の商品をお試しください。` });
       }
@@ -73,17 +72,23 @@ export async function POST(req: Request) {
 
   // プラン上限(同時出品数)ゲート。Stripe決済が稼働するまで PAYWALL_ENABLED=OFF で無効（既存挙動を壊さない）。
   if (PAYWALL_ENABLED && !comp) {
-    const limit = PLANS[plan].listingLimit; // plan は上で解決済み（admin/master/amateur/veteran/pro/free）
-    // limit>0 のときだけ enforce。free(=0)は「未購読＝ゲート対象外」扱いとし、Stripe未実装の間に全員ロックアウトしない。
-    if (Number.isFinite(limit) && limit > 0) {
-      const { live } = await listDealsForUser(actor);
-      if (!live.some((d) => d.id === product.id) && live.length >= limit) {
-        return Response.json({
-          ok: false,
-          planLimitReached: true,
-          error: `現在のプラン（${PLANS[plan].name}）の同時出品上限（${limit}件）に達しました。プランをアップグレードしてください。`,
-        });
-      }
+    const limit = PLANS[plan].listingLimit; // free=0 / amateur=10 / veteran=50 / pro=100（master/admin は comp で除外済み）
+    if (limit <= 0) {
+      // free(未購読)は出品不可。0を「無制限」ではなく「出品できない」として明示的に弾く（PAYWALL ON時のみ到達）。
+      // これが無いと free が上限ゲートを素通りして無制限出品できてしまう（課金の中核が機能しない）。
+      return Response.json({
+        ok: false,
+        planLimitReached: true,
+        error: `出品にはプランへのご加入が必要です。料金プランをご確認ください。`,
+      });
+    }
+    const { live } = await listDealsForUser(actor);
+    if (!live.some((d) => d.id === product.id) && live.length >= limit) {
+      return Response.json({
+        ok: false,
+        planLimitReached: true,
+        error: `現在のプラン（${PLANS[plan].name}）の同時出品上限（${limit}件）に達しました。プランをアップグレードしてください。`,
+      });
     }
   }
 
@@ -152,11 +157,11 @@ export async function POST(req: Request) {
     autoDeclineUsd,
   });
 
-  // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで端末単位・冪等。
-  // コンプ枠は枠を消費しない（あなた＝身内が何度出してもSOLDにしない）。
+  // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで出品者(actor)単位・冪等。
+  // コンプ枠は枠を消費しない（あなた＝身内が何度出してもSOLDにしない）。停止/やめた/売却で releaseListingSlot により解放。
   if (result.offerId && !comp) {
     try {
-      await kv.sadd(`listing_actors:${product.id}`, did);
+      await kv.sadd(`listing_actors:${product.id}`, actor);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
     } catch {
       /* noop */

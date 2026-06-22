@@ -16,7 +16,10 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
-  const next = url.searchParams.get("next") ?? "/search";
+  // オープンリダイレクト防止: next は同一オリジンの相対パス(先頭が単一スラッシュ)のみ許可。
+  // "//evil.com" や "https://evil.com" 等の外部/プロトコル相対は既定(/search)へフォールバック。
+  const rawNext = url.searchParams.get("next") ?? "/search";
+  const next = /^\/(?!\/)/.test(rawNext) ? rawNext : "/search";
 
   const supabase = await createSupabaseServerClient();
   let ok = false;
