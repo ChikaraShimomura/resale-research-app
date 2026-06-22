@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Check, Landmark, Hand, Clock, Wallet } from "lucide-react";
 import GuideVideo from "../../components/GuideVideo";
 import GuideVideoShorts from "../../components/GuideVideoShorts";
+import BottomNav from "../../components/BottomNav";
 
 export const metadata = {
   title: "Payoneerから日本の銀行口座へ出金する方法（画像つき） | 輸出ラボ",
@@ -94,7 +95,7 @@ function StepCard({ n, title, children }: { n: number; title: string; children: 
 
 export default function PayoneerWithdrawGuide() {
   return (
-    <div className="min-h-dvh bg-[#F5F7FA]">
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] px-3 py-2.5 shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Link href="/guide" aria-label="戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
@@ -252,6 +253,7 @@ export default function PayoneerWithdrawGuide() {
           </Link>
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }

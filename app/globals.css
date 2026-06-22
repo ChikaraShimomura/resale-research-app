@@ -8,8 +8,6 @@
   --accent: #5A6472;
   --gold: #A98B5C;
   --surface: #F4F3EE;
-  /* スティッキーヘッダー高さ（safe-area込み）。結果一覧の件数/ソートバーのtopオフセットに使用 */
-  --header-h: calc(env(safe-area-inset-top, 0px) + 88px);
   /* ボトムナビ高さ（py-2=16px + min-h-[52px]） */
   --nav-h: 68px;
 }

@@ -44,11 +44,13 @@ export default function ConsentBanner() {
   if (!show) return null;
 
   return (
+    // BottomNav(下部固定ナビ)の上に重ねる。bottom-0 だと下タブを覆って、同意するまで操作不能になるため、
+    // ナビ高さ(--nav-h)+safe-area 分だけ持ち上げる（AddToHome と同じ方式）。
     <div
       role="dialog"
       aria-label="Cookieの利用について"
-      className="fixed inset-x-0 bottom-0 z-50 bg-white border-t border-[#A98B5C]/35 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="fixed inset-x-0 z-50 bg-white border-t border-[#A98B5C]/35 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+      style={{ bottom: "calc(var(--nav-h, 0px) + env(safe-area-inset-bottom, 0px))" }}
     >
       <div className="max-w-2xl mx-auto px-4 py-3.5 flex flex-col gap-2.5">
         <p className="text-[12.5px] text-gray-700 leading-relaxed">

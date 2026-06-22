@@ -119,8 +119,11 @@ function ResultsContent() {
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
+      {/* ヘッダー＋件数バーを1つのsticky枠に入れる。検索語の有無でヘッダー高さが変わっても、
+          件数/ソートバーが常にヘッダー直下に貼り付く（--header-h=88px のマジックナンバー依存を解消） */}
+      <div className="sticky top-0 z-20">
       {/* ヘッダー */}
-      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] sticky top-0 z-20 shadow-sm"
+      <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 pt-2 pb-2 flex items-center gap-2">
           <Link href="/search"
@@ -138,8 +141,8 @@ function ResultsContent() {
         )}
       </header>
 
-      {/* 件数・ソート/SOLD除外バー */}
-      <div className="bg-white border-b border-[#A98B5C]/25 px-4 py-2.5 flex items-start justify-between gap-3 sticky top-[calc(var(--header-h,88px))] z-10 shadow-sm">
+      {/* 件数・ソート/SOLD除外バー（上のsticky枠内なのでヘッダー直下に追従。個別のtopオフセットは不要） */}
+      <div className="bg-white border-b border-[#A98B5C]/25 px-4 py-2.5 flex items-start justify-between gap-3 shadow-sm">
         <div className="min-w-0">
           {loading ? (
             <div className="h-4 w-24 bg-gray-100 rounded-full animate-pulse" />
@@ -159,6 +162,7 @@ function ResultsContent() {
           sortOrder={sortOrder}
           onSortChange={(v) => { setSortOrder(v); writeSort(v); }}
         />
+      </div>
       </div>
 
       <main className="max-w-2xl mx-auto">

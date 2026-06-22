@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ShoppingBag, Sparkles, Calendar, AlertTriangle, Check, Coins } from "lucide-react";
+import BottomNav from "../../components/BottomNav";
 
 export const metadata = {
   title: "楽天で仕入れる（仕入れガイド） | 輸出ラボ",
@@ -33,7 +34,7 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
 
 export default function RakutenGuidePage() {
   return (
-    <div className="min-h-dvh bg-[#F5F7FA]">
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-[#BF0000] px-3 py-2.5 shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Link href="/guide" aria-label="はじめてガイドに戻る" className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white shrink-0">
@@ -126,6 +127,7 @@ export default function RakutenGuidePage() {
           </div>
         </div>
       </main>
+      <BottomNav />
     </div>
   );
 }
