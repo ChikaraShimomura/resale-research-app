@@ -89,7 +89,14 @@ async function kvGet(key) {
   try { const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: H }); const r = (await res.json()).result; if (r == null) return null; try { return JSON.parse(r); } catch { return r; } } catch { return null; }
 }
 async function kvSetJson(key, val, ttl) {
-  try { const res = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(JSON.stringify(val))}?EX=${ttl}`, { method: "POST", headers: H }); return res.ok; } catch { return false; }
+  // 値はURLパスでなく「ボディ」で送る（pipeline形式）。URLパス方式は大きな種(数千件=~MB)でURL長超過で失敗するため。
+  try {
+    const res = await fetch(`${KV_URL}/pipeline`, {
+      method: "POST", headers: { ...H, "Content-Type": "application/json" },
+      body: JSON.stringify([["SET", key, JSON.stringify(val), "EX", String(ttl)]]),
+    });
+    return res.ok;
+  } catch { return false; }
 }
 
 // 売却済みページ(新SRP)を商品カード単位で解析。eBayは2025年に商品カードを s-item__* → s-card__* へ刷新した。
