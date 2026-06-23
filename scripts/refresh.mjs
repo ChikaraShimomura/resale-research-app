@@ -1301,6 +1301,14 @@ async function main() {
       const shipJpy = domesticShipping(cat, rakutenItem.postageFlag, rakutenItem.itemName); // 送料別のみ国内送料を原価に算入
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
       if (profitRate <= PROFIT_RATE_FLOOR || profitRate > 300) continue; // 利益率10%以下/異常高は除外
+      // 落札seedは価格(=落札額)が確定→現金純利益(ポイント除外＋着地コスト後)でも床を当てる＝配信(applyDisplayProfit)/最終保存(netProfitRate)と一致。
+      // 時計など「粗利は出るがポイント大・関税重で現金ネットが薄い/赤字」の品を画像マッチ前に落とす(Anthropic節約＋掲載される品とカタログを一致させ死蔵を防ぐ)。
+      if (ebayItem.soldSeed) {
+        const netCash = Math.round(profit - pointAmount - landedSubtractJpy(cat, ebayItem.priceJpy / L_USD_JPY));
+        const cashBuy = rakutenItem.itemPrice + shipJpy;
+        const netRate = cashBuy > 0 ? Math.round((netCash / cashBuy) * 100) : 0;
+        if (netRate <= PROFIT_RATE_FLOOR) continue;
+      }
       // ② カテゴリ整合: 楽天の推定ジャンルがeBay種ジャンルと明確に食い違う別物は除外（誤ジャンル混入防止）。
       const expectedGenre = EXPECTED_GENRE[ebayItem.category];
       if (expectedGenre && cat !== 'その他' && cat !== expectedGenre) continue;
