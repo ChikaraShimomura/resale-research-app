@@ -720,7 +720,7 @@ const EBAY_JP_QUERIES = [
 ];
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles_v4'; // v4: 腕時計16クエリ追加(2026-06-23)→seedが変わるため旧キャッシュ無効化し全クエリ再取得
+  const cacheKey = 'ebay_jp_sold_titles_v5'; // v5: 各ジャンル4ページ取得＋順位インターリーブ(2026-06-23)→プールが変わるため旧キャッシュ無効化
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached) && cached.length > 0) {
     console.log(`  [Phase0 cache] ${cached.length}件`);
@@ -733,31 +733,34 @@ async function fetchEbayJapanSoldItems() {
     return [];
   }
 
+  // 各ジャンル EBAY_PAGES ページ(1ページ100件・offset送り)取得。Best Match順なので下位ほど逓減＝深いほど候補増だが質は薄め。
+  const EBAY_PAGES = Number(process.env.EBAY_PAGES) || 4;
   const allItems = [];
   for (const { q, name } of EBAY_JP_QUERIES) {
-    const params = new URLSearchParams({
-      q,
-      filter: 'itemLocationCountry:JP,conditions:{NEW|LIKE_NEW}',
-      // sort指定なし＝Best Match(関連度/人気)。以前の price昇順は「最安出品=低利幅」ばかりをseedにして
-      // 初回利益判定で大量脱落させていた（取得多数でも新規が増えない主因）。表示価格は別途eBay最安ベースを維持。
-      limit: '100',
-      fieldgroups: 'COMPACT',
-    });
-    try {
-      const res = await fetch(
-        `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
-          },
-          signal: AbortSignal.timeout(15000),
-        }
-      );
-      if (!res.ok) { console.log(`  [Phase0] ${name} → HTTP ${res.status}`); continue; }
-      const data = await res.json();
-      const items = data?.itemSummaries ?? [];
-      for (const item of items) {
+    let fetched = 0;
+    for (let page = 0; page < EBAY_PAGES; page++) {
+      const params = new URLSearchParams({
+        q,
+        filter: 'itemLocationCountry:JP,conditions:{NEW|LIKE_NEW}',
+        // sort指定なし＝Best Match(関連度/人気)。表示価格は別途eBay最安ベースを維持。
+        limit: '100',
+        offset: String(page * 100),
+        fieldgroups: 'COMPACT',
+      });
+      let items = [];
+      try {
+        const res = await fetch(
+          `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
+          { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }, signal: AbortSignal.timeout(15000) }
+        );
+        if (!res.ok) { console.log(`  [Phase0] ${name} p${page + 1} → HTTP ${res.status}`); break; }
+        const data = await res.json();
+        items = data?.itemSummaries ?? [];
+      } catch (e) {
+        console.error(`  [Phase0 ERROR] ${name} p${page + 1}: ${e.message}`); break;
+      }
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         const title = item?.title ?? '';
         const price = parseFloat(item?.price?.value);
         const currency = item?.price?.currency;
@@ -771,18 +774,23 @@ async function fetchEbayJapanSoldItems() {
         if (priceJpy < 1000) continue;
         const imageUrl = item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '';
         const itemUrl  = item?.itemWebUrl ?? '';
-        allItems.push({ title, priceJpy, category: name, imageUrl, itemUrl });
+        allItems.push({ title, priceJpy, category: name, imageUrl, itemUrl, rank: page * 100 + i }); // rank=eBay Best Match順位
       }
-      console.log(`  [Phase0] ${name} → ${items.length}件`);
+      fetched += items.length;
+      if (items.length < 100) break; // このジャンルは結果が尽きた→ページ送り終了（薄いジャンルは自然に浅く）
       await sleep(300);
-    } catch (e) {
-      console.error(`  [Phase0 ERROR] ${name}: ${e.message}`);
     }
+    console.log(`  [Phase0] ${name} → ${fetched}件`);
   }
 
-  const unique = [...new Map(allItems.map(i => [i.title, i])).values()];
-  await kvSet(cacheKey, unique, 6 * 3600);
-  console.log(`  [Phase0] 合計 ${unique.length}件取得`);
+  // 順位インターリーブ：rank昇順で並べ替え→「各ジャンルの上位」を横断で先頭に集める。
+  // これで MAX_PROCESS の枠が"全ジャンルの美味しい順"に使われ、深掘りしても薄いジャンルに枠を食われない（=深さは自動配分）。
+  allItems.sort((a, b) => a.rank - b.rank);
+  const seen = new Map();
+  for (const it of allItems) if (!seen.has(it.title)) seen.set(it.title, it); // 重複は上位(rank小)を残す
+  const unique = [...seen.values()]; // 既にrank昇順＝インターリーブ済み
+  try { await kvSet(cacheKey, unique, 6 * 3600); } catch (e) { console.log('  [Phase0] cache保存skip(サイズ等):', e?.message); }
+  console.log(`  [Phase0] 合計 ${unique.length}件取得（${EBAY_PAGES}ページ・順位インターリーブ）`);
   return unique;
 }
 
