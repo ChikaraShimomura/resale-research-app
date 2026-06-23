@@ -16,8 +16,8 @@ import { USD_JPY } from "./ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155
 
 // 「現金で稼げる品」の現金純利益率の下限（%）。これ以上＝profitKind:'cash'。
 const CASH_PROFIT_FLOOR = 10;
-// 「ポイ活専用」の下限（%）。現金<10%でも、楽天ポイントを足して実質これ以上なら掲載（=ポイント込みで損しない）。ユーザー方針2026-06-23。
-const POINT_PROFIT_FLOOR = Number(process.env.POINT_PROFIT_FLOOR) || 0;
+// 「ポイ活専用」の現金純利益率の下限（%）。現金1%以上10%未満＝ポイ活専用。現金<1%(0・マイナス)は論外で非掲載（ユーザー方針2026-06-23）。
+const POINTKATSU_FLOOR = Number(process.env.POINTKATSU_FLOOR) || 1;
 
 export function applyDisplayProfit(p: ProfitProduct): ProfitProduct {
   const valueUsd = (p.realAvgPrice || 0) / USD_JPY;
@@ -28,15 +28,11 @@ export function applyDisplayProfit(p: ProfitProduct): ProfitProduct {
   // 保存 realProfit はポイントを原価控除済み＝現金粗利＋ポイント。pointを引いて現金に戻し、着地コストを差し引く。
   const netCash = Math.round((p.realProfit ?? 0) - point - landed.subtractJpy);
   const cashRate = cashBuy > 0 ? Math.round((netCash / cashBuy) * 100) : 0;
-  // ポイント込みの実質利益（ポイ活視点）＝現金純利益＋楽天ポイント。
-  const pointNet = netCash + point;
-  const pointRate = cashBuy > 0 ? Math.round((pointNet / cashBuy) * 100) : 0;
-  // 種別: 現金で十分稼げる→cash / 現金は薄いがポイント込みで損しない→point(ポイ活専用) / それ以下→none(掲載しない)。
+  // 種別（すべて現金純利益率で判定）: ≥10%→cash(現金で稼げる) / 1〜9%→point(ポイ活専用) / <1%(0・マイナス)→none(論外・掲載しない)。
   const profitKind: "cash" | "point" | "none" =
     cashBuy <= 0 || (p.realAvgPrice ?? 0) <= 0 ? "none"
     : cashRate >= CASH_PROFIT_FLOOR ? "cash"
-    : pointRate >= POINT_PROFIT_FLOOR ? "point"
+    : cashRate >= POINTKATSU_FLOOR ? "point"
     : "none";
-  // realProfit/realProfitRate は現金ベースのまま据え置き（既存の内訳表示と整合）。ポイント込みは別フィールドで持つ。
-  return { ...p, realProfit: netCash, realProfitRate: cashRate, pointProfit: pointNet, pointProfitRate: pointRate, profitKind };
+  return { ...p, realProfit: netCash, realProfitRate: cashRate, profitKind };
 }

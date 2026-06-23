@@ -213,29 +213,19 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
           )}
 
-          {/* 利益（ヒーロー）。
-              ・ポイ活専用(profitKind==='point')：現金利益は薄い/トントン→楽天ポイントを主役にし、現金は正直に小さく併記。
-              ・通常(cash)：現金利益を主役に。楽天ポイントは「( + ○○ポイント )」で別物として併記。 */}
-          {product.profitKind === "point" ? (
-            <div className="mt-2.5 pt-2.5 border-t border-violet-300/50 flex items-end justify-between gap-2">
-              <div className="shrink-0">
-                <p className="text-xs text-gray-400 mb-1">楽天ポイントで得する品</p>
-                <PointKatsuBadge />
-              </div>
-              <div className="text-right">
-                <p className="text-[28px] font-black text-violet-600 leading-none whitespace-nowrap">
-                  +{pointAmount.toLocaleString()}<span className="text-base">ポイント</span>
-                </p>
-                <p className="text-[11px] font-bold text-gray-500 mt-1 whitespace-nowrap">
-                  現金利益 {formatJpy(product.realProfit)}（{product.realProfitRate}%）
-                </p>
-              </div>
-            </div>
-          ) : (
-          <div className="mt-2.5 pt-2.5 border-t border-[#A98B5C]/25 flex items-end justify-between gap-2">
+          {/* 利益（ヒーロー）：現金利益（円）を主役に。ポイ活専用(現金1〜9%)は紫の「ポイ活専用」バッジで一目で区別＋利益率を併記。
+              楽天ポイントは「( + ○○ポイント )」で別物として併記（現金で稼げる品もポイ活専用も共通）。 */}
+          <div className={`mt-2.5 pt-2.5 border-t flex items-end justify-between gap-2 ${product.profitKind === "point" ? "border-violet-300/50" : "border-[#A98B5C]/25"}`}>
             <div className="shrink-0">
               <p className="text-xs text-gray-400 mb-1">利益（最安で売れた時）</p>
-              <ProfitRateBadge rate={product.realProfitRate} />
+              {product.profitKind === "point" ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <PointKatsuBadge />
+                  <span className="text-[11px] font-black text-violet-600">利益率{product.realProfitRate}%</span>
+                </span>
+              ) : (
+                <ProfitRateBadge rate={product.realProfitRate} />
+              )}
             </div>
             <div className="text-right">
               <p className="text-3xl font-black text-[#2D323B] leading-none whitespace-nowrap">
@@ -248,7 +238,6 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
           </div>
-          )}
 
           {/* 信頼バッジ・相場リンク（落札ベースなら実落札件数=需要シグナルを優先） */}
           {(product.realCount > 0 || product.soldBased) && (
