@@ -130,6 +130,9 @@ export default function EbayListingModal({
   const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
+  // 送料の出し方: true=送料込み(価格に上乗せして「送料無料」表示) / false=送料別(購入者が送料を払う)。
+  // 送料無料は総額が同じでも eBay検索(総額順)・バイヤー心理で有利＝既定ON（送料無料ポリシーが無い口座では自動的に送料別へフォールバック）。
+  const [freeShip, setFreeShip] = useState(true);
   // 発送までの日数・Best Offer は「出品の既定値」（設定で保存・端末単位）を初期値に使う。
   const [handlingDays, setHandlingDays] = useState(() => readListingDefaults().handlingDays);
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
@@ -238,28 +241,36 @@ export default function EbayListingModal({
   }, [cooldown]);
 
   // 準備済みの内容で出品APIを叩く（publish と「登録完了」で共有）。
-  const postPublish = (): Promise<PublishResult> =>
-    fetch("/api/ebay/list/publish", {
+  const postPublish = (): Promise<PublishResult> => {
+    // 送料込み(送料無料)なら、選んだ送料サイズの送料を価格に上乗せ＋配送ポリシーを「送料無料」に差し替える。
+    // eBay上は「価格=本体+送料／送料無料」になり、総額が同じでも検索(総額順)・バイヤー心理で有利。
+    // 送料無料ポリシーが口座に無ければ自動で送料別のまま(useFree=false)。floorも送料分だけ上げ、Best Offer自動承認で送料負けしないようにする。
+    const freePol = data?.shipping?.find((s) => Number(s.costUsd) < 0.01) || null;
+    const selPol = data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId) || null;
+    const useFree = freeShip && !!freePol;
+    const foldUsd = useFree ? Number(selPol?.costUsd || 0) : 0;
+    return fetch("/api/ebay/list/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         productId: product.id,
         title,
         description,
-        priceUsd,
+        priceUsd: (Number(priceUsd || 0) + foldUsd).toFixed(2), // 送料込みは送料分を上乗せ
         condition,
         categoryId: data?.category?.categoryId,
         aspects,
-        fulfillmentPolicyId: shippingId,
+        fulfillmentPolicyId: useFree ? freePol.fulfillmentPolicyId : shippingId, // 送料込みは送料無料ポリシー
         handlingDays,
         quantity,
         bestOffer,
-        floorUsd, // 重さ入力を反映した再計算後のfloor（表示と一致・Best Offer自動拒否に使用）
+        floorUsd: ((Number(floorUsd) || 0) + foldUsd).toFixed(2), // 送料分だけ損益分岐も上げる（送料込みでBest Offer自動承認が送料負けしないように）
         selectedImages, // 出品に使う写真（先頭=メイン）
       }),
     })
       .then((r) => r.json())
       .catch(() => ({ ok: false, error: "通信に失敗しました。" }));
+  };
 
   const finishOk = (res: PublishResult) => {
     setResult(res);
@@ -382,6 +393,11 @@ export default function EbayListingModal({
   const recoChargeJpy = recoChoice ? Math.round(Number(recoChoice.costUsd) * USD_JPY) : 0;
   const recoCovers = recoChargeJpy >= recoRealJpy;
   const recoGapJpy = Math.max(0, recoRealJpy - recoChargeJpy);
+  // 送料込み(送料無料)関連の派生値（UI表示用）。送料無料ポリシーが口座にあるか／価格への上乗せ額／eBay実表示価格。
+  const freePolicy = data?.shipping?.find((s) => Number(s.costUsd) < 0.01) || null;
+  const canFreeShip = !!freePolicy;
+  const shipFoldUsd = freeShip && canFreeShip ? Number(recoChoice?.costUsd || 0) : 0; // 価格に上乗せする送料
+  const listedPriceUsd = Number(priceUsd || 0) + shipFoldUsd; // eBayに実際に出る価格
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
@@ -695,6 +711,29 @@ export default function EbayListingModal({
                   <p className="text-[12px] text-[#2D323B] font-bold mt-1">≒ {formatJpy(priceJpy)}（日本円のめやす）</p>
                 )}
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
+
+                {/* 送料の出し方：送料込み(送料無料表示)か 送料別(購入者負担)。送料込みは価格に送料を上乗せして「送料無料」で出す＝総額が同じでも検索(総額順)・バイヤー心理で有利。 */}
+                <div className="mt-2 rounded-xl border border-[#A98B5C]/30 bg-[#F8F9FB] p-2.5">
+                  <p className="text-[11px] font-bold text-gray-600 mb-1.5">送料の出し方</p>
+                  <label className={`flex items-start gap-2 mb-1.5 ${canFreeShip ? "" : "opacity-60"}`}>
+                    <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={freeShip && canFreeShip} disabled={!canFreeShip} onChange={() => setFreeShip(true)} />
+                    <span className="text-[12px] leading-snug">
+                      <b>送料込み（送料無料で出す）</b>
+                      <span className="text-gray-500"> — 価格に送料を上乗せして「送料無料」表示。総額が同じでも検索・転換に強い（推奨）</span>
+                      {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5">※eBayに「送料無料」の配送ポリシーを1つ作ると使えます（一度だけ）。今は送料別で出ます。</span>}
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2">
+                    <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={!freeShip || !canFreeShip} onChange={() => setFreeShip(false)} />
+                    <span className="text-[12px] leading-snug"><b>送料別（購入者が送料を払う）</b><span className="text-gray-500"> — 本体価格＋送料を別に請求</span></span>
+                  </label>
+                  {freeShip && canFreeShip && shipFoldUsd > 0 && (
+                    <p className="text-[11px] text-[#2D323B] font-bold mt-1.5">
+                      → eBay表示価格 ${listedPriceUsd.toFixed(2)}（本体 ${Number(priceUsd || 0).toFixed(2)} ＋ 送料 ${shipFoldUsd.toFixed(2)}）・送料無料
+                    </p>
+                  )}
+                </div>
+
                 {/* 着地コスト（国際送料・米国関税）の内訳＋重さ(任意)入力。損益分岐に織り込み済み。
                     重さは分かれば入力するとより正確に（未入力はカテゴリ概算）。 */}
                 {liveLanded && (
