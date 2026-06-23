@@ -170,6 +170,12 @@ const EXPECTED_GENRE = {
   'SHF悟空': 'フィギュア', 'SHFルフィ': 'フィギュア', 'SHFナルト': 'フィギュア', 'SHF仮面ライダー': 'フィギュア', 'ねんどミク': 'フィギュア', 'GSC1/7スケール': 'フィギュア',
   'GショックGA2100': '腕時計', 'GショックDW5600': '腕時計', 'セイコー5SRPD': '腕時計', 'セイコープロスペックスSRPE': '腕時計',
   'スプラ3SW': 'ゲーム機', 'ゼノブレ3SW': 'ゲーム機',
+  // 腕時計 手厚く拡張(2026-06-23)。全て guessCategory→'腕時計'(Seiko/Casio/Citizen/Orient/Watch/腕時計 で判定)。
+  'セイコープレザージュ': '腕時計', 'プロスペックスサムライ': '腕時計', 'プロスペックスアルピニスト': '腕時計',
+  'プロスペックススピードタイマー': '腕時計', 'セイコー5GMT': '腕時計', 'セイコーセレクション': '腕時計',
+  'カシオエディフィス': '腕時計', 'カシオプロトレック': '腕時計', 'GショックGWM5610': '腕時計', 'Gショックマッドマスター': '腕時計',
+  'シチズンプロマスター': '腕時計', 'シチズンTSUYOSA': '腕時計', 'シチズンシリーズ8': '腕時計',
+  'オリエントスター': '腕時計', 'オリエントカマス': '腕時計', 'オリエントマコ': '腕時計',
 };
 // ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
 const PRICE_RATIO_MAX = 8;
@@ -318,7 +324,7 @@ function guessCategory(title) {
   if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE|S\.?H\.?\s?Figuarts|フィギュアーツ|POP UP PARADE|超合金/i.test(t)) return 'フィギュア';
   if (/Nintendo Switch|PS5|PlayStation|Xbox/i.test(t)) return 'ゲーム機';
   if (/amiibo|アミーボ|ゲームソフト/i.test(t)) return 'ゲーム';
-  if (/腕時計|Watch|Seiko|セイコー|Citizen|シチズン|Casio|カシオ|Gショック|G-SHOCK/i.test(t)) return '腕時計';
+  if (/腕時計|Watch|Seiko|セイコー|Citizen|シチズン|Casio|カシオ|Gショック|G-SHOCK|Orient|オリエント|プロスペックス|Prospex|プレザージュ|Presage|プロマスター|Promaster|エディフィス|Edifice|プロトレック|Pro\s?Trek/i.test(t)) return '腕時計';
   if (/カメラ|レンズ|Canon|Nikon|Fujifilm|一眼レフ/i.test(t)) return 'カメラ';
   if (/トミカ|プラレール|シルバニア|ベイブレード|BEYBLADE/i.test(t)) return 'おもちゃ';
   return 'その他';
@@ -694,10 +700,27 @@ const EBAY_JP_QUERIES = [
   { q: 'chiikawa plush japan new with tag',                                      name: 'ちいかわぬいぐるみ' },
   { q: 'transformers takara tomy masterpiece figure japan new sealed',           name: 'TFマスターピース' },
   { q: 'soul of chogokin bandai diecast figure japan new sealed',                name: '超合金魂' },
+  // ── 腕時計 手厚く拡張(2026-06-23): 日本時計は輸出需要大・軽い・$800以下の中価格帯が豊富。全て new/単品/楽天入手可 ──
+  { q: 'seiko presage automatic watch japan new',                                name: 'セイコープレザージュ' },
+  { q: 'seiko prospex samurai diver automatic watch japan new',                  name: 'プロスペックスサムライ' },
+  { q: 'seiko prospex alpinist automatic watch japan new',                       name: 'プロスペックスアルピニスト' },
+  { q: 'seiko prospex speedtimer chronograph watch japan new',                   name: 'プロスペックススピードタイマー' },
+  { q: 'seiko 5 sports GMT automatic watch japan new',                           name: 'セイコー5GMT' },
+  { q: 'seiko selection solar watch japan new',                                  name: 'セイコーセレクション' },
+  { q: 'casio edifice chronograph watch japan new',                              name: 'カシオエディフィス' },
+  { q: 'casio pro trek solar watch japan new',                                   name: 'カシオプロトレック' },
+  { q: 'casio g-shock GW-M5610 tough solar watch japan new',                     name: 'GショックGWM5610' },
+  { q: 'casio g-shock mudmaster watch japan new',                                name: 'Gショックマッドマスター' },
+  { q: 'citizen promaster eco-drive diver watch japan new',                      name: 'シチズンプロマスター' },
+  { q: 'citizen tsuyosa automatic watch japan new',                             name: 'シチズンTSUYOSA' },
+  { q: 'citizen series 8 automatic watch japan new',                            name: 'シチズンシリーズ8' },
+  { q: 'orient star automatic watch japan new',                                 name: 'オリエントスター' },
+  { q: 'orient kamasu diver automatic watch japan new',                         name: 'オリエントカマス' },
+  { q: 'orient mako diver automatic watch japan new',                           name: 'オリエントマコ' },
 ];
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles_v3'; // sort=Best Matchへ変更→seedが変わるため旧キャッシュを無効化
+  const cacheKey = 'ebay_jp_sold_titles_v4'; // v4: 腕時計16クエリ追加(2026-06-23)→seedが変わるため旧キャッシュ無効化し全クエリ再取得
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached) && cached.length > 0) {
     console.log(`  [Phase0 cache] ${cached.length}件`);
