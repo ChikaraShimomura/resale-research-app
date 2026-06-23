@@ -55,6 +55,7 @@ const DISCOVER = process.env.EBAY_SOLD_DISCOVER === "1"; // ★発掘モード�
 const SEED_PER_KW = Number(process.env.EBAY_SOLD_SEED_PER_KW ?? 20); // 発掘：1キーワードあたり拾う"ユニーク落札商品"上限
 const SEED_TTL_S = Number(process.env.EBAY_SOLD_SEED_TTL_H ?? 72) * 3600; // ebay_sold_seed のTTL（既定72h＝発掘が止まれば自然失効）
 const DISCOVER_KW_MAX = Number(process.env.EBAY_SOLD_DISCOVER_KW_MAX) || 0; // 発掘で回すキーワード数の上限（0=全件。試運転で小さく）
+const DISCOVER_PAGES = Math.max(1, Number(process.env.EBAY_SOLD_DISCOVER_PAGES) || 1); // 1キーワードで取得する落札ページ数（_pgn）。種を増やす時に上げる（既定1=Pixel常駐は軽く）
 const SEED_MIN_JPY = Number(process.env.EBAY_SOLD_SEED_MIN_JPY ?? 1000); // 発掘：この落札額未満は種にしない（単パック等の安物が枠を食うのを防ぐ。refresh Phase0の下限と一致）
 const SEED_MAX_JPY = Number(process.env.EBAY_SOLD_SEED_MAX_JPY ?? 130000); // 発掘：この落札額超は種にしない（$800≒¥124k=serveの申告上限。バルクロット/高額別物を除外）
 const LOT_RE = /\blot\s+of\b|\bbundle\b|\bcase\s+of\b|\bx\s?\d{2,}\b|\(\s*\d{2,}\s*(?:packs?|cards?|boxes?)?\s*\)/i; // 複数まとめ売り（単品でない＝楽天単品と価格が合わない）
@@ -168,7 +169,7 @@ function cleanKeyword(kw) {
 //   refresh.mjs(GitHub)がこの種を読み、楽天×画像AIでマッチ→「生まれた時点で落札確定(soldVerified)」の利益商品を作る。
 //   ＝「現在出品」ではなく「実際に売れた出品」起点で発掘する（ユーザー指摘2026-06-23）。
 async function discoverSeeds() {
-  console.log(`★発掘モード(discover): ${EBAY_JP_QUERIES.length}キーワード × 最大${SEED_PER_KW}件/語 → ebay_sold_seed (窓${WINDOW_DAYS}日)`);
+  console.log(`★発掘モード(discover): ${(DISCOVER_KW_MAX>0?DISCOVER_KW_MAX:EBAY_JP_QUERIES.length)}キーワード × 最大${SEED_PER_KW}件/語 × ${DISCOVER_PAGES}ページ → ebay_sold_seed (窓${WINDOW_DAYS}日)`);
   try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでない可能性"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
 
   const queries = DISCOVER_KW_MAX > 0 ? EBAY_JP_QUERIES.slice(0, DISCOVER_KW_MAX) : EBAY_JP_QUERIES;
@@ -176,19 +177,27 @@ async function discoverSeeds() {
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {
     done++;
-    let r;
-    try { r = await get(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60`, "https://www.ebay.com/"); }
-    catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
-    if (typeof r.status !== "number" || r.status >= 400) { blocked++; console.log(`  ⛔ ${r.status} : ${name}`); await sleep(Math.round(rnd(15000, 30000))); continue; }
-    if (isBlocked(r.html)) { blocked++; console.log(`  ⛔ 検問ページ : ${name}`); await sleep(Math.round(rnd(30000, 60000))); continue; }
-
-    const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, true); // 輸出は新品単品が主→新品落札のみ採用
-    if (parsed.items === 0) noCardKw++;
-    if (!parsed.cards.length) { emptyKw++; console.log(`  ・落札なし(items${parsed.items}) : ${name}`); await jitterGap(); continue; }
+    // ページ送り（_pgn）で1キーワードから複数ページの落札を集める＝種を増やす。窓内カードを全ページ分ためてからまとめる。
+    const allCards = []; let blockedThis = false, anyItems = false;
+    for (let pg = 1; pg <= DISCOVER_PAGES; pg++) {
+      let r;
+      try { r = await get(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60&_pgn=${pg}`, "https://www.ebay.com/"); }
+      catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
+      if (typeof r.status !== "number" || r.status >= 400) { blockedThis = true; console.log(`  ⛔ ${r.status} : ${name} p${pg}`); await sleep(Math.round(rnd(15000, 30000))); break; }
+      if (isBlocked(r.html)) { blockedThis = true; console.log(`  ⛔ 検問ページ : ${name} p${pg}`); await sleep(Math.round(rnd(30000, 60000))); break; }
+      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, true); // 輸出は新品単品が主→新品落札のみ採用
+      if (parsed.items > 0) anyItems = true;
+      allCards.push(...parsed.cards);
+      if (parsed.items < 50) break; // ページが埋まってない＝最終ページ（これ以上のページは無い）。窓外で落札0のページもここで止まる
+      if (pg < DISCOVER_PAGES) await jitterGap();
+    }
+    if (blockedThis) { blocked++; continue; }
+    if (!anyItems) noCardKw++;
+    if (!allCards.length) { emptyKw++; console.log(`  ・落札なし : ${name}`); await jitterGap(); continue; }
 
     // 同一商品(タイトル正規化)でまとめる：priceJpy=その商品の落札中央値 / soldCount=売れた件数 / 代表=直近カードのURL・画像。
     const groups = new Map();
-    for (const c of parsed.cards) {
+    for (const c of allCards) {
       if (!c?.title || !c?.url || !c?.img) continue;
       if (!(c.price >= SEED_MIN_JPY && c.price <= SEED_MAX_JPY)) continue; // 安物(単パック)/高額(バルク・別物)は枠を食うので除外
       if (PROHIBITED_EXCLUDE.test(c.title)) continue; // 【厳命】危険物はseed段階で除外（refresh側でも再除外＝二重ガード）
@@ -212,7 +221,7 @@ async function discoverSeeds() {
       added++;
     }
     okKw++;
-    console.log(`  ✅ ${name} → ユニーク${groups.size}商品 / seed${added}（落札カード${parsed.cards.length}）`);
+    console.log(`  ✅ ${name} → ユニーク${groups.size}商品 / seed${added}（落札カード${allCards.length}・${DISCOVER_PAGES}ページ）`);
     await jitterGap();
   }
 

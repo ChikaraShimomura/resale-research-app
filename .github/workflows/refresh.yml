@@ -39,8 +39,8 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
           RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
-          IMG_MATCH_SONNET_BUDGET: '500'  # 落札seed×楽天の同一判定でSonnet確認が増える分の天井（予算¥3万・精度維持）
-          MAX_PROCESS: '600'  # 月予算¥3万（1回≈$5〜7）。バックログ+腕時計拡張を~4〜5日で消化→以後は新規分だけで安く戻る
+          IMG_MATCH_SONNET_BUDGET: '1000'  # MAX_PROCESS=1200に合わせ引き上げ（落札seed×楽天の同一判定でSonnet確認が増える分の天井）
+          MAX_PROCESS: '1200'  # 50→100件カタログへ拡大(ユーザー予算OK・2026-06-23)。1回で1200 seed処理→6000 seedを~4〜5runで消化。180分内に収める(RPM43で~10-16件/分)
           PRICE_VERIFY_BUDGET: '100'  # 件数増に合わせ50→100。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
         run: node scripts/refresh.mjs
 
