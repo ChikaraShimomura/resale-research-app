@@ -1599,8 +1599,8 @@ async function main() {
 // 直近落札のAI同一判定（消費側 applySoldComp が使う ebay_soldprice を「実物に紐づく確定値」へ昇格）。
 //   Pixel(住宅IP)が ebay_soldcand:{id} に直近落札の候補(価格/実物URL/画像URL/タイトル)を集める。
 //   ここ(GitHub・Anthropic鍵あり・eBay画像は公開CDNでDC IPでも取れる)で、楽天画像×落札画像を isImageMatch で照合：
-//   直近1件で一致したら即採用、ダメなら直近5件まで。一致したらその実物の価格＋URLで ebay_soldprice を verified 確定。
-//   5件とも不一致→ ebay_soldprice は Pixel の中央値のまま据え置き（=利益商品を減らさない・別物リンクは出さない）。
+//   直近1件で一致したら即採用、ダメなら直近12件まで（別物に埋もれた同一品を救う）。一致したらその実物の価格＋URLで ebay_soldprice を verified 確定。
+//   12件とも不一致→ ebay_soldprice は Pixel の中央値のまま据え置き（=利益商品を減らさない・別物リンクは検索フォールバック）。
 async function verifySoldComps(catalog) {
   if (!ANTHROPIC_API_KEY) { console.log('落札AI検証: ANTHROPIC_API_KEY無しでスキップ'); return; }
   const MAX_SOLD_VERIFY = Number(process.env.SOLD_VERIFY_MAX ?? 150); // 1回で検証する「候補あり商品」の上限
@@ -1615,7 +1615,7 @@ async function verifySoldComps(catalog) {
     const cat = p.category || guessCategory(p.title || '');
     const risky = (cat === 'コスメ' || cat === 'フィギュア' || cat === 'ガンプラ'); // 確信HIGHゲート対象
     let matched = null;
-    for (const card of cards.slice(0, 5)) { // 直近1件→不一致なら5件まで
+    for (const card of cards.slice(0, 12)) { // 直近1件→不一致なら12件まで（別物に埋もれた同一品を救う・最初の一致で即採用）
       if (!card?.img || !card?.url || !(card.price > 0)) continue;
       const same = await isImageMatch(p.imageUrl, card.img, { rakutenTitle: p.title, ebayTitle: card.title || '', rakutenQuantity: 1, strict: risky });
       if (same) { matched = card; break; }

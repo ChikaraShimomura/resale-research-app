@@ -202,7 +202,7 @@ async function main() {
     ok++;
     buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
     // 直近落札の候補（最大5件・直近順）。refresh(GitHub・Anthropic鍵あり)がAI同一判定して実物URL付きで確定する。
-    if (parsed.cards?.length) candBuffer.push({ key: `ebay_soldcand:${id}`, rec: { cards: parsed.cards.slice(0, 5), windowCount: parsed.withWindow, at: new Date().toISOString() } });
+    if (parsed.cards?.length) candBuffer.push({ key: `ebay_soldcand:${id}`, rec: { cards: parsed.cards.slice(0, 12), windowCount: parsed.withWindow, at: new Date().toISOString() } });
     console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy}（候補${parsed.cards?.length ?? 0}） : ${kw.slice(0, 40)}`);
     if (AUDIT) {
       // 配信(displayProfit)と同一式で「現在出品相場ベース」と「落札ベース」の現金純利益率を出して比較。
