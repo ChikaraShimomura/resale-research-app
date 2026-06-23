@@ -96,6 +96,9 @@ async function extractGallery(rawUrl) {
 async function cycle() {
   const products = await kvGet("profitable_products");
   if (!Array.isArray(products) || !products.length) { console.log("カタログ空/取得失敗。スキップ。"); return; }
+  // 実際に掲載される品(soldVerified)のギャラリーを優先取得＝CAPを「表示される商品」に使う。
+  // 落札発掘で非表示の旧品が大量に混ざるため、これが無いと表示品にギャラリーが行き渡らない。
+  products.sort((a, b) => (b?.soldVerified ? 1 : 0) - (a?.soldVerified ? 1 : 0));
   let done = 0, empty = 0, err = 0, skip = 0;
   for (const p of products) {
     if (done + empty + err >= CAP_PER_CYCLE) { console.log(`サイクル上限 ${CAP_PER_CYCLE} に到達(次サイクルで続き)。`); break; }
