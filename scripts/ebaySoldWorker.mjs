@@ -39,7 +39,7 @@ const DRY = process.env.EBAY_SOLD_DRY !== "0";
 const MAX = Number(process.env.EBAY_SOLD_MAX ?? 60);
 const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 4000);
 const TTL_S = Number(process.env.EBAY_SOLD_TTL_H ?? 168) * 3600;
-const FRESH_S = Number(process.env.EBAY_SOLD_FRESH_H ?? 36) * 3600;
+const FRESH_S = Number(process.env.EBAY_SOLD_FRESH_H ?? 20) * 3600; // 日次運用(24h間隔)で毎回再処理されるよう<24h。EBAY_SOLD_FRESH_H=0で全件強制
 const MIN_SAMPLE = 3;
 const WINDOW_DAYS = Number(process.env.EBAY_SOLD_WINDOW_DAYS ?? 30); // 直近この日数の落札だけ採用（既定30日）
 const SANE_LO = Number(process.env.EBAY_SOLD_SANE_LO ?? 0.2); // 現相場×これ未満は破棄
