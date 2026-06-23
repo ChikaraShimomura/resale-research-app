@@ -59,6 +59,8 @@ const DISCOVER_PAGES = Math.max(1, Number(process.env.EBAY_SOLD_DISCOVER_PAGES) 
 const SEED_MIN_JPY = Number(process.env.EBAY_SOLD_SEED_MIN_JPY ?? 1000); // 発掘：この落札額未満は種にしない（単パック等の安物が枠を食うのを防ぐ。refresh Phase0の下限と一致）
 const SEED_MAX_JPY = Number(process.env.EBAY_SOLD_SEED_MAX_JPY ?? 130000); // 発掘：この落札額超は種にしない（$800≒¥124k=serveの申告上限。バルクロット/高額別物を除外）
 const LOT_RE = /\blot\s+of\b|\bbundle\b|\bcase\s+of\b|\bx\s?\d{2,}\b|\(\s*\d{2,}\s*(?:packs?|cards?|boxes?)?\s*\)/i; // 複数まとめ売り（単品でない＝楽天単品と価格が合わない）
+const SEED_SIM = Number(process.env.EBAY_SOLD_SEED_SIM) || 0.6; // 発掘：落札タイトルがこの類似度以上なら「同一商品」として束ねる(eBayは出品者ごとに表記が違うので完全一致だと実需が1に割れる)
+const SEED_MIN_SOLD = Math.max(1, Number(process.env.EBAY_SOLD_SEED_MIN_SOLD) || 1); // 発掘：直近落札がこの件数以上の商品だけ種にする(1=全部 / 2=実需が確かな品だけに絞る)
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -202,20 +204,23 @@ async function discoverSeeds() {
     if (!anyItems) noCardKw++;
     if (!allCards.length) { emptyKw++; console.log(`  ・落札なし : ${name}`); await jitterGap(); continue; }
 
-    // 同一商品(タイトル正規化)でまとめる：priceJpy=その商品の落札中央値 / soldCount=売れた件数 / 代表=直近カードのURL・画像。
-    const groups = new Map();
+    // 似たタイトルをクラスタリングして「同一商品」を束ねる。eBayは出品者ごとにタイトル表記が違うため、完全一致だと
+    // 同じ商品の複数落札が "soldCount=1 の別商品" に割れて実需を過小評価する。titleSim(単語overlap)≥SEED_SIM で束ね、
+    // soldCount=クラスタの落札件数(=実需)・priceJpy=中央値・代表=直近カードのURL/画像。
+    const clusters = [];
     for (const c of allCards) {
       if (!c?.title || !c?.url || !c?.img) continue;
       if (!(c.price >= SEED_MIN_JPY && c.price <= SEED_MAX_JPY)) continue; // 安物(単パック)/高額(バルク・別物)は枠を食うので除外
       if (PROHIBITED_EXCLUDE.test(c.title)) continue; // 【厳命】危険物はseed段階で除外（refresh側でも再除外＝二重ガード）
       if (LOT_RE.test(c.title)) continue;            // まとめ売り(Lot/bundle/x10)は単品でない＝除外
-      const key = normTitle(c.title);
-      if (!key) continue;
-      const g = groups.get(key) || { cards: [], title: c.title };
-      g.cards.push(c); groups.set(key, g);
+      let best = null, bestSim = 0;
+      for (const cl of clusters) { const s = titleSim(c.title, cl.title); if (s > bestSim) { bestSim = s; best = cl; } }
+      if (best && bestSim >= SEED_SIM) best.cards.push(c); // 既存クラスタに合流
+      else clusters.push({ title: c.title, cards: [c] });   // 新規クラスタ
     }
-    // 売れた件数が多い＝需要が確かな商品を優先（同数なら直近）。上位 SEED_PER_KW 商品をseed化。
-    const ranked = [...groups.values()]
+    // 直近落札 SEED_MIN_SOLD 件以上に絞り、売れた件数が多い順（=実需が確かな順／同数なら直近）に上位 SEED_PER_KW をseed化。
+    const ranked = clusters
+      .filter((g) => g.cards.length >= SEED_MIN_SOLD)
       .sort((a, b) => (b.cards.length - a.cards.length) || (Math.min(...a.cards.map((c) => c.ageDays)) - Math.min(...b.cards.map((c) => c.ageDays))))
       .slice(0, SEED_PER_KW);
     let added = 0;
@@ -228,7 +233,7 @@ async function discoverSeeds() {
       added++;
     }
     okKw++;
-    console.log(`  ✅ ${name} → ユニーク${groups.size}商品 / seed${added}（落札カード${allCards.length}・${DISCOVER_PAGES}ページ）`);
+    console.log(`  ✅ ${name} → ユニーク${clusters.length}商品 / seed${added}（落札カード${allCards.length}・${DISCOVER_PAGES}ページ）`);
     await jitterGap();
   }
 
