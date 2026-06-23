@@ -39,8 +39,9 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
           RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
-          IMG_MATCH_SONNET_BUDGET: '1000'  # MAX_PROCESS=1200に合わせ引き上げ（落札seed×楽天の同一判定でSonnet確認が増える分の天井）
-          MAX_PROCESS: '1200'  # 50→100件カタログへ拡大(ユーザー予算OK・2026-06-23)。1回で1200 seed処理→6000 seedを~4〜5runで消化。180分内に収める(RPM43で~10-16件/分)
+          ANTHROPIC_RPM:        '500'  # ★ティア2(実RPM=1,000・ITPM=2M/Haiku・Sonnet)に合わせ43→500へ。画像マッチ(2画像≈3.7k入力tok)でITPM 2Mに収まる安全側=約500/分。10倍超速くなる(6000 seedが~50分)。429頻発なら下げる
+          IMG_MATCH_SONNET_BUDGET: '2000'  # MAX_PROCESS拡大に合わせ引き上げ（落札seed×楽天の同一判定でSonnet確認が増える分の天井）
+          MAX_PROCESS: '6000'  # 50→100件カタログへ拡大(ユーザー予算OK・2026-06-23)。ティア2のRPM500なら全seed(~6000)を1run(~50分・180分枠内)で消化。未処理が少なければ早く終わる
           PRICE_VERIFY_BUDGET: '100'  # 件数増に合わせ50→100。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
         run: node scripts/refresh.mjs
 
