@@ -635,6 +635,7 @@ export interface CurrentOffer {
   quantity?: number;
   listingId?: string;
   status?: string; // PUBLISHED / UNPUBLISHED 等
+  fulfillmentPolicyId?: string; // 現在の配送(送料)ポリシー＝送料込み/別の判定に使う
 }
 
 // SKUから現在のオファー（価格・数量・公開ID）を取得。編集モーダルのプリフィルに使う。
@@ -652,6 +653,7 @@ export async function getOfferForSku(token: string, sku: string): Promise<Curren
         status?: string;
         pricingSummary?: { price?: { value?: string } };
         listing?: { listingId?: string };
+        listingPolicies?: { fulfillmentPolicyId?: string };
       }[];
     } | null
   )?.offers?.[0];
@@ -662,6 +664,7 @@ export async function getOfferForSku(token: string, sku: string): Promise<Curren
     quantity: o.availableQuantity,
     listingId: o.listing?.listingId,
     status: o.status,
+    fulfillmentPolicyId: o.listingPolicies?.fulfillmentPolicyId,
   };
 }
 
@@ -693,6 +696,27 @@ export async function updateOfferPriceQuantity(
   if (resp?.statusCode && resp.statusCode >= 300) {
     return { ok: false, error: resp.errors?.[0]?.longMessage || resp.errors?.[0]?.message || `status ${resp.statusCode}` };
   }
+  return { ok: true };
+}
+
+// 出品中の「送料の出し方」を切替: 価格と配送ポリシーを同時更新する。
+// bulk_update_price_quantity は配送ポリシーを変えられないため、フルoffer(GET→必要部だけ差し替え→PUT)で更新する。
+// 公開中(PUBLISHED)のオファーをPUTで更新すると、出品中の listing にも反映される。
+export async function updateOfferShipping(
+  token: string,
+  offerId: string,
+  opts: { priceUsd: string; fulfillmentPolicyId: string }
+): Promise<{ ok: boolean; error?: string }> {
+  // フルofferを取得し、価格と配送ポリシーだけ差し替えて戻す（他フィールドは欠落させない）。
+  const g = await ebayFetch(token, "GET", `/sell/inventory/v1/offer/${offerId}`);
+  if (!g.ok || !g.data || typeof g.data !== "object") return { ok: false, error: g.error || "オファー取得失敗" };
+  const o: Record<string, unknown> = { ...(g.data as Record<string, unknown>) };
+  // 読み取り専用フィールドはPUTに含めない（含めると拒否される）。
+  delete o.offerId; delete o.listing; delete o.status;
+  o.pricingSummary = { ...((o.pricingSummary as Record<string, unknown>) || {}), price: { value: opts.priceUsd, currency: "USD" } };
+  o.listingPolicies = { ...((o.listingPolicies as Record<string, unknown>) || {}), fulfillmentPolicyId: opts.fulfillmentPolicyId };
+  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, o);
+  if (!r.ok) return { ok: false, error: r.error };
   return { ok: true };
 }
 

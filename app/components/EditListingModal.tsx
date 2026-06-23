@@ -31,6 +31,11 @@ export default function EditListingModal({
   const [photoError, setPhotoError] = useState<ErrInfo | null>(null);
   const [photoDone, setPhotoDone] = useState<string | null>(null);
   const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得した楽天ギャラリー
+  // 送料の出し方（送料込み/別）の現在状態と切替プレビュー。
+  const [ship, setShip] = useState<{ mode: "free" | "paid"; canFree: boolean; foldUsd: number; unfoldUsd: number } | null>(null);
+  const [shipBusy, setShipBusy] = useState(false);
+  const [shipMsg, setShipMsg] = useState<string | null>(null);
+  const [shipErr, setShipErr] = useState<ErrInfo | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -42,6 +47,7 @@ export default function EditListingModal({
           if (j.priceUsd != null) setPriceUsd(String(j.priceUsd));
           if (j.quantity != null) setQuantity(String(j.quantity));
           if (Array.isArray(j.refImages)) setRefImages(j.refImages);
+          if (j.ship) setShip(j.ship);
         } else {
           setLoadError(j?.error || "出品情報を取得できませんでした。");
         }
@@ -73,6 +79,29 @@ export default function EditListingModal({
       setSaveError({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" });
     }
     setSaving(false);
+  };
+
+  // 送料の出し方を切替（送料込み⇄送料別）。価格と配送ポリシーをサーバー側で同時更新する。
+  const toggleShip = async (mode: "free" | "paid") => {
+    setShipBusy(true); setShipMsg(null); setShipErr(null);
+    try {
+      const j = await fetch("/api/ebay/list/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, shipMode: mode }),
+      }).then((r) => r.json());
+      if (j?.ok) {
+        if (j.priceUsd != null) setPriceUsd(String(j.priceUsd));
+        setShip((p) => (p ? { ...p, mode } : p)); // 表示状態を反転（プレビュー額は次回開き直しで正確化）
+        setShipMsg(mode === "free" ? "送料込み（送料無料）に切替えました" : "送料別に戻しました");
+        onSaved?.();
+      } else {
+        setShipErr({ message: j?.error || "送料の切替に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
+      }
+    } catch {
+      setShipErr({ message: "通信エラーで切替できませんでした。", errorKind: "unexpected" });
+    }
+    setShipBusy(false);
   };
 
   const uploadPhotos = async () => {
@@ -172,6 +201,40 @@ export default function EditListingModal({
                 "この内容で更新"
               )}
             </button>
+
+            {/* 送料の出し方（送料込み/別）の切替。出品中の商品にもワンタップで適用＝価格と配送ポリシーを同時更新。 */}
+            {ship && (
+              <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
+                <span className="text-[12px] font-bold text-gray-700">送料の出し方</span>
+                {ship.mode === "free" ? (
+                  <>
+                    <p className="text-[11px] text-emerald-600 mt-0.5 mb-2">現在：送料込み（送料無料で出品中）</p>
+                    <button
+                      onClick={() => toggleShip("paid")}
+                      disabled={shipBusy}
+                      className="w-full h-10 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {shipBusy ? <><Spinner size={14} /> 切替中…</> : `送料別に戻す${ship.unfoldUsd > 0 ? `（価格 −$${ship.unfoldUsd.toFixed(2)}）` : ""}`}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2">現在：送料別（購入者が送料を負担）。送料無料の方が検索・転換に強いです。</p>
+                    <button
+                      onClick={() => toggleShip("free")}
+                      disabled={shipBusy || !ship.canFree}
+                      className="w-full h-10 rounded-lg bg-violet-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {shipBusy ? <><Spinner size={14} /> 切替中…</> : `送料込み（送料無料）に切替${ship.foldUsd > 0 ? `（価格 +$${ship.foldUsd.toFixed(2)}）` : ""}`}
+                    </button>
+                    {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed">※eBayに「送料無料」の配送ポリシーが必要です（eBayで一度作成すれば切替できます）。</p>}
+                  </>
+                )}
+                {shipErr && <ReportableError message={shipErr.message} errorKind={shipErr.errorKind} errorDetail={shipErr.errorDetail} where="ebay_ship_mode" context={{ productId }} className="mt-1" />}
+                {shipMsg && <p className="text-[12px] text-emerald-600 mt-1">✓ {shipMsg}</p>}
+              </div>
+            )}
+
             <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
               <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
