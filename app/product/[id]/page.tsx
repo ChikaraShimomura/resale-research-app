@@ -43,6 +43,7 @@ async function getHotProducts(excludeId: string, n = 3): Promise<ProfitProduct[]
     const withSold = await applySoldComp(products.filter((p) => p.id !== excludeId));
     return withSold
       .map(applyDisplayProfit)
+      .filter((p) => p.restored || p.soldVerified) // eBay落札をAI確認できた商品だけ（未確定は出さない）
       .sort((a, b) => b.realProfitRate - a.realProfitRate)
       .slice(0, n);
   } catch {

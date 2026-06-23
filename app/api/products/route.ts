@@ -124,13 +124,14 @@ export async function GET() {
         .filter(
           (p) =>
             p.restored ||
-            ((p.realProfitRate ?? 0) >= PROFIT_RATE_FLOOR && // 現金純利益率が10%以下は利益商品に出さない（ポイント抜き）
+            (p.soldVerified && // ★eBay落札をAI画像で確認できた商品だけ掲載（未確定＝落札実績が確認できない品は出さない・ユーザー方針2026-06-23）
+              (p.realProfitRate ?? 0) >= PROFIT_RATE_FLOOR && // 現金純利益率が10%以下は利益商品に出さない（ポイント抜き）
               (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
               !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
         );
-      // 全消し（フロア厳格化やゲートで0件）はブラックアウト回避で緩めるが、売切/削除だけは必ず除外する。
+      // 確定品が0でも未確定は出さない（「確実に実績あり」方針）。手動復活(restored)だけは救済。
       if (priced.length === 0 && ready.length > 0) {
-        priced = ready.map(applyDisplayProfit).filter(hasImage).filter((p) => p.restored || !deadSourceIds.has(p.id));
+        priced = ready.map(applyDisplayProfit).filter(hasImage).filter((p) => p.restored && !deadSourceIds.has(p.id));
       }
 
       return Response.json(

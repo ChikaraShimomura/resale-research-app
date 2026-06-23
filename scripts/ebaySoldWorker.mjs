@@ -208,7 +208,9 @@ async function main() {
       implausible++; console.log(`  ⚠️ 妥当性NG ¥${medianJpy} vs 現相場¥${anchor}（破棄） : ${kw.slice(0, 40)}`); await jitterGap(); continue;
     }
     ok++;
-    buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
+    const spRec = { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() };
+    if (prev?.verified && prev?.soldUrl) { spRec.verified = true; spRec.soldUrl = prev.soldUrl; } // 既存のAI確定(soldUrl)を中央値更新で消さない＝掲載のちらつき防止（refreshが再検証で更新）
+    buffer.push({ key: `ebay_soldprice:${id}`, rec: spRec });
     // 直近落札の候補（最大12件）。refresh(GitHub・Anthropic鍵あり)がAI同一判定して実物URL付きで確定する。
     // 選び方：カタログが既に持つ同一品名(matchedEbayTitle)に「似てる順」で12件→そのうえで検証は直近順。
     //   別物が新着で上位を占めても同一品を候補に拾える。検索は1回のまま＝コスト不変。matchedEbayTitle無しは直近順。

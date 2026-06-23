@@ -56,6 +56,7 @@ export async function applySoldComp(products: ProfitProduct[]): Promise<ProfitPr
       realProfit: profit,          // 落札ベースの粗利（applyDisplayProfit が現金純利益へ）
       realProfitRate: profitRate,
       soldBased: true,
+      soldVerified: !!(r.verified && r.soldUrl), // AI画像で同一商品の落札を確認済み＝「確実に実績あり」。掲載はこれだけ（ユーザー方針2026-06-23）
       soldCount30d: Number(r.count) || 0,
       soldWindowDays: Number(r.windowDays) || 30,
       soldUrl: r.verified && r.soldUrl ? r.soldUrl : undefined, // AI確定した実物の落札URL（確認リンク用）

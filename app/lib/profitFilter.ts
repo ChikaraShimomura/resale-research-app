@@ -17,4 +17,5 @@ export interface ProfitProduct extends Product {
   soldCount30d?: number;        // 直近windowDays(既定30日)の落札件数（需要の目安バッジ）
   soldWindowDays?: number;      // 落札件数の対象日数（既定30）
   soldUrl?: string;             // AI同一判定が通った実物の落札URL（確認リンクを同一商品に着地させる）
+  soldVerified?: boolean;       // AI画像で同一商品の落札を確認済み＝掲載対象（未確定は利益商品に載せない・ユーザー方針2026-06-23）
 }

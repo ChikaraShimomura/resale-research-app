@@ -13,6 +13,7 @@ export async function getTopProfitProducts(n: number): Promise<ProfitProduct[]> 
     const withSold = await applySoldComp(products);
     return withSold
       .map(applyDisplayProfit)
+      .filter((p) => p.restored || p.soldVerified) // eBay落札をAI確認できた商品だけ（未確定は出さない・ユーザー方針2026-06-23）
       .sort((a, b) => (b.realProfitRate || 0) - (a.realProfitRate || 0))
       .slice(0, n);
   } catch {
