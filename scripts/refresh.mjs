@@ -4,6 +4,8 @@
 
 // 着地コスト(国際送料手数料＋米国関税)の計算式は app と共有の SSOT を import（二重在＝ドリフトの罠を解消）。
 import { landedSubtractJpy, USD_JPY as L_USD_JPY } from "../app/lib/ebay/landedCostCore.mjs";
+// 危険物除外(SSOT)。発掘キーワード(EBAY_JP_QUERIES)はPixel発掘worker専用になったのでrefreshでは読まない（Phase0はebay_sold_seedを読む）。
+import { PROHIBITED_EXCLUDE } from "./ebayQueries.mjs";
 
 // ========== 設定 ==========
 const RAKUTEN_APP_ID      = process.env.RAKUTEN_APP_ID;
@@ -122,9 +124,7 @@ const USED_EXCLUDE = /中古|ユーズド|used|ジャンク/i;
 // 予約・発売前・受注/取り寄せ等「今すぐ手元に無く海外に即発送できない」商品。中古と同列で対象外。
 // （発売日に届く保証が無く、eBay落札→即発送のフローが崩れるため。再入荷すれば次回refreshで再登録される）
 const PREORDER_EXCLUDE = /予約|ご予約|発売予定|発売前|入荷予定|お取り寄せ|取り寄せ|受注生産|受注販売/i;
-// 【ユーザー厳命】関税問題/国際郵便で送れない航空危険物等は絶対にカタログ対象にしない。
-// 明確な危険物ワードに限定（腕時計の「電池/ソーラー」やスプレーボトル等の正常品を巻き込まないよう bareの電池/スプレーは使わない）。
-const PROHIBITED_EXCLUDE = /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|lighter|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
+// PROHIBITED_EXCLUDE(危険物)は ./ebayQueries.mjs に分離＝Pixel発掘workerと共有(SSOT)。上の import を参照。
 
 // タイトルから「数量(個数)」を推定する。既定1。楽天が複数パック/セットなのにeBay単品と比較され
 // 価格(=利益)が狂う事故を防ぐ。ml/g等の単位・型番・版数(Ver.2/No.264)は数量と誤認しない設計。
@@ -642,220 +642,45 @@ async function getEbayToken() {
   } catch (e) { console.error(`  [OAuth] ${e.message}`); return null; }
 }
 
-// ========== Phase 0: eBay Browse API で日本出品の現行商品を取得 ==========
-// Browse APIはOAuth認証必須のため503ブロックを回避できる
-// soldItemsOnlyはBrowse APIでは非対応のため「現在出品中・日本発送」を取得
-const EBAY_JP_QUERIES = [
-  { q: 'pokemon card booster box japanese sealed',  name: 'ポケモンカード' },
-  { q: 'yu-gi-oh card booster box japanese sealed',  name: '遊戯王' },
-  { q: 'one piece card game booster box japanese',   name: 'ワンピースカード' },
-  { q: 'gunpla model kit bandai master grade',       name: 'ガンプラMG' },
-  { q: 'gunpla high grade bandai japan new',         name: 'ガンプラHG' },
-  { q: 'nendoroid figure good smile new sealed',     name: 'ねんどろいど' },
-  { q: 'lego set japan new sealed',                  name: 'LEGO' },
-  { q: 'seiko watch new japan',                      name: 'セイコー' },
-  { q: 'casio g-shock new japan',                    name: 'Gショック' },
-  { q: 'shiseido skincare japan new',                name: '資生堂' },
-  { q: 'tomica diecast car japan new',               name: 'トミカ' },
-  { q: 'amiibo nintendo new japan sealed',           name: 'アミーボ' },
-  // ── recall拡張(2026-06-15): 日本→eBay輸出の高価値ライン(新品・単品・楽天入手可)を多エージェント研究で追加 ──
-  { q: 'dragon ball fusion world booster box japanese sealed',                 name: 'DBフュージョンワールド' },
-  { q: 'weiss schwarz hololive booster box japanese sealed',                   name: 'ヴァイス ホロライブ' },
-  { q: 'digimon card game booster box japanese sealed bandai',                 name: 'デジモンカード' },
-  { q: 'amiibo card animal crossing japanese sealed booster',                  name: 'どうぶつの森amiiboカード' },
-  { q: 'gundam RG real grade model kit bandai japan new sealed',               name: 'ガンプラRG' },
-  { q: 'gundam PG perfect grade unleashed model kit bandai japan new sealed',  name: 'ガンプラPG' },
-  { q: 'gundam entry grade EG model kit bandai japan new sealed',              name: 'ガンプラEG' },
-  { q: '30MM armored core VI model kit bandai japan new sealed',               name: '30MM ACVI' },
-  { q: 's.h.figuarts dragon ball figure japan new sealed',                     name: 'SHFドラゴンボール' },
-  { q: 's.h.figuarts demon slayer figure new japan',                          name: 'SHF鬼滅' },
-  { q: 'figma figure max factory japan new sealed',                           name: 'figma' },
-  { q: 'pop up parade figure good smile new japan',                           name: 'POP UP PARADE' },
-  { q: 'metal build gundam bandai figure japan new sealed',                    name: 'METAL BUILD' },
-  { q: 'kotobukiya megami device frame arms girl model kit japan new sealed',  name: 'メガミ/FAガール' },
-  { q: 'casio oceanus watch japan new',                                       name: 'オシアナス' },
-  { q: 'citizen attesa eco-drive radio watch japan new',                       name: 'アテッサ' },
-  { q: 'orient bambino automatic watch japan new',                            name: 'オリエント バンビーノ' },
-  { q: 'anessa perfect uv sunscreen spf50 japan new',                         name: 'アネッサ' },
-  { q: 'hada labo gokujyun lotion japan new sealed',                          name: 'ハダラボ極潤' },
-  { q: 'canmake makeup japan new sealed',                                     name: 'キャンメイク' },
-  { q: 'sk-ii facial treatment essence japan new sealed',                      name: 'SK-II' },
-  { q: 'beyblade x takara tomy booster japan new sealed',                      name: 'ベイブレードX' },
-  { q: 'tamiya mini 4wd model kit japan new sealed',                          name: 'ミニ四駆' },
-  { q: 'pokemon center plush japan exclusive new with tag',                    name: 'ポケセンぬいぐるみ' },
-  // ── バッチ1拡張(2026-06-17): 100件@98%へ。輸出可・単品・需要ありを多エージェント研究で厳選(78候補→) ──
-  { q: 'pokemon card 151 booster box japanese sealed sv2a',                      name: 'ポケカ151' },
-  { q: 'pokemon card elite trainer box japanese sealed',                        name: 'ポケカETB' },
-  { q: 'pokemon card high class pack shiny treasure japanese sealed box',        name: 'ポケカハイクラス' },
-  { q: 'yu-gi-oh structure deck japanese sealed konami',                        name: '遊戯王ストラク' },
-  { q: 'one piece card game starter deck japanese sealed bandai',                name: 'ワンピーススタートデッキ' },
-  { q: 'union arena booster box japanese sealed bandai',                         name: 'ユニオンアリーナ' },
-  { q: 's.h.figuarts dragon ball son goku super saiyan figure japan new sealed', name: 'SHF悟空' },
-  { q: 's.h.figuarts one piece monkey d luffy figure japan new sealed',          name: 'SHFルフィ' },
-  { q: 's.h.figuarts naruto uzumaki figure japan new sealed',                    name: 'SHFナルト' },
-  { q: 's.h.figuarts kamen rider figure japan new sealed',                       name: 'SHF仮面ライダー' },
-  { q: 'nendoroid hatsune miku figure good smile japan new sealed',              name: 'ねんどミク' },
-  { q: 'good smile company 1/7 scale figure anime japan new sealed',             name: 'GSC1/7スケール' },
-  { q: 'casio g-shock GA-2100 carbon core guard japan new',                      name: 'GショックGA2100' },
-  { q: 'casio g-shock DW-5600 japan new',                                        name: 'GショックDW5600' },
-  { q: 'seiko 5 sports SRPD automatic watch japan new',                          name: 'セイコー5SRPD' },
-  { q: 'seiko prospex turtle SRPE diver automatic watch japan new',              name: 'セイコープロスペックスSRPE' },
-  { q: 'splatoon 3 nintendo switch japanese version new sealed',                 name: 'スプラ3SW' },
-  { q: 'xenoblade chronicles 3 nintendo switch japanese version new sealed',     name: 'ゼノブレ3SW' },
-  { q: 'chiikawa plush japan new with tag',                                      name: 'ちいかわぬいぐるみ' },
-  { q: 'transformers takara tomy masterpiece figure japan new sealed',           name: 'TFマスターピース' },
-  { q: 'soul of chogokin bandai diecast figure japan new sealed',                name: '超合金魂' },
-  // ── 腕時計 手厚く拡張(2026-06-23): 日本時計は輸出需要大・軽い・$800以下の中価格帯が豊富。全て new/単品/楽天入手可 ──
-  { q: 'seiko presage automatic watch japan new',                                name: 'セイコープレザージュ' },
-  { q: 'seiko prospex samurai diver automatic watch japan new',                  name: 'プロスペックスサムライ' },
-  { q: 'seiko prospex alpinist automatic watch japan new',                       name: 'プロスペックスアルピニスト' },
-  { q: 'seiko prospex speedtimer chronograph watch japan new',                   name: 'プロスペックススピードタイマー' },
-  { q: 'seiko 5 sports GMT automatic watch japan new',                           name: 'セイコー5GMT' },
-  { q: 'seiko selection solar watch japan new',                                  name: 'セイコーセレクション' },
-  { q: 'casio edifice chronograph watch japan new',                              name: 'カシオエディフィス' },
-  { q: 'casio pro trek solar watch japan new',                                   name: 'カシオプロトレック' },
-  { q: 'casio g-shock GW-M5610 tough solar watch japan new',                     name: 'GショックGWM5610' },
-  { q: 'casio g-shock mudmaster watch japan new',                                name: 'Gショックマッドマスター' },
-  { q: 'citizen promaster eco-drive diver watch japan new',                      name: 'シチズンプロマスター' },
-  { q: 'citizen tsuyosa automatic watch japan new',                             name: 'シチズンTSUYOSA' },
-  { q: 'citizen series 8 automatic watch japan new',                            name: 'シチズンシリーズ8' },
-  { q: 'orient star automatic watch japan new',                                 name: 'オリエントスター' },
-  { q: 'orient kamasu diver automatic watch japan new',                         name: 'オリエントカマス' },
-  { q: 'orient mako diver automatic watch japan new',                           name: 'オリエントマコ' },
-  // ── Tier1ジャンル拡張(2026-06-23): 輸出強・楽天あり・単品・新品。供給天井を上げる ──
-  // TCG追加（→トレカ）
-  { q: 'magic the gathering japanese booster box sealed',                     name: 'MTG日本語' },
-  { q: 'cardfight vanguard booster box japanese sealed',                      name: 'ヴァンガード' },
-  { q: 'duel masters booster box japanese sealed',                            name: 'デュエマ' },
-  { q: 'battle spirits booster box japanese sealed bandai',                   name: 'バトスピ' },
-  { q: 'shadowverse evolve booster box japanese sealed',                      name: 'シャドバエボルヴ' },
-  { q: 'pokemon card scarlet violet booster box japanese sealed',             name: 'ポケカSV' },
-  { q: 'one piece card game OP booster box japanese sealed bandai',           name: 'ワンピOPブースター' },
-  { q: 'yu-gi-oh quarter century bonanza booster box japanese sealed',        name: '遊戯王QC' },
-  // フィギュア追加（→フィギュア）
-  { q: 'robot spirits bandai gundam figure japan new sealed',                 name: 'ROBOT魂' },
-  { q: 'mafex medicom toy figure japan new sealed',                           name: 'MAFEX' },
-  { q: 'kotobukiya artfx j figure japan new sealed',                          name: 'ARTFX' },
-  { q: 'figuarts zero figure bandai japan new sealed',                        name: 'フィギュアーツZERO' },
-  { q: 'revoltech kaiyodo figure japan new sealed',                           name: 'リボルテック' },
-  { q: 're-ment miniature figure japan new sealed',                          name: 'リーメント' },
-  { q: 'nendoroid doll good smile figure japan new sealed',                   name: 'ねんどろいどどーる' },
-  { q: 'soul of chogokin bandai diecast robot japan new sealed',              name: '超合金GX' },
-  // Switch人気ソフト（→ゲーム機）
-  { q: 'legend of zelda tears of the kingdom switch japanese new sealed',      name: 'ゼルダTOTK' },
-  { q: 'super mario bros wonder switch japanese new sealed',                   name: 'マリオワンダー' },
-  { q: 'pokemon scarlet violet switch japanese new sealed',                    name: 'ポケモンSVソフト' },
-  { q: 'super smash bros ultimate switch japanese new sealed',                 name: 'スマブラSP' },
-  { q: 'mario kart 8 deluxe switch japanese new sealed',                       name: 'マリカ8DX' },
-  // プラモ非ガンプラ（gate skip＝画像AI判定）
-  { q: 'tamiya 1/24 sports car model kit japan new sealed',                   name: 'タミヤ車' },
-  { q: 'tamiya 1/35 military tank model kit japan new sealed',                name: 'タミヤミリタリー' },
-  { q: 'tamiya 1/12 motorcycle model kit japan new sealed',                   name: 'タミヤバイク' },
-  { q: 'hasegawa 1/48 aircraft model kit japan new sealed',                   name: 'ハセガワ飛行機' },
-  { q: 'hasegawa 1/350 ship model kit japan new sealed',                      name: 'ハセガワ船' },
-  { q: 'aoshima 1/24 car model kit japan new sealed',                         name: 'アオシマ車' },
-  { q: 'fujimi 1/24 car model kit japan new sealed',                          name: 'フジミ車' },
-  // 鉄道模型（gate skip）
-  { q: 'kato n gauge shinkansen model train japan new',                       name: 'KATO新幹線' },
-  { q: 'tomix n gauge train set japan new',                                   name: 'TOMIX電車' },
-  { q: 'kato n gauge locomotive japan new',                                   name: 'KATO機関車' },
-  { q: 'tomix n gauge limited japan new sealed',                              name: 'TOMIX限定' },
-  { q: 'kato ho gauge model train japan new',                                 name: 'KATO HO' },
-  // ダイキャストミニカー（gate skip）
-  { q: 'tomica premium diecast car japan new sealed',                         name: 'トミカプレミアム' },
-  { q: 'kyosho 1/18 diecast car model japan new',                             name: '京商ミニカー' },
-  { q: 'ignition model 1/18 diecast car japan new',                          name: 'イグニッション' },
-  { q: 'tomica limited vintage neo diecast japan new',                        name: 'トミカLV NEO' },
-  { q: 'hot wheels japan exclusive diecast car new',                          name: 'ホットウィール日本' },
-  // 万年筆（gate skip）
-  { q: 'pilot custom 74 fountain pen japan new',                              name: 'パイロットカスタム74' },
-  { q: 'pilot capless vanishing point fountain pen japan new',                name: 'パイロットキャップレス' },
-  { q: 'sailor 1911 pro gear fountain pen japan new',                         name: 'セーラー万年筆' },
-  { q: 'platinum 3776 century fountain pen japan new',                        name: 'プラチナ3776' },
-  { q: 'pilot kakuno fountain pen japan new',                                 name: 'パイロットカクノ' },
-  // キャラ雑貨・ぬいぐるみ（gate skip）
-  { q: 'sanrio plush japan new with tag',                                     name: 'サンリオぬいぐるみ' },
-  { q: 'sumikko gurashi plush japan new with tag',                            name: 'すみっコぐらし' },
-  { q: 'pokemon center plush japan new with tag',                             name: 'ポケモンぬいぐるみ2' },
-  { q: 'studio ghibli totoro plush japan new with tag',                       name: 'ジブリぬいぐるみ' },
-  { q: 'chiikawa goods mascot japan new',                                     name: 'ちいかわグッズ' },
-  // ReFa（gate skip）
-  { q: 'refa carat beauty roller japan new',                                  name: 'ReFaカラット' },
-  { q: 'refa s carat ray beauty roller japan new',                           name: 'ReFa' },
-];
+// ========== Phase 0: Pixel落札発掘(ebay_sold_seed)を読む ==========
+// 旧: Browse APIで「現行出品」を取得 → 現在出品は売れる保証なし＝意味が薄い(ユーザー指摘2026-06-23)。
+// 新: Pixel(住宅IP)が eBay 落札済み(Sold)をキーワード別にスクレイプ→KV ebay_sold_seed に格納。
+//     refreshはそれを読み、楽天とマッチして「実際に売れた実績つき」候補だけを作る。
+// EBAY_JP_QUERIES(124本) は ./ebayQueries.mjs に分離＝Pixel発掘workerと共有。
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles_v6'; // v6: Tier1ジャンル~50キーワード追加＋3ページ(2026-06-23)→プールが変わるため旧キャッシュ無効化
-  const cached = await kvGet(cacheKey);
-  if (cached && Array.isArray(cached) && cached.length > 0) {
-    console.log(`  [Phase0 cache] ${cached.length}件`);
-    return cached;
-  }
-
-  const token = await getEbayToken();
-  if (!token) {
-    console.error('  [Phase0] OAuthトークン取得失敗');
+  // Pixel(住宅IP)の落札発掘worker(ebaySoldWorker.mjs discover)が書いた種を読む。
+  // 各 seed = {title, priceJpy(=eBay落札額), category, imageUrl, itemUrl(落札出品URL), rank, soldCount, soldWindowDays}。
+  // priceJpy に「落札額」が入るので、以降のマッチ/利益計算はそのまま"実売値ベース"になる（現行出品の値では判定しない）。
+  const seed = await kvGet('ebay_sold_seed');
+  if (!seed || !Array.isArray(seed) || seed.length === 0) {
+    console.error('  [Phase0] ebay_sold_seed が空。Pixel落札発掘worker未稼働の可能性→候補ゼロ。');
     return [];
   }
-
-  // 各ジャンル EBAY_PAGES ページ(1ページ100件・offset送り)取得。Best Match順なので下位ほど逓減＝深いほど候補増だが質は薄め。
-  const EBAY_PAGES = Number(process.env.EBAY_PAGES) || 3; // 4→3(2026-06-23): 4ページ目は逓減で候補ほぼ増えず。深掘りより新ジャンル追加が効率的
-  const allItems = [];
-  for (const { q, name } of EBAY_JP_QUERIES) {
-    let fetched = 0;
-    for (let page = 0; page < EBAY_PAGES; page++) {
-      const params = new URLSearchParams({
-        q,
-        filter: 'itemLocationCountry:JP,conditions:{NEW|LIKE_NEW}',
-        // sort指定なし＝Best Match(関連度/人気)。表示価格は別途eBay最安ベースを維持。
-        limit: '100',
-        offset: String(page * 100),
-        fieldgroups: 'COMPACT',
-      });
-      let items = [];
-      try {
-        const res = await fetch(
-          `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
-          { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }, signal: AbortSignal.timeout(15000) }
-        );
-        if (!res.ok) { console.log(`  [Phase0] ${name} p${page + 1} → HTTP ${res.status}`); break; }
-        const data = await res.json();
-        items = data?.itemSummaries ?? [];
-      } catch (e) {
-        console.error(`  [Phase0 ERROR] ${name} p${page + 1}: ${e.message}`); break;
-      }
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const title = item?.title ?? '';
-        const price = parseFloat(item?.price?.value);
-        const currency = item?.price?.currency;
-        if (!title || isNaN(price) || price <= 0) continue;
-        if (PROHIBITED_EXCLUDE.test(title)) continue; // 【厳命】香水/スプレー/電池等 国際発送不可・関税問題はseed段階で除外
-        let priceJpy = 0;
-        if (currency === 'USD') priceJpy = Math.round(price * USD_TO_JPY);
-        else if (currency === 'GBP') priceJpy = Math.round(price * GBP_TO_JPY);
-        else if (currency === 'AUD') priceJpy = Math.round(price * AUD_TO_JPY);
-        else if (currency === 'JPY') priceJpy = Math.round(price);
-        if (priceJpy < 1000) continue;
-        const imageUrl = item?.image?.imageUrl ?? item?.thumbnailImages?.[0]?.imageUrl ?? '';
-        const itemUrl  = item?.itemWebUrl ?? '';
-        allItems.push({ title, priceJpy, category: name, imageUrl, itemUrl, rank: page * 100 + i }); // rank=eBay Best Match順位
-      }
-      fetched += items.length;
-      if (items.length < 100) break; // このジャンルは結果が尽きた→ページ送り終了（薄いジャンルは自然に浅く）
-      await sleep(300);
-    }
-    console.log(`  [Phase0] ${name} → ${fetched}件`);
+  const items = [];
+  for (const s of seed) {
+    const title = String(s?.title ?? '').trim();
+    const priceJpy = Math.round(Number(s?.priceJpy) || 0);
+    if (!title || priceJpy < 1000) continue;
+    if (PROHIBITED_EXCLUDE.test(title)) continue; // 【厳命】香水/スプレー/電池等 国際発送不可・関税問題はseed段階で除外
+    items.push({
+      title,
+      priceJpy,                            // = eBay落札額（マッチ後そのまま realAvgPrice へ）
+      category: s?.category ?? '',
+      imageUrl: s?.imageUrl ?? '',         // 落札出品のサムネ（楽天画像との同一判定に使う）
+      itemUrl: s?.itemUrl ?? '',           // 落札済み出品URL（カードの「落札価格を見る」導線）
+      rank: Number(s?.rank) || 0,
+      soldSeed: true,                      // 落札由来マーク（最安再評価スキップ＋soldVerified付与に使う）
+      soldCount: Number(s?.soldCount) || 0,
+      soldWindowDays: Number(s?.soldWindowDays) || 0,
+    });
   }
-
-  // 順位インターリーブ：rank昇順で並べ替え→「各ジャンルの上位」を横断で先頭に集める。
-  // これで MAX_PROCESS の枠が"全ジャンルの美味しい順"に使われ、深掘りしても薄いジャンルに枠を食われない（=深さは自動配分）。
-  allItems.sort((a, b) => a.rank - b.rank);
+  // 順位インターリーブ：rank昇順＝各ジャンルの上位を横断で先頭へ→MAX_PROCESSの枠が"全ジャンルの美味しい順"に使われる。
+  items.sort((a, b) => a.rank - b.rank);
   const seen = new Map();
-  for (const it of allItems) if (!seen.has(it.title)) seen.set(it.title, it); // 重複は上位(rank小)を残す
-  const unique = [...seen.values()]; // 既にrank昇順＝インターリーブ済み
-  try { await kvSet(cacheKey, unique, 6 * 3600); } catch (e) { console.log('  [Phase0] cache保存skip(サイズ等):', e?.message); }
-  console.log(`  [Phase0] 合計 ${unique.length}件取得（${EBAY_PAGES}ページ・順位インターリーブ）`);
+  for (const it of items) if (!seen.has(it.title)) seen.set(it.title, it); // 重複は上位(rank小)を残す
+  const unique = [...seen.values()];
+  console.log(`  [Phase0] ebay_sold_seed ${seed.length}件 → 有効${unique.length}件（落札ベース）`);
   return unique;
 }
 
@@ -1387,6 +1212,7 @@ async function main() {
   // 安全装置：万一ほぼ全件(>85%)が利益消失するなら取得異常を疑い適用を見送る（最安化で件数が減るのは想定内なので閾値は高め）。
   const repriced = [];
   for (const p of dedupedProducts) {
+    if (p.soldVerified) continue; // 落札確定品は実売値を維持（現行出品の中央値で上書きしない）
     if (!p.coreKeyword || !p.source || !(p.realAvgPrice > 0)) continue;
     const med = await marketMedianPriceJpy(searchQueryFor(p.coreKeyword), { title: p.matchedEbayTitle || p.coreKeyword, rakutenImg: p.imageUrl, rakutenTitle: p.title, anchorPriceJpy: p.realAvgPrice });
     if (!med || med.count < 5) continue;
@@ -1512,18 +1338,22 @@ async function main() {
         if (en) coreKeyword = en;
       }
 
-      // 相場は「eBay最安値」ベース。早く売る前提なので、最安で売ったときの利益で見せる（過大表示を防ぐ正直版）。
-      // 中央値(realMedianPrice)は併記用に保持。外れ値(別物/破損/まとめ売り)は trimmedMedianJpy で除外済み。
-      let realAvgPrice = ebayItem.priceJpy, realMedianPrice = ebayItem.priceJpy, realCount = 1, finalProfit = profit, finalRate = profitRate;
-      const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword), { title: ebayItem.title, rakutenImg, rakutenTitle: rakutenItem.itemName, anchorPriceJpy: ebayItem.priceJpy, rakutenQuantity: rQty });
-      if (med && med.count >= 5) {
-        const low = med.low ?? med.median;                 // ロバストな最安（旧キャッシュ対策で中央値フォールバック）
-        realAvgPrice = Math.min(ebayItem.priceJpy, low);   // ★相場＝eBay最安値ベース
-        realMedianPrice = med.median;
-        realCount = med.count;
-        const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount, shipJpy);
-        finalProfit = r.profit; finalRate = r.profitRate;
-        if (finalRate <= PROFIT_RATE_FLOOR || finalRate > 300) continue; // 利益率10%以下/異常高は除外
+      // 相場の確定。
+      // ・落札由来(soldSeed): ebayItem.priceJpy は「実際の落札額」。画像マッチ済み＝この楽天商品とこの落札出品は同一なので、
+      //   落札額をそのまま相場に据える（現行出品の最安では上書きしない）＝「確実に実績あり」で確定。利益床は上の①(1303-1304)で確認済み。
+      // ・非soldSeed(従来パス・保険): eBay最安値ベースで相場を是正。
+      let realAvgPrice = ebayItem.priceJpy, realMedianPrice = ebayItem.priceJpy, realCount = ebayItem.soldCount || 1, finalProfit = profit, finalRate = profitRate;
+      if (!ebayItem.soldSeed) {
+        const med = await marketMedianPriceJpy(searchQueryFor(coreKeyword), { title: ebayItem.title, rakutenImg, rakutenTitle: rakutenItem.itemName, anchorPriceJpy: ebayItem.priceJpy, rakutenQuantity: rQty });
+        if (med && med.count >= 5) {
+          const low = med.low ?? med.median;                 // ロバストな最安（旧キャッシュ対策で中央値フォールバック）
+          realAvgPrice = Math.min(ebayItem.priceJpy, low);   // ★相場＝eBay最安値ベース
+          realMedianPrice = med.median;
+          realCount = med.count;
+          const r = calcProfit(rakutenItem.itemPrice, realAvgPrice, pointAmount, shipJpy);
+          finalProfit = r.profit; finalRate = r.profitRate;
+          if (finalRate <= PROFIT_RATE_FLOOR || finalRate > 300) continue; // 利益率10%以下/異常高は除外
+        }
       }
 
       return {
@@ -1550,11 +1380,17 @@ async function main() {
           market: 'EBAY_US',
           coreKeyword,
           ebaySoldUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(coreKeyword)}&LH_Complete=1&LH_Sold=1`,
-          realAvgPrice,         // ★eBay最安値ベース（表示・利益の基準）
+          realAvgPrice,         // ★落札由来=落札額／従来=eBay最安値ベース（表示・利益の基準）
           realMedianPrice,      // 中央値（併記用・参考）
           realProfit: finalProfit,
           realProfitRate: finalRate,
           realCount,
+          // 落札由来は「実際に売れた実績つき」として確定＝serveの掲載ゲート(soldVerified)を満たす（未確定品は載せない）。
+          soldBased: ebayItem.soldSeed || false,
+          soldVerified: ebayItem.soldSeed || false,        // 画像AIで同一商品の落札を確認済み
+          soldUrl: ebayItem.soldSeed ? (ebayItem.itemUrl || undefined) : undefined, // 確認リンク＝実物の落札出品URL
+          soldCount30d: ebayItem.soldCount || 0,
+          soldWindowDays: ebayItem.soldWindowDays || 0,
           avgDaysToSell: null, // eBay Finding API(落札データ)が廃止のため現状取得不可。Marketplace Insights API(要承認)が必要
           addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
           // 監査(audit_catalog.mjs)が「本番で実際にマッチさせたeBay商品」を採点できるよう保存（精度計測の信頼性）。
@@ -1580,16 +1416,34 @@ async function main() {
 
     for (const res of results) {
       allCheckedMap.set(res.id, { id: res.id, checkedAt: Date.now() });
+      if (res.type !== 'profit') continue;
       // 同一チャンク内で別のeBayタイトルが同じ楽天itemCodeに当たると、並列のexistingIds.hasが
       // 両方すり抜ける。逐次ループ側で live check して重複pushを防ぐ。
-      if (res.type === 'profit' && !existingIds.has(res.rakutenId)) {
-        existingIds.add(res.rakutenId);
-        profitableProducts.push(res.product);
-        // 登録順（新着が先頭）で保存。利益率ソートは将来の有料機能としてフロント側で実装
-        const sorted = [...profitableProducts].sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
-        await kvSet('profitable_products', sorted, 480 * 3600);
-        await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
+      if (existingIds.has(res.rakutenId)) {
+        // 既存品に落札由来(soldSeed)のマッチが当たった→「落札確定(soldVerified)」へ昇格。
+        // 旧"現行出品ベース"の相場を、画像一致した実売値へ置換＝過大表示を解消し掲載ゲートを通す。
+        if (res.product.soldVerified) {
+          const ex = profitableProducts.find(p => p.id === res.rakutenId);
+          if (ex && !ex.soldVerified) {
+            Object.assign(ex, {
+              soldBased: true, soldVerified: true,
+              soldUrl: res.product.soldUrl, soldCount30d: res.product.soldCount30d, soldWindowDays: res.product.soldWindowDays,
+              realAvgPrice: res.product.realAvgPrice, realMedianPrice: res.product.realMedianPrice,
+              realProfit: res.product.realProfit, realProfitRate: res.product.realProfitRate, realCount: res.product.realCount,
+              matchedEbayImageUrl: res.product.matchedEbayImageUrl, matchedEbayUrl: res.product.matchedEbayUrl, matchedEbayTitle: res.product.matchedEbayTitle,
+            });
+            const sorted = [...profitableProducts].sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+            await kvSet('profitable_products', sorted, 480 * 3600);
+          }
+        }
+        continue;
       }
+      existingIds.add(res.rakutenId);
+      profitableProducts.push(res.product);
+      // 登録順（新着が先頭）で保存。利益率ソートは将来の有料機能としてフロント側で実装
+      const sorted = [...profitableProducts].sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+      await kvSet('profitable_products', sorted, 480 * 3600);
+      await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
     }
 
     await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
@@ -1648,8 +1502,7 @@ async function main() {
   profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);
   await kvSet('last_updated', new Date().toISOString(), 480 * 3600);
-  // 直近落札のAI同一判定（Pixelが集めた候補 ebay_soldcand を楽天画像と照合）。カタログ確定後＝失敗してもカタログは無事。
-  try { await verifySoldComps(profitableProducts); } catch (e) { console.error('落札AI検証エラー(スキップ):', e?.message); }
+  // ※落札AI同一判定は廃止。落札発掘(ebay_sold_seed)→マッチループで「生まれた時点で落札確定(soldVerified)」になるため不要。
   await kvArchiveProducts(profitableProducts); // 出品アーカイブを更新（カタログ落ち後も仕入れた人が出品できるように）
   await kvSetPermanent('checked_ids', Array.from(allCheckedMap.values()));
   await kvSet('refresh_stats', {
@@ -1690,42 +1543,6 @@ async function main() {
   画像判定(Claude): Haiku 成功${haikuCallsToday}/不通${haikuFailToday}回 / Sonnet確認 ${sonnetCallsToday}回
   所要時間: ${Math.round((Date.now() - startedAt) / 60000)}分
 `);
-}
-
-// 直近落札のAI同一判定（消費側 applySoldComp が使う ebay_soldprice を「実物に紐づく確定値」へ昇格）。
-//   Pixel(住宅IP)が ebay_soldcand:{id} に直近落札の候補(価格/実物URL/画像URL/タイトル)を集める。
-//   ここ(GitHub・Anthropic鍵あり・eBay画像は公開CDNでDC IPでも取れる)で、楽天画像×落札画像を isImageMatch で照合：
-//   直近1件で一致したら即採用、ダメなら直近12件まで（別物に埋もれた同一品を救う）。一致したらその実物の価格＋URLで ebay_soldprice を verified 確定。
-//   12件とも不一致→ ebay_soldprice は Pixel の中央値のまま据え置き（=利益商品を減らさない・別物リンクは検索フォールバック）。
-async function verifySoldComps(catalog) {
-  if (!ANTHROPIC_API_KEY) { console.log('落札AI検証: ANTHROPIC_API_KEY無しでスキップ'); return; }
-  const MAX_SOLD_VERIFY = Number(process.env.SOLD_VERIFY_MAX ?? 150); // 1回で検証する「候補あり商品」の上限
-  let verified = 0, noMatch = 0, processed = 0;
-  for (const p of catalog) {
-    if (processed >= MAX_SOLD_VERIFY) break;
-    if (!p?.id || !p.imageUrl) continue;
-    const cand = await kvGet(`ebay_soldcand:${p.id}`);
-    const cards = Array.isArray(cand?.cards) ? cand.cards : null;
-    if (!cards || !cards.length) continue;
-    processed++;
-    const cat = p.category || guessCategory(p.title || '');
-    const risky = (cat === 'コスメ' || cat === 'フィギュア' || cat === 'ガンプラ'); // 確信HIGHゲート対象
-    let matched = null;
-    for (const card of cards.slice(0, 12)) { // 直近1件→不一致なら12件まで（別物に埋もれた同一品を救う・最初の一致で即採用）
-      if (!card?.img || !card?.url || !(card.price > 0)) continue;
-      const same = await isImageMatch(p.imageUrl, card.img, { rakutenTitle: p.title, ebayTitle: card.title || '', rakutenQuantity: 1, strict: risky });
-      if (same) { matched = card; break; }
-    }
-    if (matched) {
-      await kvSet(`ebay_soldprice:${p.id}`, {
-        median: matched.price, medianUsd: Math.round((matched.price / L_USD_JPY) * 100) / 100,
-        count: cand.windowCount || 1, windowDays: 30, soldBased: true, verified: true,
-        soldUrl: matched.url, at: new Date().toISOString(),
-      }, 168 * 3600);
-      verified++;
-    } else { noMatch++; }
-  }
-  console.log(`落札AI検証: 確定${verified} / 不一致${noMatch}(中央値据え置き) / 候補あり処理${processed}`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
