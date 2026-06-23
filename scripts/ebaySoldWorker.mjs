@@ -92,6 +92,14 @@ function ageDays(dateStr) { const t = Date.parse(dateStr); return Number.isNaN(t
 // コンディション判定：明確に「中古」のものだけ除外する。"New (Other)"/"New other (see details)" 等の新品系は残す
 //   （eBayの厳格な "Brand New" だけに絞ると新品系の出来高を取りこぼし、誤って落札不足になるため）。
 const isUsedCond = (s) => /pre-?owned|\bused\b|中古|ジャンク|junk|for parts|not working|seller refurbished/i.test(s);
+// タイトル類似度（AI不要・単語の重なり=overlap係数）。落札候補を「カタログ既知の同一品名」に似てる順で選ぶのに使う。
+const titleTokens = (s) => new Set(String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((t) => t.length >= 2));
+function titleSim(a, b) {
+  const A = titleTokens(a), B = titleTokens(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0; for (const t of A) if (B.has(t)) inter++;
+  return inter / Math.min(A.size, B.size); // 小さい方に対する重なり率＝片方が長くても効く
+}
 function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   // s-card__image を区切りに1カード=1チャンク（画像→落札日→コンディション→URL→価格が同じチャンクに収まる）。
   // ※カード数(items)は s-card__caption の数で別途数える（s-card__image は1カードに複数出るので区切り用途のみ）。
@@ -201,8 +209,22 @@ async function main() {
     }
     ok++;
     buffer.push({ key: `ebay_soldprice:${id}`, rec: { median: medianJpy, medianUsd: Math.round((medianJpy / USD_JPY) * 100) / 100, count: stat.count, windowDays: WINDOW_DAYS, soldBased: true, at: new Date().toISOString() } });
-    // 直近落札の候補（最大5件・直近順）。refresh(GitHub・Anthropic鍵あり)がAI同一判定して実物URL付きで確定する。
-    if (parsed.cards?.length) candBuffer.push({ key: `ebay_soldcand:${id}`, rec: { cards: parsed.cards.slice(0, 12), windowCount: parsed.withWindow, at: new Date().toISOString() } });
+    // 直近落札の候補（最大12件）。refresh(GitHub・Anthropic鍵あり)がAI同一判定して実物URL付きで確定する。
+    // 選び方：カタログが既に持つ同一品名(matchedEbayTitle)に「似てる順」で12件→そのうえで検証は直近順。
+    //   別物が新着で上位を占めても同一品を候補に拾える。検索は1回のまま＝コスト不変。matchedEbayTitle無しは直近順。
+    if (parsed.cards?.length) {
+      const refTitle = p?.matchedEbayTitle || "";
+      let candCards;
+      if (refTitle && parsed.cards.length > 12) {
+        candCards = parsed.cards.slice()
+          .sort((a, b) => titleSim(b.title, refTitle) - titleSim(a.title, refTitle)) // 似てる順
+          .slice(0, 12)
+          .sort((a, b) => a.ageDays - b.ageDays); // 似てる上位12の中で検証は直近順
+      } else {
+        candCards = parsed.cards.slice(0, 12); // 直近順(parse済)
+      }
+      candBuffer.push({ key: `ebay_soldcand:${id}`, rec: { cards: candCards, windowCount: parsed.withWindow, at: new Date().toISOString() } });
+    }
     console.log(`  ✅ 直近${WINDOW_DAYS}日 ${stat.count}件 中央¥${medianJpy}（候補${parsed.cards?.length ?? 0}） : ${kw.slice(0, 40)}`);
     if (AUDIT) {
       // 配信(displayProfit)と同一式で「現在出品相場ベース」と「落札ベース」の現金純利益率を出して比較。
