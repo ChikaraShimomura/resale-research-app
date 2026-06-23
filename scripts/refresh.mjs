@@ -1258,7 +1258,7 @@ async function main() {
 
     // Haiku: eBayタイトル → 日本語楽天キーワード
     const jpKeyword = await ebayTitleToRakutenKeyword(ebayItem.title);
-    if (!jpKeyword) return { type: 'skip', id: itemId };
+    if (!jpKeyword) return { type: 'skip', id: itemId, reason: 'noKeyword' };
 
     // 楽天で検索（2ページ）
     const rakutenItems = [];
@@ -1282,7 +1282,7 @@ async function main() {
       await sleep(1100);
     }
 
-    if (rakutenItems.length === 0) return { type: 'skip', id: itemId };
+    if (rakutenItems.length === 0) return { type: 'skip', id: itemId, reason: 'noRakuten' }; // 楽天に(新品で)見つからない＝この仕入れ先では拾えない
 
     const ebayImg = ebayItem.imageUrl ?? '';
 
@@ -1409,8 +1409,12 @@ async function main() {
       };
     }
 
-    return { type: 'skip', id: itemId };
+    return { type: 'skip', id: itemId, reason: 'noMatch' }; // 楽天に候補はあったが同一商品マッチ/利益が成立せず
   }
+
+  // ファネル計測：eBay落札の種が「楽天に無い(noRakuten)」のか「あるがマッチ/利益不成立(noMatch)」かを実数で残す。
+  // ＝Yahoo/Amazon等を足す価値(楽天で拾えない率)の判断材料。
+  const funnel = { noKeyword: 0, noRakuten: 0, noMatch: 0, error: 0, matched: 0 };
 
   // チャンク単位で並列処理
   for (let i = 0; i < toProcess.length; i += CONCURRENCY) {
@@ -1418,12 +1422,13 @@ async function main() {
     const results = await Promise.all(chunk.map(item =>
       processEbayItem(item).catch(e => {
         console.error(`  [ERROR] ${item.title.slice(0, 30)}: ${e.message}`);
-        return { type: 'skip', id: String(ebayQueryHash(item.title)) };
+        return { type: 'skip', id: String(ebayQueryHash(item.title)), reason: 'error' };
       })
     ));
 
     for (const res of results) {
       allCheckedMap.set(res.id, { id: res.id, checkedAt: Date.now() });
+      if (res.type === 'profit') funnel.matched++; else funnel[res.reason] = (funnel[res.reason] ?? 0) + 1;
       if (res.type !== 'profit') continue;
       // 同一チャンク内で別のeBayタイトルが同じ楽天itemCodeに当たると、並列のexistingIds.hasが
       // 両方すり抜ける。逐次ループ側で live check して重複pushを防ぐ。
@@ -1524,9 +1529,11 @@ async function main() {
     haikuFail: haikuFailToday,
     sonnetCalls: sonnetCallsToday,
     priceVerify: priceVerifyToday, // 相場の最安を画像確定した回数（コスト観測・予算PRICE_VERIFY_BUDGET内）
+    funnel, // {noKeyword,noRakuten,noMatch,error,matched} ＝処理した種の内訳。noRakuten率＝「楽天で拾えない」率(Yahoo/Amazon追加価値の判断材料)
     elapsedMin: Math.round((Date.now() - startedAt) / 60000),
     runAt: new Date().toISOString(),
   }, 480 * 3600);
+  console.log(`  📊 ファネル(処理${toProcess.length}件): 楽天0件=${funnel.noRakuten} / 候補ありマッチ不成立=${funnel.noMatch} / 成立=${funnel.matched} / KW失敗=${funnel.noKeyword} / err=${funnel.error}`);
   // 観測フック: 照合(Anthropic)の健康状態を専用キーにも残す（/api やレポートから参照しやすく）。
   await kvSet('match_health', {
     haiku: haikuCallsToday, sonnet: sonnetCallsToday, haikuFail: haikuFailToday,
