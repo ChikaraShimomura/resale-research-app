@@ -18,4 +18,8 @@ export interface ProfitProduct extends Product {
   soldWindowDays?: number;      // 落札件数の対象日数（既定30）
   soldUrl?: string;             // AI同一判定が通った実物の落札URL（確認リンクを同一商品に着地させる）
   soldVerified?: boolean;       // AI画像で同一商品の落札を確認済み＝掲載対象（未確定は利益商品に載せない・ユーザー方針2026-06-23）
+  // 利益の種類（applyDisplayProfit が判定）。現金純利益率で「現金で稼げる品」と「ポイ活専用」を区別する（ユーザー方針2026-06-23）。
+  profitKind?: "cash" | "point" | "none"; // cash=現金純利益率≥10% / point=現金<10%だがポイント込み≥0%(=ポイ活専用) / none=ポイント込みでも赤字(掲載しない)
+  pointProfit?: number;         // ポイント込みの実質利益（円）＝現金純利益＋楽天ポイント
+  pointProfitRate?: number;     // ポイント込みの実質利益率（%）
 }

@@ -13,8 +13,8 @@ export async function getTopProfitProducts(n: number): Promise<ProfitProduct[]> 
     const withSold = await applySoldComp(products);
     return withSold
       .map(applyDisplayProfit)
-      .filter((p) => p.restored || p.soldVerified) // eBay落札をAI確認できた商品だけ（未確定は出さない・ユーザー方針2026-06-23）
-      .sort((a, b) => (b.realProfitRate || 0) - (a.realProfitRate || 0))
+      .filter((p) => p.restored || (p.soldVerified && p.profitKind !== "none")) // 落札確認済み＋(現金 or ポイ活)。ポイント込みでも赤字は除外
+      .sort((a, b) => (b.realProfitRate || 0) - (a.realProfitRate || 0)) // 現金率順＝現金で稼げる品が上位、ポイ活専用は下位
       .slice(0, n);
   } catch {
     return [];

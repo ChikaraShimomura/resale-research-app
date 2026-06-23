@@ -9,7 +9,7 @@ import { USD_JPY } from "../../lib/ebay/landedCostCore.mjs"; // SSOT(env駆動/�
 
 // 配信時に realProfit を「現金純利益（ポイントは外す＋国際送料/米国関税を差し引く）」に直す。
 // 変換は app/lib/displayProfit.ts に一本化（ランキング/商品詳細と同一ロジック＝表示の単一ソース）。
-const PROFIT_RATE_FLOOR = 10; // 現金純利益率がこの%以下は「利益商品」に含めない（refresh の floor と一致）
+// 掲載可否(現金で稼げる/ポイ活専用/掲載しない)も applyDisplayProfit が profitKind で判定する。
 
 // KVを読むだけ。計算・外部API呼び出しは一切しない。読み取り専用トークンを使用。
 export const dynamic = "force-dynamic";
@@ -128,7 +128,7 @@ export async function GET() {
           (p) =>
             p.restored ||
             (p.soldVerified && // ★eBay落札をAI画像で確認できた商品だけ掲載（未確定＝落札実績が確認できない品は出さない・ユーザー方針2026-06-23）
-              (p.realProfitRate ?? 0) >= PROFIT_RATE_FLOOR && // 現金純利益率が10%以下は利益商品に出さない（ポイント抜き）
+              p.profitKind !== "none" && // cash(現金純利益率≥10%)＋point(ポイ活専用=現金<10%でもポイント込みで損しない)を掲載。ポイント込みでも赤字は除外。
               (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
               !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
         );

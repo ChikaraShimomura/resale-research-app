@@ -198,6 +198,14 @@ function netProfitRate(p) {
   const net = Math.round((p.realProfit ?? 0) - point - landedSubtractJpy(p.category, valueUsd));
   return cashBuy > 0 ? Math.round((net / cashBuy) * 100) : 0;
 }
+// ポイント込みの実質利益率（%）＝現金純利益＋楽天ポイント。ポイ活専用品の掲載判定に使う（配信 displayProfit の pointProfitRate と一致）。
+// 「ポイント込みで損しない(≥0%)」品はカタログに含める（現金<10%でも掲載・ユーザー方針2026-06-23）。
+function pointProfitRate(p) {
+  const valueUsd = (p.realAvgPrice || 0) / L_USD_JPY;
+  const cashBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0);
+  const net = Math.round((p.realProfit ?? 0) - landedSubtractJpy(p.category, valueUsd)); // ポイントは引かない＝ポイント込み
+  return cashBuy > 0 ? Math.round((net / cashBuy) * 100) : 0;
+}
 
 // ========== eBayクエリハッシュ ==========
 function ebayQueryHash(query) {
@@ -1301,13 +1309,14 @@ async function main() {
       const shipJpy = domesticShipping(cat, rakutenItem.postageFlag, rakutenItem.itemName); // 送料別のみ国内送料を原価に算入
       const { profit, profitRate } = calcProfit(rakutenItem.itemPrice, ebayItem.priceJpy, pointAmount, shipJpy);
       if (profitRate <= PROFIT_RATE_FLOOR || profitRate > 300) continue; // 利益率10%以下/異常高は除外
-      // 落札seedは価格(=落札額)が確定→現金純利益(ポイント除外＋着地コスト後)でも床を当てる＝配信(applyDisplayProfit)/最終保存(netProfitRate)と一致。
-      // 時計など「粗利は出るがポイント大・関税重で現金ネットが薄い/赤字」の品を画像マッチ前に落とす(Anthropic節約＋掲載される品とカタログを一致させ死蔵を防ぐ)。
+      // 落札seedは価格(=落札額)が確定→「ポイント込みの実質利益率」でも床を当てる＝配信(displayProfit pointProfitRate)と一致。
+      // ポイント込みでも赤字(<0%)＝ポイ活にもならない品(高額時計の関税負け等)を画像マッチ前に落とす(Anthropic節約＋死蔵防止)。
+      // ※現金<10%でもポイント込み≥0%なら通す＝「ポイ活専用」として掲載する(ユーザー方針2026-06-23)。種別は配信側 applyDisplayProfit が付与。
       if (ebayItem.soldSeed) {
-        const netCash = Math.round(profit - pointAmount - landedSubtractJpy(cat, ebayItem.priceJpy / L_USD_JPY));
+        const pointNet = Math.round(profit - landedSubtractJpy(cat, ebayItem.priceJpy / L_USD_JPY)); // ポイントは利益として残す
         const cashBuy = rakutenItem.itemPrice + shipJpy;
-        const netRate = cashBuy > 0 ? Math.round((netCash / cashBuy) * 100) : 0;
-        if (netRate <= PROFIT_RATE_FLOOR) continue;
+        const pointRate = cashBuy > 0 ? Math.round((pointNet / cashBuy) * 100) : 0;
+        if (pointRate < 0) continue;
       }
       // ② カテゴリ整合: 楽天の推定ジャンルがeBay種ジャンルと明確に食い違う別物は除外（誤ジャンル混入防止）。
       const expectedGenre = EXPECTED_GENRE[ebayItem.category];
@@ -1494,16 +1503,17 @@ async function main() {
     if (merged) console.log(`  ♻️ 手動復活商品(restored_products)をマージ: ${merged}件`);
   } catch (e) { console.error('restored merge error:', e.message); }
 
-  // ネット利益率(国際送料のeBay手数料＋米国関税を引いた後)が10%以下の商品は「利益商品」に含めない。
+  // 「ポイント込みの実質利益率」が赤字(<0%)＝ポイント還元を足しても損する商品はカタログから外す。
   // 表示で隠すのでなく、カタログ自体から外す＝sitemap/商品ページ/topProducts含め一切 利益商品扱いしない。
+  // ※現金<10%でもポイント込み≥0%なら残す＝「ポイ活専用」として掲載(種別は配信 applyDisplayProfit が付与)。現金で稼げる/ポイ活の区別は配信側で。
   // restored(運営が手動復活)は裁量で常に残す（配信 /api/products と同じ扱い）。
   {
     const before = profitableProducts.length;
-    const kept = profitableProducts.filter(p => p.restored || netProfitRate(p) > PROFIT_RATE_FLOOR);
+    const kept = profitableProducts.filter(p => p.restored || pointProfitRate(p) >= 0);
     if (kept.length !== before) {
       profitableProducts.length = 0;
       profitableProducts.push(...kept);
-      console.log(`  💹 ネット利益率${PROFIT_RATE_FLOOR}%以下を利益商品から除外: ${before - kept.length}件`);
+      console.log(`  💹 ポイント込みでも赤字(<0%)の商品を利益商品から除外: ${before - kept.length}件`);
     }
   }
   // 最終保存（登録順・新着が先頭。利益率ソートは将来の有料機能）

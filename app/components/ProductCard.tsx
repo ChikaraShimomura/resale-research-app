@@ -1,6 +1,6 @@
 "use client";
 import { formatJpy, cn, toRakutenProductUrl, toEbayMarketUrl } from "../lib/utils";
-import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Flame, BadgeCheck, Coins } from "lucide-react";
 import ListingHelper from "./ListingHelper";
 import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -28,6 +28,15 @@ function ProfitRateBadge({ rate }: { rate: number }) {
   return (
     <span className={`inline-flex items-center text-xs font-black px-2.5 py-1 rounded-full text-white leading-none ${bg}`}>
       利益率 {rate}%
+    </span>
+  );
+}
+
+// 「ポイ活専用」バッジ：現金利益は薄いが楽天ポイントで得する品。現金で稼げる品と一目で区別する（ユーザー方針2026-06-23）。
+function PointKatsuBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full text-white leading-none bg-violet-500">
+      <Coins size={12} />ポイ活専用
     </span>
   );
 }
@@ -204,7 +213,25 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
           )}
 
-          {/* 利益（ヒーロー）：利益は現金（円）だけで出す。楽天ポイントは「( + ○○ポイント )」で別物として併記。 */}
+          {/* 利益（ヒーロー）。
+              ・ポイ活専用(profitKind==='point')：現金利益は薄い/トントン→楽天ポイントを主役にし、現金は正直に小さく併記。
+              ・通常(cash)：現金利益を主役に。楽天ポイントは「( + ○○ポイント )」で別物として併記。 */}
+          {product.profitKind === "point" ? (
+            <div className="mt-2.5 pt-2.5 border-t border-violet-300/50 flex items-end justify-between gap-2">
+              <div className="shrink-0">
+                <p className="text-xs text-gray-400 mb-1">楽天ポイントで得する品</p>
+                <PointKatsuBadge />
+              </div>
+              <div className="text-right">
+                <p className="text-[28px] font-black text-violet-600 leading-none whitespace-nowrap">
+                  +{pointAmount.toLocaleString()}<span className="text-base">ポイント</span>
+                </p>
+                <p className="text-[11px] font-bold text-gray-500 mt-1 whitespace-nowrap">
+                  現金利益 {formatJpy(product.realProfit)}（{product.realProfitRate}%）
+                </p>
+              </div>
+            </div>
+          ) : (
           <div className="mt-2.5 pt-2.5 border-t border-[#A98B5C]/25 flex items-end justify-between gap-2">
             <div className="shrink-0">
               <p className="text-xs text-gray-400 mb-1">利益（最安で売れた時）</p>
@@ -221,6 +248,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
           </div>
+          )}
 
           {/* 信頼バッジ・相場リンク（落札ベースなら実落札件数=需要シグナルを優先） */}
           {(product.realCount > 0 || product.soldBased) && (
