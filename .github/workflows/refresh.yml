@@ -4,8 +4,9 @@ name: Background Refresh (Rakuten + eBay + Claude Haiku)
 # GitHub Actions の schedule は時刻が不正確（遅延・混雑時スキップ・スケジュール変更直後の発火漏れ）で、
 # 実際に2026-06-17以降6日間 止まっていた実績があるため使わない。cron-job.org 側を「毎日1回」に設定＝確実・無料。
 # 推奨時刻 16:00 UTC（=翌01:00 JST・低トラフィック帯）。手動実行は Actions UI（この workflow_dispatch）から。
-# コスト: 1回 ≈$1.5〜2（MAX_PROCESS=200）。日次=月30回 ≈¥9,000（¥1万枠内）。速く埋めたい時だけ手動で追加実行。
-# 未処理バックログ(約2,300件)は 200件/日 ≈12日で消化→以後は新規分だけ。profitable_products TTL=20日なので日次ならTTL切れも防げる。
+# コスト: 月予算 ¥30,000(2026-06-23 ユーザー引き上げ)。MAX_PROCESS=600/日(1回≈$5〜7)＝バックログ(約2,300+腕時計拡張)を
+#   ~4〜5日で消化→以後は新規分だけでキャッシュ効き自然に安く戻る。RPMは43(Tier1安全側)据え置き=600なら180分内で余裕・429精度低下を回避。
+#   ティアを実効化したら ANTHROPIC_RPM を実RPMの約8割で env 追加→更に高速化可。profitable_products TTL=20日なので日次ならTTL切れも防げる。
 on:
   workflow_dispatch:
 
@@ -17,7 +18,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 120      # 最大120分（102キーワード×5ページ対応）
+    timeout-minutes: 180      # MAX_PROCESS=600＋v4再取得＋落札AI検証ぶん余裕を持たせる
 
     steps:
       - name: Checkout
@@ -38,9 +39,9 @@ jobs:
           KV_REST_API_URL:      ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:    ${{ secrets.KV_REST_API_TOKEN }}
           RAKUTEN_FIRST:        '0'   # ③楽天-first: 検証の結果eBay-firstと種が重複し純増0だったため一旦OFF(コードは残置・将来ニッチ種に差替で再有効化)
-          IMG_MATCH_SONNET_BUDGET: '200'  # 日次コスト上限用。MAX_PROCESS=200ならSonnet確認は通常~60件で頭打ち＝この200は事実上バインドせず精度は維持（保険の天井）
-          MAX_PROCESS: '200'  # 日次の費用キャップ（1回≈$1.5〜2／月≲¥9,000）。バックログは~12日で消化。速く埋めたい時だけ手動実行で一時的に上げる
-          PRICE_VERIFY_BUDGET: '50'  # 日次コスト上限用に150→50。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
+          IMG_MATCH_SONNET_BUDGET: '500'  # MAX_PROCESS=600でSonnet確認が増える分の天井引き上げ（予算¥3万・精度維持）。落札AI検証(verifySoldComps)も同budgetを消費
+          MAX_PROCESS: '600'  # 月予算¥3万（1回≈$5〜7）。バックログ+腕時計拡張を~4〜5日で消化→以後は新規分だけで安く戻る
+          PRICE_VERIFY_BUDGET: '100'  # 件数増に合わせ50→100。最安が疑わしい時だけ画像確定(キャッシュで以後無料)
         run: node scripts/refresh.mjs
 
       # 商品取得(refresh)の直後に透かし検知も実行(option A)。新商品の透かし入りを一覧から除外。
