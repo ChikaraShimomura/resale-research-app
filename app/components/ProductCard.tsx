@@ -64,10 +64,14 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const sourceUrl = toRakutenProductUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
-  // 確認リンク：AI同一判定が通った実物の落札URL(soldUrl)があればそれへ直行＝別物が出ない。
-  // 無ければ「eBay落札済み検索」へ（全商品で落札ページに統一・ユーザー方針2026-06-23）。
+  // 確認リンクは「実物URL」を最優先＝別物を出さない。型番での落札"検索"は直近落札0件だと
+  // eBayが関連の別物を並べてしまうため、検索は最後の手段にする。
+  //   ① soldUrl        … AI確定した実物の落札ページ（落札価格そのもの）
+  //   ② matchedEbayUrl … 画像照合済みの同一出品（実物の現在出品＝別物ゼロ）
+  //   ③ どちらも無い時だけ落札検索にフォールバック
   const market = (product as { market?: string }).market;
-  const ebayMarketUrl = product.soldUrl || toEbayMarketUrl(product.coreKeyword || product.title, market, true);
+  const ebayMarketUrl = product.soldUrl || product.matchedEbayUrl || toEbayMarketUrl(product.coreKeyword || product.title, market, true);
+  const ebayLinkLabel = product.soldUrl ? "eBay落札価格を見る" : product.matchedEbayUrl ? "eBayで同じ商品を見る" : "eBayで相場を確認";
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 
@@ -230,9 +234,9 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               {ebayMarketUrl && (
                 <a href={ebayMarketUrl} target="_blank" rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  aria-label="eBayの直近落札価格を確認する"
+                  aria-label={`${ebayLinkLabel}（eBay）`}
                   className="inline-flex items-center gap-0.5 text-xs text-blue-500 font-bold hover:underline ml-auto py-1">
-                  eBay落札価格を見る <ExternalLink size={10} />
+                  {ebayLinkLabel} <ExternalLink size={10} />
                 </a>
               )}
             </div>
