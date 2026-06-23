@@ -85,7 +85,9 @@ export async function GET() {
 
     if (merged.length > 0) {
       // 掲載ゲート＋満了(SOLD)隠し：各商品で ref_gallery(get) と 出品者数(scard listing_actors) をまとめて引く。
-      //  ・参考画像(ref_gallery done & 画像≥1)が揃った商品だけ掲載（抽出→画像取得→掲載）
+      //  ・落札確定(soldVerified)品は表示画像(imageUrl)があれば掲載＝ref_galleryは「出品時のギャラリー候補」用で表示要件ではない。
+      //    （落札発掘では新品が常に入る。ギャラリー取得を待つと新品が永久に非表示でカタログが空になる→ワーカーが後追いで埋める。
+      //     出品フロー(prepare/edit)は ref_gallery 未取得でもAPI画像にフォールバックするので出品も可能）
       //  ・出品者が SOLD_THRESHOLD 人以上＝満了は一覧から隠す（共食い防止の上限）
       //  ・手動復活(restored)は管理者が明示的に出したものなのでゲート/満了を免除
       let ready = merged;
@@ -97,6 +99,7 @@ export async function GET() {
           p.listingCount = Number(res?.[i * 2 + 1] ?? 0); // 出品者数（満了判定の元・カードでも使える）
           if (p.restored) return true;
           if (isSold(p, p.listingCount)) return false;   // 満了は隠す
+          if (p.soldVerified) return true;               // 落札確定品はギャラリーを待たず掲載（imageUrlの有無は後段 hasImage で担保）
           let r = res?.[i * 2] as { status?: string; urls?: string[] } | string | null;
           if (typeof r === "string") { try { r = JSON.parse(r); } catch { r = null; } }
           return !!r && typeof r === "object" && r.status === "done" && Array.isArray(r.urls) && r.urls.length > 0;
