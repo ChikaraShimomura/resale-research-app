@@ -176,6 +176,11 @@ const EXPECTED_GENRE = {
   'カシオエディフィス': '腕時計', 'カシオプロトレック': '腕時計', 'GショックGWM5610': '腕時計', 'Gショックマッドマスター': '腕時計',
   'シチズンプロマスター': '腕時計', 'シチズンTSUYOSA': '腕時計', 'シチズンシリーズ8': '腕時計',
   'オリエントスター': '腕時計', 'オリエントカマス': '腕時計', 'オリエントマコ': '腕時計',
+  // Tier1拡張(2026-06-23)。TCG→トレカ / フィギュア追加→フィギュア / Switch→ゲーム機。
+  // プラモ/鉄道模型/ダイキャスト/万年筆/キャラ雑貨/ReFa は意図的に未登録＝ジャンル整合ゲートをskip(画像AIで判定・既存その他系と同方針)。
+  'MTG日本語': 'トレカ', 'ヴァンガード': 'トレカ', 'デュエマ': 'トレカ', 'バトスピ': 'トレカ', 'シャドバエボルヴ': 'トレカ', 'ポケカSV': 'トレカ', 'ワンピOPブースター': 'トレカ', '遊戯王QC': 'トレカ',
+  'ROBOT魂': 'フィギュア', 'MAFEX': 'フィギュア', 'ARTFX': 'フィギュア', 'フィギュアーツZERO': 'フィギュア', 'リボルテック': 'フィギュア', 'リーメント': 'フィギュア', 'ねんどろいどどーる': 'フィギュア', '超合金GX': 'フィギュア',
+  'ゼルダTOTK': 'ゲーム機', 'マリオワンダー': 'ゲーム機', 'ポケモンSVソフト': 'ゲーム機', 'スマブラSP': 'ゲーム機', 'マリカ8DX': 'ゲーム機',
 };
 // ⑤ 価格比サニティの上限（eBay最安 > 楽天価格 × この倍率 → 安い部品×高い本体等の誤マッチ疑いで除外）。
 const PRICE_RATIO_MAX = 8;
@@ -318,10 +323,10 @@ function guessCategory(title) {
   const t = title || '';
   // コスメ・美容を先に（資生堂MG5・専科クレンズ等の誤判定を防ぐ）
   if (/コスメ|香水|スキンケア|資生堂|花王|ランコム|シャネル|専科|アネッサ|ウーノ|\bUNO\b|イハダ|MG5|エムジー5|化粧水|乳液|美容液|洗顔|クレンジング|日焼け止め|\bSPF|ボディミルク|ハンドクリーム|キャンメイク|CANMAKE|SK-?II|SK-?2\b|SKII|肌ラボ|ハダラボ|チーク|ファンデ|化粧下地|フィニッシュパウダー/i.test(t)) return 'コスメ';
-  if (/ポケモン|遊戯王|デュエルマスターズ|トレカ|カードゲーム|ワンピースカード|カードバトル/i.test(t)) return 'トレカ';
+  if (/ポケモン|遊戯王|デュエルマスターズ|トレカ|カードゲーム|ワンピースカード|カードバトル|ギャザリング|MTG|ヴァンガード|ヴァイス|バトルスピリッツ|バトスピ|シャドウバース/i.test(t)) return 'トレカ';
   if (/ガンプラ|ガンダム|\bMG\b|\bHG\b|\bRG\b|\bPG\b|1\/100|1\/144|BANDAI SPIRITS|30MM|30 ?MINUTES/i.test(t)) return 'ガンプラ';
   if (/LEGO|レゴ/i.test(t)) return 'LEGO';
-  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE|S\.?H\.?\s?Figuarts|フィギュアーツ|POP UP PARADE|超合金/i.test(t)) return 'フィギュア';
+  if (/フィギュア|ねんどろいど|Nendoroid|figma|プライズ|グッドスマイル|GOOD SMILE|S\.?H\.?\s?Figuarts|フィギュアーツ|POP UP PARADE|超合金|ROBOT魂|ROBOT SPIRITS|MAFEX|ARTFX|リボルテック|リーメント|Re-?ment/i.test(t)) return 'フィギュア';
   if (/Nintendo Switch|PS5|PlayStation|Xbox/i.test(t)) return 'ゲーム機';
   if (/amiibo|アミーボ|ゲームソフト/i.test(t)) return 'ゲーム';
   if (/腕時計|Watch|Seiko|セイコー|Citizen|シチズン|Casio|カシオ|Gショック|G-SHOCK|Orient|オリエント|プロスペックス|Prospex|プレザージュ|Presage|プロマスター|Promaster|エディフィス|Edifice|プロトレック|Pro\s?Trek/i.test(t)) return '腕時計';
@@ -717,10 +722,70 @@ const EBAY_JP_QUERIES = [
   { q: 'orient star automatic watch japan new',                                 name: 'オリエントスター' },
   { q: 'orient kamasu diver automatic watch japan new',                         name: 'オリエントカマス' },
   { q: 'orient mako diver automatic watch japan new',                           name: 'オリエントマコ' },
+  // ── Tier1ジャンル拡張(2026-06-23): 輸出強・楽天あり・単品・新品。供給天井を上げる ──
+  // TCG追加（→トレカ）
+  { q: 'magic the gathering japanese booster box sealed',                     name: 'MTG日本語' },
+  { q: 'cardfight vanguard booster box japanese sealed',                      name: 'ヴァンガード' },
+  { q: 'duel masters booster box japanese sealed',                            name: 'デュエマ' },
+  { q: 'battle spirits booster box japanese sealed bandai',                   name: 'バトスピ' },
+  { q: 'shadowverse evolve booster box japanese sealed',                      name: 'シャドバエボルヴ' },
+  { q: 'pokemon card scarlet violet booster box japanese sealed',             name: 'ポケカSV' },
+  { q: 'one piece card game OP booster box japanese sealed bandai',           name: 'ワンピOPブースター' },
+  { q: 'yu-gi-oh quarter century bonanza booster box japanese sealed',        name: '遊戯王QC' },
+  // フィギュア追加（→フィギュア）
+  { q: 'robot spirits bandai gundam figure japan new sealed',                 name: 'ROBOT魂' },
+  { q: 'mafex medicom toy figure japan new sealed',                           name: 'MAFEX' },
+  { q: 'kotobukiya artfx j figure japan new sealed',                          name: 'ARTFX' },
+  { q: 'figuarts zero figure bandai japan new sealed',                        name: 'フィギュアーツZERO' },
+  { q: 'revoltech kaiyodo figure japan new sealed',                           name: 'リボルテック' },
+  { q: 're-ment miniature figure japan new sealed',                          name: 'リーメント' },
+  { q: 'nendoroid doll good smile figure japan new sealed',                   name: 'ねんどろいどどーる' },
+  { q: 'soul of chogokin bandai diecast robot japan new sealed',              name: '超合金GX' },
+  // Switch人気ソフト（→ゲーム機）
+  { q: 'legend of zelda tears of the kingdom switch japanese new sealed',      name: 'ゼルダTOTK' },
+  { q: 'super mario bros wonder switch japanese new sealed',                   name: 'マリオワンダー' },
+  { q: 'pokemon scarlet violet switch japanese new sealed',                    name: 'ポケモンSVソフト' },
+  { q: 'super smash bros ultimate switch japanese new sealed',                 name: 'スマブラSP' },
+  { q: 'mario kart 8 deluxe switch japanese new sealed',                       name: 'マリカ8DX' },
+  // プラモ非ガンプラ（gate skip＝画像AI判定）
+  { q: 'tamiya 1/24 sports car model kit japan new sealed',                   name: 'タミヤ車' },
+  { q: 'tamiya 1/35 military tank model kit japan new sealed',                name: 'タミヤミリタリー' },
+  { q: 'tamiya 1/12 motorcycle model kit japan new sealed',                   name: 'タミヤバイク' },
+  { q: 'hasegawa 1/48 aircraft model kit japan new sealed',                   name: 'ハセガワ飛行機' },
+  { q: 'hasegawa 1/350 ship model kit japan new sealed',                      name: 'ハセガワ船' },
+  { q: 'aoshima 1/24 car model kit japan new sealed',                         name: 'アオシマ車' },
+  { q: 'fujimi 1/24 car model kit japan new sealed',                          name: 'フジミ車' },
+  // 鉄道模型（gate skip）
+  { q: 'kato n gauge shinkansen model train japan new',                       name: 'KATO新幹線' },
+  { q: 'tomix n gauge train set japan new',                                   name: 'TOMIX電車' },
+  { q: 'kato n gauge locomotive japan new',                                   name: 'KATO機関車' },
+  { q: 'tomix n gauge limited japan new sealed',                              name: 'TOMIX限定' },
+  { q: 'kato ho gauge model train japan new',                                 name: 'KATO HO' },
+  // ダイキャストミニカー（gate skip）
+  { q: 'tomica premium diecast car japan new sealed',                         name: 'トミカプレミアム' },
+  { q: 'kyosho 1/18 diecast car model japan new',                             name: '京商ミニカー' },
+  { q: 'ignition model 1/18 diecast car japan new',                          name: 'イグニッション' },
+  { q: 'tomica limited vintage neo diecast japan new',                        name: 'トミカLV NEO' },
+  { q: 'hot wheels japan exclusive diecast car new',                          name: 'ホットウィール日本' },
+  // 万年筆（gate skip）
+  { q: 'pilot custom 74 fountain pen japan new',                              name: 'パイロットカスタム74' },
+  { q: 'pilot capless vanishing point fountain pen japan new',                name: 'パイロットキャップレス' },
+  { q: 'sailor 1911 pro gear fountain pen japan new',                         name: 'セーラー万年筆' },
+  { q: 'platinum 3776 century fountain pen japan new',                        name: 'プラチナ3776' },
+  { q: 'pilot kakuno fountain pen japan new',                                 name: 'パイロットカクノ' },
+  // キャラ雑貨・ぬいぐるみ（gate skip）
+  { q: 'sanrio plush japan new with tag',                                     name: 'サンリオぬいぐるみ' },
+  { q: 'sumikko gurashi plush japan new with tag',                            name: 'すみっコぐらし' },
+  { q: 'pokemon center plush japan new with tag',                             name: 'ポケモンぬいぐるみ2' },
+  { q: 'studio ghibli totoro plush japan new with tag',                       name: 'ジブリぬいぐるみ' },
+  { q: 'chiikawa goods mascot japan new',                                     name: 'ちいかわグッズ' },
+  // ReFa（gate skip）
+  { q: 'refa carat beauty roller japan new',                                  name: 'ReFaカラット' },
+  { q: 'refa s carat ray beauty roller japan new',                           name: 'ReFa' },
 ];
 
 async function fetchEbayJapanSoldItems() {
-  const cacheKey = 'ebay_jp_sold_titles_v5'; // v5: 各ジャンル4ページ取得＋順位インターリーブ(2026-06-23)→プールが変わるため旧キャッシュ無効化
+  const cacheKey = 'ebay_jp_sold_titles_v6'; // v6: Tier1ジャンル~50キーワード追加＋3ページ(2026-06-23)→プールが変わるため旧キャッシュ無効化
   const cached = await kvGet(cacheKey);
   if (cached && Array.isArray(cached) && cached.length > 0) {
     console.log(`  [Phase0 cache] ${cached.length}件`);
@@ -734,7 +799,7 @@ async function fetchEbayJapanSoldItems() {
   }
 
   // 各ジャンル EBAY_PAGES ページ(1ページ100件・offset送り)取得。Best Match順なので下位ほど逓減＝深いほど候補増だが質は薄め。
-  const EBAY_PAGES = Number(process.env.EBAY_PAGES) || 4;
+  const EBAY_PAGES = Number(process.env.EBAY_PAGES) || 3; // 4→3(2026-06-23): 4ページ目は逓減で候補ほぼ増えず。深掘りより新ジャンル追加が効率的
   const allItems = [];
   for (const { q, name } of EBAY_JP_QUERIES) {
     let fetched = 0;
