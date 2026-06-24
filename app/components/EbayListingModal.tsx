@@ -429,10 +429,11 @@ export default function EbayListingModal({
   const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
   const competitionCount = typeof data?.competitionCount === "number" ? data.competitionCount : null; // eBay競合数（概算）
   // 着地コスト(国際送料＋米国関税)は「重さ(任意)」入力で動的に再計算。未入力なら概算(data.landed.weightG)。
-  // 関税の元値は編集中に動く価格でなく安定した推奨価格(data.priceUsd)を使う（損益分岐がタイプ中に揺れないように）。
+  // 関税/EMSの元値は「実際にユーザーが出す価格(priceUsd)」を使う。推奨価格固定だと $100(関税)/$120(EMS) の境界を
+  // またいで価格を変えた時に floor が実態とズレ、過剰/過少な赤字警告になる（修正前の不具合）。空欄/タイプ途中は推奨価格へフォールバック。
   const estWeightG = data?.landed?.weightG ?? 700;
   const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
-  const dutyValueUsd = Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
+  const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
   // 損益分岐（これ未満は赤字・国際送料/関税込み）。effBuyJpy があれば重さに応じて再計算、無ければサーバー値。
   const floorUsd =
@@ -764,7 +765,7 @@ export default function EbayListingModal({
                     : !lowestAvailable
                     ? "eBay最安が取れず、相場より少し安くしています"
                     : lowestClamped
-                    ? `eBay最安は赤字のため、損益分岐 $${data.floorUsd} で出します（赤字回避）`
+                    ? `eBay最安は赤字のため、損益分岐 $${floorUsd.toFixed(2)} で出します（赤字回避）`
                     : "eBay最安値と同額。最速で売れやすく（赤字にはしません）"}
                 </p>
               </div>

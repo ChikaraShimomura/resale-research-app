@@ -52,9 +52,13 @@ function ResultsContent() {
     fetchSoldIds().then((s) => setSoldIds(s.ids)).catch(() => {});
   }, []);
 
-  // 自分が出品/販売済みの商品ID（アカウント単位）を取得して検索結果から隠す（別端末でも効く。失敗時は内部でキャッシュ）。
+  // 自分が出品/販売済みの商品ID（アカウント単位）を取得（別端末でも効く。失敗時は内部でキャッシュ）。
+  // 取得成功時に端末の listed_ フラグを正本と突合して掃除するので、解決後に listedIds を読み直す
+  // ＝停止/削除でサーバーから消えた商品の「出品済み」固着が解ける。
   useEffect(() => {
-    fetchListedIds().then(setAccountListedIds).catch(() => {});
+    fetchListedIds()
+      .then((ids) => { setAccountListedIds(ids); setListedIds(readListedIds()); })
+      .catch(() => {});
   }, []);
 
   // 出品済みの非表示は初回マウントと別タブ(storage)で反映＝「検索を開き直すと出品中一覧へ移っている」挙動にする。

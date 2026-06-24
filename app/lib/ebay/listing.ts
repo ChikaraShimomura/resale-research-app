@@ -367,8 +367,10 @@ async function upsertOffer(
     steps.push({ step: "オファー作成", ok: false, error: "オファーIDを取得できませんでした" });
     return null;
   }
-  // 既に存在 → 既存offerを更新
-  if (/already|exist|duplicate|25002/i.test(create.error ?? "")) {
+  // 既に存在 → 既存offerを更新。
+  // ⚠️ #25002 は「重複」ではなく「必須Item Specific不足」＝ここに含めると入力不足を既存offer探索へ逸らし真因を隠す。
+  //    重複は "already exists"/"already exist"/"duplicate" の語だけで判定する（25002は除外＝上位へ正しく伝播）。
+  if (/already exist|duplicate/i.test(create.error ?? "")) {
     const existing = await findOfferId(token, sku);
     if (existing) {
       const upd = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${existing}`, body);

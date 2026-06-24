@@ -6,6 +6,7 @@ import { toRakutenProductUrl } from "../lib/utils";
 import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
+import { clearListedFlag } from "../lib/ebayListed";
 
 interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; archivedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
@@ -140,6 +141,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       }).then((r) => r.json());
       if (j.ok) {
         if (j.ended === false) window.alert("この商品は現在eBayに出品されていません。");
+        clearListedFlag(productId); // 端末の「出品済み」フラグも消す＝カタログのボタン固着を防ぐ
         await load();
         onChanged?.();
       } else {
@@ -161,6 +163,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
         body: JSON.stringify({ action, productId, ...extra }),
       }).then((r) => r.json());
       if (res.ok) {
+        // 削除(やめた)＝完全に出品実績から外す。端末の「出品済み」フラグも消して、カタログで再出品できるよう戻す。
+        if (action === "remove") clearListedFlag(productId);
         setSoldFor(null);
         setSoldJpy("");
         // 「売れた」成功直後はその場で祝福＋次ループ導線（出品熱→次の利益商品へ）。

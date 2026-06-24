@@ -32,7 +32,11 @@ export default function SearchPage() {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
     setSortOrder(readSort());        // 前回の並び替えを復元（ページ移動で初期化されないように）
     setListedIds(readListedIds());
-    fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
+    // アカウントの出品済み（別端末でも効く）。取得成功時に端末の listed_ フラグを正本と突合して掃除するので、
+    // 解決後に listedIds を読み直す＝停止/削除でサーバーから消えた商品の「出品済み」固着が解ける。
+    fetchListedIds()
+      .then((ids) => { setAccountListedIds(ids); setListedIds(readListedIds()); })
+      .catch(() => {});
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     fetchProducts()
       .then(({ products, lastUpdated, masked }) => {
