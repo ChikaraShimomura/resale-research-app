@@ -41,6 +41,9 @@ export async function applySoldComp(products: ProfitProduct[]): Promise<ProfitPr
   }
   const now = Date.now();
   return products.map((p, i) => {
+    // 落札発掘パイプラインで「生まれた時点で落札確定(soldVerified)」の品は、相場/利益/soldUrl を既に焼き込み済み。
+    // 旧Pixel workerが残した非verifiedな ebay_soldprice 中央値でこれを上書き(soldVerified→false等)すると掲載から落ちるため、触らない。
+    if (p.soldVerified) return p;
     const r = parseRec(recs?.[i]);
     if (!r) return p;
     const median = Number(r.median) || 0;
