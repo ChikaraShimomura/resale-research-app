@@ -6,7 +6,7 @@
 //  - /api/ebay/orders : 注文一覧→「発送待ち」件数を算出（未発送・未キャンセル・欠品未対応）
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Tag, Package, Truck, ArrowRight, Plug, Sparkles } from "lucide-react";
+import { Tag, Package, Truck, ArrowRight, Plug, Sparkles, TrendingUp } from "lucide-react";
 
 type Deal = { productId?: string };
 type PlanInfo = {
@@ -34,6 +34,7 @@ export default function HomeHub() {
   const [shipCount, setShipCount] = useState<number | null>(null);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+  const [soldCount, setSoldCount] = useState(0); // 売却記録(deals.sold)。出品済みだが未売却=育成が必要、の判定に使う
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function HomeHub() {
       if (dealsR.status === "fulfilled" && dealsR.value?.ok) {
         const live: Deal[] = Array.isArray(dealsR.value.live) ? dealsR.value.live : [];
         setLiveCount(live.length);
+        setSoldCount(Array.isArray(dealsR.value.sold) ? dealsR.value.sold.length : 0);
         if (dealsR.value.planInfo) setPlanInfo(dealsR.value.planInfo as PlanInfo);
       } else {
         setLiveCount(0);
@@ -92,6 +94,9 @@ export default function HomeHub() {
     next = { href: "/search", label: "利益商品を探す", sub: "最初の1品を出品してみましょう", Icon: Tag, tone: "gold" };
   } else if ((shipCount ?? 0) > 0) {
     next = { href: "/ship", label: "発送する", sub: `${shipCount}件の発送待ちがあります`, Icon: Truck, tone: "ebay" };
+  } else if (soldCount === 0) {
+    // 出品済みだがまだ1件も売れていない＝新規アカウントの壁。育成(評価づくり)へ促す。
+    next = { href: "/grow", label: "アカウントを育てる", sub: "最初の評価を安全に積んで“売れる土台”を作りましょう", Icon: TrendingUp, tone: "gold" };
   }
 
   return (
@@ -169,12 +174,17 @@ export default function HomeHub() {
       {/* 主要タブへの移動は下部ナビ(BottomNav)が担う＝重複するショートカット枠は置かない。
           ホーム=「これから(状況＋続きの一手)」／マイページ=「これまで(成績・お金・設定)」で役割分離。 */}
 
-      {/* 補助導線：ランキング／ガイド（下部ナビに無い学習/集客の入口なので残す） */}
-      <section className="text-center pt-1">
-        <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
-          🔥 いま稼げる利益商品ランキングを見る →
+      {/* 補助導線：アカウント育成／ランキング／ガイド（下部ナビに無い学習/集客/育成の入口） */}
+      <section className="text-center pt-1 space-y-3">
+        <Link href="/grow" className="inline-flex items-center justify-center gap-1.5 text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
+          📈 アカウントを育てる（売れる土台づくり）→
         </Link>
-        <div className="mt-3">
+        <div>
+          <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
+            🔥 いま稼げる利益商品ランキングを見る →
+          </Link>
+        </div>
+        <div>
           <Link href="/guide" className="text-[12px] font-bold text-gray-500 underline underline-offset-2">
             使い方ガイドを見る →
           </Link>
