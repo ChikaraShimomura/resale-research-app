@@ -1,5 +1,5 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import SearchForm from "../components/SearchForm";
@@ -18,7 +18,6 @@ import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch, Search } from "lucide-react";
 
 function ResultsContent() {
-  const router = useRouter();
   const params = useSearchParams();
   const keyword = params.get("q") ?? "";
 
@@ -34,12 +33,14 @@ function ResultsContent() {
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
   const [accountListedIds, setAccountListedIds] = useState<Set<string>>(new Set());
   const [gated, setGated] = useState(false); // 未購読で課金壁に弾かれた＝results_viewを計上しない（水増し防止）
+  const [masked, setMasked] = useState(false); // 未購読(free)=マスク版(タイトル/画像/利益率のみ)を表示中
 
   useEffect(() => {
     setLoading(true);
     fetchProducts()
-      .then(({ products, lastUpdated, needsPlan }) => {
-        if (needsPlan) { setGated(true); router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
+      .then(({ products, lastUpdated, masked }) => {
+        // 未購読はリダイレクトせずマスク版(ティーザー)を表示。results_viewは計上しない(水増し防止)。
+        setMasked(!!masked); setGated(!!masked);
         setAllProducts(products);
         setLastUpdated(lastUpdated);
       })
@@ -163,6 +164,18 @@ function ResultsContent() {
       </div>
 
       <main className="max-w-2xl mx-auto">
+        {/* 未購読(free)=無料プレビュー帯。利益額/仕入れ先/出品はプラン。リダイレクトせず価値を見せてから課金導線。 */}
+        {masked && !loading && (
+          <div className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] text-white px-4 py-3">
+            <p className="text-[13px] font-black">無料プレビュー中</p>
+            <p className="text-[11px] text-white/80 leading-relaxed mt-0.5">
+              商品と<b>利益率</b>は見られます。<b>利益額・仕入れ先・eBay相場・出品</b>はプランで全部解放（ライトは30日無料）。
+            </p>
+            <a href="/pricing?from=catalog" className="mt-2 inline-flex items-center justify-center h-9 px-4 rounded-xl bg-white text-[#2D323B] text-[12px] font-black active:opacity-90">
+              30日無料ではじめる →
+            </a>
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col gap-3 p-3">
             {[...Array(3)].map((_, i) => (

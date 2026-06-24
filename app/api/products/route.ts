@@ -33,16 +33,32 @@ async function getRestoredProducts(): Promise<ProfitProduct[]> {
   }
 }
 
+// 未購読(free)向けマスク：許可リスト方式で安全フィールドだけ再構築する＝利益額・価格・仕入れ先URL・
+// coreKeyword・eBay相場/照合/落札リンク等の「actionableな研究」はクライアントに一切渡さない（漏洩防止）。
+// 見せるのは タイトル/画像/カテゴリ/利益率(ティーザー)/出品者数 だけ。
+function maskProduct(p: ProfitProduct): ProfitProduct {
+  return {
+    id: p.id,
+    title: p.title,
+    imageUrl: p.imageUrl,
+    category: p.category,
+    realProfitRate: p.realProfitRate, // 利益率だけティーザーとして見せる
+    listingCount: p.listingCount,
+    masked: true,
+    // 型を満たすためのゼロ/空のみ（機微は渡さない）
+    realAvgPrice: 0,
+    realProfit: 0,
+    realCount: 0,
+    source: { site: "rakuten", siteName: "楽天市場", price: 0, url: "" },
+  } as ProfitProduct;
+}
+
 export async function GET() {
-  // 利益商品は購読者(＋身内/管理者)だけに配信。未購読(free)・未ログインには空＋needsPlanを返す＝データ自体を渡さない。
-  // PAYWALL_ENABLED が OFF の間は canViewCatalog が常に true（＝既存挙動のまま）。
-  if (!(await canViewCatalog())) {
-    await recordFunnelEvent("paywall_hit"); // 収益ファネル：未購読が利益商品で課金壁に到達
-    return Response.json(
-      { products: [], lastUpdated: null, needsPlan: true },
-      { headers: { "Cache-Control": "private, no-store" } }
-    );
-  }
+  // 利益商品は購読者(＋身内/管理者)はフル配信。未購読(free)は「リスト見せ・数値マスク」＝
+  // タイトル/画像/利益率だけのティーザーを返し、利益額・価格・仕入れ先はサーバー側で除去(maskProduct)。
+  // PAYWALL_ENABLED が OFF の間は canViewCatalog が常に true（＝全員フル＝既存挙動）。
+  const canView = await canViewCatalog();
+  if (!canView) await recordFunnelEvent("paywall_hit"); // 収益ファネル：未購読がマスク壁に到達
   try {
     const [profitable, lastUpdated, stats, restored, wmHash, srcStatus, overpricedArr] = await Promise.all([
       kvReadOnly.get<ProfitProduct[]>("profitable_products"),
@@ -138,7 +154,7 @@ export async function GET() {
       }
 
       return Response.json(
-        { products: priced, lastUpdated, stats },
+        { products: canView ? priced : priced.map(maskProduct), lastUpdated, stats, masked: !canView },
         // 独自データなので共有CDNにキャッシュさせない（将来の認証/レート制限がエッジで回避されるのを防ぐ）
         { headers: { "Cache-Control": "private, no-store" } }
       );
@@ -146,12 +162,12 @@ export async function GET() {
 
     // KVにデータがない場合は空を返す
     return Response.json(
-      { products: [], lastUpdated: null },
+      { products: [], lastUpdated: null, masked: !canView },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch {
     return Response.json(
-      { products: [], lastUpdated: null },
+      { products: [], lastUpdated: null, masked: !canView },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   }

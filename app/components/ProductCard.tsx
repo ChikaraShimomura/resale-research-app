@@ -126,6 +126,38 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 画像が無い／読み込めない（楽天のリンク切れ画像）商品はカードごと出さない＝「画像無し」を防ぐ。
   if (!product.imageUrl || imgError) return null;
 
+  // 未購読(free)＝マスク版：タイトル/画像/利益率だけのティーザー。利益額・仕入れ先・eBay相場・出品はプラン。
+  // （サーバー側で機微フィールドは除去済み＝ここに本物の数値/URLは存在しない＝漏洩なし）
+  if (product.masked) {
+    return (
+      <div className="relative isolate bg-white rounded-2xl overflow-hidden shadow-sm border border-[#A98B5C]/25">
+        <div className="p-4 flex gap-3.5 items-center">
+          <img
+            src={cleanImg(product.imageUrl)}
+            alt={product.title}
+            onError={() => setImgError(true)}
+            className="w-[88px] h-[88px] object-cover rounded-xl bg-gray-50 border-2 border-[#AEB4BD] shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-gray-800 line-clamp-2 mb-1.5">{product.title}</p>
+            {product.realProfitRate > 0 && (
+              <span className="inline-flex items-center text-[11px] font-black px-2 py-0.5 rounded-full bg-[#2D323B] text-white leading-none mb-2">
+                利益率 {product.realProfitRate}%
+              </span>
+            )}
+            <p className="text-[11px] text-gray-400 mb-2">利益額・仕入れ先・eBay相場は<b className="text-gray-500">プラン</b>で表示</p>
+            <a
+              href="/pricing?from=catalog"
+              className="inline-flex items-center justify-center gap-1 h-9 px-3 rounded-xl bg-[#2D323B] text-white text-[12px] font-bold active:bg-[#1A1D23]"
+            >
+              🔒 プランで全部見る
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "relative isolate bg-white rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md border",

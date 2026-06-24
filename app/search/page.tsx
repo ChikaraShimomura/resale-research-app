@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
@@ -18,7 +17,6 @@ import Pagination, { PAGE_SIZE } from "../components/Pagination";
 import { Flame, PackageSearch } from "lucide-react";
 
 export default function SearchPage() {
-  const router = useRouter();
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -28,6 +26,7 @@ export default function SearchPage() {
   // listedIds=この端末(localStorage)／accountListedIds=アカウント(サーバー・別端末でも効く)。両方で隠す。
   const [listedIds, setListedIds] = useState<Set<string>>(new Set());
   const [accountListedIds, setAccountListedIds] = useState<Set<string>>(new Set());
+  const [masked, setMasked] = useState(false); // 未購読(free)=マスク版(タイトル/画像/利益率のみ)を表示中
 
   useEffect(() => {
     setBannerDismissed(localStorage.getItem("spu_banner_dismissed") === "1");
@@ -36,8 +35,8 @@ export default function SearchPage() {
     fetchListedIds().then(setAccountListedIds).catch(() => {}); // アカウントの出品済み（別端末でも効く。失敗時は内部でキャッシュ）
     try { localStorage.setItem("ob_viewed", "1"); } catch { /* noop */ }
     fetchProducts()
-      .then(({ products, lastUpdated, needsPlan }) => {
-        if (needsPlan) { router.replace("/pricing"); return; } // 未購読は利益商品を見せず料金ページへ
+      .then(({ products, lastUpdated, masked }) => {
+        setMasked(!!masked); // 未購読はリダイレクトせずマスク版(ティーザー)を表示＝価値を見せてから課金導線へ
         setProducts(products);
         setLastUpdated(lastUpdated);
       })
@@ -110,6 +109,19 @@ export default function SearchPage() {
       </header>
 
       <main className="max-w-2xl mx-auto">
+
+        {/* 未購読(free)=無料プレビュー帯。利益額/仕入れ先/出品はプラン。価値を見せてから課金導線(リダイレクトしない)。 */}
+        {masked && (
+          <div className="bg-gradient-to-r from-[#2D323B] to-[#1A1D23] text-white px-4 py-3">
+            <p className="text-[13px] font-black">無料プレビュー中</p>
+            <p className="text-[11px] text-white/80 leading-relaxed mt-0.5">
+              商品と<b>利益率</b>は見られます。<b>利益額・仕入れ先・eBay相場・出品</b>はプランで全部解放（ライトは30日無料）。
+            </p>
+            <a href="/pricing?from=catalog" className="mt-2 inline-flex items-center justify-center h-9 px-4 rounded-xl bg-white text-[#2D323B] text-[12px] font-black active:opacity-90">
+              30日無料ではじめる →
+            </a>
+          </div>
+        )}
 
         {/* はじめてガイド（連携→出品→売れる の進捗。全完了/×で自動非表示。初回導線の背骨） */}
         <OnboardingChecklist />
