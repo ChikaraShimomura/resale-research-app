@@ -118,6 +118,30 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
   if ((code && code >= 500) || has("internal error", "service unavailable", "bad gateway", "gateway timeout"))
     return { message: "eBay側で一時的なエラーが発生しています。少し時間をおいて、もう一度お試しください。", known: true };
 
+  // eBay在庫サービスの一時エラー（#25604 在庫の反映待ちで公開できず / #25001 内部エラー）。多くは時間をおけば解消。
+  // 続く場合は発送元の住所(在庫ロケーション)が未登録の可能性。
+  if (errorId === "25604" || errorId === "25001" || has("availability not found", "inventory service can not publish", "core inventory service"))
+    return {
+      message:
+        "eBay側の在庫処理が一時的に詰まっています（数分おくと解消することが多いです）。少し待って再度お試しください。" +
+        "何度も続く場合は、設定 → 発送元の住所 が正しく登録されているかご確認ください。",
+      known: true,
+    };
+
+  // 出品テキストが英語でない（eBay規定）。香水/化粧品など日本語パッケージ品で頻発。
+  if (has("not in english", "must be in english"))
+    return {
+      message: "商品名・説明・パッケージの文字が英語でないため、eBayの規定で出品できません。英語表記に直すか、別の商品でお試しください。",
+      known: true,
+    };
+
+  // 配送ポリシーに、このeBayマーケットプレイスで非対応の発送先が含まれる（#216347 等）。
+  if (errorId === "216347" || has("unsupported destinations", "destinations found in the request"))
+    return {
+      message: "配送ポリシーに、このeBayでは対応していない発送先が含まれています。設定 → 発送先 を見直して作り直してください。",
+      known: true,
+    };
+
   // ── ここから「出品内容」起因のエラー。errorId を最優先に分類し、疑わしいフィールド名を文に差し込む ──
 
   // #25002 = 必須Item Specific 不足/不正（amiibo等で頻発：キャラクター・種類・対応機種 など）。
