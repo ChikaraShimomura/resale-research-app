@@ -93,9 +93,10 @@ export default async function ProductPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   // 未購読(free)・未ログインには利益商品を見せない＝/pricing へ誘導（PAYWALL OFF時は素通り）。
+  // ゲートの仕組み自体は変えず、遷移先に「商品詳細から来た＝この先は有料」と伝わる from を付けるだけ（戻り導線/文言用）。
   if (!(await canViewCatalog())) {
     await recordFunnelEvent("paywall_hit"); // 収益ファネル：課金壁に到達
-    redirect("/pricing");
+    redirect("/pricing?from=product");
   }
 
   const { id } = await params;

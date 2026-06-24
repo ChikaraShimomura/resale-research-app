@@ -330,8 +330,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-[#BF0000] hover:bg-[#9E0000] active:scale-[0.99] text-white text-sm font-bold rounded-xl transition-all shadow-sm whitespace-nowrap">
-            <span className="inline-flex w-4 h-4 bg-white rounded-full items-center justify-center text-[#BF0000] font-black text-[9px] shrink-0">R</span>
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-12 bg-white border border-[#BF0000] text-[#BF0000] hover:bg-[#BF0000]/5 active:scale-[0.99] text-sm font-bold rounded-xl transition-all whitespace-nowrap">
+            <span className="inline-flex w-4 h-4 bg-[#BF0000] rounded-full items-center justify-center text-white font-black text-[9px] shrink-0">R</span>
             楽天で仕入れる
           </a>
         </div>

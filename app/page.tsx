@@ -3,17 +3,57 @@ import { Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import GuideVideo from "./components/GuideVideo";
+import HomeHub from "./components/HomeHub";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
 import { META_DESC } from "./lib/marketing";
 import { PAYWALL_ENABLED } from "./lib/plans";
+import { getCurrentUserEmail } from "./lib/auth/plan";
 
 export const metadata = {
   description: META_DESC,
   alternates: { canonical: "/" },
 };
 
-export default function LandingPage() {
+// ホーム＝ / は1つだが中身は2面：
+//  未ログイン → 従来の集客LP（LandingPage・構造は不変）。
+//  ログイン   → 自分の状況＝パーソナルハブ（HomeHub）。集客文言は出さない。
+// 分岐はサーバー側のログイン判定(getCurrentUserEmail)で吸収。BottomNavのホームは / のままでよい。
+export default async function Home() {
+  const email = await getCurrentUserEmail();
+  if (email) return <HubPage />;
+  return <LandingPage />;
+}
+
+// ログイン時のホーム。ヘッダー／フッターのトーンはLPと揃え、本文だけ HomeHub に差し替える。
+function HubPage() {
+  return (
+    <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
+      <TrackView event="visit" />
+
+      {/* ヘッダー（LPと同一トーン） */}
+      <header className="bg-[#2D323B] px-4 py-3 shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-[#2D323B] font-black text-base leading-none">R</span>
+            </div>
+            <span className="text-white font-black text-base tracking-tight">輸出ラボ</span>
+          </div>
+          <div className="flex items-center gap-2 min-w-0">
+            <AuthButton />
+          </div>
+        </div>
+      </header>
+
+      <HomeHub />
+
+      <BottomNav />
+    </div>
+  );
+}
+
+function LandingPage() {
   // 有料化後は「登録すれば見える」は誤り（購読が要る）。未購読の主要CTAは /pricing（30日無料）へ誘導。
   const ctaHref = PAYWALL_ENABLED ? "/pricing" : "/search";
   return (

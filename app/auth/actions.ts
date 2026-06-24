@@ -40,6 +40,14 @@ async function recordSignup(formData: FormData): Promise<void> {
   if (from) await recordFunnelEvent(`signup_from_${from}`); // allowlist 外は recordFunnelEvent 側で無視
 }
 
+// ログイン後の遷移先。フォームの next を受けるが、オープンリダイレクト防止のため
+// 「自サイト内の相対パス（/で始まり//や/\で始まらない）」のみ許可。それ以外は既定の /search。
+function safeNext(formData: FormData): string {
+  const raw = String(formData.get("next") ?? "").trim();
+  if (raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\")) return raw;
+  return "/search";
+}
+
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!isSupabaseConfigured()) return { error: "現在ログイン機能は無効です。" };
   const email = String(formData.get("email") ?? "").trim();
@@ -54,7 +62,8 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
     await recordSignup(formData);
     await recordRegisteredUser(data.user.email); // 身内指定の候補リストに記録
   }
-  redirect("/search");
+  // 申込導線(from=checkout)から来た場合は /pricing?resume=<plan> へ戻し、Checkout を自動再開できるようにする。
+  redirect(safeNext(formData));
 }
 
 export async function signUpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

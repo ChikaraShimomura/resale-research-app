@@ -74,12 +74,13 @@ export async function POST(req: Request) {
   if (PAYWALL_ENABLED && !comp) {
     const limit = PLANS[plan].listingLimit; // free=0 / amateur=10 / veteran=50 / pro=100（master/admin は comp で除外済み）
     if (limit <= 0) {
-      // free(未購読)は出品不可。0を「無制限」ではなく「出品できない」として明示的に弾く（PAYWALL ON時のみ到達）。
+      // free(未購読=プラン未加入)は出品不可。0を「無制限」ではなく「出品できない」として明示的に弾く（PAYWALL ON時のみ到達）。
       // これが無いと free が上限ゲートを素通りして無制限出品できてしまう（課金の中核が機能しない）。
+      // ※「プラン上限に到達(planLimitReached)」とは別フラグ(needsPlan)で返す＝未加入と到達でUI文言/導線を出し分ける。
       return Response.json({
         ok: false,
-        planLimitReached: true,
-        error: `出品にはプランへのご加入が必要です。料金プランをご確認ください。`,
+        needsPlan: true,
+        error: `出品にはプランへのご加入が必要です。ライトは30日無料でお試しいただけます。`,
       });
     }
     const { live } = await listDealsForUser(actor);

@@ -18,9 +18,26 @@ export const metadata = {
 // 後からenvを変えても反映されない（＝再ビルド必須）。動的化して env を切り替えたら即反映されるようにする。
 export const dynamic = "force-dynamic";
 
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   // ログイン購読者には現在のプランを反映して「ご利用中／アップグレード」を出し分ける。
   const currentPlan = PAYWALL_ENABLED ? await getPlan() : "free";
+  // どこから壁に当たって来たか＝文言を「押した先が有料だった」と腑に落ちる形に出し分ける（導線の改善のみ）。
+  const sp = await searchParams;
+  const from = typeof sp.from === "string" ? sp.from : undefined;
+  // ログイン後の申込自動再開：/pricing?resume=<plan> で戻ってきたら、その有料プランの Checkout を再開する。
+  const resumeRaw = typeof sp.resume === "string" ? sp.resume : undefined;
+  const resumePlan =
+    resumeRaw === "amateur" || resumeRaw === "veteran" || resumeRaw === "pro" ? resumeRaw : undefined;
+  const gateHeading =
+    from === "product"
+      ? "この商品の詳細はプランで解放"
+      : from === "ranking"
+        ? "各商品の詳細はプランで解放"
+        : "利益商品はプランで解放";
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-[#2D323B] px-3 py-3 shadow-sm sticky top-0 z-20" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
@@ -44,10 +61,21 @@ export default async function PricingPage() {
             {currentPlan === "free" && (
               <>
                 <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 mb-4 text-center shadow-md">
-                  <p className="text-base font-black mb-1.5">利益商品はプランで解放</p>
+                  <p className="text-base font-black mb-1.5">{gateHeading}</p>
                   <p className="text-[12px] text-white/85 leading-relaxed">
                     毎日更新の利益リサーチと、写真だけ自動出品。<b className="text-yellow-300">最初の30日無料</b>で全部試せる。合わなければ解約するだけ。
                   </p>
+                  {/* 不安解消：無在庫＝在庫を抱えないので赤字リスクなし／固定費は最安プランの月¥500だけ。 */}
+                  <p className="mt-2 text-[12px] font-bold text-white/95 leading-relaxed">
+                    在庫を持たないから赤字リスクなし。固定費は<b className="text-yellow-300">月¥500だけ</b>。
+                  </p>
+                  {/* 回遊維持：壁に当たっても無料で見られる場所（ランキング）へ戻れることを明示。 */}
+                  {(from === "ranking" || from === "product") && (
+                    <Link href="/ranking?from=pricing"
+                      className="mt-3 inline-block text-[12px] font-bold text-yellow-300 underline underline-offset-2 active:opacity-80">
+                      ← ランキング（無料）に戻る
+                    </Link>
+                  )}
                 </div>
                 <ProfitSampleStrip />
               </>
@@ -55,7 +83,7 @@ export default async function PricingPage() {
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
               使う量で選べる。まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
             </p>
-            <PlanCards currentPlan={currentPlan} />
+            <PlanCards currentPlan={currentPlan} resumePlan={resumePlan} />
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-8 text-center">

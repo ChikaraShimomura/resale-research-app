@@ -84,6 +84,7 @@ interface PublishResult {
   errorKind?: "known" | "unexpected"; // known=要因が特定できた／unexpected=予期せぬエラー（報告ボタンを出す）
   errorDetail?: string; // 生のeBayエラー（ユーザーには見せず、開発者報告に同梱）
   planLimitReached?: boolean; // 同時出品数がプラン上限に到達（アップグレード誘導画面を出す）
+  needsPlan?: boolean; // free(プラン未加入)で出品不可（プラン加入＝30日無料の導線を出す。上限到達とは区別）
 }
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error" | "limit";
@@ -343,7 +344,7 @@ export default function EbayListingModal({
       finishOk(res);
       return;
     }
-    if (res.planLimitReached) { setResult(res); setPhase("limit"); return; } // 上限到達→アップグレード誘導
+    if (res.needsPlan || res.planLimitReached) { setResult(res); setPhase("limit"); return; } // プラン未加入 or 上限到達→「壁」画面（中で出し分け）
     setResult(res);
     if (res.needsSellerRegistration || res.pendingVerification || res.accountUnusable) setPhase("notready");
     else {
@@ -390,7 +391,7 @@ export default function EbayListingModal({
       return;
     }
     if (res.ok) finishOk(res);
-    else if (res.planLimitReached) { setResult(res); setPhase("limit"); } // 上限到達→アップグレード誘導
+    else if (res.needsPlan || res.planLimitReached) { setResult(res); setPhase("limit"); } // プラン未加入 or 上限到達→「壁」画面（中で出し分け）
     else {
       setConfirmErr(true);
       setCooldown(40); // 失敗後は数十秒待ってから再試行（メール到着前の連打を抑止）
@@ -1265,19 +1266,41 @@ export default function EbayListingModal({
           {phase === "limit" && (
             <div className="py-6 text-center">
               <Crown size={36} aria-hidden="true" className="mx-auto mb-3 text-[#A98B5C]" />
-              <h2 className="text-sm font-bold text-gray-800 mb-2">出品の上限に達しました</h2>
-              <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
-                {result?.error || "現在のプランの同時出品上限に達しました。"}
-              </p>
-              <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-                上のプランで同時出品をもっと増やせます（スタンダード50件／プロ100件）。
-              </p>
-              <a
-                href="/pricing"
-                className="flex items-center justify-center gap-1.5 w-full h-12 bg-[#2D323B] text-white rounded-xl text-sm font-black active:bg-[#1A1D23] mb-2"
-              >
-                <Crown size={16} /> プランをアップグレード →
-              </a>
+              {result?.needsPlan ? (
+                /* free(プラン未加入)＝まだ一度も出品できない人。「上限到達」ではなく「加入が必要」＋30日無料で背中を押す。 */
+                <>
+                  <h2 className="text-sm font-bold text-gray-800 mb-2">出品にはプラン加入が必要です</h2>
+                  <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
+                    eBayへの出品はプランへのご加入が必要です。
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
+                    <b className="text-[#2D323B]">ライトは30日無料</b>ではじめられます（月10件まで出品可）。
+                  </p>
+                  <a
+                    href="/pricing"
+                    className="flex items-center justify-center gap-1.5 w-full h-12 bg-[#2D323B] text-white rounded-xl text-sm font-black active:bg-[#1A1D23] mb-2"
+                  >
+                    <Crown size={16} /> 30日無料ではじめる →
+                  </a>
+                </>
+              ) : (
+                /* 既にプラン加入済みで同時出品の上限に到達した人＝アップグレード訴求。 */
+                <>
+                  <h2 className="text-sm font-bold text-gray-800 mb-2">出品の上限に達しました</h2>
+                  <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
+                    {result?.error || "現在のプランの同時出品上限に達しました。"}
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
+                    上のプランで同時出品をもっと増やせます（スタンダード50件／プロ100件）。
+                  </p>
+                  <a
+                    href="/pricing"
+                    className="flex items-center justify-center gap-1.5 w-full h-12 bg-[#2D323B] text-white rounded-xl text-sm font-black active:bg-[#1A1D23] mb-2"
+                  >
+                    <Crown size={16} /> プランをアップグレード →
+                  </a>
+                </>
+              )}
               <button onClick={onClose} className="w-full h-11 bg-gray-100 rounded-xl text-sm font-bold text-gray-600">
                 閉じる
               </button>

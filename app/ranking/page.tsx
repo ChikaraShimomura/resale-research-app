@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTopProfitProducts } from "../lib/topProducts";
+import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import { Flame, ArrowRight, Lock } from "lucide-react";
@@ -30,8 +31,17 @@ export const metadata: Metadata = {
 
 const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 
-export default async function RankingPage() {
+export default async function RankingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const items = await getTopProfitProducts(30);
+  // 詳細(/product/*)を見られるか＝未購読(free)はゲートで/pricingに飛ぶ。CTA文言を「この先は有料」と事前提示するために使う。
+  const canView = await canViewCatalog();
+  // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
+  const sp = await searchParams;
+  const cameFromPricing = sp.from === "pricing";
 
   const itemListLd = {
     "@context": "https://schema.org",
@@ -63,6 +73,18 @@ export default async function RankingPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5">
+        {/* /pricing から戻った人向けの出口メッセージ：ランキングは無料で見られる＝回遊を維持する（未購読のみ）。 */}
+        {cameFromPricing && !canView && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-[#A98B5C]/40 bg-[#2D323B]/[0.04] px-3.5 py-2.5"
+            role="status">
+            <span className="mt-0.5 shrink-0 text-[#2D323B]" aria-hidden="true"><Flame size={16} /></span>
+            <p className="text-[12px] leading-relaxed text-gray-700">
+              <b className="text-[#2D323B]">ランキングは無料で見られます。</b>
+              各商品の詳細（仕入れ先・想定売値・利益の内訳）と自動出品は、プランで解放されます。
+            </p>
+          </div>
+        )}
+
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">
           eBay輸出の利益商品ランキング
         </h1>
@@ -78,18 +100,29 @@ export default async function RankingPage() {
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">集計中</p>
             <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度どうぞ。</p>
-            <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
-              利益商品をさがす <ArrowRight size={16} />
+            <Link href={canView ? "/search" : "/pricing?from=ranking"}
+              className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
+              {canView ? (
+                <>利益商品をさがす <ArrowRight size={16} /></>
+              ) : (
+                <><Lock size={15} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る</>
+              )}
             </Link>
           </div>
         ) : (
           <ol className="space-y-2.5">
             {items.map((p, i) => {
               // Top5はモザイク（登録誘導の“ちら見せ”）。6位以降は見せて「実在する」証明にする。
-              const locked = i < 5;
+              // 購読者(canView)は詳細を見られるのでモザイクにせず通常表示＝壁の体験を購読状態に合わせる。
+              const locked = i < 5 && !canView;
+              // 詳細はゲート対象。未購読は/pricing（戻り先が分かるようfrom=ranking付き）、購読者は商品詳細へ。
+              const href = canView
+                ? `/product/${encodeURIComponent(p.id)}`
+                : "/pricing?from=ranking";
               return (
                 <li key={p.id}>
-                  <Link href={locked ? "/pricing" : `/product/${encodeURIComponent(p.id)}`}
+                  <Link href={href}
+                    aria-label={locked ? `${i + 1}位の利益商品（詳細はプランで解放）` : undefined}
                     className="relative flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50 overflow-hidden">
                     <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
                       {i + 1}
@@ -116,8 +149,8 @@ export default async function RankingPage() {
                     </div>
                     {locked && (
                       <span className="absolute inset-0 flex items-center justify-center bg-white/20">
-                        <span className="inline-flex items-center gap-1.5 bg-[#2D323B]/95 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full shadow-lg">
-                          <Lock size={12} /> プランで見る
+                        <span className="inline-flex items-center gap-1.5 bg-[#2D323B]/95 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-full shadow-lg ring-1 ring-[#A98B5C]/60">
+                          <Lock size={12} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る
                         </span>
                       </span>
                     )}
@@ -128,13 +161,25 @@ export default async function RankingPage() {
           </ol>
         )}
 
-        {/* 内部リンク（回遊＆SEO） */}
+        {/* 内部リンク（回遊＆SEO）。検索/詳細はゲート対象＝未購読には「この先は有料」と事前提示する。ガイドは無料公開なので通常表示。 */}
         <div className="mt-6 grid grid-cols-1 gap-2">
-          <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
-            すべての利益商品をさがす <ArrowRight size={16} />
-          </Link>
+          {canView ? (
+            <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
+              すべての利益商品をさがす <ArrowRight size={16} />
+            </Link>
+          ) : (
+            <div>
+              <Link href="/pricing?from=ranking"
+                className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23] ring-1 ring-[#A98B5C]/50">
+                <Lock size={16} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る
+              </Link>
+              <p className="mt-1.5 text-center text-[11px] text-gray-400 leading-relaxed">
+                ランキングは無料。<b className="text-gray-500">各商品の詳細・検索・自動出品はプラン（月¥500〜・30日無料）で解放</b>されます。
+              </p>
+            </div>
+          )}
           <Link href="/guide" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
-eBay輸出の始め方ガイド
+            eBay輸出の始め方ガイド（無料）
           </Link>
         </div>
 
