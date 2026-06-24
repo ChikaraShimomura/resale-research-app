@@ -1025,18 +1025,33 @@ export default function EbayListingModal({
               {/* 実物写真の追加を促す。楽天の画像だけより、実物写真があると信頼され売れやすい。 */}
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-amber-800 leading-relaxed">
-                  <b>📸 商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>を。実物写真があると<b>信頼されて売れやすく</b>なります（下の「出品した商品を見る」→ 写真の編集から）。
+                  <b>📸 商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>を。実物写真があると<b>信頼されて売れやすく</b>なります（下の「eBayで確認」→ 写真の編集から）。
                 </p>
               </div>
-              {/* eBayで出品した商品を確認。listingIdがあれば直リンク、無ければ自分の出品一覧へ（必ず確認できる）。 */}
-              <a
-                href={result?.listingId ? `https://www.ebay.com/itm/${result.listingId}` : "https://www.ebay.com/sh/lst/active"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-1.5 h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] mb-2"
+              {/* 前進CTA：出品の勢いを次の行動へ。連続出品(=売上の主因)とアプリ内回遊を切らさない。 */}
+              <button
+                onClick={() => router.push("/search")}
+                className="w-full h-12 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23] mb-2"
               >
-                🔎 eBayで出品した商品を見る <ExternalLink size={14} />
-              </a>
+                続けてもう1品さがす →
+              </button>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button
+                  onClick={() => router.push("/listings")}
+                  className="h-11 border border-[#A98B5C]/35 rounded-xl text-[13px] font-bold text-gray-700 active:bg-gray-50"
+                >
+                  出品管理を見る
+                </button>
+                {/* eBayで出品を確認（写真の追加・編集）。listingIdがあれば直リンク、無ければ自分の出品一覧へ。 */}
+                <a
+                  href={result?.listingId ? `https://www.ebay.com/itm/${result.listingId}` : "https://www.ebay.com/sh/lst/active"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-11 inline-flex items-center justify-center gap-1 border border-[#A98B5C]/35 rounded-xl text-[13px] font-bold text-[#0064D2] active:bg-gray-50"
+                >
+                  eBayで確認 <ExternalLink size={13} />
+                </a>
+              </div>
               {/* “勝ちの瞬間”の損失回避ナッジ。未ログイン時に1回だけ・閉じれるチップ（達成表示の最後に置く）。 */}
               <div className="mb-2 text-left">
                 <SaveProgressNudge

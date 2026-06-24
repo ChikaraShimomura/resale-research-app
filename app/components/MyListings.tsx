@@ -175,7 +175,14 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
     setBusy(null);
   };
 
-  if (live === null || stopped === null || sold === null) return null; // 読み込み中
+  // 読み込み中：真っ白で「壊れた/何も無い」と誤認させない（results/searchと同様にスピナーを出す）。
+  if (live === null || stopped === null || sold === null) {
+    return (
+      <div className="rounded-2xl border border-[#A98B5C]/20 bg-white px-4 py-8 flex items-center justify-center gap-2 text-gray-400 text-[12px]">
+        <Spinner size={16} /> 一覧を読み込み中…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -214,7 +221,13 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("live") && (
       <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
         {live.length === 0 ? (
-          <EmptyNote text="出品中の商品はまだありません。商品を選んで「eBayに出品」するとここに並びます。" />
+          <div className="py-1.5">
+            <EmptyNote text="出品中の商品はまだありません。商品を選んで「eBayに出品」するとここに並びます。" />
+            {/* 行き止まりにしない：初出品=最重要ファネル起点へワンタップで戻す。 */}
+            <a href="/search" className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+              利益商品を探す →
+            </a>
+          </div>
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">

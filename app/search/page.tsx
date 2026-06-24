@@ -5,6 +5,7 @@ import SearchForm from "../components/SearchForm";
 import ProductCard from "../components/ProductCard";
 import BottomNav from "../components/BottomNav";
 import AuthButton from "../components/AuthButton";
+import OnboardingChecklist from "../components/OnboardingChecklist";
 import { fetchProducts } from "../lib/products";
 import { useEffect, useState } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
@@ -108,6 +109,9 @@ export default function SearchPage() {
       </header>
 
       <main className="max-w-2xl mx-auto">
+
+        {/* はじめてガイド（連携→出品→売れる の進捗。全完了/×で自動非表示。初回導線の背骨） */}
+        <OnboardingChecklist />
 
         {/* ポイントキャンペーンバナー（白基調＋クリムゾン差し色。ヘッダーの赤と衝突しないクリーンな配色） */}
         {!bannerDismissed && (
