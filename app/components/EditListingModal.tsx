@@ -133,18 +133,21 @@ export default function EditListingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3" onClick={onClose}>
       <div
-        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 p-4"
+        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 max-h-[88dvh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2 mb-3">
+        {/* ヘッダー＝スクロールしても常に見える固定。✕で必ず閉じられる。 */}
+        <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-2.5 border-b border-[#A98B5C]/15 shrink-0">
           <div className="min-w-0">
             <h2 className="text-[15px] font-black text-gray-900">出品を編集</h2>
             {title && <p className="text-[11px] text-gray-400 truncate mt-0.5">{title}</p>}
           </div>
-          <button onClick={onClose} aria-label="閉じる" className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-100 shrink-0">
+          <button onClick={onClose} aria-label="閉じる" className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-100 shrink-0">
             <X size={18} />
           </button>
         </div>
+        {/* 本文＝ここだけスクロール（内容が縦長でもヘッダーは残る・✕に届く） */}
+        <div className="overflow-y-auto px-4 py-3">
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-gray-400 text-[12px]">
@@ -281,6 +284,7 @@ export default function EditListingModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
