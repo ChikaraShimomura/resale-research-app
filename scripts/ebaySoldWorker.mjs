@@ -23,6 +23,7 @@
 
 import fs from "node:fs";
 import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE } from "./ebayQueries.mjs";
+import { decodeHtmlEntities } from "../app/lib/htmlEntities.mjs";
 try {
   const envPath = new URL("../.env.local", import.meta.url);
   for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
@@ -146,7 +147,7 @@ function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
     const im = c.match(/data-defer-load=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/) || c.match(/src=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/);
     const um = c.match(/https:\/\/www\.ebay\.com\/itm\/(\d+)/);
     const al = c.match(/alt="([^"]{3,140})"/);
-    if (im && um) cards.push({ price: jpy, ageDays: Math.round(age), url: `https://www.ebay.com/itm/${um[1]}`, img: im[1], title: al ? al[1].trim() : "" });
+    if (im && um) cards.push({ price: jpy, ageDays: Math.round(age), url: `https://www.ebay.com/itm/${um[1]}`, img: im[1], title: al ? decodeHtmlEntities(al[1].trim()) : "" });
   }
   cards.sort((a, b) => a.ageDays - b.ageDays); // 直近(落札が新しい)順＝検証は先頭から
   return { prices, items, dated, withWindow, usedSkipped, cards };

@@ -13,6 +13,7 @@ import {
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
 import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
+import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -212,7 +213,8 @@ export async function POST(req: Request) {
       : priceUsd;
 
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
-  const enTitle = (product.coreKeyword || product.title).slice(0, 80);
+  // coreKeyword は eBay の alt 属性由来で &#34; 等のHTMLエンティティが残るので、出品文字列にする前に復号する。
+  const enTitle = decodeHtmlEntities(product.coreKeyword || product.title).slice(0, 80);
   const condition = detectCondition(product.title);
   const description = buildDescription(enTitle, condition, product.category);
 
@@ -288,7 +290,7 @@ export async function POST(req: Request) {
       ok: true,
       product: {
         id: product.id,
-        jaTitle: product.title,
+        jaTitle: decodeHtmlEntities(product.title),
         imageUrl: product.imageUrl,
         rakutenPrice: product.source.price,
         ebayAvgJpy: product.realAvgPrice,
