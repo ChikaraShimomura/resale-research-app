@@ -118,8 +118,6 @@ function titleSim(a, b) {
   let inter = 0; for (const t of A) if (B.has(t)) inter++;
   return inter / Math.min(A.size, B.size); // 小さい方に対する重なり率＝片方が長くても効く
 }
-// 発掘の同一商品まとめ用キー：英字・型番だけ残しソート（"Seiko SARB033 Watch" と "WATCH seiko sarb033"を同一視）。
-const normTitle = (s) => [...titleTokens(s)].sort().join(" ");
 function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   // s-card__image を区切りに1カード=1チャンク（画像→落札日→コンディション→URL→価格が同じチャンクに収まる）。
   // ※カード数(items)は s-card__caption の数で別途数える（s-card__image は1カードに複数出るので区切り用途のみ）。

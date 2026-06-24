@@ -12,7 +12,6 @@ const FRESH_MS = (Number(process.env.EBAY_SOLDPRICE_FRESH_DAYS) || 14) * 8640000
 
 interface SoldRec {
   median?: number;
-  medianUsd?: number;
   count?: number;
   windowDays?: number;
   soldBased?: boolean;
