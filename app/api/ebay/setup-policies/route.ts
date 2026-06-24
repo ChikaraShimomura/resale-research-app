@@ -20,7 +20,7 @@ const MARKETPLACE = "EBAY_US";
 //    createFulfillmentPolicy が errorId=216347「unsupported destinations for this marketplace」で落ちる
 //    （EUのVAT/輸入規制絡み）。UI(EbayPolicySetup の COUNTRIES)と必ず一致させること。
 const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR"];
-const DEFAULT_REGIONS = ["AU", "GB"];
+const DEFAULT_REGIONS = ["AU", "GB", "CA", "DE", "FR"]; // 推奨発送先（主要5地域）。UI(EbayPolicySetup)の既定と一致。
 
 export async function POST(req: Request) {
   const conn = await getActorId();

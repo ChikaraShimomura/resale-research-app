@@ -44,9 +44,9 @@ const COUNTRIES = [
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
-  const [showEdit, setShowEdit] = useState(false); // 送料を自分で変える（任意）
-  // 発送先の国（アメリカは常に含む）。規定は AU/GB。
-  const [regions, setRegions] = useState<string[]>(["AU", "GB"]);
+  const [showAdvanced, setShowAdvanced] = useState(false); // 詳細オプション（変更したい人だけ）
+  // 発送先の国（アメリカは常に含む）。規定＝推奨発送先（主要5地域）。基本このままでOK、詳細オプションで増減できる。
+  const [regions, setRegions] = useState<string[]>(["AU", "GB", "CA", "DE", "FR"]);
   const toggleRegion = (code: string) =>
     setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
   // 返品：規定で受け付ける（30日・返送料は買い手負担）。eBayは30日返品可を検索/Top Rated で優遇＝売れやすい。
@@ -122,123 +122,18 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-[12px] text-gray-500 leading-relaxed">
-        送料・支払い・返品の設定です（<b className="text-gray-700">変更は任意</b>）。一般的な送料はすでに入っているので、
-        特に変更がなければ、そのまま下のボタンを押すだけでOK（このまま登録されます）。
-        支払いと返品（返品不可）もまとめて自動で登録します。
+        送料・支払い・返品は<b className="text-gray-700">おすすめ設定で自動登録</b>します。
+        基本はこのまま下のボタンを押すだけでOK。変えたい人だけ「詳細オプション」を開いてください。
       </p>
 
-      <div className="bg-gray-50 rounded-xl px-4 py-3 text-[12px] text-gray-500 leading-relaxed">
-        送料は<b className="text-gray-700">購入者が負担</b>します。出品時に<b className="text-gray-700">商品の重さ・価格からアプリが自動で小/中/大を選ぶ</b>ので、
-        重い物や高額品（EMS）でも送料が足りず赤字…を防げます。金額の目安は日本郵便・米国宛の実費ベース
-        （小=〜500g≒$14／中=〜1.2kg≒$25／大=2kgやEMS≒$45）。
-      </div>
-
-      {/* 既定の送料サマリー（サイズ別・USD） */}
-      <div className="bg-gray-50 rounded-xl p-4 text-[13px] text-gray-500 space-y-2">
-        <div className="flex justify-between items-center"><span>小さい荷物</span><span className="font-bold text-gray-800">${vals.small}</span></div>
-        <div className="flex justify-between items-center"><span>中くらいの荷物</span><span className="font-bold text-gray-800">${vals.medium}</span></div>
-        <div className="flex justify-between items-center"><span>大きい荷物</span><span className="font-bold text-gray-800">${vals.large}</span></div>
-        <div className="flex justify-between items-center text-gray-400 pt-1"><span>発送までの日数</span><span>{vals.handlingDays}日</span></div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowEdit((v) => !v)}
-        className="text-[12px] text-gray-500 underline underline-offset-2 active:text-gray-700"
-      >
-        {showEdit ? "編集を閉じる" : "送料を自分で変える（任意）"}
-      </button>
-
-      {showEdit && (
-        <div className="space-y-3">
-          <div>
-            <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（注文から何日で送るか）</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={vals.handlingDays ?? ""}
-              onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
-              placeholder="7"
-              className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
-            />
-          </div>
-          {SIZE_FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="block text-[12px] text-gray-500 mb-1">{f.label}</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={vals[f.key] ?? ""}
-                onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
-                placeholder={f.placeholder}
-                className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
-      <div className="space-y-1.5">
-        <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
-        <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象です。追加で発送したい国を選べます（送料の目安は米国宛ベース。多くの国は同額請求になります）。</p>
-        <div className="flex flex-wrap gap-1.5 pt-0.5">
-          <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white">アメリカ（必須）</span>
-          {COUNTRIES.map((c) => {
-            const on = regions.includes(c.code);
-            return (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => toggleRegion(c.code)}
-                className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
-                  on ? "bg-[#2D323B]/10 border-[#2D323B]/40 text-[#2D323B]" : "bg-white border-[#A98B5C]/35 text-gray-400"
-                }`}
-              >
-                {on ? "✓ " : ""}{c.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 送料無料（送料込み）ポリシー */}
-      <div className="space-y-1.5">
-        <p className="text-[12px] font-bold text-gray-700">送料無料（送料込み）</p>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={freeShipping}
-            onChange={(e) => setFreeShipping(e.target.checked)}
-            className="accent-[#2D323B] w-4 h-4"
-          />
-          <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
-        </label>
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          {freeShipping
-            ? "出品画面・出品中の編集で「送料込み（送料無料）」に切り替えられるようになります（送料は商品価格に含めて、買い手の送料は$0。eBayの「送料無料」表示で売れやすくなります）。"
-            : "作りません。後からこの画面で登録すれば、いつでも送料込みに切り替えられます。"}
-        </p>
-      </div>
-
-      {/* 返品ポリシー */}
-      <div className="space-y-1.5">
-        <p className="text-[12px] font-bold text-gray-700">返品</p>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={returnsAccepted}
-            onChange={(e) => setReturnsAccepted(e.target.checked)}
-            className="accent-[#2D323B] w-4 h-4"
-          />
-          <span className="text-[12px] text-gray-700">返品を受け付ける（30日・返送料は買い手負担）</span>
-        </label>
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          {returnsAccepted
-            ? "購入者は到着後30日以内に返品できます（返送料は買い手負担）。安心感で売れやすくなる反面、返品対応の手間は増えます。"
-            : "返品不可で登録します。"}
-          <b className="text-gray-500"> 後からいつでも変更できます。</b>
-        </p>
+      {/* おすすめ設定サマリー（読むだけ・変更は詳細オプションで） */}
+      <div className="bg-[#F5F7FA] rounded-xl border border-[#A98B5C]/25 p-4 text-[12px] text-gray-600 space-y-2">
+        <p className="text-[11px] font-black text-[#2D323B]">おすすめ設定（このまま登録でOK）</p>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料</span><span className="font-bold text-gray-800 text-right">サイズで自動（小${vals.small}・中${vals.medium}・大${vals.large}／購入者負担）</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料無料（送料込み）</span><span className="font-bold text-gray-800">{freeShipping ? "使える（おすすめ）" : "作らない"}</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right">アメリカ＋主要{regions.length}地域</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">返品</span><span className="font-bold text-gray-800">{returnsAccepted ? "30日OK（売れやすい）" : "なし"}</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送まで</span><span className="font-bold text-gray-800">{vals.handlingDays}日</span></div>
       </div>
 
       <button
@@ -246,8 +141,112 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         disabled={state === "saving"}
         className="w-full h-12 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23] disabled:opacity-50"
       >
-        {state === "saving" ? "登録中..." : "この内容で登録する"}
+        {state === "saving" ? "登録中..." : "おすすめ設定で登録する"}
       </button>
+
+      {/* 詳細オプション（変更したい人だけ）。送料・発送先・送料無料・返品・発送日数をここに集約。 */}
+      <div className="border-t border-[#A98B5C]/20 pt-3">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="flex items-center justify-between w-full text-[12px] text-gray-500 active:text-gray-700"
+        >
+          <span>詳細オプション（変更したい人だけ）</span>
+          <span className="text-gray-400">{showAdvanced ? "閉じる ▲" : "開く ▼"}</span>
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-5 mt-4">
+            {/* 送料・発送日数 */}
+            <div className="space-y-2.5">
+              <p className="text-[12px] font-bold text-gray-700">送料（サイズ別・USD）</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">購入者負担。出品時に重さ・価格からアプリが自動で小/中/大を選びます（目安は日本郵便・米国宛の実費）。</p>
+              <div>
+                <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（注文から何日で送るか）</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={vals.handlingDays ?? ""}
+                  onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
+                  placeholder="7"
+                  className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
+                />
+              </div>
+              {SIZE_FIELDS.map((f) => (
+                <div key={f.key}>
+                  <label className="block text-[12px] text-gray-500 mb-1">{f.label}</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={vals[f.key] ?? ""}
+                    onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要5地域です（送料の目安は米国宛ベース。多くの国は同額請求）。</p>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white">アメリカ（必須）</span>
+                {COUNTRIES.map((c) => {
+                  const on = regions.includes(c.code);
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => toggleRegion(c.code)}
+                      className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
+                        on ? "bg-[#2D323B]/10 border-[#2D323B]/40 text-[#2D323B]" : "bg-white border-[#A98B5C]/35 text-gray-400"
+                      }`}
+                    >
+                      {on ? "✓ " : ""}{c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 送料無料（送料込み）ポリシー */}
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-gray-700">送料無料（送料込み）</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={freeShipping}
+                  onChange={(e) => setFreeShipping(e.target.checked)}
+                  className="accent-[#2D323B] w-4 h-4"
+                />
+                <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
+              </label>
+              <p className="text-[11px] text-gray-400 leading-relaxed">出品/編集で「送料込み（送料無料）」に切り替えられます（送料を価格に含めて買い手の送料は$0。eBayの「送料無料」表示で売れやすい）。</p>
+            </div>
+
+            {/* 返品ポリシー */}
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-gray-700">返品</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={returnsAccepted}
+                  onChange={(e) => setReturnsAccepted(e.target.checked)}
+                  className="accent-[#2D323B] w-4 h-4"
+                />
+                <span className="text-[12px] text-gray-700">返品を受け付ける（30日・返送料は買い手負担）</span>
+              </label>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                {returnsAccepted
+                  ? "30日以内の返品OK（返送料は買い手負担）。安心感で売れやすい反面、対応の手間は増えます。"
+                  : "返品不可で登録します。"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {steps.length > 0 && (
         <ul className="space-y-2">

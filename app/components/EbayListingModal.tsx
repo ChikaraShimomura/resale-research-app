@@ -156,6 +156,7 @@ export default function EbayListingModal({
     if (id) setShippingId(id);
   }, [weightInput, data]);
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
+  const [showAdv, setShowAdv] = useState(false); // 詳細オプション（説明文/状態/売り方/送料/個数など）を開くか。既定は閉じて最小表示＝写真・タイトル・価格だけ。
   const [result, setResult] = useState<PublishResult | null>(null);
   const [msg, setMsg] = useState("");
   const [confirming, setConfirming] = useState(false); // 「登録完了」処理中
@@ -349,6 +350,8 @@ export default function EbayListingModal({
   // 必須Item Specifics（Type等）が全て埋まっているか。未入力だと公開が #25002 で弾かれるため出品をブロック。
   // 推奨(任意)項目は空でも公開できるのでブロック対象外。
   const aspectsFilled = (data?.requiredAspects ?? []).filter((a) => a.required).every((a) => (aspects[a.name] ?? "").trim() !== "");
+  // 詳細オプションの開閉。必須項目が未入力の時は強制で開く（隠れて出品できない原因にならないように）。
+  const advOpen = showAdv || !aspectsFilled;
 
   // 出品写真の候補（楽天ギャラリー＋API代表画像・重複除去）。ユーザーがチェックで選ぶ。
   const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])])).filter(Boolean);
@@ -497,6 +500,17 @@ export default function EbayListingModal({
                 <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　自動で英語タイトルを入れています（編集OK）</p>
               </div>
 
+              {/* 詳細オプション。既定は閉じて「写真・タイトル・価格」だけの最小表示。説明文・状態・売り方・送料・個数などは自動設定済みでここに格納。 */}
+              <button
+                type="button"
+                onClick={() => setShowAdv((v) => !v)}
+                className="flex items-center justify-between w-full text-[11px] text-gray-500 active:text-gray-700 border-y border-[#A98B5C]/20 py-2"
+              >
+                <span>詳細オプション（説明文・状態・売り方・送料・個数など）</span>
+                <span className="text-gray-400">{advOpen ? "閉じる ▲" : "開く ▼"}</span>
+              </button>
+
+              {advOpen && (<>
               {/* 説明文（英語・編集可） */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-0.5">説明文（英語）<OptBadge /></label>
@@ -521,6 +535,7 @@ export default function EbayListingModal({
                   <option value="USED_GOOD">中古 - 良い</option>
                 </select>
               </div>
+              </>)}
 
               {/* 出品に使う写真（楽天ギャラリーから選ぶ・先頭がメイン写真） */}
               {photoCandidates.length > 0 && (
@@ -630,6 +645,7 @@ export default function EbayListingModal({
                 </div>
               )}
 
+              {advOpen && (<>
               {/* 売り方（激安出品=最安-5% / 最安出品=最安値 / 相場出品=eBay相場 / 高値出品=相場+10%）。既定は最安出品 */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">売り方<OptBadge /></label>
@@ -693,6 +709,7 @@ export default function EbayListingModal({
                     : "eBay最安値と同額。最速で売れやすくします（赤字にはしません）"}
                 </p>
               </div>
+              </>)}
 
               {/* 価格 */}
               <div>
@@ -791,6 +808,7 @@ export default function EbayListingModal({
                 )}
               </div>
 
+              {advOpen && (<>
               {/* 値下げ交渉（Best Offer）の自動対応 */}
               <div className="rounded-xl border border-[#A98B5C]/35 p-2.5">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -951,6 +969,7 @@ export default function EbayListingModal({
                   </div>
                 );
               })()}
+              </>)}
 
               {/* 海外出品の不安をやわらげる一言 */}
               <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-[#A98B5C]/25 rounded-lg px-3 py-2 leading-relaxed">
