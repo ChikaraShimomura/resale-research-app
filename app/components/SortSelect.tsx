@@ -12,7 +12,9 @@ const buyCost = (p: ProfitProduct) => (p.source.price ?? 0) + (p.source.shipping
 // 「利益率だけ高くて売れない/高額すぎ/競合だらけ」を自動で下げ、バランスの良い案件を上位に出す。
 function recoScore(p: ProfitProduct): number {
   const rate = Math.max(0, Math.min(100, p.realProfitRate ?? 0));        // 利幅(0-100%にクランプ)
-  const demand = Math.log2(1 + Math.min(p.realCount ?? 1, 30));          // 流動性(同等出品数。逓減)
+  // 実需＝eBay直近落札数(soldCount30d)を最優先、無ければ流動性(realCount=同等出品数)で代替。逓減。
+  // max を取るので「実際に売れている品」だけ加点され、データ無しの品が下がることはない（単調・安全）。
+  const demand = Math.log2(1 + Math.min(Math.max(p.soldCount30d ?? 0, p.realCount ?? 1), 30));
   const cost = buyCost(p) - (p.source.pointAmount ?? 0);                 // 実質の出費
   const afford = Math.max(0.5, Math.min(1.2, 1.2 - cost / 50000));       // 手頃さ(高額は微減/安価は微増)
   const rivalry = 1 + (p.listingCount ?? 0);                            // ライバル数で割る
@@ -30,8 +32,14 @@ export function sortProducts(products: ProfitProduct[], order: SortOrder): Profi
       return [...products].sort((a, b) => profitAmount(b) - profitAmount(a));
     case "cheap": // 仕入れが安い順（送料込・少額から始めやすい）
       return [...products].sort((a, b) => buyCost(a) - buyCost(b));
-    case "demand": // 需要(売れやすさ)順＝eBay同等出品数の多い順
-      return [...products].sort((a, b) => (b.realCount ?? 0) - (a.realCount ?? 0));
+    case "demand": // 売れやすい順＝eBay直近落札数(soldCount30d＝実需の最有力シグナル)が多い順。
+      // 同数(0含む)は流動性(realCount)→利益率で安定させる。realCount単独は「相場参照の出品数」で実売速度ではないため主軸にしない。
+      return [...products].sort(
+        (a, b) =>
+          (b.soldCount30d ?? 0) - (a.soldCount30d ?? 0) ||
+          (b.realCount ?? 0) - (a.realCount ?? 0) ||
+          (b.realProfitRate ?? 0) - (a.realProfitRate ?? 0),
+      );
     case "rival": // ライバルの少ない順（eBay自動出品が押された回数の少ない順）
       return [...products].sort((a, b) => (a.listingCount ?? 0) - (b.listingCount ?? 0));
     default: // 新着順（登録順）
