@@ -59,7 +59,10 @@ export default function ListingHelper({ product, autoOpen = false, defaultListed
   };
 
   // 出品済み：行き止まりにせず「出品管理(/listings)」へ飛べるリンクにする。
-  if (listed) {
+  // ⚠️ モーダルが開いている間(出品中→完了画面表示中)は早期returnしない。出品成功時に
+  //    setPhase('done') と同バッチで onListed→setListed(true) が走るため、早期returnすると
+  //    モーダルごとunmountされ「出品完了」画面が一瞬で消える。閉じてから出品済み表示へ。
+  if (listed && !open) {
     return (
       <div className="flex-1">
         <a

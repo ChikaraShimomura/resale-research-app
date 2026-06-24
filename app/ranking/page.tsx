@@ -128,21 +128,27 @@ export default async function RankingPage({
                       {i + 1}
                     </span>
                     <div className={`flex items-center gap-3 flex-1 min-w-0 ${locked ? "blur-[5px] select-none" : ""}`} aria-hidden={locked || undefined}>
-                      {p.imageUrl ? (
+                      {p.imageUrl && !locked ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={p.imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
                       ) : (
+                        // ロック(Top5)は実画像URLもHTMLに出さない（漏洩対策）。
                         <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{locked ? "商品名はプランで解放" : p.title}</p>
                         <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                          仕入れ {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                          {/* ロック(Top5)は実値をHTMLに出さない＝CSSぼかしだけだとソース/curlで漏れるため(漏洩対策)。 */}
+                          {locked ? (
+                            <>仕入れ <span className="text-gray-400">●●●</span> <span className="text-gray-300">→</span> eBay想定 <span className="text-gray-400">●●●</span></>
+                          ) : (
+                            <>仕入れ {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span></>
+                          )}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
-                          <Flame size={13} />{p.realProfitRate}%
+                          <Flame size={13} />{locked ? "●●" : `${p.realProfitRate}%`}
                         </span>
                         <p className="text-[9px] text-gray-400">利益率</p>
                       </div>

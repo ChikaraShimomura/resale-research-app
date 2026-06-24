@@ -17,9 +17,10 @@ export async function GET(request: Request) {
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
   // オープンリダイレクト防止: next は同一オリジンの相対パス(先頭が単一スラッシュ)のみ許可。
-  // "//evil.com" や "https://evil.com" 等の外部/プロトコル相対は既定(/search)へフォールバック。
+  // "//evil.com"・"https://evil.com"・"/\evil.com"(WHATWG URLが\を/へ正規化して外部に飛ぶ)を弾く。
+  // ※ actions.ts の safeNext と同一判定に統一（片方だけ直すと再発するため）。
   const rawNext = url.searchParams.get("next") ?? "/search";
-  const next = /^\/(?!\/)/.test(rawNext) ? rawNext : "/search";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/search";
 
   const supabase = await createSupabaseServerClient();
   let ok = false;
