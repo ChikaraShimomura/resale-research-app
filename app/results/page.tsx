@@ -83,21 +83,15 @@ function ResultsContent() {
   }, [allProducts, keyword]);
 
   const sorted = useMemo(() => {
-    // 自分が出品済みの商品は本人の検索結果から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
-    // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
-    // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
-    const visible = filtered.filter((p) => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
-    const arr = sortProducts(visible, sortOrder);
-    // 自分がeBayで売れた商品(soldIds)は最下部へ沈める（並び順は維持）。0件ならそのまま。
-    let ordered: ProfitProduct[];
-    if (soldIds.size === 0) {
-      ordered = arr;
-    } else {
-      const live = arr.filter((p) => !soldIds.has(p.id));
-      const sold = arr.filter((p) => soldIds.has(p.id));
-      ordered = [...live, ...sold];
-    }
-    // 運営が手動復活した商品(restored)だけ先頭に固定（楽天仕入れ押下の先頭固定は廃止）。売却済みは除外。
+    // 出品済みは「非表示」にせず、出品済みと分かるマーク付きで表示する（末尾に回す）。restored(運営手動復活)はマーク対象外。
+    const isListed = (p: ProfitProduct) => !p.restored && (listedIds.has(p.id) || accountListedIds.has(p.id));
+    const arr = sortProducts(filtered, sortOrder);
+    // 最下部へ沈める順：新着(fresh) → 出品済み(listed) → 売却済み(sold)。並び順は各群で維持。
+    const fresh = arr.filter((p) => !soldIds.has(p.id) && !isListed(p));
+    const listedArr = arr.filter((p) => !soldIds.has(p.id) && isListed(p));
+    const sold = arr.filter((p) => soldIds.has(p.id));
+    const ordered = [...fresh, ...listedArr, ...sold];
+    // 運営が手動復活した商品(restored)だけ先頭に固定。売却済みは除外。
     return pinRestoredFirst(ordered, soldIds);
   }, [filtered, sortOrder, soldIds, listedIds, accountListedIds]);
 
@@ -240,7 +234,7 @@ function ResultsContent() {
           <>
             <div className="flex flex-col gap-3 p-3">
               {pageItems.map((product) => (
-                <ProductCard key={product.id} product={product} ebaySold={soldIds.has(product.id)} />
+                <ProductCard key={product.id} product={product} ebaySold={soldIds.has(product.id)} listed={!product.restored && (listedIds.has(product.id) || accountListedIds.has(product.id))} />
               ))}
             </div>
             <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />

@@ -61,13 +61,14 @@ export default function SearchPage() {
     ? `${new Date(lastUpdated).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 更新`
     : null;
 
-  // 自分が出品済みの商品は本人の一覧から除外（出品＝「出品中一覧」へ移す）。SOLD除外の有無に関わらず常に隠す。
-  // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出品したものも隠れる。
-  // ただし運営が手動復活した商品(restored)は、出品記録が残っていても常に表示する（復活の目的が表示なので除外しない）。
-  const visible = products.filter(p => p.restored || (!listedIds.has(p.id) && !accountListedIds.has(p.id)));
+  // 出品済みは「非表示」にせず、出品済みと分かるマーク付きで表示する（末尾に回して新しい利益商品を上に残す）。
+  // 端末(listedIds)＋アカウント(accountListedIds)の両方で判定＝別端末で出した分も対象。restored(運営手動復活)はマーク対象外＝常に通常表示。
+  const isListed = (p: ProfitProduct) => !p.restored && (listedIds.has(p.id) || accountListedIds.has(p.id));
+  const visible = products;
   const hotCount = visible.filter(p => p.realProfitRate >= 30).length;
-  // 運営が手動復活した商品(restored)だけ先頭に固定（楽天仕入れ押下の先頭固定は廃止）。
-  const sortedProducts = pinRestoredFirst(sortProducts(visible, sortOrder));
+  // restoredを先頭固定→sortOrderで並べ、出品済みだけ末尾へ安定移動。
+  const ordered = pinRestoredFirst(sortProducts(visible, sortOrder));
+  const sortedProducts = [...ordered.filter(p => !isListed(p)), ...ordered.filter(p => isListed(p))];
   const visibleCount = visible.length;
 
   // ページネーション（30件/ページ）。並び替え・フィルタ変更時は1ページ目に戻す
@@ -195,7 +196,7 @@ export default function SearchPage() {
             <>
               <div className="flex flex-col gap-3 p-3">
                 {pageItems.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} listed={isListed(product)} />
                 ))}
               </div>
               <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />

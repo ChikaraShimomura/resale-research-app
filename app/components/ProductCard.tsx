@@ -67,7 +67,7 @@ function TrustBadge({ count }: { count: number }) {
   );
 }
 
-export default function ProductCard({ product, ebaySold = false, autoOpenListing = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean }) {
+export default function ProductCard({ product, ebaySold = false, autoOpenListing = false, listed = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean; listed?: boolean }) {
   const { source } = product;
   // 仕入れボタン/画像リンクは楽天の直リンク（非アフィリエイト）。アフィリ中継が混ざっていても剥がして直URLにする。
   const sourceUrl = toRakutenProductUrl(source.url);
@@ -139,8 +139,15 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         </div>
       )}
 
+      {/* 出品済み：非表示にせず「出品済み」と分かる帯を出す（出品管理で確認できる）。eBay売却済み帯が優先。 */}
+      {listed && !ebaySold && (
+        <div className="bg-[#2D323B]/5 border-b border-[#A98B5C]/25 px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#2D323B]">
+          <BadgeCheck size={13} /> 出品済み — 出品管理で確認できます
+        </div>
+      )}
+
       {/* HOT グラデーションライン */}
-      {isHot && !ebaySold && (
+      {isHot && !ebaySold && !listed && (
         <div className="h-1 bg-gradient-to-r from-[#2D323B] to-[#A98B5C]" />
       )}
 
@@ -319,7 +326,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
         {/* 主要CTA — eBay自動出品 / 楽天で仕入れる を横並び（flex-1で等幅・位置を入れ替え済み） */}
         <div className="flex gap-2.5">
-          <ListingHelper product={product} autoOpen={autoOpenListing} />
+          <ListingHelper product={product} autoOpen={autoOpenListing} defaultListed={listed} />
           {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
