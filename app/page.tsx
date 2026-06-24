@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Camera, Banknote } from "lucide-react";
+import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Tag, Banknote } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import GuideVideo from "./components/GuideVideo";
@@ -94,20 +94,17 @@ function LandingPage() {
           <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
           <h2 className="text-sm font-black text-gray-800">どんなサイト？ 3ステップで</h2>
         </div>
-        <ol className="space-y-2.5">
+        <ol className="grid grid-cols-3 gap-2">
           {[
-            { n: 1, Icon: Search, t: "利益商品が毎日みつかる", d: "楽天で安く買えて eBay で高く売れる商品を、ツールが手取りベースの利益つきで提示。探す手間ゼロ。" },
-            { n: 2, Icon: Camera, t: "写真だけで eBay 出品", d: "英語のタイトルも自動。在庫を持たずに出品できる（＝在庫ゼロ）。" },
-            { n: 3, Icon: Banknote, t: "売れたら仕入れて発送", d: "注文が入ってから楽天で仕入れ→郵便局から発送。売上は Payoneer で受け取り。" },
+            { n: 1, Icon: Search, t: "利益商品が見つかる", d: "楽天で安く→eBayで高く。ツールが毎日提示" },
+            { n: 2, Icon: Tag, t: "eBayに出品", d: "英語も自動。在庫を持たずに出せる" },
+            { n: 3, Icon: Banknote, t: "売れたら発送", d: "注文後に仕入れ→発送。Payoneerで受取" },
           ].map(({ n, Icon, t, d }) => (
-            <li key={n} className="flex items-start gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
-              <span className="shrink-0 w-9 h-9 rounded-full bg-[#2D323B] text-white font-black text-sm flex items-center justify-center">{n}</span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-black text-gray-800 flex items-center gap-1.5">
-                  <Icon size={15} className="text-[#A98B5C]" />{t}
-                </p>
-                <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">{d}</p>
-              </div>
+            <li key={n} className="flex flex-col items-center text-center bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+              <span className="w-8 h-8 rounded-full bg-[#2D323B] text-white font-black text-[13px] flex items-center justify-center mb-1.5">{n}</span>
+              <Icon size={16} className="text-[#A98B5C] mb-1" />
+              <p className="text-[12px] font-black text-gray-800 leading-tight">{t}</p>
+              <p className="text-[10px] text-gray-500 leading-snug mt-1">{d}</p>
             </li>
           ))}
         </ol>
