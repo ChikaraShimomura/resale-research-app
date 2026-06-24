@@ -452,6 +452,7 @@ export default function EbayListingModal({
   const canFreeShip = !!freePolicy;
   const shipFoldUsd = freeShip && canFreeShip ? Number(recoChoice?.costUsd || 0) : 0; // 価格に上乗せする送料
   const listedPriceUsd = Number(priceUsd || 0) + shipFoldUsd; // eBayに実際に出る価格
+  const paidShipUsd = Number(recoChoice?.costUsd || 0); // 送料別のとき買い手に別途請求する送料(表示用)
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
   const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
@@ -465,9 +466,6 @@ export default function EbayListingModal({
     if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
     if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安出品（損益分岐は割らない）
   };
-  // 入力USD価格の日本円めやす（為替は固定155円＝アプリの換算と一致）。
-  const priceJpy = Number(priceUsd) > 0 ? Math.round(Number(priceUsd) * USD_JPY) : 0;
-
   const overlay = (
     <div
       role="dialog"
@@ -772,7 +770,7 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">販売価格（USD）<ReqBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">本体価格（USD・商品代）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">$</span>
                   <input
@@ -783,12 +781,10 @@ export default function EbayListingModal({
                     className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                   />
                 </div>
-                {priceJpy > 0 && (
-                  <p className="text-[12px] text-[#2D323B] font-bold mt-1">≒ {formatJpy(priceJpy)}（日本円のめやす）</p>
-                )}
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
 
-                {/* 送料の出し方：送料込み(送料無料表示)か 送料別(購入者負担)。送料込みは価格に送料を上乗せして「送料無料」で出す＝総額が同じでも検索(総額順)・バイヤー心理で有利。 */}
+                {/* 送料の出し方：送料込み(価格に送料を上乗せ＝送料無料表示)か 送料別(購入者が送料を別途負担)。
+                    買い手の総額は同じでも eBayに出る「掲載価格」が変わる＝下の結果行が切替で必ず動く。 */}
                 <div className="mt-2 rounded-xl border border-[#A98B5C]/30 bg-[#F8F9FB] p-2.5">
                   <p className="text-[11px] font-bold text-gray-600 mb-1.5">送料の出し方</p>
                   <label className={`flex items-start gap-2 mb-1.5 ${canFreeShip ? "" : "opacity-60"}`}>
@@ -803,10 +799,19 @@ export default function EbayListingModal({
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={!freeShip || !canFreeShip} onChange={() => setFreeShip(false)} />
                     <span className="text-[12px] leading-snug"><b>送料別（購入者が送料を払う）</b><span className="text-gray-500"> — 本体価格＋送料を別に請求</span></span>
                   </label>
-                  {freeShip && canFreeShip && shipFoldUsd > 0 && (
-                    <p className="text-[11px] text-[#2D323B] font-bold mt-1.5">
-                      → eBay表示価格 ${listedPriceUsd.toFixed(2)}（本体 ${Number(priceUsd || 0).toFixed(2)} ＋ 送料 ${shipFoldUsd.toFixed(2)}）・送料無料
-                    </p>
+                  {/* どちらのモードでも「eBay掲載価格」を常に表示＝切替で数字が動く。買い手の総額は両モード同じ。 */}
+                  {Number(priceUsd) > 0 && (
+                    freeShip && canFreeShip ? (
+                      <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
+                        → eBay掲載価格 <b>${listedPriceUsd.toFixed(2)}</b>（≒{formatJpy(Math.round(listedPriceUsd * USD_JPY))}）・<b>送料無料</b>
+                        <span className="block text-[10px] font-normal text-gray-500">本体 ${Number(priceUsd).toFixed(2)} ＋ 送料 ${shipFoldUsd.toFixed(2)} を価格に込み（買い手の総額は送料別と同じ）</span>
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
+                        → eBay掲載価格 <b>${Number(priceUsd).toFixed(2)}</b>（≒{formatJpy(Math.round(Number(priceUsd) * USD_JPY))}）＋ 送料 ${paidShipUsd.toFixed(2)} を別途請求
+                        <span className="block text-[10px] font-normal text-gray-500">買い手の総額 ≒ ${(Number(priceUsd) + paidShipUsd).toFixed(2)}（送料込みと同じ）</span>
+                      </p>
+                    )
                   )}
                 </div>
 
