@@ -7,7 +7,7 @@ import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; archivedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -17,14 +17,6 @@ const shortDate = (iso: string) => {
   const m = d.slice(5, 7), day = d.slice(8, 10);
   return m && day ? `${Number(m)}/${Number(day)}` : "";
 };
-// 出品停止中の自動削除（停止から24時間）までの残り時間（時間単位・切り上げ）。不正な日時は null。
-const hoursToAutoDelete = (stoppedAt?: string) => {
-  if (!stoppedAt) return null;
-  const ms = 24 * 60 * 60 * 1000 - (Date.now() - Date.parse(stoppedAt));
-  if (!Number.isFinite(ms)) return null;
-  return Math.max(0, Math.ceil(ms / (60 * 60 * 1000)));
-};
-
 function Thumb({ url }: { url: string }) {
   if (url) return <img src={url} alt="" loading="lazy" className="w-9 h-9 rounded-md object-cover bg-gray-50 border border-[#A98B5C]/25 shrink-0" />;
   return (
@@ -58,9 +50,11 @@ export type ListingSection = "live" | "stopped" | "sold";
 export default function MyListings({ onChanged, show = ["live", "stopped", "sold"] }: { onChanged?: () => void; show?: ListingSection[] }) {
   const [live, setLive] = useState<LiveDeal[] | null>(null);
   const [stopped, setStopped] = useState<LiveDeal[] | null>(null);
+  const [archived, setArchived] = useState<LiveDeal[]>([]); // 過去の出品（停止24h超でアーカイブ＝既定で隠す。再出品で復帰）
   const [sold, setSold] = useState<SoldDeal[] | null>(null);
   const [openLive, setOpenLive] = useState(show.includes("live"));
   const [openStopped, setOpenStopped] = useState(false);
+  const [openArchived, setOpenArchived] = useState(false); // 過去の出品（アーカイブ）は既定で折りたたみ
   const [openSold, setOpenSold] = useState(show.includes("sold"));
   const [busy, setBusy] = useState<string | null>(null);
   const [soldFor, setSoldFor] = useState<string | null>(null); // 売れた金額を入力中の商品
@@ -92,8 +86,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const load = () =>
     fetch("/api/ebay/deals", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setSold(j.ok ? j.sold : []); setPlanInfo(j.ok ? (j.planInfo ?? null) : null); })
-      .catch(() => { setLive([]); setStopped([]); setSold([]); });
+      .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setArchived(j.ok ? (j.archived ?? []) : []); setSold(j.ok ? j.sold : []); setPlanInfo(j.ok ? (j.planInfo ?? null) : null); })
+      .catch(() => { setLive([]); setStopped([]); setArchived([]); setSold([]); });
   useEffect(() => { load(); }, []);
   // 現テンプレ版で「最適化済み」の出品を取得（ボタンのグレーアウト/「最適化済み」表示に使う）。
   useEffect(() => {
@@ -380,7 +374,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         </div>
                       ) : (
                       /* 出品中の操作は2×2に最適化：追加仕入れ／出品停止・売れた／商品の編集。
-                         再出品は出品中では不要(=既に出品中)・「やめた」は出品停止＋24h自動削除に集約して整理。 */
+                         再出品は出品中では不要(=既に出品中)・「やめた」は出品停止に集約して整理（停止品は記録を残したまま後で「過去の出品」へ）。 */
                       <div className="grid grid-cols-2 gap-1.5">
                         {/* 追加仕入れ：楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
                             sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
@@ -450,7 +444,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              「出品停止」したeBay出品。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。⏳ <b className="text-gray-600">停止から24時間でこの一覧から自動削除</b>（記録も外れます）。残すなら早めに再出品を。
+              「出品停止」したeBay出品。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。停止のまま少し経つと「過去の出品」へ静かに移動します（<b className="text-gray-600">記録は残ります</b>・いつでも再出品OK）。
             </p>
             <ul className="divide-y divide-gray-100">
               {stopped.map((d) => (
@@ -463,9 +457,6 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                           {shortDate(d.stoppedAt || "") && `${shortDate(d.stoppedAt || "")} 停止・`}仕入れ {yen(d.purchase)}
                         </p>
-                        {hoursToAutoDelete(d.stoppedAt) !== null && (
-                          <p className="text-[10px] text-gray-400 leading-tight mt-0.5">⏳ あと約{hoursToAutoDelete(d.stoppedAt)}時間で自動削除</p>
-                        )}
                         {d.sourceStatus && (
                           <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
                             ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
@@ -473,30 +464,83 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap pl-11">
+                    {/* 主CTA＝再出品（全幅・44px）。停止中の次の一手は「またeBayに出す」なので最優先に。
+                        削除は記録ごと消える破壊的操作なので、控えめなテキストリンクへ降格。 */}
+                    <div className="space-y-1.5">
                       <button
                         disabled={relistBusy === d.id}
                         onClick={() => relist(d.id)}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[10px] font-bold disabled:opacity-40 active:scale-[0.99]"
+                        className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[12px] font-bold disabled:opacity-40 active:scale-[0.99]"
                       >
-                        {relistBusy === d.id ? <><Spinner size={12} /> 準備中…</> : <><RotateCw size={12} /> 再出品</>}
+                        {relistBusy === d.id ? <><Spinner size={13} /> 準備中…</> : <><RotateCw size={14} /> もう一度出品する</>}
                       </button>
-                      <button
-                        disabled={busy === d.id}
-                        onClick={() => { if (window.confirm("この商品を一覧から削除しますか？（成績からも外れます）")) act(d.id, "remove"); }}
-                        className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold disabled:opacity-40"
-                      >
-                        {busy === d.id && <Spinner size={11} />} 削除
-                      </button>
+                      <div className="flex justify-end">
+                        <button
+                          disabled={busy === d.id}
+                          onClick={() => { if (window.confirm("この商品を完全に削除しますか？（記録・成績からも外れます。元に戻せません）")) act(d.id, "remove"); }}
+                          className="inline-flex items-center gap-1 h-8 px-2 text-[10px] text-gray-400 font-bold disabled:opacity-40 active:text-gray-600"
+                        >
+                          {busy === d.id && <Spinner size={11} />} 記録ごと削除
+                        </button>
+                      </div>
                     </div>
                     {/* 削除失敗時は無言にせず行内に赤文字で理由を出す。 */}
-                    {actErr[d.id] && <p className="text-[10px] text-red-600 leading-tight pl-11">{actErr[d.id]}</p>}
+                    {actErr[d.id] && <p className="text-[10px] text-red-600 leading-tight">{actErr[d.id]}</p>}
                   </div>
                 </li>
               ))}
             </ul>
           </>
         )}
+      </Section>
+      )}
+
+      {/* 過去の出品（アーカイブ）：停止のまま24時間を過ぎて既定の停止中一覧から外した分。
+          レコード・成績は保持＝いつでも「再出品」で復帰できる。クリーンに保つため、ある時だけ・既定は折りたたみで表示。 */}
+      {show.includes("stopped") && archived.length > 0 && (
+      <Section title="過去の出品" count={archived.length} open={openArchived} onToggle={() => setOpenArchived((v) => !v)}>
+        <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+          少し前に停止した出品をここに保管しています（記録は残ったまま）。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。
+        </p>
+        <ul className="divide-y divide-gray-100">
+          {archived.map((d) => (
+            <li key={d.id} className="py-1.5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Thumb url={d.imageUrl} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                    <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
+                      {shortDate(d.archivedAt || d.stoppedAt || "") && `${shortDate(d.archivedAt || d.stoppedAt || "")} 保管・`}仕入れ {yen(d.purchase)}
+                    </p>
+                    {d.sourceStatus && (
+                      <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
+                        ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  disabled={relistBusy === d.id}
+                  onClick={() => relist(d.id)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[12px] font-bold disabled:opacity-40 active:scale-[0.99]"
+                >
+                  {relistBusy === d.id ? <><Spinner size={13} /> 準備中…</> : <><RotateCw size={14} /> もう一度出品する</>}
+                </button>
+                <div className="flex justify-end">
+                  <button
+                    disabled={busy === d.id}
+                    onClick={() => { if (window.confirm("この商品を完全に削除しますか？（記録・成績からも外れます。元に戻せません）")) act(d.id, "remove"); }}
+                    className="inline-flex items-center gap-1 h-8 px-2 text-[10px] text-gray-400 font-bold disabled:opacity-40 active:text-gray-600"
+                  >
+                    {busy === d.id && <Spinner size={11} />} 記録ごと削除
+                  </button>
+                </div>
+              </div>
+              {actErr[d.id] && <p className="text-[10px] text-red-600 leading-tight">{actErr[d.id]}</p>}
+            </li>
+          ))}
+        </ul>
       </Section>
       )}
 

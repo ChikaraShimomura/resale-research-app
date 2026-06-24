@@ -15,8 +15,8 @@ const SOLD_TTL = 180 * 24 * 60 * 60; // sold/route.ts と一致（最終更新�
 // GET: 出品中（未売却）／出品停止中／輸出した（売却済み）の取引一覧。
 export async function GET() {
   const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false, live: [], stopped: [], sold: [] });
-  const { live, stopped, sold } = await listDealsForUser(actor);
+  if (!actor) return Response.json({ ok: false, live: [], stopped: [], archived: [], sold: [] });
+  const { live, stopped, archived, sold } = await listDealsForUser(actor);
   // プラン上限情報（出品管理画面の上限ナッジ用）。PAYWALL有効＆無制限でない時だけ limit を返す。
   const plan = await getPlan();
   const limit = PLANS[plan].listingLimit;
@@ -26,7 +26,7 @@ export async function GET() {
     limit: PAYWALL_ENABLED && !isUnlimited(plan) && Number.isFinite(limit) ? limit : null,
     liveCount: live.length,
   };
-  return Response.json({ ok: true, live, stopped, sold, planInfo }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ ok: true, live, stopped, archived, sold, planInfo }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 // POST: { action: "remove" | "sold", productId, soldJpy? }

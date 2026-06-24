@@ -12,7 +12,9 @@ const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
 // SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。
 const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 const TTL_SECONDS = 730 * 24 * 60 * 60; // 取引履歴は2年保持（出品/出荷の都度 expire を再延長）
-const STOPPED_TTL_MS = 24 * 60 * 60 * 1000; // 出品停止中に入ってから24時間で自動削除（一覧・記録から消す）
+// 出品停止中に入ってから24時間で「アーカイブ（既定で隠す）」へ移す。レコード・成績は消さない（2年保持のまま）。
+// 完全削除はユーザーの手動操作(removeDeal / deleteDealsWithSku)だけ。旧名 STOPPED_TTL_MS のまま意味を「自動削除→自動アーカイブ」に変更。
+const STOPPED_TTL_MS = 24 * 60 * 60 * 1000;
 
 // 満了(SOLD)枠＝1商品を同時出品中の出品者(actor)集合。publish が acquire、出品停止/やめた/売却で必ず release する。
 // メンバーは台帳(ebay_deals:{actor})と同じ actor に統一（旧実装は端末did基準で、複数端末の多重消費＋解放不能＝枠が
@@ -53,6 +55,7 @@ export interface Deal {
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
   stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
+  archivedAt?: string; // 出品停止のまま24時間を過ぎて「過去の出品(アーカイブ)」へ移した日時(ISO)。既定の出品停止中一覧からは外すがレコード/成績は残す。再出品で解除。完全削除は手動のみ。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
   sourceCheckedAt?: string; // 仕入れ元の最終確認日時(ISO)
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の現在価格が出品時原価を閾値以上上回った時に立つ（checkListings cron）
@@ -76,16 +79,18 @@ export async function recordListed(
     } else if (
       (d.listingId && existing.listingId !== d.listingId) ||
       (d.sku && existing.sku !== d.sku) ||
-      existing.stoppedAt != null
+      existing.stoppedAt != null ||
+      existing.archivedAt != null
     ) {
       // 再出品/自己修復で公開ID・SKUが変わった/初めて取れた時だけ更新（金額・出品日・売却情報は維持）。
-      // recordListed は公開成功時のみ呼ばれる＝再び出品中なので、停止フラグ(stoppedAt)は解除する。
+      // recordListed は公開成功時のみ呼ばれる＝再び出品中なので、停止フラグ(stoppedAt)とアーカイブ(archivedAt)は解除する。
       const next: Deal = {
         ...existing,
         ...(d.listingId ? { listingId: d.listingId } : {}),
         ...(d.sku ? { sku: d.sku } : {}),
       };
       delete next.stoppedAt;
+      delete next.archivedAt;
       await kv.hset(DEALS_KEY(actor), { [productId]: next });
     }
     await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
@@ -125,6 +130,7 @@ export interface LiveDeal {
   sourceUrl?: string; // 楽天の商品ページ直URL（「仕入れ」ボタン）。無い旧deal/失効商品では undefined→商品名検索にフォールバック
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
+  archivedAt?: string; // 「過去の出品(アーカイブ)」一覧の項目に付くアーカイブ日時。出品中/停止中では undefined。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の値上がり警告（出品時原価を閾値超過）
   stopFailedCount?: number; // 自動取り下げが繰り返し失敗（一定超で「手動でeBayから取り下げを」と表示）
@@ -139,17 +145,48 @@ export interface SoldDeal {
   purchase: number; // 楽天仕入れ(送料込・JPY)
 }
 
-// 出品停止中(未売却・stoppedAtあり)で、停止から24時間を過ぎた取引のID（自動削除の対象）。
-// stoppedAt が不正・空のものは NaN 比較で false → 絶対に消さない（安全側）。
+// 出品停止中(未売却・stoppedAtあり)で、停止から24時間を過ぎ、まだアーカイブされていない取引のID
+// （自動アーカイブの対象）。stoppedAt が不正・空のものは NaN 比較で false → 触らない（安全側）。
+// ⚠️ 自動削除はしない：レコード・成績は残し、既定の出品停止中一覧から外すだけ（archivedAt を立てる）。
 function expiredStopIds(deals: Record<string, Deal>, now: number): string[] {
   return Object.entries(deals)
-    .filter(([, d]) => d && d.soldUsd == null && d.stoppedAt != null && now - Date.parse(d.stoppedAt) >= STOPPED_TTL_MS)
+    .filter(
+      ([, d]) =>
+        d &&
+        d.soldUsd == null &&
+        d.stoppedAt != null &&
+        d.archivedAt == null &&
+        now - Date.parse(d.stoppedAt) >= STOPPED_TTL_MS
+    )
     .map(([id]) => id);
 }
 
-// 取引を完全削除する（deals本体＋SKU対応表の該当エントリ）。SKU対応表を残すと publishedFilter が
-// 「出品中」と誤認し、その商品が検索一覧から消えたままになるため、値=productId のSKUキーも必ず消す
-// （自己修復で rr-{id}-{乱数} になっていても値で拾えるので取りこぼさない）。
+// 古い停止品を「アーカイブ（既定で隠す）」へ移す＝archivedAt を立てるだけ。レコード/SKU対応表/成績は一切消さない。
+// 完全削除はユーザーの手動操作(removeDeal / deleteDealsWithSku)だけ。停止品は isPublished=false のはずなので
+// SKU対応表は触らない（publishedFilter を壊さない）。archive 済みは stoppedAt のままなので listListedProductIds /
+// getStats の「停止中(未売却)」分類はそのまま効く＝検索一覧に出ず、出品中件数にも入らない（互換維持）。
+async function archiveDeals(actor: string, deals: Record<string, Deal>, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const now = new Date().toISOString();
+  const patch: Record<string, Deal> = {};
+  for (const id of ids) {
+    const d = deals[id];
+    if (d) patch[id] = { ...d, archivedAt: now };
+  }
+  if (!Object.keys(patch).length) return;
+  try {
+    await kv.hset(DEALS_KEY(actor), patch);
+    await kv.expire(DEALS_KEY(actor), TTL_SECONDS); // 2年保持を再延長（消さずに保持し続ける）
+    for (const id of ids) if (deals[id]) deals[id] = patch[id]; // 呼び出し元のローカルコピーも同期
+  } catch {
+    /* noop（次回リトライ） */
+  }
+}
+
+// 取引を完全削除する（deals本体＋SKU対応表の該当エントリ）。⚠️ ユーザーの手動操作専用
+// （「やめた／削除」＝removeDeal 経由）。自動処理(cron/read)は削除せずアーカイブ(archiveDeals)に置換済み。
+// SKU対応表を残すと publishedFilter が「出品中」と誤認し、その商品が検索一覧から消えたままになるため、
+// 値=productId のSKUキーも必ず消す（自己修復で rr-{id}-{乱数} になっていても値で拾えるので取りこぼさない）。
 export async function deleteDealsWithSku(actor: string, ids: string[]): Promise<void> {
   if (!ids.length) return;
   const idSet = new Set(ids);
@@ -169,8 +206,9 @@ export async function deleteDealsWithSku(actor: string, ids: string[]): Promise<
   }
 }
 
-// cron用：出品停止中に入って24時間を過ぎた取引をまとめて自動削除する。削除したIDを返す。
-// 離席中でも auto-stop-cron(15分毎) から呼ばれ、ユーザーがマイページを開かなくても掃除される。
+// cron用：出品停止中に入って24時間を過ぎた取引をまとめて「アーカイブ（既定で隠す）」へ移す。アーカイブしたIDを返す。
+// ⚠️ 完全削除はしない（レコード・成績・再出品候補は保持）。離席中でも auto-stop-cron から呼ばれ、ユーザーが
+// マイページを開かなくても既定の出品停止中一覧から外れる。関数名は呼び出し互換のため据え置き（旧名 prune＝掃除の意味）。
 export async function pruneExpiredStops(actor: string): Promise<string[]> {
   let deals: Record<string, Deal> = {};
   try {
@@ -179,7 +217,7 @@ export async function pruneExpiredStops(actor: string): Promise<string[]> {
     return [];
   }
   const ids = expiredStopIds(deals, Date.now());
-  await deleteDealsWithSku(actor, ids);
+  await archiveDeals(actor, deals, ids);
   return ids;
 }
 
@@ -187,24 +225,26 @@ export async function pruneExpiredStops(actor: string): Promise<string[]> {
 // deals ハッシュ1回・SKU対応表1回・画像補完カタログ1回で両方を組み立てる。
 export async function listDealsForUser(
   actor: string
-): Promise<{ live: LiveDeal[]; stopped: LiveDeal[]; sold: SoldDeal[] }> {
+): Promise<{ live: LiveDeal[]; stopped: LiveDeal[]; archived: LiveDeal[]; sold: SoldDeal[] }> {
   let deals: Record<string, Deal> = {};
   try {
     deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {};
   } catch {
-    return { live: [], stopped: [], sold: [] };
+    return { live: [], stopped: [], archived: [], sold: [] };
   }
-  // 出品停止中に入って24時間を過ぎた取引は自動削除（読み込み時にも掃除＝cronが回らない間も即座に消える）。
+  // 出品停止中に入って24時間を過ぎた取引は「アーカイブ（既定で隠す）」へ移す（読み込み時にも実行＝cronが回らない間も反映）。
+  // ⚠️ 完全削除はしない＝レコード・成績・再出品候補は保持。完全削除はユーザーの手動操作(removeDeal)だけ。
   const expiredStops = expiredStopIds(deals, Date.now());
   if (expiredStops.length) {
-    await deleteDealsWithSku(actor, expiredStops);
-    for (const id of expiredStops) delete deals[id];
+    await archiveDeals(actor, deals, expiredStops); // deals のローカルコピーも archivedAt 付きに同期される
   }
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
   const soldEntries = entries.filter(([, d]) => d.soldUsd != null); // 売却済み（実取引なので全部有効）
-  // 出品停止中＝未売却 かつ stoppedAt あり（出品中より優先して分類）。
-  const stoppedEntries = entries.filter(([, d]) => d.soldUsd == null && d.stoppedAt != null);
+  // 出品停止中＝未売却 かつ stoppedAt あり かつ まだアーカイブされていない（出品中より優先して分類）。
+  const stoppedEntries = entries.filter(([, d]) => d.soldUsd == null && d.stoppedAt != null && d.archivedAt == null);
+  // アーカイブ＝未売却 かつ archivedAt あり（既定の出品停止中一覧からは外し「過去の出品」へ。再出品で復帰可）。
+  const archivedEntries = entries.filter(([, d]) => d.soldUsd == null && d.archivedAt != null);
   // 出品中＝未売却 かつ 停止していない かつ 公開済み。
   const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id));
 
@@ -212,10 +252,10 @@ export async function listDealsForUser(
   // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
   // 外れても出品中/販売した一覧の表示が欠けないようにする。新規dealは出品時に保存済みで対象外）。
   const catInfo: Record<string, { imageUrl?: string; title?: string; sourceUrl?: string }> = {};
-  // 出品中/停止中は「仕入れ」ボタン用に楽天URL(sourceUrl)も要る（売却済みは不要なのでトリガに含めない）。
+  // 出品中/停止中/アーカイブは「仕入れ」ボタン用に楽天URL(sourceUrl)も要る（売却済みは不要なのでトリガに含めない）。
   const needBackfill =
-    [...liveEntries, ...stoppedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title) ||
-    [...liveEntries, ...stoppedEntries].some(([, d]) => !d.sourceUrl);
+    [...liveEntries, ...stoppedEntries, ...archivedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title) ||
+    [...liveEntries, ...stoppedEntries, ...archivedEntries].some(([, d]) => !d.sourceUrl);
   if (needBackfill) {
     try {
       const products =
@@ -228,7 +268,7 @@ export async function listDealsForUser(
     }
     // カタログから外れた(rotate out)出品は psnap:{id} アーカイブ(2年保持・getProductById と同じ源)から補完する。
     // 失効済みの出品でも仕入れURL/画像/タイトルが届き、heal で焼き込めて needBackfill が収束する（毎ロードの全件再取得を断つ）。
-    const missing = [...liveEntries, ...stoppedEntries].map(([id]) => id).filter((id) => !catInfo[id]?.sourceUrl);
+    const missing = [...liveEntries, ...stoppedEntries, ...archivedEntries].map(([id]) => id).filter((id) => !catInfo[id]?.sourceUrl);
     if (missing.length) {
       try {
         const snaps = (await kv.mget(...missing.map((id) => `psnap:${id}`))) as (
@@ -250,7 +290,7 @@ export async function listDealsForUser(
     }
     // 補完できた分だけ deal に保存し直す（best-effort・カタログがまだ持っているうちに永続化）。
     const heal: Record<string, Deal> = {};
-    for (const [id, d] of [...liveEntries, ...stoppedEntries, ...soldEntries]) {
+    for (const [id, d] of [...liveEntries, ...stoppedEntries, ...archivedEntries, ...soldEntries]) {
       const img = !d.imageUrl ? catInfo[id]?.imageUrl : undefined;
       const ttl = !d.title ? catInfo[id]?.title : undefined;
       const src = !d.sourceUrl ? catInfo[id]?.sourceUrl : undefined;
@@ -296,6 +336,22 @@ export async function listDealsForUser(
     }))
     .sort((a, b) => (b.stoppedAt || "").localeCompare(a.stoppedAt || "")); // 停止が新しい順
 
+  // 過去の出品（アーカイブ）：24時間を過ぎて既定の停止中一覧から外した分。レコードは保持＝再出品で復帰できる。
+  const archived: LiveDeal[] = archivedEntries
+    .map(([id, d]) => ({
+      id,
+      title: d.title || catInfo[id]?.title || "",
+      listedAt: d.listedAt || "",
+      purchase: d.purchase ?? 0,
+      imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
+      sourceUrl: d.sourceUrl || catInfo[id]?.sourceUrl || undefined,
+      listingId: d.listingId,
+      stoppedAt: d.stoppedAt,
+      archivedAt: d.archivedAt,
+      sourceStatus: d.sourceStatus, // 自動停止の理由(売切/リンク切れ)はアーカイブでも表示
+    }))
+    .sort((a, b) => (b.archivedAt || "").localeCompare(a.archivedAt || "")); // アーカイブが新しい順
+
   const sold: SoldDeal[] = soldEntries
     .map(([id, d]) => {
       const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
@@ -312,7 +368,7 @@ export async function listDealsForUser(
     })
     .sort((a, b) => (b.soldAt || "").localeCompare(a.soldAt || "")); // 新しい順
 
-  return { live, stopped, sold };
+  return { live, stopped, archived, sold };
 }
 
 // 「実際に出品中(公開済み) or 売却済みの商品ID」を返す。検索一覧で本人の出品済みを隠す／仕入れ中一覧から
