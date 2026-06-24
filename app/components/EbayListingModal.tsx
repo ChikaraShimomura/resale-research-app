@@ -20,6 +20,7 @@ interface PrepareData {
   priceUsd: string;
   medianUsd?: string;        // 中央値USD（売り方「相場/はやく」の基準）
   lowestUsd?: string | null; // 同等品の現在の最安USD（最速出品用）
+  competitionCount?: number | null; // eBay現在出品総数＝競合の目安（概算・null=取得不可）
   floorUsd?: string;         // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
   effBuyJpy?: number;        // 実質仕入れ原価。重さ(任意)入力時に損益分岐をクライアントで再計算するのに使う
   landed?: {                 // 損益分岐に織り込んだ着地コスト（国際送料・米国関税）の内訳
@@ -426,6 +427,7 @@ export default function EbayListingModal({
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
   const medianUsd = Number(data?.medianUsd) || Number(data?.priceUsd) || 0;
   const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
+  const competitionCount = typeof data?.competitionCount === "number" ? data.competitionCount : null; // eBay競合数（概算）
   // 着地コスト(国際送料＋米国関税)は「重さ(任意)」入力で動的に再計算。未入力なら概算(data.landed.weightG)。
   // 関税の元値は編集中に動く価格でなく安定した推奨価格(data.priceUsd)を使う（損益分岐がタイプ中に揺れないように）。
   const estWeightG = data?.landed?.weightG ?? 700;
@@ -782,6 +784,20 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
+                {/* 競合数＝同等品のeBay現在出品総数(概算)。価格表示と同一クエリなので信頼度も同等。出品判断の参考。 */}
+                {competitionCount != null && (
+                  <p className="text-[10px] mt-0.5 leading-relaxed">
+                    {competitionCount === 0 ? (
+                      <span className="text-green-700 font-bold">🟢 eBay同等出品：現在ほぼ無し（競合少・狙い目）</span>
+                    ) : competitionCount <= 5 ? (
+                      <span className="text-green-700 font-bold">🟢 eBay競合：現在 約{competitionCount}件・少なめ（狙い目）</span>
+                    ) : competitionCount <= 30 ? (
+                      <span className="text-gray-400">eBay競合：現在 約{competitionCount}件</span>
+                    ) : (
+                      <span className="text-amber-600 font-bold">🟠 eBay競合：現在 約{competitionCount}件・多め（最安〜送料無料で差別化を）</span>
+                    )}
+                  </p>
+                )}
 
                 {/* 送料の出し方：送料込み(価格に送料を上乗せ＝送料無料表示)か 送料別(購入者が送料を別途負担)。
                     買い手の総額は同じでも eBayに出る「掲載価格」が変わる＝下の結果行が切替で必ず動く。 */}

@@ -254,8 +254,15 @@ export async function listFulfillmentPolicies(token: string): Promise<ShippingCh
 const LOWEST_SET_RE =
   /\b(lot of \d|set of \d|\d+\s*pcs|\d+\s*pieces|bundle|\d+\s*x\b|x\s*\d+|\d+\s*-?\s*pack|joblot|job lot|wholesale|\d+\s*set\b)\b/i;
 
-export async function getLowestComparableUsd(appToken: string, query: string): Promise<number | null> {
-  if (!query) return null;
+export interface ComparableMarket {
+  lowestUsd: number | null;   // 同等品の現在の最安USD（最速出品の価格基準）
+  activeCount: number | null; // 同キーワードのeBay現在出品総数（競合の目安。Browseの total・概算）
+}
+
+// 同等品の「最安値」と「競合数」を1回のBrowse検索でまとめて取得する（total は同一レスポンスにあるので追加コストゼロ）。
+// クエリ・条件は価格表示と同一なので、競合数の信頼度も既存の最安/中央値表示と同等。
+export async function getComparableMarket(appToken: string, query: string): Promise<ComparableMarket> {
+  if (!query) return { lowestUsd: null, activeCount: null };
   try {
     const params = new URLSearchParams({
       q: query.slice(0, 120),
@@ -268,22 +275,30 @@ export async function getLowestComparableUsd(appToken: string, query: string): P
       headers: { Authorization: `Bearer ${appToken}`, "X-EBAY-C-MARKETPLACE-ID": MARKETPLACE, Accept: "application/json" },
       signal: AbortSignal.timeout(12000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { lowestUsd: null, activeCount: null };
     const data = (await res.json()) as {
+      total?: number;
       itemSummaries?: { title?: string; price?: { value?: string; currency?: string } }[];
     };
+    const activeCount = Number.isFinite(data.total) ? (data.total as number) : null;
     const usd = (data.itemSummaries ?? [])
       .filter((it) => !LOWEST_SET_RE.test(it.title ?? ""))
       .map((it) => (it.price?.currency === "USD" ? parseFloat(it.price?.value ?? "") : 0))
       .filter((v) => v > 0)
       .sort((a, b) => a - b);
-    if (usd.length === 0) return null;
-    if (usd.length < 4) return usd[0]; // サンプル僅少→そのまま最安
-    const med = usd[Math.floor(usd.length / 2)];
-    const kept = usd.filter((v) => v >= med * 0.4); // 中央値の40%未満は別物/破損の疑い→除外
-    return kept[0] ?? usd[0];
+    let lowestUsd: number | null = null;
+    if (usd.length > 0) {
+      if (usd.length < 4) {
+        lowestUsd = usd[0]; // サンプル僅少→そのまま最安
+      } else {
+        const med = usd[Math.floor(usd.length / 2)];
+        const kept = usd.filter((v) => v >= med * 0.4); // 中央値の40%未満は別物/破損の疑い→除外
+        lowestUsd = kept[0] ?? usd[0];
+      }
+    }
+    return { lowestUsd, activeCount };
   } catch {
-    return null;
+    return { lowestUsd: null, activeCount: null };
   }
 }
 

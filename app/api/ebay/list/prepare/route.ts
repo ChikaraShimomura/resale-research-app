@@ -8,7 +8,7 @@ import {
   getCategorySuggestion,
   getRequiredAspects,
   listFulfillmentPolicies,
-  getLowestComparableUsd,
+  getComparableMarket,
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
@@ -243,11 +243,13 @@ export async function POST(req: Request) {
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
   // 送料サイズ（配送ポリシー）一覧も取得。
   const taxoToken = (await getAppAccessToken()) || token;
-  const [cat, shipping, lowestComparable] = await Promise.all([
+  const [cat, shipping, market] = await Promise.all([
     getCategorySuggestion(taxoToken, enTitle, condition),
     listFulfillmentPolicies(token),
-    getLowestComparableUsd(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD（最速出品用）
+    getComparableMarket(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD＋競合数（1回のBrowseで両方）
   ]);
+  const lowestComparable = market.lowestUsd;
+  const competitionCount = market.activeCount; // eBay現在出品総数（競合の目安・概算。null=取得不可）
 
   // 損益分岐(USD)：このeBay価格を下回ると赤字になる下限。「最安で出す」時もここは割らない。
   // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(楽天価格+国内送料)。
@@ -313,6 +315,7 @@ export async function POST(req: Request) {
       priceUsd,  // 既定の表示価格＝eBay最安ベース
       medianUsd, // 中央値USD（売り方「相場/はやく」の基準）
       lowestUsd, // 同等品の現在の最安USD（null=取得できず）
+      competitionCount, // eBay現在出品総数＝競合の目安（概算・null=取得できず）。出品判断の参考に表示。
       floorUsd,  // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
       effBuyJpy: Math.round(effBuyJpy), // 実質仕入れ原価。モーダルで「重さ(任意)」入力時に損益分岐を再計算するのに使う
       landed: {  // 損益分岐に織り込んだ着地コストの内訳（モーダルで内訳と$100超の前払い注意を出す）
