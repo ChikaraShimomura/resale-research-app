@@ -451,8 +451,7 @@ export default function EbayListingModal({
               <AlertTriangle size={36} className="mx-auto mb-4 text-amber-400" />
               <p className="text-base font-black text-gray-800 mb-2">出品の準備がもう少しです</p>
               <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                eBayに出品する準備（連携・送料・発送元）が、まだ残っています。<br />
-                設定画面で順に進めれば、数分で完了します。
+                出品の準備（連携・送料・発送元）が残っています。設定画面で順に進めれば数分で完了。
               </p>
               <button
                 onClick={() => {
@@ -483,7 +482,7 @@ export default function EbayListingModal({
                     <div className="w-20 h-20 rounded-xl bg-gray-100" />
                   )}
                   <p className="text-[10px] text-gray-400 leading-relaxed flex-1">
-                    この画像でeBayに出品します。<br />権利が気になる商品は、後でeBay側で自分の写真に差し替えると安心です。
+                    この画像で出品します。権利が気になる商品は、後でeBay側で自分の写真に差し替えを。
                   </p>
                 </div>
               </div>
@@ -497,7 +496,7 @@ export default function EbayListingModal({
                   rows={2}
                   className="w-full px-3 py-2 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B] resize-none"
                 />
-                <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　自動で英語タイトルを入れています（編集OK）</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　英語タイトルを自動入力（編集OK）</p>
               </div>
 
               {/* 詳細オプション。既定は閉じて「写真・タイトル・価格」だけの最小表示。説明文・状態・売り方・送料・個数などは自動設定済みでここに格納。 */}
@@ -592,11 +591,11 @@ export default function EbayListingModal({
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    写真は<b>タップした順に並びます</b>（最初の1枚がメイン・もう一度タップで解除）。各画像は<b>実際にeBayに出る加工後</b>です。🔍でさらに大きく確認（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
+                    <b>タップした順に並びます</b>（先頭=メイン・再タップで解除）。各画像は<b>実際にeBayに出る加工後</b>。🔍で拡大確認（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
                   </p>
                   {!photoOk && (
                     <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
-                      出品に使う写真を1枚以上選んでください。
+                      写真を1枚以上選んでください。
                     </p>
                   )}
 
@@ -613,7 +612,7 @@ export default function EbayListingModal({
                       >
                         <X size={26} />
                       </button>
-                      <div className="px-4 py-3 text-xs text-white/70" onClick={(e) => e.stopPropagation()}>← 横にスワイプして確認・選択 ／ 右上 ✕ で閉じる →</div>
+                      <div className="px-4 py-3 text-xs text-white/70" onClick={(e) => e.stopPropagation()}>← スワイプで確認・選択 ／ 右上 ✕ で閉じる →</div>
                       <div ref={carouselRef} className="flex-1 flex overflow-x-auto snap-x snap-mandatory" onClick={(e) => e.stopPropagation()}>
                         {photoCandidates.map((u, i) => {
                           const idx = selectedImages.indexOf(u);
@@ -699,14 +698,14 @@ export default function EbayListingModal({
                   {strategy === "fast"
                     ? "eBay最安よりさらに5%安く。最速で売れやすい（おすすめ・損益分岐は割りません）"
                     : strategy === "high"
-                    ? "eBay相場より10%高く。利益重視（売れるまで時間はかかります）"
+                    ? "eBay相場より10%高く。利益重視（売れるまで時間がかかります）"
                     : strategy === "market"
                     ? "eBay相場（中央値）どおりの価格。売れるまで少し待ちます"
                     : !lowestAvailable
-                    ? "eBayの最安が取れなかったため、相場より少し安くしています"
+                    ? "eBay最安が取れず、相場より少し安くしています"
                     : lowestClamped
-                    ? `eBayの最安は赤字になるため、損益分岐 $${data.floorUsd} で出します（赤字回避）`
-                    : "eBay最安値と同額。最速で売れやすくします（赤字にはしません）"}
+                    ? `eBay最安は赤字のため、損益分岐 $${data.floorUsd} で出します（赤字回避）`
+                    : "eBay最安値と同額。最速で売れやすく（赤字にはしません）"}
                 </p>
               </div>
               </>)}
@@ -737,7 +736,7 @@ export default function EbayListingModal({
                     <span className="text-[12px] leading-snug">
                       <b>送料込み（送料無料で出す）</b>
                       <span className="text-gray-500"> — 価格に送料を上乗せして「送料無料」表示。総額が同じでも検索・転換に強い（推奨）</span>
-                      {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5">※eBayに「送料無料」の配送ポリシーを1つ作ると使えます（一度だけ）。今は送料別で出ます。</span>}
+                      {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5">※eBayに「送料無料」の配送ポリシーを1つ作ると使えます（一度だけ）。今は送料別。</span>}
                     </span>
                   </label>
                   <label className="flex items-start gap-2">
@@ -761,7 +760,7 @@ export default function EbayListingModal({
                         onClick={() => setShowWeight(true)}
                         className="text-gray-500 underline underline-offset-2 active:text-gray-700 mb-1"
                       >
-                        ＋ 重さを入力して送料を正確にする（任意）
+                        ＋ 重さを入力して送料を正確に（任意）
                       </button>
                     ) : (
                       <div className="flex items-center gap-1.5 mb-1">
@@ -782,7 +781,7 @@ export default function EbayListingModal({
                     {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）＝<b className="text-gray-500">購入者が負担</b>
                     {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
-                        🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局からの発送が必要です
+                        🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局から発送
                       </span>
                     )}
                     <span className="block mt-0.5">
@@ -793,7 +792,7 @@ export default function EbayListingModal({
                 {belowFloor && (
                   <div className="mt-1.5">
                     <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回っています。このままだと赤字の恐れがあります。
+                      ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回り、赤字の恐れがあります。
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input
@@ -820,11 +819,12 @@ export default function EbayListingModal({
                   />
                   <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける<OptBadge /></span>
                 </label>
-                {bestOffer && Number(priceUsd) > 0 && (
+                {bestOffer && listedPriceUsd > 0 && (
                   <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
-                    ${(Number(priceUsd) * 0.9).toFixed(2)}（{formatJpy(Math.round(Number(priceUsd) * 0.9 * USD_JPY))}）以上のオファーは<b>自動承諾</b>（10%引きまで即売）
-                    {floorUsd > 0 && floorUsd < Number(priceUsd) * 0.9 && (
-                      <>／ 損益分岐 ${floorUsd.toFixed(2)}（{formatJpy(Math.round(floorUsd * USD_JPY))}）未満は<b>自動拒否</b></>
+                    {/* 自動承諾/拒否はeBay出品価格(送料込みなら上乗せ後=listedPriceUsd)基準。送料別は shipFoldUsd=0 で従来どおり。 */}
+                    ${(listedPriceUsd * 0.9).toFixed(2)}（{formatJpy(Math.round(listedPriceUsd * 0.9 * USD_JPY))}）以上のオファーは<b>自動承諾</b>（10%引きまで即売）
+                    {(floorUsd + shipFoldUsd) > 0 && (floorUsd + shipFoldUsd) < listedPriceUsd * 0.9 && (
+                      <>／ 損益分岐 ${(floorUsd + shipFoldUsd).toFixed(2)}（{formatJpy(Math.round((floorUsd + shipFoldUsd) * USD_JPY))}）未満は<b>自動拒否</b></>
                     )}
                   </p>
                 )}
@@ -842,7 +842,7 @@ export default function EbayListingModal({
                     <option key={i + 1} value={i + 1}>{i + 1}個</option>
                   ))}
                 </select>
-                <p className="text-[10px] text-gray-400 mt-0.5">在庫数。1個だけならそのままでOK（最大30）</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">1個だけならそのままでOK（最大30）</p>
               </div>
 
               {/* 送料サイズ（アプリが重さ・価格から最適サイズを自動選択。実費カバーを明示） */}
@@ -858,7 +858,7 @@ export default function EbayListingModal({
                         {recoCovers ? (
                           <b className="text-emerald-700"> → ✅ カバーできています（赤字になりません）</b>
                         ) : (
-                          <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心です）</b>
+                          <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心）</b>
                         )}
                       </div>
                     )}
@@ -879,7 +879,7 @@ export default function EbayListingModal({
                     配送ポリシーが見つかりません。設定で「発送設定」を完了してください。
                   </p>
                 )}
-                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担。重さ・価格から最適サイズを自動で選んでいます（変更も可）。</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担。重さ・価格から最適サイズを自動選択（変更可）。</p>
               </div>
 
               {/* 発送までの日数（handling time） */}
@@ -898,7 +898,7 @@ export default function EbayListingModal({
                     </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-gray-400 mt-0.5">買い手に表示される発送の目安です。初めは余裕をもって7日がおすすめ。</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">買い手に表示される発送の目安。初めは余裕をもって7日がおすすめ。</p>
               </div>
 
               {/* カテゴリ */}
@@ -910,7 +910,7 @@ export default function EbayListingModal({
                   </p>
                 ) : (
                   <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
-                    カテゴリを自動判定できませんでした。タイトルを具体的にして開き直すか、時間をおいて再度お試しください。
+                    カテゴリを自動判定できませんでした。タイトルを具体的にして開き直すか、時間をおいて再度お試しを。
                   </p>
                 )}
               </div>
@@ -951,7 +951,7 @@ export default function EbayListingModal({
                 return (
                   <div className="space-y-2.5">
                     <label className="block text-[11px] text-gray-500">商品の詳細</label>
-                    <p className="text-[10px] text-gray-400 leading-relaxed">※必須だけ確認すればOK。それ以外は検索に出やすい値を自動入力ずみです（必要なら下で編集）。</p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">※必須だけ確認すればOK。他は検索に出やすい値を自動入力ずみ（必要なら下で編集）。</p>
                     {required.map(renderField)}
                     {optional.length > 0 && (
                       <div className="border-t border-[#A98B5C]/25 pt-2.5">
@@ -973,13 +973,13 @@ export default function EbayListingModal({
 
               {/* 海外出品の不安をやわらげる一言 */}
               <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-[#A98B5C]/25 rounded-lg px-3 py-2 leading-relaxed">
-                🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>です。
+                🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>。
               </p>
 
               {/* 必須項目が未入力の時の案内（公開エラー#25002の予防） */}
               {!aspectsFilled && (
                 <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                  ⚠️ 上の「商品の詳細（必須）」に未入力があります。候補から選ぶと出品できます。
+                  ⚠️ 上の「商品の詳細（必須）」に未入力あり。候補から選ぶと出品できます。
                 </p>
               )}
 
@@ -999,7 +999,7 @@ export default function EbayListingModal({
               <span className="w-8 h-8 border-[3px] border-[#A98B5C]/35 border-t-[#0064D2] rounded-full animate-spin" aria-hidden="true" />
               <p className="text-sm text-gray-500">
                 eBayに出品中...（10〜20秒ほど）<br />
-                <span className="text-[12px] text-gray-400">この画面は閉じないでください</span>
+                <span className="text-[12px] text-gray-400">この画面は閉じないで</span>
               </p>
             </div>
           )}
@@ -1025,7 +1025,7 @@ export default function EbayListingModal({
               {/* 実物写真の追加を促す。楽天の画像だけより、実物写真があると信頼され売れやすい。 */}
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-amber-800 leading-relaxed">
-                  <b>📸 商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>しましょう。実物写真があると<b>信頼されて売れやすく</b>なります（下の「出品した商品を見る」→ 写真の編集から追加できます）。
+                  <b>📸 商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>を。実物写真があると<b>信頼されて売れやすく</b>なります（下の「出品した商品を見る」→ 写真の編集から）。
                 </p>
               </div>
               {/* eBayで出品した商品を確認。listingIdがあれば直リンク、無ければ自分の出品一覧へ（必ず確認できる）。 */}
@@ -1057,17 +1057,16 @@ export default function EbayListingModal({
                 <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
                 <p className="text-lg font-black text-amber-700 mb-2">セラー登録が出来ていません。</p>
                 <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
-                  eBayで売上を受け取るための<b className="text-gray-700">セラー登録（初回だけ）</b>が済むと、ここから出品できます。
+                  売上を受け取る<b className="text-gray-700">セラー登録（初回だけ）</b>が済むと、ここから出品できます。
                 </p>
               </div>
 
               {/* 「登録の壁」は他社サポート(ココナラ等)で突破するのが近道、という後押し。自力で消耗させない方針。 */}
               <div className="bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-3 mb-4 text-left">
                 <p className="text-[12px] text-amber-900 leading-relaxed">
-                  💪 ここが<b>最初の関門</b>。でも<b>登録は一度きり</b>、<b>詳しい人に頼めば60分ほど</b>で終わります。
-                  ここでつまずいて<b>下の図のような将来</b>をあきらめるのは、もったいなさすぎます。
+                  💪 ここが<b>最初の関門</b>。でも<b>登録は一度きり</b>、<b>詳しい人に頼めば60分ほど</b>で終わります。ここでつまずいて<b>下の図のような将来</b>をあきらめるのは、もったいない。
                   <br />
-                  自力で粘って消耗するより、<b>ココナラ（他社サービス）でベテランにサポートしてもらって一気に越える</b>のが近道です。この壁さえ越えれば、あとは<b>アプリのワンタップ出品</b>で世界に売っていけます。応援しています！
+                  自力で消耗するより、<b>ココナラ（他社サービス）のベテランに頼んで一気に越える</b>のが近道。この壁さえ越えれば、あとは<b>アプリのワンタップ出品</b>で世界に売れます。応援しています！
                 </p>
                 <a
                   href={COCONALA_HREF}
@@ -1086,7 +1085,7 @@ export default function EbayListingModal({
                 {!COCONALA_PRESEARCHED && (
                   <div className="mt-2 bg-white/60 border border-amber-200 rounded-lg px-3 py-2.5">
                     <p className="text-[11px] text-amber-900 leading-relaxed mb-1.5">
-                      ココナラが開いたら、<b>検索まどに下のワードを貼り付けて検索</b>してください👇（このボタンを押すと自動でコピーされます）
+                      ココナラが開いたら、<b>検索まどに下のワードを貼り付けて検索</b>👇（このボタンで自動コピー）
                     </p>
                     <CopyKeyword value={COCONALA_KEYWORD} />
                   </div>
@@ -1159,16 +1158,16 @@ export default function EbayListingModal({
                 </button>
                 {cooldown > 0 && !confirmErr ? (
                   <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
-                    eBayへの確認は数十秒おきに行えます。少し待ってからもう一度押してください。
+                    確認は数十秒おき。少し待ってからもう一度押してください。
                   </p>
                 ) : !confirmErr ? (
                   <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
-                    eBayから〈アカウントの準備ができました〉のメールが届いたら押してください。準備ができていればそのまま出品に進めます。
+                    eBayから〈アカウントの準備ができました〉のメールが届いたら押してください。準備済みならそのまま出品に進めます。
                   </p>
                 ) : null}
                 {confirmErr && (
                   <p className="mb-2 text-[11px] text-[#2D323B] leading-relaxed">
-                    まだ登録が完了していません。eBayから〈アカウントの準備ができました〉のメールが届いてから押してください。
+                    まだ登録が完了していません。eBayの〈アカウントの準備ができました〉メールが届いてから押してください。
                   </p>
                 )}
                 <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
@@ -1184,7 +1183,7 @@ export default function EbayListingModal({
                 {result?.error || "現在のプランの同時出品上限に達しました。"}
               </p>
               <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-                上のプランにすると、もっと多く同時に出品できます（スタンダード50件／プロ100件）。
+                上のプランで同時出品をもっと増やせます（スタンダード50件／プロ100件）。
               </p>
               <a
                 href="/pricing"
@@ -1217,9 +1216,9 @@ export default function EbayListingModal({
               <div className="mb-3 bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-2.5 text-left">
                 <p className="text-[11px] font-bold text-amber-800 mb-1">まず試してみてください</p>
                 <ul className="text-[11px] text-amber-900/80 leading-relaxed list-disc pl-4 space-y-0.5">
-                  <li>少し時間をおいて<b>もう一度出品</b>（一時的な通信エラーのことがあります）</li>
+                  <li>少し時間をおいて<b>もう一度出品</b>（一時的な通信エラーの場合あり）</li>
                   <li>写真が暗い・小さいときは<b>別の写真</b>に差し替える</li>
-                  {result?.errorKind !== "known" && <li>それでも直らなければ、下のボタンで報告してください</li>}
+                  {result?.errorKind !== "known" && <li>直らなければ下のボタンで報告を</li>}
                 </ul>
               </div>
               {/* 予期せぬエラーのときだけ「開発者に報告」を出す（既知エラーは要因が分かっているので不要）。 */}
@@ -1234,7 +1233,7 @@ export default function EbayListingModal({
                     {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
                   </button>
                   {reportState === "done" && (
-                    <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しください。</p>
+                    <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しを。</p>
                   )}
                 </>
               )}
