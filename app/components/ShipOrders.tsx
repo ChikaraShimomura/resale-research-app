@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, PackageCheck, RefreshCw, AlertTriangle, Copy, ExternalLink, Ban } from "lucide-react";
+import { Loader2, PackageCheck, RefreshCw, AlertTriangle, Copy, ExternalLink, Ban, ShoppingBag, Check, Truck } from "lucide-react";
+import { toRakutenProductUrl, safeHttpUrl } from "../lib/utils";
 
 interface Line {
   lineItemId: string;
@@ -33,6 +34,7 @@ interface Order {
   shippedAt?: string;
   shortageHandledAt?: string; // ⑤ 欠品（仕入れ不可）として記録済み
   cancelled?: boolean; // eBay側でキャンセル＝発送不要
+  sourceUrl?: string; // 仕入れ元（楽天）の直リンク。注文に紐づいて返れば「① 楽天で仕入れる」を出す（無ければ非表示）
 }
 
 const isShipped = (o: Order) => !!o.trackingNumber || o.fulfillmentStatus === "FULFILLED";
@@ -76,19 +78,38 @@ export default function ShipOrders() {
   }, []);
 
   // 「更新」：既存の売却同期(getOrders)を回して注文を取り込み、最新を再表示。
+  // 自動同期(タブを開いた時)からも呼ぶので、最終同期時刻を記録してスロットリングできるようにする。
+  const SYNC_TS_KEY = "ship_last_sync";
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
       await fetch("/api/ebay/sold", { method: "POST" }).catch(() => {});
       await load();
+      try {
+        localStorage.setItem(SYNC_TS_KEY, String(Date.now()));
+      } catch {
+        /* localStorage不可の環境では何もしない */
+      }
     } finally {
       setSyncing(false);
     }
   }, [load]);
 
   useEffect(() => {
+    // タブを開いたらまず保存済み注文を即表示し、最終同期からN分以上空いていれば一度だけ自動同期。
+    // 手動「更新」を不要にしつつ、開くたびにeBayを叩かない（=連打/レート負荷を避ける）。
+    const AUTO_SYNC_MIN_GAP_MS = 10 * 60 * 1000; // 10分
     load();
-  }, [load]);
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(SYNC_TS_KEY) || 0);
+    } catch {
+      /* noop */
+    }
+    if (Date.now() - last >= AUTO_SYNC_MIN_GAP_MS) sync();
+    // 初回マウント時のみ。load/sync は useCallback で安定。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -125,8 +146,27 @@ export default function ShipOrders() {
 
       {pending.length === 0 && shipped.length === 0 && (
         <p className="text-[12px] text-gray-500 leading-relaxed">
-          発送待ちの注文なし。売れると自動でここに出ます（「更新」で最新を取り込み）。
+          発送待ちの注文はありません。タブを開くと自動で最新を取り込みます（売れると自動でここに出ます）。
         </p>
+      )}
+
+      {/* ④ 新規セラーの売上保留は正常という安心の一言（発送タブを開いた誰にでも見せる） */}
+      {(pending.length > 0 || shipped.length > 0) && (
+        <div className="flex items-start gap-1.5 rounded-lg bg-[#F5F7FA] border border-[#A98B5C]/25 px-2.5 py-2">
+          <span className="text-[12px] shrink-0" aria-hidden="true">💡</span>
+          <p className="text-[11px] text-gray-600 leading-relaxed">
+            新規セラーは<span className="font-bold text-gray-700">配達確認まで売上が保留</span>になりますが、これは正常です。
+            実績がつくと入金は早まります。
+            <a
+              href="https://www.ebay.com/sellercenter/payments-and-fees/getting-paid"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 ml-0.5 font-bold text-[#2D323B] underline"
+            >
+              受け取り方 <ExternalLink size={10} className="shrink-0" />
+            </a>
+          </p>
+        </div>
       )}
 
       {pending.map((o) => (
@@ -178,6 +218,8 @@ const APOLOGY_MSG =
 
 // Zonos Prepay（関税前払いアプリ・iOS/Android）。米国宛$100超は発送前に関税前払い→13桁IDが必要。
 const ZONOS_PREPAY_URL = "https://zonos.com/ja/prepay-app";
+// 国際郵便マイページ（日本郵便）。送り状をオンライン作成すると追跡番号が発番される＝それを下の欄に入れる。
+const JP_INTL_MYPAGE_URL = "https://www.int-mypage.post.japanpost.jp/mpsp/top.do";
 // その注文が「米国宛＆申告額>$100」＝Zonos前払いが要るか。申告額はアプリ出品ラインの売値合計(USD)。
 function ddpInfo(o: Order): { needed: boolean; valueUsd: number } {
   const valueUsd = o.lines.reduce((sum, l) => sum + (l.soldUsd || 0), 0);
@@ -192,11 +234,17 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
   const [showRecover, setShowRecover] = useState(false);
   const [shortBusy, setShortBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [addrCopied, setAddrCopied] = useState(false);
 
   const badge = dueBadge(order.shipByDate);
   const isShortage = !!order.shortageHandledAt;
   const ebayOrderUrl = `https://www.ebay.com/sh/ord/details?orderid=${encodeURIComponent(order.orderId)}`;
   const ddp = ddpInfo(order); // 米国宛$100超なら関税前払い(Zonos)が要る
+
+  // ① 楽天で仕入れる：注文に紐づく仕入れ元URL（直リンク）。取得できない注文ではボタンを出さない。
+  const rakutenUrl = safeHttpUrl(toRakutenProductUrl(order.sourceUrl || ""));
+  // ③ 送り状作成→追跡番号取得の導線で貼り付ける宛先テキスト。
+  const addr = addressText(order.shipTo);
 
   const submit = async () => {
     const t = tracking.trim();
@@ -247,6 +295,18 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
     }
   };
 
+  // ③ 宛先を送り状作成画面に貼り付けやすいようコピー。
+  const copyAddress = async () => {
+    if (!addr) return;
+    try {
+      await navigator.clipboard.writeText(addr);
+      setAddrCopied(true);
+      setTimeout(() => setAddrCopied(false), 1500);
+    } catch {
+      /* noop */
+    }
+  };
+
   const recoverLinks = (
     <div className="flex flex-wrap items-center gap-1.5">
       <a
@@ -292,9 +352,24 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
         </div>
       ) : (
         <>
-          {/* やること（適応表示）：追跡登録は全宛先で必須・Zonos前払いは米国$100超のみの追加ステップ */}
+          {/* ① 楽天で仕入れる（無在庫の起点）。仕入れ元URLが注文に紐づく時だけ出す＝楽天赤はブランドCTAなので許容。 */}
+          {rakutenUrl && (
+            <a
+              href={rakutenUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 h-10 rounded-lg bg-[#BF0000] text-white text-[12px] font-bold active:opacity-90"
+            >
+              <ShoppingBag size={14} className="shrink-0" /> ① 楽天で仕入れる
+              <ExternalLink size={12} className="shrink-0 opacity-80" />
+            </a>
+          )}
+
+          {/* やること（適応表示）：①仕入れ→②梱包発送→③追跡登録。米国$100超は②.5でZonos前払いを挟む。 */}
           <p className="text-[10px] text-gray-400 leading-tight">
-            {ddp.needed ? "やること：① 関税前払い（Zonos）→ ② 追跡番号を登録" : "やること：発送後、追跡番号を登録"}
+            {ddp.needed
+              ? "やること：① 楽天で仕入れる → ② 梱包・発送 → ②.5 関税前払い（Zonos）→ ③ 追跡番号を登録"
+              : "やること：① 楽天で仕入れる → ② 梱包・発送 → ③ 追跡番号を登録"}
           </p>
           {ddp.needed && (
             <a
@@ -311,6 +386,37 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
               <ExternalLink size={12} className="ml-auto text-amber-700 shrink-0" />
             </a>
           )}
+
+          {/* ③ 追跡番号の取得導線：国際郵便マイページで送り状を作成すると追跡番号が発番される。
+              宛先(addressText)が取れる時だけコピー導線も出す（無ければ送り状作成リンクのみ）。 */}
+          <div className="rounded-lg bg-[#F5F7FA] border border-[#A98B5C]/25 p-2 space-y-1.5">
+            <p className="text-[10px] text-gray-500 leading-tight">
+              送り状をオンライン作成すると追跡番号がもらえます。それを下の欄に入力してください。
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <a
+                href={JP_INTL_MYPAGE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-gray-700 active:bg-gray-50"
+              >
+                <Truck size={12} className="shrink-0" /> 送り状を作成（国際郵便マイページ）
+                <ExternalLink size={11} className="shrink-0 text-gray-400" />
+              </a>
+              {addr && (
+                <button
+                  type="button"
+                  onClick={copyAddress}
+                  aria-label="宛先をコピー"
+                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-white border border-gray-200 text-[11px] font-bold text-gray-700 active:bg-gray-50"
+                >
+                  {addrCopied ? <Check size={12} className="text-emerald-600 shrink-0" /> : <Copy size={12} className="text-gray-400 shrink-0" />}
+                  {addrCopied ? "宛先をコピーした" : "宛先をコピー"}
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center gap-1.5">
             <input
               value={tracking}

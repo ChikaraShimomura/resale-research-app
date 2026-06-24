@@ -34,6 +34,14 @@ export default function ShipPage() {
             <li>追跡番号を<b className="text-gray-800">eBayに登録</b>（未登録は売上保留・未着クレームの原因）</li>
             <li>売上を<b className="text-gray-800">Payoneer</b>で受け取り → 日本の銀行へ出金</li>
           </ol>
+          {/* 新規セラーの売上保留は正常挙動である旨を明示し、受け取り方ガイドへ誘導 */}
+          <p className="text-[11px] text-gray-500 mt-3 pt-3 border-t border-gray-100 leading-relaxed">
+            新規セラーは<b className="text-gray-700">配達確認まで売上が保留</b>されます（正常な仕様）。詳しくは
+            <Link href="/guide/payoneer-withdraw" className="text-[#2D323B] font-bold underline underline-offset-2">
+              売上の受け取り方
+            </Link>
+            をご覧ください。
+          </p>
         </div>
 
         {/* 発送する注文（追跡番号の入力→eBay書き戻し） */}
@@ -55,21 +63,29 @@ export default function ShipPage() {
           </Link>
         </div>
 
-        {/* $100超を米国へ送るとき：関税前払い(DDP)の手順 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-          <p className="text-[13px] font-black text-amber-800 mb-1.5">🛃 $100超の米国宛は関税前払い（DDP）</p>
-          <p className="text-[11px] text-amber-800/90 leading-relaxed mb-2">
-            米国の少額免税が撤廃（2025年）。<b>商品代$100超の米国宛は、関税を前払い（DDP）しないと郵便局で出せません</b>。手順：
-          </p>
-          <ol className="text-[11px] text-amber-800/90 space-y-1 list-decimal pl-4 leading-relaxed">
-            <li>Zonosで関税を前払い → <b>13桁のDeclaration ID</b>を取得</li>
-            <li>宛名ラベルに<b>「DDP」＋Declaration ID</b>を記載</li>
-            <li><b>指定の郵便局</b>から差し出す（全局では不可）</li>
-          </ol>
-          <p className="text-[10px] text-amber-700/80 mt-2 leading-relaxed">
-            ※ $100以下は前払い不要・全局OK。$800超はDDP対象外（要相談）。制度は変わるので発送前に窓口で確認を。
-          </p>
-        </div>
+        {/* $100超を米国へ送るとき：関税前払い(DDP)の手順。全員に常時出すと冗長なので折りたたみに格納（内容は保持） */}
+        <details className="group bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+          <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-4 py-3 min-h-11 active:bg-amber-100/60">
+            <span className="text-[13px] font-black text-amber-800">🛃 $100超の米国宛は関税前払い（DDP）</span>
+            <span className="text-amber-700 text-[11px] font-bold shrink-0 flex items-center gap-1">
+              詳しく見る
+              <span className="transition-transform group-open:rotate-180">⌄</span>
+            </span>
+          </summary>
+          <div className="px-4 pb-4">
+            <p className="text-[11px] text-amber-800/90 leading-relaxed mb-2">
+              米国の少額免税が撤廃（2025年）。<b>商品代$100超の米国宛は、関税を前払い（DDP）しないと郵便局で出せません</b>。手順：
+            </p>
+            <ol className="text-[11px] text-amber-800/90 space-y-1 list-decimal pl-4 leading-relaxed">
+              <li>Zonosで関税を前払い → <b>13桁のDeclaration ID</b>を取得</li>
+              <li>宛名ラベルに<b>「DDP」＋Declaration ID</b>を記載</li>
+              <li><b>指定の郵便局</b>から差し出す（全局では不可）</li>
+            </ol>
+            <p className="text-[10px] text-amber-700/80 mt-2 leading-relaxed">
+              ※ $100以下は前払い不要・全局OK。$800超はDDP対象外（要相談）。制度は変わるので発送前に窓口で確認を。
+            </p>
+          </div>
+        </details>
 
         {/* 売れた（輸出した）一覧 */}
         <MyListings show={["sold"]} />

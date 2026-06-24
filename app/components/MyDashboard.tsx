@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, ArrowRight, Settings, BookOpen, Store, type LucideIcon } from "lucide-react";
+import { Package, Truck, ArrowRight, ArrowDown, Settings, BookOpen, Store, type LucideIcon } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
 
@@ -35,6 +35,22 @@ const yenShort = (n: number) => {
     ? sign + "¥" + (Math.round(a / 100) / 10).toLocaleString("ja-JP") + "k"
     : sign + "¥" + Math.round(a).toLocaleString("ja-JP");
 };
+
+// 月別集計から「今月の利益」と「先月の利益」を取り出す（実カレンダー基準）。
+// monthly に当月キーが無い＝今月まだ売れていない場合は出さない（0表示で誤解を招かないため）。
+// 先月キーが無ければ diff は出さず当月だけ表示する。
+function thisAndLastMonth(monthly: MonthPoint[]): { thisMonth: number; last: number | null } | null {
+  if (!monthly.length) return null;
+  const now = new Date();
+  const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const curKey = ym(now);
+  const cur = monthly.find((p) => p.month === curKey);
+  if (!cur) return null; // 今月の売却がまだ無ければ非表示
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevKey = ym(prev);
+  const last = monthly.find((p) => p.month === prevKey);
+  return { thisMonth: cur.profit, last: last ? last.profit : null };
+}
 
 // 売上の内訳バー（仕入れ・手数料・利益）。「いくら仕入れて・いくらで売れて・利益がいくらか」を一目で。
 function MoneyFlow({ s }: { s: Stats }) {
@@ -150,8 +166,15 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
 
 // 称号は「マイページ」だけに置く（控えめに1ブロック）。
 function RankBlock({ s }: { s: Stats }) {
+  // 昇格バーは「現ランク→次ランク」の区間内での進捗で出す（区間相対）。
+  // 旧実装は totalProfit/nextRank.min の絶対比だったため、昇格直後に割合が下がって
+  // 逆戻りして見える問題があった。span=0 や負の余白でも 0除算/負値を避けてクランプ。
   const pct = s.nextRank
-    ? Math.max(2, Math.min(100, Math.round((s.totalProfit / s.nextRank.min) * 100)))
+    ? (() => {
+        const span = s.nextRank.min - s.rank.min;
+        const ratio = span > 0 ? (s.totalProfit - s.rank.min) / span : 1;
+        return Math.max(2, Math.min(100, Math.round(ratio * 100)));
+      })()
     : 100;
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
@@ -302,15 +325,55 @@ export default function MyDashboard() {
     <div className="space-y-3">
       {nudge}
 
-      {/* 累計利益のヒーロー */}
-      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-5 shadow-sm text-center">
-        <p className="text-[12px] text-gray-400">稼いだ利益（累計・現金）</p>
-        <p className="mt-1 text-4xl font-black text-[#2D323B] tracking-tight">{signedYen(s.totalProfit)}</p>
-        {s.totalPoints > 0 && (
-          <p className="mt-1 text-[13px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
-        )}
-        <p className="mt-1 text-[12px] text-gray-500">{s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}</p>
-      </div>
+      {/* 累計利益のヒーロー。赤字は符号だけに頼らず色＋「赤字」ラベル＋下向き矢印で黒字と明確に区別。 */}
+      {(() => {
+        const loss = s.totalProfit < 0;
+        return (
+          <div
+            className={`rounded-2xl p-5 shadow-sm text-center border ${
+              loss ? "bg-red-50 border-red-200" : "bg-white border-[#A98B5C]/25"
+            }`}
+          >
+            <p className={`text-[12px] ${loss ? "text-red-500" : "text-gray-400"}`}>
+              {loss && (
+                <span className="inline-flex items-center gap-0.5 mr-1 font-bold text-red-600">
+                  <ArrowDown size={12} aria-hidden="true" /> 赤字
+                </span>
+              )}
+              稼いだ利益（累計・現金）
+            </p>
+            <p
+              className={`mt-1 text-4xl font-black tracking-tight ${loss ? "text-red-600" : "text-[#2D323B]"}`}
+              aria-label={`累計利益 ${loss ? "赤字 " : ""}${signedYen(s.totalProfit)}`}
+            >
+              {signedYen(s.totalProfit)}
+            </p>
+            {s.totalPoints > 0 && (
+              <p className="mt-1 text-[13px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
+            )}
+            <p className={`mt-1 text-[12px] ${loss ? "text-red-500" : "text-gray-500"}`}>
+              {s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}
+            </p>
+            {/* 今月の利益（先月比）。月別集計から当月/前月を拾えた時だけ出す。 */}
+            {(() => {
+              const m = thisAndLastMonth(s.monthly);
+              if (!m) return null;
+              const diff = m.last == null ? null : m.thisMonth - m.last;
+              return (
+                <p className="mt-2 text-[12px] text-gray-500">
+                  今月の利益 <b className="text-gray-800 tabular-nums">{signedYen(m.thisMonth)}</b>
+                  {diff != null && (
+                    <span className={`ml-1 tabular-nums ${diff >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      （先月比 {diff >= 0 ? "+" : "− "}
+                      {"¥" + Math.round(Math.abs(diff)).toLocaleString("ja-JP")}）
+                    </span>
+                  )}
+                </p>
+              );
+            })()}
+          </div>
+        );
+      })()}
 
       <RankBlock s={s} />
 
@@ -318,16 +381,38 @@ export default function MyDashboard() {
 
       {s.monthly.length >= 2 && <MonthlyChart data={s.monthly} soldCount={s.soldCount} />}
 
-      {/* 数値タイル */}
+      {/* 数値タイル。最高利益は正の取引が無い（全部赤字/初期値0）と ¥0 誤表示になるため、
+          bestProfit>0 の時だけ「最高利益」を出し、それ以外は「ベスト記録待ち」のプレースホルダにする。 */}
       <div className="grid grid-cols-3 gap-2">
         <Tile label="売れた数" value={`${s.soldCount}件`} />
         <Tile label="1件あたり利益" value={signedYen(s.avgProfit)} sub="平均" />
-        <Tile label="最高利益" value={yen(s.bestProfit)} sub="1取引" />
+        {s.bestProfit > 0 ? (
+          <Tile label="最高利益" value={yen(s.bestProfit)} sub="1取引" />
+        ) : (
+          <Tile label="最高利益" value="—" sub="黒字待ち" />
+        )}
       </div>
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
         ※ 利益（現金）＝ 売上 − eBay手数料(13.25%+¥47) − 仕入れ値（為替 $1=¥155）。ポイントは利益に含めず「( + ○○ポイント )」で別表示（おまけ扱い）。
       </p>
+
+      {/* 継続動機の主CTA：次の利益商品へ。平均利益が黒字の時だけ「1件あたり平均◯◯」を文言に織り込む。 */}
+      <Link
+        href="/search"
+        aria-label="次の利益商品を出品する"
+        className="flex items-center justify-center gap-1.5 min-h-[48px] px-5 py-2.5 rounded-2xl bg-[#2D323B] text-white font-bold text-sm shadow-sm active:bg-[#1A1D23]"
+      >
+        <span>
+          次の利益商品を出品
+          {s.avgProfit > 0 && (
+            <span className="block text-[11px] font-medium text-white/70">
+              1件あたり平均 {yen(s.avgProfit)} の利益
+            </span>
+          )}
+        </span>
+        <ArrowRight size={16} className="shrink-0" />
+      </Link>
 
       <HubLinks />
     </div>

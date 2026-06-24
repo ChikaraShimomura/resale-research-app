@@ -57,7 +57,8 @@ export default function SortSelect({
         value={value}
         onChange={(e) => onChange(e.target.value as SortOrder)}
         aria-label="並び替え"
-        className="appearance-none h-7 pl-2.5 pr-7 rounded-lg border border-[#A98B5C]/35 bg-white text-[11px] font-bold text-gray-700 focus:outline-none focus:border-[#2D323B]"
+        // タップ領域を確保(h-10=40px)。focusはfocus-visibleのリングでa11y担保(チャコール枠)。
+        className="appearance-none h-10 pl-3 pr-8 rounded-lg border border-[#A98B5C]/35 bg-white text-[11px] font-bold text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:border-[#2D323B]"
       >
         <option value="recommended">おすすめ順</option>
         <option value="default">{lock("新着順")}</option>
@@ -67,7 +68,8 @@ export default function SortSelect({
         <option value="demand">{lock("売れやすい順")}</option>
         <option value="rival">{lock("ライバルの少ない順")}</option>
       </select>
-      <span aria-hidden="true" className="pointer-events-none absolute right-2 text-gray-400 text-[9px]">▼</span>
+      {/* ▼アイコンを少し大きく(約12px)。クリックはselectへ素通し。 */}
+      <span aria-hidden="true" className="pointer-events-none absolute right-2.5 text-gray-400 text-[12px] leading-none">▼</span>
     </div>
   );
 }

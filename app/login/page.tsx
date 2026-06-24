@@ -35,9 +35,10 @@ export default function LoginPage() {
         )}
         <form action={action} className="space-y-3">
           <input type="hidden" name="from" value={from} />
-          <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
-          <input name="password" type="password" required placeholder="パスワード" autoComplete="current-password" className={field} />
-          {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+          {/* エラー時のみ aria-invalid/aria-describedby を付け、スクリーンリーダーにエラーを関連付ける */}
+          <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "login-error" : undefined} />
+          <input name="password" type="password" required placeholder="パスワード" autoComplete="current-password" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "login-error" : undefined} />
+          {state.error && <p id="login-error" role="alert" className="text-sm text-[#2D323B]">{state.error}</p>}
           <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
             {pending ? "確認中..." : "ログイン"}
           </button>

@@ -116,6 +116,9 @@ function ResultsContent() {
 
   const hotCount = sorted.filter(p => p.realProfitRate >= 30).length;
 
+  // 0件/空状態の回復導線で再掲する人気ジャンル（SearchForm と同一）。タップで別語検索へ。
+  const GENRES = ["ポケモンカード", "レゴ", "ガンプラ", "フィギュア", "腕時計"];
+
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
 
@@ -193,7 +196,35 @@ function ResultsContent() {
               ? <p className="text-gray-400 text-xs">時間をおいて再度お試しを。</p>
               : <p className="text-gray-400 text-xs leading-relaxed px-4">楽天全体ではなく<b className="text-gray-500">厳選した利益商品リスト</b>内の検索です。別の言葉か、下のボタンで全件から探してみて。</p>
             }
+
+            {/* 検索0件のときだけ、別語検索を促す人気ジャンルのチップを再掲（タップで検索しなおし） */}
+            {allProducts.length > 0 && (
+              <div className="mt-4 px-4">
+                <p className="text-[11px] text-gray-400 mb-2">人気ジャンルで探す</p>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {GENRES.map((g) => (
+                    <Link
+                      key={g}
+                      href={`/results?q=${encodeURIComponent(g)}`}
+                      className="text-xs font-bold text-[#2D323B] bg-white border border-[#A98B5C]/40 rounded-full px-3 py-1.5 active:bg-[#2D323B]/5"
+                    >
+                      {g}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+              {/* 掲載0件は再読み込みで回復（search/page.tsx と同じ導線で一貫させる） */}
+              {allProducts.length === 0 && (
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-sm font-bold text-[#2D323B] border border-[#2D323B] px-5 py-2 rounded-full active:bg-[#2D323B]/5"
+                >
+                  再読み込み
+                </button>
+              )}
               {allProducts.length > 0 && (
                 <Link href="/results"
                   className="inline-block text-sm font-bold text-white bg-[#2D323B] px-5 py-2 rounded-full active:bg-[#1A1D23]">

@@ -26,12 +26,23 @@ function NavInner({
   const { pending } = useLinkStatus();
   return (
     <>
-      <span className="flex items-center justify-center" style={{ width: 22, height: 22 }}>
+      {/* 遷移中は aria-busy で「処理中」を伝える。視覚はグルグル、読み上げは下の sr-only に集約 */}
+      <span
+        className="flex items-center justify-center"
+        style={{ width: 22, height: 22 }}
+        aria-busy={pending || undefined}
+      >
         {pending ? <Spinner size={20} /> : <Icon size={22} strokeWidth={isActive ? 2.4 : 1.8} />}
       </span>
       <span className={`text-[10px] whitespace-nowrap ${isActive ? "font-bold text-[#2D323B]" : "font-normal"}`}>
         {label}
       </span>
+      {/* 遷移中だけ読み上げる読み込み状態（視覚非表示）。スピナーの role は重複回避のため使わない想定だが既存挙動は変えない */}
+      {pending && (
+        <span role="status" className="sr-only">
+          読み込み中
+        </span>
+      )}
     </>
   );
 }

@@ -24,7 +24,8 @@ export default function RegisterPage() {
         <p className="text-sm text-gray-500 mb-5">メールとパスワードだけ。利益の記録が端末を跨いで残る。</p>
         {state.message ? (
           <>
-            <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
+            {/* 確認メッセージ: スクリーンリーダーへ即時通知 */}
+            <div role="status" aria-live="polite" className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
             <p className="mt-3 text-[12px] text-gray-500 leading-relaxed">
               届かないときは<b>迷惑メールフォルダ</b>を確認。数分待っても届かなければ再登録を。
             </p>
@@ -32,8 +33,8 @@ export default function RegisterPage() {
         ) : (
           <form action={action} className="space-y-3">
             <input type="hidden" name="from" value={from} />
-            <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
-            <input name="password" type="password" required minLength={8} placeholder="パスワード（8文字以上）" autoComplete="new-password" className={field} />
+            <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "register-error" : undefined} />
+            <input name="password" type="password" required minLength={8} placeholder="パスワード（8文字以上）" autoComplete="new-password" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "register-error" : undefined} />
             <label className="flex items-start gap-2 text-[11px] text-gray-500 leading-relaxed">
               <input type="checkbox" name="agree" required className="mt-0.5 shrink-0 w-4 h-4 accent-[#2D323B]" />
               <span>
@@ -42,7 +43,8 @@ export default function RegisterPage() {
                 本サービスは利益を保証しません。eBay・楽天等の各規約遵守、出品の合法性、古物商許可の要否は利用者ご自身でご確認ください。
               </span>
             </label>
-            {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+            {/* エラー: role=alert で即時読み上げ＋入力に aria-describedby で関連付け */}
+            {state.error && <p id="register-error" role="alert" className="text-sm text-[#2D323B]">{state.error}</p>}
             <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
               {pending ? "登録中..." : "登録する"}
             </button>

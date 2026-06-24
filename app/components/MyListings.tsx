@@ -73,6 +73,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const [optimizedIds, setOptimizedIds] = useState<Set<string>>(new Set()); // 現テンプレ版で最適化済みの商品ID（ボタンのグレーアウト用）
   const [optBusy, setOptBusy] = useState<string | null>(null); // 最適化中の商品ID
   const [optErr, setOptErr] = useState<Record<string, string>>({}); // 最適化エラー（商品ID→文言）
+  const [actErr, setActErr] = useState<Record<string, string>>({}); // 売れた/削除など act() の行内エラー（商品ID→文言）
+  const [celebrate, setCelebrate] = useState<{ profitJpy: number } | null>(null); // 「売れた」記録直後のインライン祝福（次ループ導線）
 
   // 「再出品」：現行カタログ/アーカイブから同じ商品を取り出して、出品モーダルを開き直す（既存の出品フローを再利用）。
   const relist = async (productId: string) => {
@@ -157,6 +159,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
 
   const act = async (productId: string, action: "remove" | "sold", extra?: { soldJpy: number }) => {
     setBusy(productId);
+    setActErr((e) => { const n = { ...e }; delete n[productId]; return n; }); // 前回の行内エラーを消す
     try {
       const res = await fetch("/api/ebay/deals", {
         method: "POST",
@@ -166,11 +169,20 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       if (res.ok) {
         setSoldFor(null);
         setSoldJpy("");
+        // 「売れた」成功直後はその場で祝福＋次ループ導線（出品熱→次の利益商品へ）。
+        // 正確な純利益は手数料モデルが必要なため、ここでは確実に分かる「売値−仕入れ」の粗利で控えめに祝う。
+        if (action === "sold" && extra) {
+          const purchase = live?.find((x) => x.id === productId)?.purchase ?? 0;
+          setCelebrate({ profitJpy: extra.soldJpy - purchase });
+        }
         await load(); // 各リストを取り直す（売れた商品は輸出した側へ移動）
         onChanged?.(); // 親(マイページ)の集計も更新
+      } else {
+        // 無言(noop)をやめ、行内に赤文字でエラーを出す。
+        setActErr((e) => ({ ...e, [productId]: res.error || (action === "sold" ? "記録に失敗しました。時間をおいてお試しください。" : "操作に失敗しました。時間をおいてお試しください。") }));
       }
     } catch {
-      /* noop */
+      setActErr((e) => ({ ...e, [productId]: "通信エラーで操作できませんでした。" }));
     }
     setBusy(null);
   };
@@ -186,6 +198,40 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
 
   return (
     <div className="space-y-3">
+      {/* 「売れた」記録の直後にその場で祝福＋次の利益商品への導線（出品熱→次ループへ）。
+          純利益は手数料込みで別計算のため、ここでは「売値−仕入れ」の粗利を控えめに表示する。 */}
+      {celebrate && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3" role="status" aria-live="polite">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13px] font-black text-emerald-800 leading-tight">
+                🎉 売れたを記録しました！
+                {celebrate.profitJpy > 0 && (
+                  <span className="ml-1">粗利 {signedYen(celebrate.profitJpy)}</span>
+                )}
+              </p>
+              <p className="text-[11px] text-emerald-700/90 mt-0.5 leading-relaxed">
+                この調子で次の1品も。詳しい利益は「輸出した商品」に記録されます。
+              </p>
+            </div>
+            <button
+              onClick={() => setCelebrate(null)}
+              aria-label="閉じる"
+              className="shrink-0 text-emerald-600/70 text-[16px] leading-none h-6 w-6 inline-flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+          {/* 次ループ導線：最重要ファネル起点へワンタップ。 */}
+          <a
+            href="/search"
+            className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]"
+          >
+            次の利益商品を出す →
+          </a>
+        </div>
+      )}
+
       {/* 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている時の降格バナー（出品中がある時だけ） */}
       {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
@@ -237,27 +283,31 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
               {live.map((d) => (
                 <li key={d.id} className="py-1.5">
                   {soldFor === d.id ? (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] text-gray-600 truncate max-w-[45%]">{d.title || "（無題）"}</span>
-                      <span className="text-[11px] text-gray-500">売れた金額</span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={soldJpy}
-                        onChange={(e) => setSoldJpy(e.target.value)}
-                        placeholder="円"
-                        className="w-20 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
-                      />
-                      <button
-                        disabled={busy === d.id || !(Number(soldJpy) > 0)}
-                        onClick={() => act(d.id, "sold", { soldJpy: Number(soldJpy) })}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40"
-                      >
-                        {busy === d.id && <Spinner size={11} />} 記録
-                      </button>
-                      <button onClick={() => { setSoldFor(null); setSoldJpy(""); }} className="h-7 px-1.5 text-[11px] text-gray-400">
-                        取消
-                      </button>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-gray-600 truncate max-w-[45%]">{d.title || "（無題）"}</span>
+                        <span className="text-[11px] text-gray-500">売れた金額</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={soldJpy}
+                          onChange={(e) => setSoldJpy(e.target.value)}
+                          placeholder="円"
+                          className="w-20 h-7 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
+                        />
+                        <button
+                          disabled={busy === d.id || !(Number(soldJpy) > 0)}
+                          onClick={() => act(d.id, "sold", { soldJpy: Number(soldJpy) })}
+                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40"
+                        >
+                          {busy === d.id && <Spinner size={11} />} 記録
+                        </button>
+                        <button onClick={() => { setSoldFor(null); setSoldJpy(""); }} className="h-7 px-1.5 text-[11px] text-gray-400">
+                          取消
+                        </button>
+                      </div>
+                      {/* 記録失敗時は無言にせず行内に赤文字で理由を出す。 */}
+                      {actErr[d.id] && <p className="text-[10px] text-red-600 leading-tight pl-0.5">{actErr[d.id]}</p>}
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -269,8 +319,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                             {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
                           </p>
                           {d.sourceStatus && (
-                            <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
-                              ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ（仕入れ不可）" : "売り切れ"}
+                            <p className="text-[10px] font-bold leading-tight mt-0.5 text-red-600">
+                              ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ（仕入れできません）" : "売り切れ（仕入れできません）"}。出品を停止しましょう。
                             </p>
                           )}
                           {!d.sourceStatus && d.priceDrift && (
@@ -291,8 +341,46 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           )}
                         </div>
                       </div>
-                      {/* 出品中の操作は2×2に最適化：追加仕入れ／出品停止・売れた／商品の編集。
-                          再出品は出品中では不要(=既に出品中)・「やめた」は出品停止＋24h自動削除に集約して整理。 */}
+                      {/* 仕入れ先が消えた（リンク切れ/売り切れ）出品は「次の一手＝出品停止」を主CTA(赤)に強調し、
+                          追加仕入れは控えめにする（押しても仕入れできないため）。それ以外は従来どおりの2×2。 */}
+                      {d.sourceStatus ? (
+                        <div className="space-y-1.5">
+                          {/* 主CTA：出品停止（赤・全幅）。欠品販売を防ぐ次の一手を最優先に。 */}
+                          <button
+                            disabled={busy === d.id}
+                            onClick={() => stopListing(d.id)}
+                            className="w-full inline-flex items-center justify-center gap-1.5 h-10 rounded-lg bg-red-600 text-white text-[12px] font-bold disabled:opacity-40 active:bg-red-700"
+                          >
+                            {busy === d.id ? <Spinner size={13} /> : <Ban size={14} />} この出品を停止する
+                          </button>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              disabled={busy === d.id}
+                              onClick={() => { setSoldFor(d.id); setSoldJpy(""); }}
+                              className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-bold disabled:opacity-40 active:bg-emerald-100"
+                            >
+                              ✓ 売れた
+                            </button>
+                            <button
+                              onClick={() => setEditDeal(d)}
+                              className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-[11px] font-bold active:bg-blue-100"
+                            >
+                              <Pencil size={13} /> 商品の編集
+                            </button>
+                          </div>
+                          {/* 追加仕入れは控えめ（仕入れできない状態なので弱める）。在庫が戻った場合の確認用に残す。 */}
+                          <a
+                            href={toRakutenProductUrl(d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold active:bg-gray-50"
+                          >
+                            <ShoppingCart size={12} /> 仕入れ先を確認（在庫が戻ったら）
+                          </a>
+                        </div>
+                      ) : (
+                      /* 出品中の操作は2×2に最適化：追加仕入れ／出品停止・売れた／商品の編集。
+                         再出品は出品中では不要(=既に出品中)・「やめた」は出品停止＋24h自動削除に集約して整理。 */
                       <div className="grid grid-cols-2 gap-1.5">
                         {/* 追加仕入れ：楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
                             sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
@@ -325,6 +413,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           <Pencil size={13} /> 商品の編集
                         </button>
                       </div>
+                      )}
                       {/* 最適化：タイトル・説明・Item Specifics を「返品されにくい」テンプレに自動で整える（無料・何度押しても課金なし）。 */}
                       {optimizedIds.has(d.id) ? (
                         <button
@@ -400,6 +489,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         {busy === d.id && <Spinner size={11} />} 削除
                       </button>
                     </div>
+                    {/* 削除失敗時は無言にせず行内に赤文字で理由を出す。 */}
+                    {actErr[d.id] && <p className="text-[10px] text-red-600 leading-tight pl-11">{actErr[d.id]}</p>}
                   </div>
                 </li>
               ))}

@@ -163,6 +163,8 @@ export default function EbayListingModal({
   const [confirmErr, setConfirmErr] = useState(false); // 「登録完了」後も未登録だった
   const [cooldown, setCooldown] = useState(0); // 「登録完了」失敗後のクールダウン秒数
   const [reportState, setReportState] = useState<"idle" | "sending" | "done">("idle"); // 開発者に報告
+  const [pubStep, setPubStep] = useState(0); // 出品中の擬似ステップ表示（時間ベースで順送り・体感の待ち軽減）
+  const dialogRef = useRef<HTMLDivElement>(null); // フォーカストラップ＆初期フォーカス用のダイアログ本体
 
   useEffect(() => {
     let alive = true;
@@ -216,8 +218,9 @@ export default function EbayListingModal({
       const a: Record<string, string> = {};
       p.requiredAspects.forEach((x) => (a[x.name] = x.value));
       setAspects(a);
-      // 出品写真は自分で選ぶ（既定は未選択）。タップした順がそのまま出品の画像順になる（先頭＝メイン）。
-      setSelectedImages([]);
+      // 出品写真：候補の先頭1枚を既定でメイン選択（ゼロ選択で詰むのを防ぐ）。再タップで解除・追加はタップ順。
+      const cands = Array.from(new Set([...(p.refImages ?? []), ...(p.productImages ?? [])])).filter(Boolean);
+      setSelectedImages(cands.length > 0 ? [cands[0]] : []);
       setPhase("form");
     })();
     return () => {
@@ -240,6 +243,52 @@ export default function EbayListingModal({
     const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
+
+  // 出品中(10〜20秒)の擬似ステップ表示。実際の進捗ではなく時間ベースで順送りし、待ち時間の不安をやわらげる。
+  // pubStep の初期化は publish() 側で行い、ここでは publishing 中のみタイマーで進める（effect内の同期setStateを避ける）。
+  useEffect(() => {
+    if (phase !== "publishing") return;
+    const a = setTimeout(() => setPubStep(1), 3500);  // 画像を最適化中
+    const b = setTimeout(() => setPubStep(2), 8000);  // カテゴリ・項目を設定中
+    const c = setTimeout(() => setPubStep(3), 13000); // eBayに登録中
+    return () => { clearTimeout(a); clearTimeout(b); clearTimeout(c); };
+  }, [phase]);
+
+  // Escで閉じる（出品中・登録確認中は実行を取りこぼさないため無視）。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (phase === "publishing" || confirming) return;
+      onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [phase, confirming, onClose]);
+
+  // 開いた時にダイアログ先頭へフォーカス＋Tabをダイアログ内でループする簡易フォーカストラップ。
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    el.focus(); // 先頭（ダイアログ本体）へフォーカス
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusable = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) { e.preventDefault(); el.focus(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || active === el) { e.preventDefault(); last.focus(); }
+      } else if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    el.addEventListener("keydown", onKey);
+    return () => el.removeEventListener("keydown", onKey);
+  }, [phase]);
 
   // 準備済みの内容で出品APIを叩く（publish と「登録完了」で共有）。
   const postPublish = (): Promise<PublishResult> => {
@@ -282,6 +331,7 @@ export default function EbayListingModal({
   };
 
   const publish = async () => {
+    setPubStep(0); // 擬似ステップを最初から
     setPhase("publishing");
     setMsg("");
     const res = await postPublish();
@@ -427,8 +477,10 @@ export default function EbayListingModal({
       onClick={phase === "publishing" || confirming ? undefined : onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92dvh] overflow-y-auto"
+        className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92dvh] overflow-y-auto outline-none"
       >
         {/* ヘッダー */}
         <div className="sticky top-0 z-10 bg-white border-b border-[#A98B5C]/25 px-4 py-3 flex items-center justify-between">
@@ -448,11 +500,18 @@ export default function EbayListingModal({
 
           {phase === "setup" && (
             <div className="py-8 text-center">
-              <AlertTriangle size={36} className="mx-auto mb-4 text-amber-400" />
-              <p className="text-base font-black text-gray-800 mb-2">出品の準備がもう少しです</p>
-              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                出品の準備（連携・送料・発送元）が残っています。設定画面で順に進めれば数分で完了。
+              <AlertTriangle size={36} aria-hidden="true" className="mx-auto mb-4 text-amber-400" />
+              <h2 className="text-base font-black text-gray-800 mb-2">出品の準備がもう少しです</h2>
+              <p className="text-sm text-gray-500 mb-3 leading-relaxed">
+                出品の準備が残っています。設定画面で順に進めれば数分で完了。
               </p>
+              {/* 全体像（何をやるか）を先に提示して心構えを作る。①連携 ②送料/返品 ③発送元。途中で英語ログインが一度開く。 */}
+              <ol className="text-left text-[12px] text-gray-600 leading-relaxed bg-[#F5F7FA] border border-[#A98B5C]/25 rounded-xl px-4 py-3 mb-6 list-decimal pl-7 space-y-1">
+                <li>eBayアカウントと<b>連携</b>する</li>
+                <li><b>送料・返品</b>のポリシーを決める</li>
+                <li><b>発送元（日本）</b>を設定する</li>
+                <li className="text-gray-400 list-none -ml-3">※ 途中でeBayの英語ログイン画面が一度だけ開きます</li>
+              </ol>
               <button
                 onClick={() => {
                   // OAuth/アカウント作成の往復で ?list= や sessionStorage が消えても復元できるよう、
@@ -494,7 +553,7 @@ export default function EbayListingModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value.slice(0, 80))}
                   rows={2}
-                  className="w-full px-3 py-2 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B] resize-none"
+                  className="w-full px-3 py-2 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B] resize-none"
                 />
                 <p className="text-[10px] text-gray-400 mt-0.5">{title.length}/80　英語タイトルを自動入力（編集OK）</p>
               </div>
@@ -517,7 +576,7 @@ export default function EbayListingModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B] resize-none leading-relaxed"
+                  className="w-full px-3 py-2 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B] resize-none leading-relaxed"
                 />
               </div>
 
@@ -527,7 +586,7 @@ export default function EbayListingModal({
                 <select
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
+                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                 >
                   <option value="NEW">新品（New）</option>
                   <option value="USED_EXCELLENT">中古 - 非常に良い</option>
@@ -594,7 +653,7 @@ export default function EbayListingModal({
                     <b>タップした順に並びます</b>（先頭=メイン・再タップで解除）。各画像は<b>実際にeBayに出る加工後</b>。🔍で拡大確認（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
                   </p>
                   {!photoOk && (
-                    <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
+                    <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
                       写真を1枚以上選んでください。
                     </p>
                   )}
@@ -720,7 +779,7 @@ export default function EbayListingModal({
                     inputMode="decimal"
                     value={priceUsd}
                     onChange={(e) => setPriceUsd(e.target.value)}
-                    className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
+                    className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                   />
                 </div>
                 {priceJpy > 0 && (
@@ -771,7 +830,7 @@ export default function EbayListingModal({
                           value={weightInput}
                           onChange={(e) => setWeightInput(e.target.value)}
                           placeholder={`概算${estWeightG}`}
-                          className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus:outline-none focus:border-[#2D323B]"
+                          className="w-24 h-8 px-2 rounded-lg border border-[#A98B5C]/35 text-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                         />
                         <span>梱包込み（未入力は安全側で少し重め）</span>
                       </div>
@@ -791,8 +850,8 @@ export default function EbayListingModal({
                 )}
                 {belowFloor && (
                   <div className="mt-1.5">
-                    <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      ⚠️ 損益分岐 ${floorUsd.toFixed(2)} を下回り、赤字の恐れがあります。
+                    <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
+                      <span aria-hidden="true">⚠️ </span>損益分岐 ${floorUsd.toFixed(2)} を下回り、赤字の恐れがあります。
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input
@@ -836,7 +895,7 @@ export default function EbayListingModal({
                 <select
                   value={quantity}
                   onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
+                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                 >
                   {[...Array(30)].map((_, i) => (
                     <option key={i + 1} value={i + 1}>{i + 1}個</option>
@@ -865,7 +924,7 @@ export default function EbayListingModal({
                     <select
                       value={shippingId}
                       onChange={(e) => setShippingId(e.target.value)}
-                      className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
+                      className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                     >
                       {data.shipping.map((s) => (
                         <option key={s.fulfillmentPolicyId} value={s.fulfillmentPolicyId}>
@@ -890,7 +949,7 @@ export default function EbayListingModal({
                 <select
                   value={handlingDays}
                   onChange={(e) => setHandlingDays(Number(e.target.value))}
-                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus:outline-none focus:border-[#2D323B]"
+                  className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                 >
                   {[1, 2, 3, 5, 7, 10, 14, 20, 30].map((d) => (
                     <option key={d} value={d}>
@@ -922,7 +981,7 @@ export default function EbayListingModal({
                 const renderField = (a: RequiredAspect) => {
                   const empty = (aspects[a.name] ?? "").trim() === "";
                   const showRed = a.required && empty; // 推奨は空でも赤くしない（出品はブロックしない）
-                  const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus:outline-none focus:border-[#2D323B] ${showRed ? "border-red-300 bg-red-50/40" : "border-[#A98B5C]/35"}`;
+                  const base = `w-full h-9 px-2.5 rounded-lg border text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B] ${showRed ? "border-red-300 bg-red-50/40" : "border-[#A98B5C]/35"}`;
                   return (
                     <div key={a.name}>
                       <span className="block text-[10px] text-gray-400 mb-0.5">{aspectLabel(a.name)}{a.required ? (empty && <span className="text-[#2D323B]"> ※必須</span>) : <span className="text-gray-400"> （任意）</span>}</span>
@@ -978,36 +1037,86 @@ export default function EbayListingModal({
 
               {/* 必須項目が未入力の時の案内（公開エラー#25002の予防） */}
               {!aspectsFilled && (
-                <p className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                  ⚠️ 上の「商品の詳細（必須）」に未入力あり。候補から選ぶと出品できます。
+                <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  <span aria-hidden="true">⚠️ </span>上の「商品の詳細（必須）」に未入力あり。候補から選ぶと出品できます。
                 </p>
               )}
-
-              {/* 出品ボタン */}
-              <button
-                onClick={publish}
-                disabled={!canPublish || (belowFloor && !acceptLoss)}
-                className="w-full h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] disabled:opacity-40"
-              >
-                この内容でeBayに出品する
-              </button>
             </div>
           )}
 
-          {phase === "publishing" && (
-            <div className="py-10 flex flex-col items-center justify-center gap-3 text-center">
-              <span className="w-8 h-8 border-[3px] border-[#A98B5C]/35 border-t-[#0064D2] rounded-full animate-spin" aria-hidden="true" />
-              <p className="text-sm text-gray-500">
-                eBayに出品中...（10〜20秒ほど）<br />
-                <span className="text-[12px] text-gray-400">この画面は閉じないで</span>
-              </p>
-            </div>
-          )}
+          {/* スティッキー出品フッター（form時のみ・safe-area対応）。長いフォームでも主CTAが常に見える。
+              .p-4 の余白を打ち消して全幅・最下部に固定。未充足は理由＋簡易チェックリストで明示。 */}
+          {phase === "form" && data && (() => {
+            // 出品ブロックの理由を動的チェックリスト化（未充足だけ示す）。
+            const checks = [
+              { ok: photoOk, label: `写真を1枚以上選ぶ（現在 ${selectedImages.length}枚）` },
+              { ok: aspectsFilled, label: "必須項目（商品の詳細）をすべて入力" },
+              { ok: Number(priceUsd) > 0, label: "販売価格を入力" },
+              { ok: !!data.category?.categoryId, label: "eBayカテゴリの自動判定" },
+              ...(belowFloor ? [{ ok: acceptLoss, label: "赤字の可能性を承知のうえでチェック" }] : []),
+            ];
+            const unmet = checks.filter((c) => !c.ok);
+            const blocked = !canPublish || (belowFloor && !acceptLoss);
+            return (
+              <div className="sticky bottom-0 -mx-4 -mb-4 mt-2 bg-white/95 backdrop-blur border-t border-[#A98B5C]/30 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                {/* 未充足の理由（押せない理由を明示）。すべて満たすと消える。 */}
+                {unmet.length > 0 && (
+                  <ul role="alert" className="mb-2 space-y-0.5">
+                    {unmet.map((c, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-[11px] text-[#2D323B]">
+                        <AlertTriangle size={13} aria-hidden="true" className="text-amber-500 shrink-0 mt-0.5" />
+                        <span>{c.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  onClick={publish}
+                  disabled={blocked}
+                  className="w-full h-12 bg-[#0064D2] text-white font-bold text-sm rounded-xl active:bg-[#0053AE] disabled:opacity-40"
+                >
+                  この内容でeBayに出品する
+                </button>
+              </div>
+            );
+          })()}
+
+          {phase === "publishing" && (() => {
+            // 擬似ステップ（時間ベースで順送り・体感の待ち軽減）。実際の進捗ではない。
+            const steps = ["出品準備中", "画像を最適化中", "カテゴリ・項目を設定中", "eBayに登録中"];
+            return (
+              <div className="py-10 flex flex-col items-center justify-center gap-4 text-center">
+                <span className="w-8 h-8 border-[3px] border-[#A98B5C]/35 border-t-[#0064D2] rounded-full animate-spin" aria-hidden="true" />
+                <p className="text-sm text-gray-500" role="status" aria-live="polite">
+                  eBayに出品中...（10〜20秒ほど）<br />
+                  <span className="text-[12px] text-gray-400">この画面は閉じないで</span>
+                </p>
+                <ol className="w-full max-w-[260px] space-y-1.5 text-left">
+                  {steps.map((s, i) => {
+                    const done = i < pubStep;
+                    const active = i === pubStep;
+                    return (
+                      <li key={s} className="flex items-center gap-2 text-[12px]">
+                        {done ? (
+                          <BadgeCheck size={15} aria-hidden="true" className="text-emerald-500 shrink-0" />
+                        ) : active ? (
+                          <span aria-hidden="true" className="w-3.5 h-3.5 shrink-0 border-2 border-[#A98B5C]/40 border-t-[#0064D2] rounded-full animate-spin" />
+                        ) : (
+                          <span aria-hidden="true" className="w-3.5 h-3.5 shrink-0 rounded-full border border-gray-200" />
+                        )}
+                        <span className={done ? "text-gray-400 line-through" : active ? "text-[#2D323B] font-bold" : "text-gray-400"}>{s}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            );
+          })()}
 
           {phase === "done" && (
             <div className="py-8 text-center">
-              <BadgeCheck size={44} className="mx-auto mb-3 text-emerald-500" />
-              <p className="text-base font-black text-gray-800 mb-1.5">出品が完了しました！</p>
+              <BadgeCheck size={44} aria-hidden="true" className="mx-auto mb-3 text-emerald-500" />
+              <h2 className="text-base font-black text-gray-800 mb-1.5">出品が完了しました！</h2>
               <p className="text-xs text-gray-500 mb-4 leading-relaxed">売れたら自動で検知して、この一覧の下の方に移動します。</p>
               <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-emerald-800 leading-relaxed">
@@ -1069,97 +1178,21 @@ export default function EbayListingModal({
           {phase === "notready" && (
             <div className="py-6">
               <div className="text-center">
-                <AlertTriangle size={40} className="mx-auto mb-3 text-amber-500" />
-                <p className="text-lg font-black text-amber-700 mb-2">セラー登録が出来ていません。</p>
+                <AlertTriangle size={40} aria-hidden="true" className="mx-auto mb-3 text-amber-500" />
+                <h2 className="text-lg font-black text-amber-700 mb-2">セラー登録が完了していません</h2>
                 <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
-                  売上を受け取る<b className="text-gray-700">セラー登録（初回だけ）</b>が済むと、ここから出品できます。
+                  あと<b className="text-gray-700">セラー登録（初回の1回だけ）</b>が済めば、ここから出品できます。
                 </p>
               </div>
 
-              {/* 「登録の壁」は他社サポート(ココナラ等)で突破するのが近道、という後押し。自力で消耗させない方針。 */}
+              {/* 復帰導線を主役に：なぜ必要か＋初回1回＋できたら即再開。自力で進めてもらう前提の前向きな案内。 */}
               <div className="bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-3 mb-4 text-left">
-                <p className="text-[12px] text-amber-900 leading-relaxed">
-                  💪 ここが<b>最初の関門</b>。でも<b>登録は一度きり</b>、<b>詳しい人に頼めば60分ほど</b>で終わります。ここでつまずいて<b>下の図のような将来</b>をあきらめるのは、もったいない。
-                  <br />
-                  自力で消耗するより、<b>ココナラ（他社サービス）のベテランに頼んで一気に越える</b>のが近道。この壁さえ越えれば、あとは<b>アプリのワンタップ出品</b>で世界に売れます。応援しています！
-                </p>
-                <a
-                  href={COCONALA_HREF}
-                  target="_blank"
-                  rel="sponsored noopener noreferrer"
-                  onClick={() => {
-                    track("coconala_click", { product_id: product.id });
-                    // 押した時点で検索ワードをコピーしておく（ココナラの検索窓にすぐ貼れる）。
-                    if (!COCONALA_PRESEARCHED) { try { navigator.clipboard.writeText(COCONALA_KEYWORD); } catch { /* noop */ } }
-                  }}
-                  className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 h-11 bg-white border border-amber-300 text-amber-800 font-bold text-[13px] rounded-xl active:bg-amber-100"
-                >
-                  ココナラでセラー登録のサポートを探す <ExternalLink size={14} />
-                </a>
-                {/* 通常リンクは検索済みで着地しないため、検索ワードを貼り付けて探すよう明確に誘導（検索着地リンクなら不要）。 */}
-                {!COCONALA_PRESEARCHED && (
-                  <div className="mt-2 bg-white/60 border border-amber-200 rounded-lg px-3 py-2.5">
-                    <p className="text-[11px] text-amber-900 leading-relaxed mb-1.5">
-                      ココナラが開いたら、<b>検索まどに下のワードを貼り付けて検索</b>👇（このボタンで自動コピー）
-                    </p>
-                    <CopyKeyword value={COCONALA_KEYWORD} />
-                  </div>
-                )}
-                {/* アフィリエイト時はステマ規制対応で「広告」を明示。A8.net等はインプレ計測の1x1画像も置く。 */}
-                {COCONALA_IS_AD && (
-                  <div className="mt-1 flex items-center justify-end">
-                    <span className="text-[10px] text-amber-700/70">広告（ココナラ）</span>
-                    {COCONALA_AFFILIATE_IMG && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={COCONALA_AFFILIATE_IMG} width={1} height={1} alt="" className="absolute opacity-0" />
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 収益の複利イメージ（10万円→毎月+10%）。断定額ではなく「イメージ図」＋免責で誇大表現を回避。 */}
-              <div className="bg-white border border-[#A98B5C]/25 rounded-xl px-3 pt-3 pb-2 mb-4">
-                <p className="text-[12px] font-black text-gray-800 text-center">🌍 海外輸出業のポテンシャル</p>
-                <p className="text-[10px] text-gray-500 text-center mb-1">10万円から、毎月10%ずつ増やせたら…📈</p>
-                <svg
-                  viewBox="0 0 340 180"
-                  className="w-full h-auto"
-                  role="img"
-                  aria-label="10万円を毎月10%増やすと5年で約3,000万円になる複利のイメージ図"
-                >
-                  <line x1="38" y1="18" x2="38" y2="140" stroke="#E5E7EB" strokeWidth="1.5" />
-                  <line x1="38" y1="140" x2="326" y2="140" stroke="#E5E7EB" strokeWidth="1.5" />
-                  <text x="8" y="16" fontSize="10" fill="#9CA3AF">資産</text>
-                  <path
-                    d="M40 139.6 L96 138.8 L152 136.1 L208 127.8 L264 101.8 L320 20 L320 140 L40 140 Z"
-                    fill="#10B98120"
-                  />
-                  <polyline
-                    points="40,139.6 96,138.8 152,136.1 208,127.8 264,101.8 320,20"
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="40" cy="139.6" r="3.5" fill="#10B981" />
-                  <circle cx="208" cy="127.8" r="3.5" fill="#10B981" />
-                  <circle cx="264" cy="101.8" r="3.5" fill="#10B981" />
-                  <circle cx="320" cy="20" r="4.5" fill="#059669" />
-                  <text x="40" y="132" fontSize="9.5" fill="#6B7280" textAnchor="middle">10万</text>
-                  <text x="206" y="121" fontSize="9.5" fill="#059669" textAnchor="middle">約300万</text>
-                  <text x="322" y="14" fontSize="12" fontWeight="bold" fill="#059669" textAnchor="end">
-                    5年で約3,000万円
-                  </text>
-                  {["今", "1年", "2年", "3年", "4年", "5年"].map((l, i) => (
-                    <text key={l} x={40 + i * 56} y="156" fontSize="10" fill="#9CA3AF" textAnchor="middle">
-                      {l}
-                    </text>
-                  ))}
-                </svg>
-                <p className="text-[10px] text-gray-400 leading-relaxed mt-1">
-                  ※ 利益を仕入れに回して<b>毎月10%</b>増やせた場合の複利イメージです（実際の結果を保証するものではありません）。
-                </p>
+                <h3 className="text-[13px] font-black text-amber-900 mb-1.5">セラー登録について（初回だけ）</h3>
+                <ul className="text-[12px] text-amber-900 leading-relaxed list-disc pl-4 space-y-1">
+                  <li><b>なぜ必要？</b> 売上を受け取るための本人確認で、eBay側の必須手続きです。</li>
+                  <li><b>1回だけ</b>：一度登録すれば、次からはアプリのワンタップ出品でOK。</li>
+                  <li><b>できたら即再開</b>：登録後、下の「登録できた・もう一度試す」を押せばそのまま出品に進めます。</li>
+                </ul>
               </div>
 
               <div className="text-center">
@@ -1181,19 +1214,58 @@ export default function EbayListingModal({
                   </p>
                 ) : null}
                 {confirmErr && (
-                  <p className="mb-2 text-[11px] text-[#2D323B] leading-relaxed">
+                  <p role="alert" className="mb-2 text-[11px] text-[#2D323B] leading-relaxed">
                     まだ登録が完了していません。eBayの〈アカウントの準備ができました〉メールが届いてから押してください。
                   </p>
                 )}
-                <button onClick={onClose} className="w-full h-10 text-sm font-bold text-gray-500">あとで</button>
+                <button onClick={onClose} className="w-full h-10 mb-3 text-sm font-bold text-gray-500">あとで</button>
+
+                {/* 二次導線（控えめ）：自力が難しければ他社サポートに頼める、という補助的な選択肢。 */}
+                <div className="border-t border-[#A98B5C]/20 pt-3 text-left">
+                  <p className="text-[11px] text-gray-400 leading-relaxed mb-1.5">
+                    登録でつまずいたら、他社サービスのベテランに代行を頼むこともできます。
+                  </p>
+                  <a
+                    href={COCONALA_HREF}
+                    target="_blank"
+                    rel="sponsored noopener noreferrer"
+                    onClick={() => {
+                      track("coconala_click", { product_id: product.id });
+                      // 押した時点で検索ワードをコピーしておく（ココナラの検索窓にすぐ貼れる）。
+                      if (!COCONALA_PRESEARCHED) { try { navigator.clipboard.writeText(COCONALA_KEYWORD); } catch { /* noop */ } }
+                    }}
+                    className="inline-flex items-center gap-1 text-[12px] font-bold text-gray-500 underline underline-offset-2 active:text-gray-700"
+                  >
+                    ココナラでセラー登録のサポートを探す <ExternalLink size={12} aria-hidden="true" />
+                  </a>
+                  {/* 通常リンクは検索済みで着地しないため、検索ワードを貼り付けて探すよう誘導（検索着地リンクなら不要）。 */}
+                  {!COCONALA_PRESEARCHED && (
+                    <div className="mt-2">
+                      <p className="text-[11px] text-gray-400 leading-relaxed mb-1.5">
+                        開いたら検索まどに下のワードを貼り付けて検索（このボタンで自動コピー）
+                      </p>
+                      <CopyKeyword value={COCONALA_KEYWORD} />
+                    </div>
+                  )}
+                  {/* アフィリエイト時はステマ規制対応で「広告」を明示。A8.net等はインプレ計測の1x1画像も置く。 */}
+                  {COCONALA_IS_AD && (
+                    <div className="mt-1 flex items-center justify-end">
+                      <span className="text-[10px] text-gray-400">広告（ココナラ）</span>
+                      {COCONALA_AFFILIATE_IMG && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={COCONALA_AFFILIATE_IMG} width={1} height={1} alt="" className="absolute opacity-0" />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {phase === "limit" && (
             <div className="py-6 text-center">
-              <Crown size={36} className="mx-auto mb-3 text-[#A98B5C]" />
-              <p className="text-sm font-bold text-gray-800 mb-2">出品の上限に達しました</p>
+              <Crown size={36} aria-hidden="true" className="mx-auto mb-3 text-[#A98B5C]" />
+              <h2 className="text-sm font-bold text-gray-800 mb-2">出品の上限に達しました</h2>
               <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
                 {result?.error || "現在のプランの同時出品上限に達しました。"}
               </p>
@@ -1214,9 +1286,9 @@ export default function EbayListingModal({
 
           {phase === "error" && (
             <div className="py-6">
-              <AlertTriangle size={36} className="mx-auto mb-3 text-[#2D323B]" />
-              <p className="text-sm font-bold text-gray-800 text-center mb-2">出品できませんでした</p>
-              <p className="text-[12px] text-[#2D323B] text-center mb-3 leading-relaxed break-words">{msg}</p>
+              <AlertTriangle size={36} aria-hidden="true" className="mx-auto mb-3 text-[#2D323B]" />
+              <h2 className="text-sm font-bold text-gray-800 text-center mb-2">出品できませんでした</h2>
+              <p role="alert" className="text-[12px] text-[#2D323B] text-center mb-3 leading-relaxed break-words">{msg}</p>
               {result?.errorKind !== "known" && result?.steps && result.steps.length > 0 && (
                 <ul className="mb-4 space-y-1 bg-gray-50 rounded-xl p-3">
                   {result.steps.map((s, i) => (

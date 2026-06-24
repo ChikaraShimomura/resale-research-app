@@ -169,7 +169,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                   value={vals.handlingDays ?? ""}
                   onChange={(e) => setVals((v) => ({ ...v, handlingDays: e.target.value }))}
                   placeholder="7"
-                  className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
+                  className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                 />
               </div>
               {SIZE_FIELDS.map((f) => (
@@ -181,7 +181,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                     value={vals[f.key] ?? ""}
                     onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
-                    className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
+                    className="w-full h-11 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                   />
                 </div>
               ))}
@@ -219,7 +219,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                   type="checkbox"
                   checked={freeShipping}
                   onChange={(e) => setFreeShipping(e.target.checked)}
-                  className="accent-[#2D323B] w-4 h-4"
+                  className="accent-[#2D323B] w-4 h-4 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40"
                 />
                 <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
               </label>
@@ -234,7 +234,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                   type="checkbox"
                   checked={returnsAccepted}
                   onChange={(e) => setReturnsAccepted(e.target.checked)}
-                  className="accent-[#2D323B] w-4 h-4"
+                  className="accent-[#2D323B] w-4 h-4 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40"
                 />
                 <span className="text-[12px] text-gray-700">返品を受け付ける（30日・返送料は買い手負担）</span>
               </label>
@@ -271,7 +271,12 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       )}
 
       {msg && (
-        <p className={`text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#2D323B]"}`}>
+        // 成否メッセージはスクリーンリーダーへ即時通知（エラー/結果の見落とし防止）
+        <p
+          role="alert"
+          aria-live="assertive"
+          className={`text-[12px] font-bold ${state === "done" ? "text-emerald-600" : "text-[#2D323B]"}`}
+        >
           {msg}
         </p>
       )}
