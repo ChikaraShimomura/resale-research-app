@@ -81,8 +81,10 @@ async function detectWatermark(imageUrl) {
               {
                 type: "text",
                 text:
-                  "Does this product image have a watermark, store name/logo, website URL, or promotional text DIGITALLY OVERLAID on top of the photo? " +
-                  "Ignore text or logos that are physically printed on the product itself or its packaging. " +
+                  "You are checking a Japanese e-commerce product image. " +
+                  "Answer WATERMARK ONLY if a reseller/shop has DIGITALLY OVERLAID promotional graphics on top of the photo, such as: a store name or website URL, a price tag, or a badge like 送料無料 (free shipping), 保証 (warranty), SALE, クーポン (coupon), ポイント, %OFF. " +
+                  "Answer CLEAN for everything else, INCLUDING: text or logos PRINTED on the product or its box/package (brand name, model number, e.g. '1/48 SCALE KIT'); official product-line or manufacturer logos that are part of the maker's own photo (e.g. S.H.Figuarts, Hasegawa, BANDAI, CASIO); and plain product or box-art photos with no shop overlay. " +
+                  "When unsure, answer CLEAN. " +
                   "Answer with ONE word: WATERMARK or CLEAN.",
               },
               { type: "image", source: { type: "base64", media_type: mt, data: b64 } },
