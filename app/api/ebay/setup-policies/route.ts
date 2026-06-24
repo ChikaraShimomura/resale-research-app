@@ -5,6 +5,7 @@ import {
   createPaymentPolicy,
   createReturnPolicy,
   createFlatIntlFulfillmentPolicy,
+  createFreeIntlFulfillmentPolicy,
 } from "../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     regions?: string[];
     returnsAccepted?: boolean;
     returnDays?: number;
+    freeShipping?: boolean; // 送料無料(送料込み)ポリシーも作るか。未指定=作る（送料込みトグルの相手になる）。
   };
   try {
     body = await req.json();
@@ -93,6 +95,13 @@ export async function POST(req: Request) {
       regions
     );
     steps.push({ step: `配送ポリシー(${s.key})`, ok: f.ok, error: f.error });
+  }
+
+  // 送料無料(送料込み)ポリシー。未指定=作る。これがあると出品/編集の「送料込み」トグルが使えるようになる
+  //（買い手の送料は$0・送料は商品価格に内包する運用）。発送日数・発送先はサイズ別と同じ。
+  if (body.freeShipping !== false) {
+    const free = await createFreeIntlFulfillmentPolicy(token, MARKETPLACE, "Shipping Free", handlingDays, regions);
+    steps.push({ step: "配送ポリシー(送料無料・送料込み)", ok: free.ok, error: free.error });
   }
 
   const ok = steps.every((s) => s.ok);

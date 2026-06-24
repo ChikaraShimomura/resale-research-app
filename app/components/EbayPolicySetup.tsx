@@ -51,6 +51,8 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
     setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
   // 返品：規定は返品不可。返品可にすると30日・返送料は買い手負担。
   const [returnsAccepted, setReturnsAccepted] = useState(false);
+  // 送料無料(送料込み)ポリシーも作る。規定ON＝出品/編集の「送料込み」トグルが使えるようになる。
+  const [freeShipping, setFreeShipping] = useState(true);
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [steps, setSteps] = useState<StepResult[]>([]);
   const [msg, setMsg] = useState("");
@@ -89,6 +91,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
           regions,
           returnsAccepted,
           returnDays: 30,
+          freeShipping,
         }),
       });
       const j = await res.json();
@@ -197,6 +200,25 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             );
           })}
         </div>
+      </div>
+
+      {/* 送料無料（送料込み）ポリシー */}
+      <div className="space-y-1.5">
+        <p className="text-[12px] font-bold text-gray-700">送料無料（送料込み）</p>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={freeShipping}
+            onChange={(e) => setFreeShipping(e.target.checked)}
+            className="accent-[#2D323B] w-4 h-4"
+          />
+          <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
+        </label>
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          {freeShipping
+            ? "出品画面・出品中の編集で「送料込み（送料無料）」に切り替えられるようになります（送料は商品価格に含めて、買い手の送料は$0。eBayの「送料無料」表示で売れやすくなります）。"
+            : "作りません。後からこの画面で登録すれば、いつでも送料込みに切り替えられます。"}
+        </p>
       </div>
 
       {/* 返品ポリシー */}

@@ -478,6 +478,66 @@ export async function createReturnPolicy(
   return ebayPost(token, "/sell/account/v1/return_policy", body);
 }
 
+// 配送ポリシーの共通本体（カテゴリ/発送日数/Global Shipping）。shippingOptions だけ呼び出し側で組む。
+// ⚠️ globalShipping は最上位プロパティ。国際発送オプションがあるのに null だと
+//    eBay が「Global shipping field is null #20403」でポリシー作成/更新を弾く。
+//    自前で国際発送する（INTERNATIONAL を明示構成）ので Global Shipping Program は使わない＝false。
+function fulfillmentBody(
+  marketplace: string,
+  name: string,
+  handlingDays: number,
+  shippingOptions: Record<string, unknown>[]
+): Record<string, unknown> {
+  return {
+    name,
+    marketplaceId: marketplace,
+    categoryTypes: CATEGORY_TYPES,
+    handlingTime: { value: handlingDays, unit: "DAY" },
+    globalShipping: false,
+    shippingOptions,
+  };
+}
+
+// 国際発送オプション（発送先ホワイトリスト）。空（米国のみ）なら null＝INTERNATIONAL を付けない
+// （空 regionIncluded は eBay が弾く）。regions は設定画面(EbayPolicySetup)から変更可（規定 AU/GB）。
+function intlShippingOption(shippingCostUsd: string, regions: string[]): Record<string, unknown> | null {
+  if (regions.length === 0) return null;
+  return {
+    optionType: "INTERNATIONAL",
+    costType: "FLAT_RATE",
+    shippingServices: [
+      {
+        sortOrder: 1,
+        shippingServiceCode: "USPSPriorityMailInternational",
+        shippingCost: { value: shippingCostUsd, currency: "USD" },
+        shipToLocations: { regionIncluded: regions.map((r) => ({ regionName: r })) },
+      },
+    ],
+  };
+}
+
+// 配送ポリシーの作成（重複なら更新）。名前は固定のため再実行で同名衝突する→「重複なら更新(PUT)」する。
+// okIfExists で握りつぶすと送料・発送日数の変更が無音で無効化されるため、必ず更新する。
+async function upsertFulfillmentPolicy(
+  token: string,
+  marketplace: string,
+  name: string,
+  body: Record<string, unknown>
+): Promise<EbayPostResult> {
+  const post = await ebayPost(token, "/sell/account/v1/fulfillment_policy", body);
+  if (post.ok) return post;
+  if (!/already|exist|duplicate/i.test(post.error ?? "")) return post;
+  const list = await ebayGet<{ fulfillmentPolicies?: { fulfillmentPolicyId?: string; name?: string }[] }>(
+    token,
+    `/sell/account/v1/fulfillment_policy?marketplace_id=${marketplace}`
+  );
+  const id = list.data?.fulfillmentPolicies?.find((p) => p.name === name)?.fulfillmentPolicyId;
+  if (!id) return post; // 既存IDを特定できなければ元のエラーを返す
+  const put = await ebayWrite(token, "PUT", `/sell/account/v1/fulfillment_policy/${id}`, body);
+  // 変更なし(20403 "same as in the system")＝既に望む内容で存在＝成功扱い。
+  return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
+}
+
 // サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。regions＝国際発送を許可する国コード(規定 AU/GB)。
 export async function createFlatIntlFulfillmentPolicy(
   token: string,
@@ -497,45 +557,30 @@ export async function createFlatIntlFulfillmentPolicy(
       ],
     },
   ];
-  // 国際は発送先を絞る（ホワイトリスト）。regions は設定画面(EbayPolicySetup)から変更可（規定 AU/GB）。
-  // 空（米国のみ）の場合は INTERNATIONAL オプション自体を付けない（空 regionIncluded は eBay が弾くため）。
-  if (regions.length > 0) {
-    shippingOptions.push({
-      optionType: "INTERNATIONAL",
+  const intl = intlShippingOption(shippingCostUsd, regions);
+  if (intl) shippingOptions.push(intl);
+  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
+}
+
+// 送料無料の配送ポリシー（送料込み出品＝価格に送料を内包し、買い手の送料は$0）。
+// 国内は freeShipping:true（eBayの「送料無料」バッジ＝検索でも有利。先頭の国内サービスにのみ有効・shippingCost不要）。
+// 国際は無料フラグが無いので shippingCost=0.00 で無料にする。
+// listFulfillmentPolicies は costUsd<0.01 を「無料」と判定するので、これが送料込みトグルの相手になる。
+export async function createFreeIntlFulfillmentPolicy(
+  token: string,
+  marketplace: string,
+  name: string,
+  handlingDays: number,
+  regions: string[] = ["AU", "GB"]
+): Promise<EbayPostResult> {
+  const shippingOptions: Record<string, unknown>[] = [
+    {
+      optionType: "DOMESTIC",
       costType: "FLAT_RATE",
-      shippingServices: [
-        {
-          sortOrder: 1,
-          shippingServiceCode: "USPSPriorityMailInternational",
-          shippingCost: { value: shippingCostUsd, currency: "USD" },
-          shipToLocations: { regionIncluded: regions.map((r) => ({ regionName: r })) },
-        },
-      ],
-    });
-  }
-  const body = {
-    name,
-    marketplaceId: marketplace,
-    categoryTypes: CATEGORY_TYPES,
-    handlingTime: { value: handlingDays, unit: "DAY" },
-    // ⚠️ globalShipping は fulfillment policy の最上位プロパティ。国際発送オプションがあるのにこれが null だと
-    //    eBay が「Global shipping field is null #20403」でポリシー作成/更新を弾く（実害: 配送ポリシー保存が失敗）。
-    //    自前で国際発送する（INTERNATIONAL オプションを明示構成）ので eBay の Global Shipping Program は使わない＝false。
-    globalShipping: false,
-    shippingOptions,
-  };
-  const post = await ebayPost(token, "/sell/account/v1/fulfillment_policy", body);
-  if (post.ok) return post;
-  // 配送ポリシー名はサイズ固定のため再実行で同名衝突する。送料・発送日数は変わり得るので
-  // 「重複なら更新(PUT)」する。okIfExists で握りつぶすと送料変更が無音で無効化されてしまう。
-  if (!/already|exist|duplicate/i.test(post.error ?? "")) return post;
-  const list = await ebayGet<{ fulfillmentPolicies?: { fulfillmentPolicyId?: string; name?: string }[] }>(
-    token,
-    `/sell/account/v1/fulfillment_policy?marketplace_id=${marketplace}`
-  );
-  const id = list.data?.fulfillmentPolicies?.find((p) => p.name === name)?.fulfillmentPolicyId;
-  if (!id) return post; // 既存IDを特定できなければ元のエラーを返す
-  const put = await ebayWrite(token, "PUT", `/sell/account/v1/fulfillment_policy/${id}`, body);
-  // 変更なし(20403 "same as in the system")＝既に望む内容で存在＝成功扱い。
-  return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
+      shippingServices: [{ sortOrder: 1, shippingServiceCode: "USPSPriority", freeShipping: true }],
+    },
+  ];
+  const intl = intlShippingOption("0.00", regions); // 国際は0.00で無料に
+  if (intl) shippingOptions.push(intl);
+  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
 }
