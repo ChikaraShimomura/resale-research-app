@@ -428,7 +428,7 @@ export default function EbayListingModal({
         className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[92dvh] overflow-y-auto"
       >
         {/* ヘッダー */}
-        <div className="sticky top-0 bg-white border-b border-[#A98B5C]/25 px-4 py-3 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-white border-b border-[#A98B5C]/25 px-4 py-3 flex items-center justify-between">
           <h2 className="text-sm font-black text-gray-800 flex items-center gap-1.5">
             <span className="inline-flex w-5 h-5 bg-[#0064D2] rounded-full items-center justify-center text-white font-black text-[10px]">e</span>
             eBayに出品
