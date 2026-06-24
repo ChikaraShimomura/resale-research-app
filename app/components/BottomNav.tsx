@@ -1,13 +1,15 @@
 "use client";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Tag, Package, Truck, User } from "lucide-react";
+import { Home, Tag, Sprout, Package, Truck, User } from "lucide-react";
 import Spinner from "./Spinner";
 
-// 作業の流れに沿った5タブ：ホーム → 利益商品(探す) → 出品管理(出した物) → 発送(売れた後) → マイページ(成績/設定)。
+// 作業の流れに沿った6タブ：ホーム → 利益商品(探す) → 育成(アカウント育成=スターター品/現在地) → 出品管理 → 発送 → マイページ。
+// ※タブ表示は短く「育成」。ページ見出しは「アカウント育成」(/grow)。6タブなので狭幅でも崩れないよう px は詰める。
 const NAV_ITEMS = [
   { href: "/",         Icon: Home,    label: "ホーム",     match: (p: string) => p === "/" },
   { href: "/search",   Icon: Tag,     label: "利益商品",   match: (p: string) => p.startsWith("/search") || p.startsWith("/results") },
+  { href: "/grow",     Icon: Sprout,  label: "育成",       match: (p: string) => p.startsWith("/grow") },
   { href: "/listings", Icon: Package, label: "出品管理",   match: (p: string) => p.startsWith("/listings") },
   { href: "/ship",     Icon: Truck,   label: "発送",       match: (p: string) => p.startsWith("/ship") },
   { href: "/mypage",   Icon: User,    label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
@@ -63,7 +65,7 @@ export default function BottomNav() {
             href={item.href}
             aria-label={item.label}
             aria-current={isActive ? "page" : undefined}
-            className={`flex flex-col items-center justify-center gap-0.5 py-2 px-1 flex-1 min-h-[52px] transition-colors ${
+            className={`flex flex-col items-center justify-center gap-0.5 py-2 px-0.5 flex-1 min-h-[52px] transition-colors ${
               isActive ? "text-[#2D323B]" : "text-gray-500"
             }`}
           >

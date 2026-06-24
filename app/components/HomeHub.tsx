@@ -174,16 +174,11 @@ export default function HomeHub() {
       {/* 主要タブへの移動は下部ナビ(BottomNav)が担う＝重複するショートカット枠は置かない。
           ホーム=「これから(状況＋続きの一手)」／マイページ=「これまで(成績・お金・設定)」で役割分離。 */}
 
-      {/* 補助導線：アカウント育成／ランキング／ガイド（下部ナビに無い学習/集客/育成の入口） */}
+      {/* 補助導線：ランキング／ガイド（育成は下部ナビの「育成」タブへ移したのでここからは外す＝重複解消） */}
       <section className="text-center pt-1 space-y-3">
-        <Link href="/grow" className="inline-flex items-center justify-center gap-1.5 text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
-          📈 アカウントを育てる（売れる土台づくり）→
+        <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
+          🔥 いま稼げる利益商品ランキングを見る →
         </Link>
-        <div>
-          <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
-            🔥 いま稼げる利益商品ランキングを見る →
-          </Link>
-        </div>
         <div>
           <Link href="/guide" className="text-[12px] font-bold text-gray-500 underline underline-offset-2">
             使い方ガイドを見る →

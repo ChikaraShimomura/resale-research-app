@@ -5,7 +5,7 @@ import AccountGrowth from "../components/AccountGrowth";
 
 // 「アカウントを育てる」：新規eBayアカウントは出品制限・評価ゼロ・低可視性で“出した＝売れる”にならない。
 // 評価/実績を安全に積むための現在地＋スターター品＋コツを一か所に。ログイン必須(middlewareのゲート対象)。
-export const metadata: Metadata = { title: "アカウントを育てる", robots: { index: false } };
+export const metadata: Metadata = { title: "アカウント育成", robots: { index: false } };
 
 export default function GrowPage() {
   return (
@@ -15,7 +15,7 @@ export default function GrowPage() {
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
-          <span className="text-white font-black text-base tracking-tight">アカウントを育てる</span>
+          <span className="text-white font-black text-base tracking-tight">アカウント育成</span>
           <div className="ml-auto"><AuthButton /></div>
         </div>
       </header>
