@@ -13,6 +13,8 @@ import { ProfitProduct } from "../lib/profitFilter";
 export default function AccountGrowth() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [soldCount, setSoldCount] = useState(0);
+  const [feedbackScore, setFeedbackScore] = useState<number | null>(null); // eBayの本物の評価数(取れた時だけ)
+  const [positivePct, setPositivePct] = useState<number | null>(null);
   const [products, setProducts] = useState<ProfitProduct[]>([]);
   const [masked, setMasked] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -20,14 +22,19 @@ export default function AccountGrowth() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [statusR, statsR, prodR] = await Promise.allSettled([
+      const [statusR, statsR, fbR, prodR] = await Promise.allSettled([
         fetch("/api/ebay/status", { cache: "no-store" }).then((r) => r.json()),
         fetch("/api/ebay/stats", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/ebay/feedback", { cache: "no-store" }).then((r) => r.json()), // 承認不要(Trading GetUser)。失敗時はnull
         fetchProducts(),
       ]);
       if (!alive) return;
       if (statusR.status === "fulfilled") setConnected(Boolean(statusR.value?.connected));
       if (statsR.status === "fulfilled" && statsR.value?.ok) setSoldCount(statsR.value.stats?.soldCount ?? 0);
+      if (fbR.status === "fulfilled" && fbR.value?.ok) {
+        setFeedbackScore(typeof fbR.value.score === "number" ? fbR.value.score : null);
+        setPositivePct(typeof fbR.value.positivePct === "number" ? fbR.value.positivePct : null);
+      }
       if (prodR.status === "fulfilled") {
         setProducts(Array.isArray(prodR.value.products) ? prodR.value.products : []);
         setMasked(!!prodR.value.masked);
@@ -39,13 +46,16 @@ export default function AccountGrowth() {
     };
   }, []);
 
-  // 育成ステージ（自分の記録ベースの近似）。0=未連携 / 1=連携済み・販売0 / 2=1〜9件 / 3=10件以上(卒業)。
-  const stage = connected === false ? 0 : soldCount === 0 ? 1 : soldCount < 10 ? 2 : 3;
+  // 評価の根拠：eBayの本物の評価数が取れればそれを、取れなければ自分の販売記録(soldCount)を近似に使う。
+  const evidence = feedbackScore != null ? feedbackScore : soldCount;
+  const metricLabel = feedbackScore != null ? "eBay評価" : "販売記録";
+  // 育成ステージ。0=未連携 / 1=評価0 / 2=1〜9 / 3=10以上(卒業)。
+  const stage = connected === false ? 0 : evidence === 0 ? 1 : evidence < 10 ? 2 : 3;
   const stageInfo = [
     { label: "まず連携", desc: "出品の前に、eBayと連携を済ませましょう。", cta: { href: "/settings/ebay", text: "eBayを連携する", Icon: Plug, ebay: true } },
     { label: "最初の評価をとる", desc: "安い・低リスクの商品から出品し、最初の数件の評価を積みましょう。これが出品制限の解放と信用の土台です。", cta: { href: "/search", text: "スターター品を出品する", Icon: Search, ebay: false } },
-    { label: "評価を伸ばす", desc: `販売 ${soldCount} 件。この調子で評価を貯め、30日ごとに増枠リクエストを。販売率50〜70％・好評価を保てば枠が自動で増えます。`, cta: { href: "/search", text: "次の商品を出品する", Icon: Search, ebay: false } },
-    { label: "卒業：伸ばす段階へ", desc: `販売 ${soldCount} 件。土台はできました。高単価や、ストア名・ニッチでのブランディングで“複利”を効かせる段階です。`, cta: { href: "/search", text: "高単価にも挑戦する", Icon: Store, ebay: false } },
+    { label: "評価を伸ばす", desc: `${metricLabel} ${evidence} 件。この調子で評価を貯め、30日ごとに増枠リクエストを。販売率50〜70％・好評価を保てば枠が自動で増えます。`, cta: { href: "/search", text: "次の商品を出品する", Icon: Search, ebay: false } },
+    { label: "卒業：伸ばす段階へ", desc: `${metricLabel} ${evidence} 件。土台はできました。高単価や、ストア名・ニッチでのブランディングで“複利”を効かせる段階です。`, cta: { href: "/search", text: "高単価にも挑戦する", Icon: Store, ebay: false } },
   ][stage];
 
   // スターター品＝利益が出る中で「いちばん安い＝1件あたりの失敗リスクが小さい」順。在庫切れ/赤字は配信側で除外済み。
@@ -72,6 +82,9 @@ export default function AccountGrowth() {
           <span className="text-[11px] font-bold text-white/70">アカウント育成 ステージ {Math.min(stage + 1, 4)} / 4</span>
         </div>
         <p className="text-lg font-black leading-tight">{loaded ? stageInfo.label : "読み込み中…"}</p>
+        {feedbackScore != null && (
+          <p className="text-[11px] text-white/60 mt-1">eBay評価 {feedbackScore}件{positivePct != null ? `・好評価 ${positivePct}%` : ""}</p>
+        )}
         <p className="text-[12px] text-white/80 leading-relaxed mt-1.5">{stageInfo.desc}</p>
         {/* ステージバー */}
         <div className="mt-3 flex gap-1">
