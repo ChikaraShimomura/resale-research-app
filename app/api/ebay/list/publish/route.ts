@@ -98,6 +98,9 @@ export async function POST(req: Request) {
   for (const [k, v] of Object.entries(body.aspects ?? {})) {
     if (v && v.trim()) aspects[k] = [v.trim()];
   }
+  // 製造国＝日本仕入れ前提。モーダルで指定済みなら尊重し、未指定でも全出品に「Made in Japan」を必ず付ける
+  // （信頼/検索のシグナル＋返品低減。最適化フローと同じ既定）。
+  if (!aspects["Country/Region of Manufacture"]) aspects["Country/Region of Manufacture"] = ["Japan"];
 
   const description =
     (body.description && body.description.trim()) ||

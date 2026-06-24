@@ -273,6 +273,17 @@ export async function POST(req: Request) {
       return { ...a, value: defaultAspect(a) };
     });
   }
+  // 製造国＝日本仕入れ前提。カテゴリが必須/推奨で返さなかった時も「Made in Japan」を既定項目として必ず出す
+  // （信頼/検索のシグナル＋返品低減。日本製でない品は出品前にこの欄を編集で上書き可）。既出時は注入しない。
+  if (!requiredAspects.some((a) => /country.*manufacture|country of origin/i.test(a.name))) {
+    requiredAspects.push({
+      name: "Country/Region of Manufacture",
+      values: ["Japan", "China", "United States", "Unknown"],
+      free: true,
+      required: false,
+      value: "Japan",
+    });
+  }
 
   // 出品画像の候補：自宅ワーカー(galleryWorker)が取得した楽天ギャラリー(ref_gallery)＋APIの代表画像。
   // ユーザーは出品画面でこの中から「出品に使う写真」をチェックで選ぶ。未取得ならAPIの画像だけ。

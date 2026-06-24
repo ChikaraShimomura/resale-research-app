@@ -49,8 +49,8 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [regions, setRegions] = useState<string[]>(["AU", "GB"]);
   const toggleRegion = (code: string) =>
     setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
-  // 返品：規定は返品不可。返品可にすると30日・返送料は買い手負担。
-  const [returnsAccepted, setReturnsAccepted] = useState(false);
+  // 返品：規定で受け付ける（30日・返送料は買い手負担）。eBayは30日返品可を検索/Top Rated で優遇＝売れやすい。
+  const [returnsAccepted, setReturnsAccepted] = useState(true);
   // 送料無料(送料込み)ポリシーも作る。規定ON＝出品/編集の「送料込み」トグルが使えるようになる。
   const [freeShipping, setFreeShipping] = useState(true);
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
