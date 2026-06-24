@@ -61,7 +61,7 @@ export default function MfaSetup() {
       const { data: ch, error: ce } = await sb.auth.mfa.challenge({ factorId: enroll.factorId });
       if (ce || !ch) { setErr(ce?.message || "確認に失敗しました。"); return; }
       const { error: ve } = await sb.auth.mfa.verify({ factorId: enroll.factorId, challengeId: ch.id, code: code.trim() });
-      if (ve) { setErr("コードが正しくありません。認証アプリの最新の6桁を入れてください。"); return; }
+      if (ve) { setErr("コードが違います。認証アプリの最新の6桁を入力。"); return; }
       setEnroll(null); setCode(""); await refresh();
     } catch {
       setErr("通信に失敗しました。");
@@ -92,7 +92,7 @@ export default function MfaSetup() {
       {enrolled ? (
         <>
           <p className="text-[12px] text-emerald-600 font-bold flex items-center gap-1.5 mb-2">
-            <Check size={14} /> 設定済み。ログイン後に認証アプリの6桁で本人確認します。
+            <Check size={14} /> 設定済み。ログイン後、認証アプリの6桁で本人確認。
           </p>
           <button onClick={remove} disabled={busy}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-300 text-gray-600 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50">
@@ -102,12 +102,12 @@ export default function MfaSetup() {
       ) : enroll ? (
         <>
           <p className="text-[12px] text-gray-600 leading-relaxed mb-2">
-            ① 認証アプリ（Google Authenticator / Microsoft Authenticator 等）で下のQRを読み取る → ② 表示された6桁を入力。
+            ① 認証アプリ（Google / Microsoft Authenticator 等）でQRを読み取る → ② 表示の6桁を入力。
           </p>
           <div className="bg-white border border-[#A98B5C]/25 rounded-xl p-3 w-fit mx-auto mb-2 [&_svg]:w-40 [&_svg]:h-40"
             dangerouslySetInnerHTML={{ __html: enroll.qr }} />
           <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="text-[11px] text-gray-400">手入力用キー：</span>
+            <span className="text-[11px] text-gray-400">手入力キー：</span>
             <code className="text-[11px] bg-gray-100 px-2 py-0.5 rounded break-all">{enroll.secret}</code>
             <button onClick={() => { navigator.clipboard?.writeText(enroll.secret); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
               className="text-gray-400 active:scale-90">{copied ? <Check size={13} /> : <Copy size={13} />}</button>
@@ -126,7 +126,7 @@ export default function MfaSetup() {
       ) : (
         <>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-2">
-            認証アプリ（無料）で、ログイン時に6桁の確認を追加します。<b className="text-gray-700">管理画面（/admin）に入るには必須</b>です。
+            認証アプリ（無料）で、ログイン時に6桁確認を追加。<b className="text-gray-700">管理画面（/admin）は必須</b>。
           </p>
           <button onClick={start} disabled={busy}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 active:bg-[#1A1D23]">

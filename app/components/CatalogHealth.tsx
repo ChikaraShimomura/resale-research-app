@@ -50,7 +50,7 @@ export default function CatalogHealth() {
         </button>
       </div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        配信の各ゲートが何件落としているか。<b>掲載数が急に減ったら</b>、どのゲートが原因かここで分かります。
+        各ゲートが何件落としているか。<b>掲載数が急減したら</b>原因のゲートをここで特定。
       </p>
 
       {loading && !h ? (
@@ -98,7 +98,7 @@ export default function CatalogHealth() {
             return (
               <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-[11px] text-gray-500 leading-relaxed">
                 取得側(直近refresh)：楽天0件率 <b className="text-gray-700">{pct}%</b>（{f.noRakuten}/{tot}）・成立 {f.matched}。
-                これが高い＝仕入れ先を増やすほど件数が伸びる余地。
+                高いほど、仕入れ先を増やせば件数が伸びる余地あり。
               </div>
             );
           })()}

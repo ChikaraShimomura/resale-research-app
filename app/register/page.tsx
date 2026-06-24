@@ -21,12 +21,12 @@ export default function RegisterPage() {
       <BrandHome className="mb-5" />
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#A98B5C]/25 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">新規登録</h1>
-        <p className="text-sm text-gray-500 mb-5">メールアドレスとパスワードだけ。利益の記録が端末を跨いで残せます。</p>
+        <p className="text-sm text-gray-500 mb-5">メールとパスワードだけ。利益の記録が端末を跨いで残る。</p>
         {state.message ? (
           <>
             <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
             <p className="mt-3 text-[12px] text-gray-500 leading-relaxed">
-              メールが届かないときは<b>迷惑メールフォルダ</b>をご確認ください。数分待っても届かなければ、もう一度登録をお試しください。
+              届かないときは<b>迷惑メールフォルダ</b>を確認。数分待っても届かなければ再登録を。
             </p>
           </>
         ) : (
@@ -39,7 +39,7 @@ export default function RegisterPage() {
               <span>
                 <Link href="/terms" target="_blank" className="text-[#2D323B] underline">利用規約</Link>と
                 <Link href="/privacy" target="_blank" className="text-[#2D323B] underline">プライバシーポリシー</Link>に同意します。
-                本サービスは利益を保証しません。eBay・楽天等の各サービスの規約遵守、出品の合法性、古物商許可の要否は、利用者ご自身でご確認ください。
+                本サービスは利益を保証しません。eBay・楽天等の各規約遵守、出品の合法性、古物商許可の要否は利用者ご自身でご確認ください。
               </span>
             </label>
             {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}

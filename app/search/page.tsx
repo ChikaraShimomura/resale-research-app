@@ -174,7 +174,7 @@ export default function SearchPage() {
             <div className="text-center py-16 bg-white m-3 rounded-2xl border border-[#A98B5C]/25 shadow-sm">
               <PackageSearch size={44} className="mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600 text-sm font-semibold mb-1">いま掲載できる商品がありません</p>
-              <p className="text-gray-400 text-xs mb-5">時間をおいて、もう一度開いてみてください。</p>
+              <p className="text-gray-400 text-xs mb-5">少し時間をおいて開き直してください。</p>
               <div className="flex items-center justify-center gap-2">
                 <button
                   onClick={() => window.location.reload()}
@@ -201,8 +201,7 @@ export default function SearchPage() {
 
         {!loading && products.length > 0 && (
           <p className="px-4 py-5 text-[11px] text-gray-400 leading-relaxed text-center">
-            ※ eBay最安値・楽天ポイント・eBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。<br />
-            実際の利益は状態・競合・為替・実際の重量などによって異なります。
+            ※ eBay最安値から楽天ポイント・eBay手数料(13.25%)・国内送料・米国関税($100超)を差引いた額（国際送料は購入者負担）。実際の利益は状態・競合・為替・重量で変動。
           </p>
         )}
       </main>

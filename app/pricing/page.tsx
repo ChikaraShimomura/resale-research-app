@@ -46,15 +46,14 @@ export default async function PricingPage() {
                 <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 mb-4 text-center shadow-md">
                   <p className="text-base font-black mb-1.5">利益商品はプランで解放</p>
                   <p className="text-[12px] text-white/85 leading-relaxed">
-                    毎日更新の利益商品リサーチと、写真だけの自動出品。<br />
-                    <b className="text-yellow-300">最初の30日は無料</b>でぜんぶ試せます。合わなければ解約するだけ。
+                    毎日更新の利益リサーチと、写真だけ自動出品。<b className="text-yellow-300">最初の30日無料</b>で全部試せる。合わなければ解約するだけ。
                   </p>
                 </div>
                 <ProfitSampleStrip />
               </>
             )}
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
-              使う量に合わせて選べます。<br />まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
+              使う量で選べる。まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
             </p>
             <PlanCards currentPlan={currentPlan} />
           </div>
@@ -63,10 +62,10 @@ export default async function PricingPage() {
             <BadgeCheck size={44} className="mx-auto text-emerald-500 mb-3" aria-hidden="true" />
             <p className="text-2xl font-black text-gray-800 mb-2">現在、すべて無料</p>
             <p className="text-sm text-gray-500 leading-relaxed mb-2">
-              利益商品のリサーチも、写真だけの自動出品も、<br />登録不要で無料でご利用いただけます。
+              利益商品のリサーチも、写真だけの自動出品も、登録不要・無料。
             </p>
             <p className="text-[12px] text-gray-400 leading-relaxed mb-7">
-              ※ かかるのは楽天での仕入れ費用や、売れたときのeBay手数料（落札価格の13.25%＋¥47）だけです。
+              ※ かかるのは楽天の仕入れ費用と、売れたときのeBay手数料（落札価格の13.25%＋¥47）だけ。
             </p>
             <Link
               href="/search"
@@ -81,7 +80,7 @@ export default async function PricingPage() {
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
           <p className="text-sm font-black text-gray-800 mb-1.5">eBayのセラー登録でつまずいたら（任意）</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-            海外輸出の副業で<b className="text-gray-700">最大の難所がeBayのセラー登録</b>。でも登録は<b className="text-gray-700">最初の1回だけ</b>なので、よく分かっている人に手伝ってもらうのが結局いちばん早いです。<b className="text-gray-700">ココナラ（他社サービス）なら数千円</b>でベテランに登録・出品をサポートしてもらえます。
+            輸出副業<b className="text-gray-700">最大の難所がeBayのセラー登録</b>。でも<b className="text-gray-700">最初の1回だけ</b>なので、分かる人に手伝ってもらうのが結局いちばん早い。<b className="text-gray-700">ココナラ（他社）なら数千円</b>でベテランに登録・出品をサポートしてもらえます。
           </p>
           <a
             href={COCONALA_URL}

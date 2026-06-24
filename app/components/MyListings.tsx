@@ -80,9 +80,9 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
     try {
       const j = await fetch(`/api/ebay/product?id=${encodeURIComponent(productId)}`, { cache: "no-store" }).then((r) => r.json());
       if (j?.ok && j.product) setRelistProduct(j.product as ProfitProduct);
-      else window.alert("この商品の情報が見つかりませんでした。時間をおいて、もう一度お試しください。");
+      else window.alert("この商品の情報が見つかりませんでした。時間をおいて再度お試しください。");
     } catch {
-      window.alert("出品の準備に失敗しました。通信環境を確認してもう一度お試しください。");
+      window.alert("出品の準備に失敗しました。通信環境を確認して再度お試しください。");
     }
     setRelistBusy(null);
   };
@@ -134,7 +134,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
 
   // 「出品停止」：eBayの出品(オファー)を取り下げて終了し、出品停止中一覧へ移す。
   const stopListing = async (productId: string) => {
-    if (!window.confirm("この商品のeBay出品を停止しますか？（eBayの出品を終了します。あとで再出品できます）")) return;
+    if (!window.confirm("この商品のeBay出品を停止しますか？（出品を終了。あとで再出品できます）")) return;
     setBusy(productId);
     try {
       const j = await fetch("/api/ebay/list/stop", {
@@ -183,8 +183,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
           <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
-            ⚠️ 在庫の自動チェックが一時停止中です。仕入れ元の売り切れ検知が遅れる場合があります。
-            <span className="font-normal text-amber-700/80">出品中の商品は、念のため仕入れ先の在庫もご確認ください。</span>
+            ⚠️ 在庫の自動チェックが一時停止中。売り切れ検知が遅れる場合あり。
+            <span className="font-normal text-amber-700/80">出品中は念のため仕入れ先の在庫もご確認を。</span>
           </p>
         </div>
       )}
@@ -199,7 +199,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
               </p>
               <p className="text-[11px] text-gray-600 mt-0.5">
                 {planInfo.liveCount >= planInfo.limit
-                  ? "上限に達しています。もっと出すにはアップグレードを。"
+                  ? "上限に到達。もっと出すならアップグレードを。"
                   : "上限が近づいています。"}
               </p>
             </div>
@@ -214,11 +214,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("live") && (
       <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
         {live.length === 0 ? (
-          <EmptyNote text="まだ出品中の商品はありません。商品を選んで「eBayに出品」すると、ここに並びます。" />
+          <EmptyNote text="出品中の商品はまだありません。商品を選んで「eBayに出品」するとここに並びます。" />
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              📸 自動の写真は最大3枚です。<b className="text-gray-600">実物の写真を足すと売れやすく</b>なります（「編集」から追加）。価格・数量の変更や、やめた・売れたの調整もここから。
+              📸 自動の写真は最大3枚。<b className="text-gray-600">実物の写真を足すと売れやすい</b>（「編集」から追加）。価格・数量や、やめた・売れたの調整もここから。
             </p>
             <ul className="divide-y divide-gray-100">
               {live.map((d) => (
@@ -267,13 +267,13 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           )}
                           {(d.stopFailedCount ?? 0) >= 3 && (
                             <p className="text-[10px] font-bold leading-tight mt-0.5 text-red-600">
-                              ⚠️ 自動の出品停止に失敗しています。
+                              ⚠️ 自動の出品停止に失敗。欠品販売を防ぐため
                               {d.listingId ? (
                                 <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="noopener noreferrer" className="underline">eBayで手動取り下げ</a>
                               ) : (
                                 "eBayで手動取り下げ"
                               )}
-                              を行ってください（欠品販売の防止）。
+                              を。
                             </p>
                           )}
                         </div>
@@ -344,12 +344,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("stopped") && (
       <Section title="出品停止中の商品" count={stopped.length} open={openStopped} onToggle={() => setOpenStopped((v) => !v)}>
         {stopped.length === 0 ? (
-          <EmptyNote text="出品停止中の商品はありません。「出品停止」を押した商品がここに入ります。" />
+          <EmptyNote text="出品停止中の商品はありません。「出品停止」した商品がここに入ります。" />
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              「出品停止」したeBay出品です。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。
-              <br />⏳ <b className="text-gray-600">停止から24時間で、この一覧から自動的に削除</b>されます（記録も外れます）。残したい場合は早めに再出品してください。
+              「出品停止」したeBay出品。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。⏳ <b className="text-gray-600">停止から24時間でこの一覧から自動削除</b>（記録も外れます）。残すなら早めに再出品を。
             </p>
             <ul className="divide-y divide-gray-100">
               {stopped.map((d) => (
@@ -401,10 +400,10 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("sold") && (
       <Section title="輸出した商品" count={sold.length} open={openSold} onToggle={() => setOpenSold((v) => !v)}>
         {sold.length === 0 ? (
-          <EmptyNote text="まだ売れた商品はありません。売れると、利益とともにここに記録されます。" />
+          <EmptyNote text="売れた商品はまだありません。売れると利益とともにここに記録されます。" />
         ) : (
           <>
-            <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">売れた（輸出できた）商品の履歴です（過去2年分）。</p>
+            <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">売れた（輸出できた）商品の履歴（過去2年分）。</p>
             <ul className="divide-y divide-gray-100">
               {sold.map((d) => (
                 <li key={d.id} className="py-1.5 flex items-center gap-2">

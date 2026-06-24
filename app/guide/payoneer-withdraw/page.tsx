@@ -111,11 +111,11 @@ export default function PayoneerWithdrawGuide() {
           src="/videos/payoneer-withdraw-guide.mp4"
           poster="/videos/payoneer-withdraw-guide-poster.jpg"
           durationLabel="約1分"
-          note="※ やさしい音声ナレーションつき。手数料・着金日数・名義一致のコツまで、この動画でまとめて確認できます。"
+          note="※ 音声ナレーションつき。手数料・着金日数・名義一致のコツまでこの1本で。"
         />
         <GuideVideoShorts
           title="STEPごとに分けて見る（短い動画）"
-          note="必要なステップだけ、サッと確認できます。"
+          note="必要なステップだけサッと確認。"
           shorts={[
             { label: "お金の流れ・準備", src: "/videos/shorts/payoneer-withdraw-guide-intro.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-intro-poster.jpg", durationLabel: "20秒" },
             { label: "① ログイン", src: "/videos/shorts/payoneer-withdraw-guide-step1.mp4", poster: "/videos/shorts/payoneer-withdraw-guide-step1-poster.jpg", durationLabel: "10秒" },
@@ -133,20 +133,19 @@ export default function PayoneerWithdrawGuide() {
             <h2 className="text-[14px] font-black text-gray-800">eBayの売上 → あなたの銀行口座へ</h2>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
-            eBayで売れたお金は、まず<b>Payoneer</b>に入ります。そこから<b>日本の銀行口座へ「出金（引き出し）」</b>して、
-            やっと手元のお金になります。やり方を一歩ずつ案内します（初回の口座登録だけ少し待ちます）。
+            eBayの売上はまず<b>Payoneer</b>に入金。そこから<b>日本の銀行口座へ出金（引き出し）</b>して手元のお金に。やり方を一歩ずつ（初回の口座登録だけ少し待ちます）。
           </p>
           <div className="mt-2.5 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-amber-800 leading-relaxed">
-              <b>このページは、すでにPayoneerの口座がある人向け</b>です。Payoneerの口座は、<b>eBayのセラー登録（売上の受け取り設定）</b>のときに作られます。まだの人は先にセラー登録を済ませてください。
+              <b>すでにPayoneer口座がある人向け</b>。口座は<b>eBayのセラー登録（売上の受け取り設定）</b>で作られます。まだの人は先にセラー登録を。
             </p>
           </div>
           <div className="mt-2.5 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
             <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-blue-800 leading-relaxed">
-              <b>お金の流れ</b>：落札 → 入金 → 発送 → 配達確認 → Payoneerに反映 → 銀行へ出金。
-              <b>新規セラーは最初のうち売上が保留</b>され（追跡ありで配達確認の数日後／追跡なしは支払いから約1か月）、すぐ出金できないのは正常です。実績がつくと早まります。
+              <b>お金の流れ</b>：落札 → 入金 → 発送 → 配達確認 → Payoneer反映 → 銀行へ出金。
+              <b>新規セラーは最初のうち売上が保留</b>され（追跡ありは配達確認の数日後／追跡なしは支払いから約1か月）、すぐ出金できないのは正常。実績がつくと早まります。
             </p>
           </div>
         </div>
@@ -158,14 +157,14 @@ export default function PayoneerWithdrawGuide() {
             <li className="flex items-center gap-2"><Landmark size={16} className="text-[#2D323B]" /> 出金先の<b>銀行口座</b>（あなた本人名義）</li>
           </ul>
           <p className="mt-2.5 text-[11px] text-[#2D323B] font-bold">
-            ⚠️ 口座の<b>名義は、Payoneer登録名と完全一致</b>（ローマ字）。違うと出金できません。
+            ⚠️ <b>口座名義はPayoneer登録名と完全一致</b>（ローマ字）。違うと出金できません。
           </p>
         </div>
 
         {/* STEP 1 */}
         <StepCard n={1} title="Payoneerにログインする">
           <p className="text-[13px] text-gray-600 leading-relaxed">
-            <a href="https://login.payoneer.com/" target="_blank" rel="noopener noreferrer" className="text-[#0064D2] font-bold underline">login.payoneer.com</a> から、登録したメール・パスワードでログイン。
+            <a href="https://login.payoneer.com/" target="_blank" rel="noopener noreferrer" className="text-[#0064D2] font-bold underline">login.payoneer.com</a> に登録メール・パスワードでログイン。
           </p>
         </StepCard>
 
@@ -179,7 +178,7 @@ export default function PayoneerWithdrawGuide() {
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
             <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-blue-800 leading-relaxed">
-              口座の<b>審査に最大3営業日</b>かかります（初回だけ）。次回からは即出金できます。
+              <b>口座審査に最大3営業日</b>（初回だけ）。次回からは即出金。
             </p>
           </div>
         </StepCard>
@@ -189,7 +188,7 @@ export default function PayoneerWithdrawGuide() {
           <Screen>
             <p className="text-[12px] text-gray-700">上部メニュー</p>
             <Tap><Pill>引き出し</Pill></Tap>
-            <p className="text-[11px] text-gray-500">→ 出てきた中から <b>「銀行口座宛」</b> を選ぶ</p>
+            <p className="text-[11px] text-gray-500">→ 出てきた中から <b>「銀行口座宛」</b></p>
           </Screen>
         </StepCard>
 
@@ -198,14 +197,13 @@ export default function PayoneerWithdrawGuide() {
           <Screen>
             <Field label="出金先" value="登録した銀行口座（円）" ok />
             <Field label="金額" value="例: $200 → 約30,000円（為替で変動）" />
-            <p className="text-[11px] text-gray-500">USD残高を円で受け取ると、両替（為替）も同時に行われます</p>
+            <p className="text-[11px] text-gray-500">USD残高を円で受け取ると両替（為替）も同時に</p>
           </Screen>
           <Warn>
-            <b>手数料の目安</b>：出金手数料が<b>取引額の約1〜2%</b>＋（USD→円のとき）<b>為替手数料 最大2%</b>。
-            少額（$100未満）は最低$1。<b>まとめて出金</b>した方が手数料率は下がります。
+            <b>手数料の目安</b>：出金手数料<b>取引額の約1〜2%</b>＋（USD→円のとき）<b>為替手数料 最大2%</b>。少額（$100未満）は最低$1。<b>まとめて出金</b>すると手数料率は下がります。
           </Warn>
           <p className="text-[12px] text-gray-600 leading-relaxed">
-            受け取り方は2つ：①<b>USDのまま貯めて</b>円安のときにまとめて円に替える、②<b>都度、円で受け取る</b>。両替のたびに為替手数料が乗るので、急がないなら<b>まとめて円転</b>が有利です。最低出金額は出金画面に表示され、少額すぎると進めないことがあります。
+            受け取り方は2つ：①<b>USDで貯めて</b>円安時にまとめて円転、②<b>都度、円で受け取る</b>。両替のたびに為替手数料が乗るので、急がないなら<b>まとめて円転</b>が有利。最低出金額は出金画面に表示され、少額すぎると進めないことがあります。
           </p>
         </StepCard>
 
@@ -218,7 +216,7 @@ export default function PayoneerWithdrawGuide() {
           <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
             <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-[12px] text-emerald-800 leading-relaxed">
-              手続き後に確認メールが届き、<b>3〜5営業日</b>で銀行口座に着金します🎉
+              手続き後に確認メールが届き、<b>3〜5営業日</b>で銀行口座に着金🎉
             </p>
           </div>
         </StepCard>
@@ -239,11 +237,11 @@ export default function PayoneerWithdrawGuide() {
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <h2 className="text-[13px] font-black text-gray-800 mb-2.5">よくあるつまずき</h2>
           <ul className="space-y-2 text-[12px] text-gray-700 leading-relaxed">
-            <li>🔴 <b>出金できない</b> → 口座名義がPayoneerの名前と<b>不一致</b>。ローマ字表記まで合わせる</li>
-            <li>🔴 <b>すぐ出金できない</b> → 初回は<b>口座審査(最大3営業日)</b>がある。次回から即OK</li>
-            <li>🔴 <b>手数料が高く感じる</b> → こまめより<b>まとめて出金</b>。為替分も考え、円安のタイミングが有利</li>
-            <li>🔴 <b>出金メニューが出ない・進めない</b> → <b>本人確認（KYC）が未完了</b>かも。完了の案内を待ってから出金する</li>
-            <li>🔴 <b>送金したのに着金しない・返ってくる</b> → <b>SWIFT・支店コード・口座番号の入力ミス</b>。銀行公式サイトで再確認する</li>
+            <li>🔴 <b>出金できない</b> → 口座名義がPayoneerと<b>不一致</b>。ローマ字まで合わせる</li>
+            <li>🔴 <b>すぐ出金できない</b> → 初回は<b>口座審査(最大3営業日)</b>。次回から即OK</li>
+            <li>🔴 <b>手数料が高く感じる</b> → こまめより<b>まとめて出金</b>。円安のタイミングが有利</li>
+            <li>🔴 <b>出金メニューが出ない・進めない</b> → <b>本人確認（KYC）が未完了</b>かも。完了の案内を待つ</li>
+            <li>🔴 <b>着金しない・返ってくる</b> → <b>SWIFT・支店コード・口座番号の入力ミス</b>。銀行公式で再確認</li>
           </ul>
         </div>
 

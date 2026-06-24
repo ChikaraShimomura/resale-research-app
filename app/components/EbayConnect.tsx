@@ -61,7 +61,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
       )}
       {flash === "error" && (
         <p className="mb-3 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
-          <AlertTriangle size={16} /> 連携に失敗しました。もう一度お試しください
+          <AlertTriangle size={16} /> 連携に失敗。もう一度お試しを
         </p>
       )}
       {flash === "disconnected" && (
@@ -74,7 +74,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
         <div className="h-11 w-40 bg-gray-100 rounded-xl animate-pulse" />
       ) : !status?.configured ? (
         <p className="text-sm text-gray-500">
-          eBay連携は現在準備中です（サーバー設定の反映待ち）。
+          eBay連携は準備中（サーバー設定の反映待ち）。
         </p>
       ) : status.connected ? (
         <div className="flex items-center gap-2 flex-wrap">
@@ -107,11 +107,11 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
             eBayアカウントと連携する
           </a>
           <p className="text-[11px] text-gray-500 leading-relaxed px-1">
-            押すと <b>eBay公式のログイン画面（英語）</b> が開きます。<b>Agree（同意）</b>を押すと自動でこの画面に戻ります。
+            押すと <b>eBay公式のログイン画面（英語）</b> が開きます。<b>Agree（同意）</b>でこの画面に戻ります。
           </p>
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5">
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              eBayアカウントをお持ちでない方は、先に
+              eBayアカウント未取得なら、先に
               <a
                 href="https://signup.ebay.com/pa/crte"
                 target="_blank"
@@ -120,7 +120,7 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
               >
                 eBayアカウントを作成
               </a>
-              してから「連携する」を押してください（作成はeBayのページで行います）。
+              してから「連携する」を（作成はeBayのページで）。
             </p>
           </div>
         </div>

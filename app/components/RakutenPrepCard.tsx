@@ -37,7 +37,7 @@ export default function RakutenPrepCard() {
     <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
       <h3 className="text-[15px] font-black text-gray-800">仕入れのポイントを上げる準備</h3>
       <p className="text-[12px] text-gray-500 leading-relaxed mt-1 mb-3">
-        楽天市場で仕入れる前に整えると、<b>同じ仕入れでも還元（＝利益）が増えます</b>。各サービスに月の上限があるので、<b>まずは楽天カードだけ</b>でOK。あとは無理のない範囲で。
+        仕入れ前に整えると<b>同じ仕入れでも還元（＝利益）が増えます</b>。各サービスに月の上限あり。<b>まずは楽天カードだけ</b>でOK、あとは無理なく。
       </p>
 
       <div className="space-y-2.5">
@@ -54,7 +54,7 @@ export default function RakutenPrepCard() {
       </div>
 
       <p className="text-[10px] text-gray-400 leading-relaxed mt-3">
-        ※ ポイント倍率・特典・年会費・キャンペーンは変更されることがあります。各サービスには月間の獲得上限があり、上限を超える分は加算されません。条件・最新情報は各公式サイトでご確認ください。
+        ※ ポイント倍率・特典・年会費・キャンペーンは変更の場合あり。各サービスに月間の獲得上限があり、超過分は加算されません。条件・最新情報は各公式サイトで確認を。
       </p>
     </section>
   );

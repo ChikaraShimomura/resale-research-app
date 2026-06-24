@@ -16,7 +16,7 @@ export default function UpdatePasswordPage() {
       <BrandHome className="mb-5" />
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#A98B5C]/25 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">新しいパスワード</h1>
-        <p className="text-sm text-gray-500 mb-5">新しいパスワードを設定してください。</p>
+        <p className="text-sm text-gray-500 mb-5">新しいパスワードを設定。</p>
         <form action={action} className="space-y-3">
           <input name="password" type="password" required minLength={8} placeholder="新しいパスワード（8文字以上）" autoComplete="new-password" className={field} />
           {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
@@ -28,7 +28,7 @@ export default function UpdatePasswordPage() {
         <p className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
           うまくいかないときは、メールの「再設定リンク」から開き直すか、
           <Link href="/reset-password" className="text-[#2D323B] underline underline-offset-2">パスワードを忘れた</Link>
-          からやり直してください。
+          からやり直しを。
         </p>
         <Link href="/login" className="block text-center mt-3 text-sm text-gray-500">ログインに戻る</Link>
       </div>

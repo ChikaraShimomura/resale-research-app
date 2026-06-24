@@ -75,7 +75,7 @@ export default function MastersAdmin() {
         <ShieldCheck size={15} className="text-[#A98B5C]" /> 身内（無料・無制限）の指定
       </h2>
       <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
-        ここに入れたメールのアカウントは、サブスク無しで全機能を無制限に使えます。<b className="text-gray-700">本人がそのメールで登録/ログイン</b>している必要があります。
+        ここに入れたメールはサブスク無しで全機能を無制限に。<b className="text-gray-700">本人がそのメールで登録/ログイン</b>済みが条件。
       </p>
 
       {/* 手入力で追加 */}
@@ -104,7 +104,7 @@ export default function MastersAdmin() {
       {/* 現在の身内 */}
       <p className="text-[12px] font-bold text-gray-700 mb-1.5">現在の身内</p>
       {masters.length === 0 && env.length === 0 ? (
-        <p className="text-[11px] text-gray-400 mb-3">まだ身内は登録されていません。</p>
+        <p className="text-[11px] text-gray-400 mb-3">身内はまだ未登録。</p>
       ) : (
         <ul className="space-y-1.5 mb-4">
           {masters.map((u) => (
@@ -139,7 +139,7 @@ export default function MastersAdmin() {
 
         {source === "kv" && (
           <p className="text-[11px] text-amber-600 mb-2 leading-relaxed">
-            ※ <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> 未設定のため、ログイン済みユーザーのみ表示中。全登録を出すにはこの環境変数を設定してください。
+            ※ <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> 未設定のため、ログイン済みのみ表示中。全登録を出すにはこの環境変数を設定。
           </p>
         )}
 
@@ -189,7 +189,7 @@ export default function MastersAdmin() {
           </ul>
         )}
         {hiddenCount > 0 && (
-          <p className="text-[11px] text-gray-400 mt-2">他 {hiddenCount} 件。検索で絞り込めます。</p>
+          <p className="text-[11px] text-gray-400 mt-2">他 {hiddenCount} 件。検索で絞り込み。</p>
         )}
       </div>
     </div>

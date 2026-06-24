@@ -75,7 +75,7 @@ export default function SourceStopRecap() {
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
           <h2 className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            仕入れ元（楽天）に問題が出た下記を、<b>あなたの評価を守るため</b>自動で出品停止しました（売り切れ・リンク切れ・箱単位で不採算など）。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から再出品）。
+            仕入れ元（楽天）に問題が出た下記を、<b>評価を守るため</b>自動で出品停止（売り切れ・リンク切れ・箱単位で不採算など）。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から）。
           </p>
         </div>
         <ul className="max-h-[46vh] overflow-y-auto divide-y divide-gray-50">

@@ -57,7 +57,7 @@ export default function PlanCards({ currentPlan = "free" }: { currentPlan?: Plan
     <div>
       {(currentPlan === "master" || currentPlan === "admin") && (
         <p className="text-center text-[12px] text-emerald-600 font-bold mb-3">
-          現在は無制限プラン（{PLANS[currentPlan].name}）をご利用中です。
+          無制限プラン（{PLANS[currentPlan].name}）をご利用中。
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -98,7 +98,7 @@ export default function PlanCards({ currentPlan = "free" }: { currentPlan?: Plan
                 <span className="text-[12px] text-gray-400">/月</span>
               </p>
               {trial && !isSubscriber && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">最初の{TRIAL_DAYS}日間（約1ヶ月）無料</p>
+                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">最初の{TRIAL_DAYS}日間無料</p>
               )}
               <ul className="mt-3 space-y-1.5 text-[12px] text-gray-600 flex-1">
                 <li className="flex items-center gap-1.5">
@@ -127,8 +127,8 @@ export default function PlanCards({ currentPlan = "free" }: { currentPlan?: Plan
       {err && <p className="text-[12px] text-red-600 mt-3 text-center">{err}</p>}
       <p className="text-[11px] text-gray-400 mt-3 leading-relaxed text-center">
         {isSubscriber
-          ? "プラン変更・解約はボタンから（Stripeの管理画面で手続き）。別途、楽天での仕入れ費用とeBay手数料がかかります。"
-          : "いつでも解約できます。決済は Stripe（カード）。別途、楽天での仕入れ費用とeBay手数料がかかります。"}
+          ? "プラン変更・解約はボタンから（Stripe管理画面）。別途、楽天の仕入れ費用とeBay手数料がかかります。"
+          : "いつでも解約OK。決済はStripe（カード）。別途、楽天の仕入れ費用とeBay手数料がかかります。"}
       </p>
     </div>
   );

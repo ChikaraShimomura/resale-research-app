@@ -16,9 +16,9 @@ export default function SorryPage() {
       <h1 className="text-xl font-black text-gray-800 mb-2">ただいまメンテナンス中です</h1>
 
       <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
-        これは一時的なメンテナンスです。ご不便をおかけします。
+        一時的なメンテナンス中です。ご不便をおかけします。
         <br />
-        少し経ってから、もう一度お試しください。
+        少し経ってからお試しください。
       </p>
 
       <a

@@ -59,7 +59,7 @@ export default async function AdminPage() {
           <Link href="/admin/referrals" className="text-[13px] text-[#2D323B] underline">
             紹介(成果報酬)集計 →
           </Link>
-          <p className="text-[11px] text-gray-400 mt-1">※ 紹介集計は <code className="bg-gray-100 px-1 rounded">?key=</code> が必要です。</p>
+          <p className="text-[11px] text-gray-400 mt-1">※ 紹介集計は <code className="bg-gray-100 px-1 rounded">?key=</code> が必要。</p>
         </section>
       </main>
     </div>

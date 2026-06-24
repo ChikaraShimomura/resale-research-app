@@ -42,7 +42,7 @@ function MfaVerify() {
     const { error } = await sb.auth.mfa.verify({ factorId, challengeId, code: code.trim() });
     setBusy(false);
     if (error) {
-      setErr("コードが正しくありません。認証アプリの最新の6桁を入れてください。");
+      setErr("コードが違います。認証アプリの最新の6桁を入力。");
       const { data: ch } = await sb.auth.mfa.challenge({ factorId }); // 期限切れ対策で再発行
       setChallengeId(ch?.id ?? null);
       setCode("");
@@ -64,7 +64,7 @@ function MfaVerify() {
         ) : phase === "none" ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-3">
-              2段階認証が未設定です。<Link href="/settings" className="text-[#2D323B] underline">設定</Link>から先に登録してください。
+              2段階認証が未設定。<Link href="/settings" className="text-[#2D323B] underline">設定</Link>から先に登録を。
             </p>
             <Link href="/settings" className="inline-flex items-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]">
               設定へ
@@ -72,7 +72,7 @@ function MfaVerify() {
           </>
         ) : (
           <>
-            <p className="text-[13px] text-gray-600 leading-relaxed mb-3">認証アプリに表示された6桁のコードを入力してください。</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed mb-3">認証アプリに表示された6桁を入力。</p>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}

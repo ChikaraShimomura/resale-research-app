@@ -190,8 +190,8 @@ function ResultsContent() {
               {allProducts.length === 0 ? "いま掲載できる商品がありません" : `「${displayLabel}」の商品が見つかりませんでした`}
             </p>
             {allProducts.length === 0
-              ? <p className="text-gray-400 text-xs">時間をおいて、もう一度開いてみてください。</p>
-              : <p className="text-gray-400 text-xs leading-relaxed px-4">ここは楽天全体の検索ではなく、<b className="text-gray-500">厳選した利益商品リスト</b>からの絞り込みです。別の言葉や、下のボタンで全件から探してみてください。</p>
+              ? <p className="text-gray-400 text-xs">時間をおいて再度お試しを。</p>
+              : <p className="text-gray-400 text-xs leading-relaxed px-4">楽天全体ではなく<b className="text-gray-500">厳選した利益商品リスト</b>内の検索です。別の言葉か、下のボタンで全件から探してみて。</p>
             }
             <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
               {allProducts.length > 0 && (
@@ -218,7 +218,7 @@ function ResultsContent() {
 
         {!loading && sorted.length > 0 && (
           <p className="px-4 py-5 text-[10px] text-gray-400 leading-relaxed text-center">
-            ※ eBay最安値（現在の出品ベース）をもとに計算しています。実際の利益は状態・競合・送料などによって異なります。
+            ※ eBay最安値（現在の出品ベース）で計算。実際の利益は状態・競合・送料で変動します。
           </p>
         )}
       </main>

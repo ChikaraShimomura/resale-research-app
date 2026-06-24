@@ -14,22 +14,22 @@ const PAYO = "#FF6B00";
 type Pt = { Icon: LucideIcon; t: string };
 
 const rakuPoints: Pt[] = [
-  { Icon: ShoppingBag, t: "日本最大級。ふだんの通販と同じ感覚で仕入れ" },
-  { Icon: Coins, t: "買うほどポイント還元で実質コストが下がる" },
-  { Icon: Package, t: "仕入れも受け取りも国内、いつも通りで安心" },
-  { Icon: CircleCheck, t: "楽天会員のアカウントでそのまま買える" },
+  { Icon: ShoppingBag, t: "日本最大級。いつもの通販感覚で仕入れ" },
+  { Icon: Coins, t: "買うほどポイント還元で実質コスト減" },
+  { Icon: Package, t: "仕入れも受け取りも国内で安心" },
+  { Icon: CircleCheck, t: "楽天会員アカウントでそのまま購入" },
 ];
 const ebayPoints: Pt[] = [
   { Icon: Globe, t: "世界190の国・地域で利用（1995年〜）" },
-  { Icon: Users, t: "1.3億人超の買い手が利用" },
+  { Icon: Users, t: "1.3億人超の買い手" },
   { Icon: ShieldCheck, t: "買い手保護（届かない・違う商品は返金）" },
-  { Icon: KeyRound, t: "公式連携であなたのパスワードは渡りません" },
+  { Icon: KeyRound, t: "公式連携。パスワードは渡らない" },
 ];
 const payoPoints: Pt[] = [
   { Icon: TrendingUp, t: "NASDAQ上場企業（PAYO）" },
   { Icon: Globe, t: "世界200以上の国・地域で利用" },
   { Icon: Briefcase, t: "Amazon・Airbnbなど大手も採用" },
-  { Icon: Lock, t: "各国の金融ライセンス下＋本人確認で資金を保護" },
+  { Icon: Lock, t: "各国の金融ライセンス＋本人確認で資金保護" },
 ];
 
 function Card({
@@ -106,8 +106,8 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
           </p>
           <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">
             {withRakuten
-              ? "仕入れは楽天、出品はeBay、入金はPayoneer。日本最大級と世界基準のサービスだけを使います。"
-              : "出品は eBay、入金は Payoneer。どちらも世界中で使われ、強固なセキュリティで守られています。"}
+              ? "仕入れは楽天、出品はeBay、入金はPayoneer。日本最大級と世界基準のサービスだけ。"
+              : "出品はeBay、入金はPayoneer。どちらも世界中で使われ、強固なセキュリティで安心。"}
           </p>
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
 
       <p className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-700">
         <CircleCheck size={15} className="text-emerald-600 shrink-0" aria-hidden="true" />
-        だから、日本にいながら安心して海外に売れます。
+        だから、日本にいながら安心して海外に売れる。
       </p>
     </div>
   );

@@ -186,7 +186,7 @@ export default function EditListingModal({
                 onChange={(e) => setQuantity(e.target.value)}
                 className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
-              <span className="text-[10px] text-gray-400 mt-1 block">確保できる数だけにしてください（数が足りないと欠品キャンセルの原因になります）。</span>
+              <span className="text-[10px] text-gray-400 mt-1 block">確保できる数だけに（足りないと欠品キャンセルの原因）。</span>
             </label>
 
             {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
@@ -222,7 +222,7 @@ export default function EditListingModal({
                   </>
                 ) : (
                   <>
-                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2">現在：送料別（購入者が送料を負担）。送料無料の方が検索・転換に強いです。</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2">現在：送料別（購入者負担）。送料無料の方が検索・転換に強い。</p>
                     <button
                       onClick={() => toggleShip("free")}
                       disabled={shipBusy || !ship.canFree}
@@ -230,7 +230,7 @@ export default function EditListingModal({
                     >
                       {shipBusy ? <><Spinner size={14} /> 切替中…</> : `送料込み（送料無料）に切替${ship.foldUsd > 0 ? `（価格 +$${ship.foldUsd.toFixed(2)}）` : ""}`}
                     </button>
-                    {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed">※eBayに「送料無料」の配送ポリシーが必要です（eBayで一度作成すれば切替できます）。</p>}
+                    {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed">※eBayに「送料無料」の配送ポリシーが必要（eBayで一度作れば切替可）。</p>}
                   </>
                 )}
                 {shipErr && <ReportableError message={shipErr.message} errorKind={shipErr.errorKind} errorDetail={shipErr.errorDetail} where="ebay_ship_mode" context={{ productId }} className="mt-1" />}
@@ -241,12 +241,12 @@ export default function EditListingModal({
             <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
               <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
-                実物の写真を足すと売れやすくなります。楽天の画像は残したままeBayに移して追加します（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると出品の管理が外れるので、写真の変更はここから。
+                実物写真を足すと売れやすい。楽天画像は残したまま追加（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると管理が外れるので、写真変更はここから。
               </p>
               {refImages.length > 0 && (
                 <div className="mb-2">
                   <span className="text-[11px] font-bold text-gray-600">📷 撮影の参考（楽天の商品写真 {refImages.length}枚）</span>
-                  <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed">このアングルを参考に実物を撮ると伝わりやすいです（※参考用。これはeBayには載せません）。</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed">このアングルを参考に実物を撮ると伝わりやすい（※参考用・eBayには載せません）。</p>
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     {refImages.map((u, i) => (
                       <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="shrink-0">

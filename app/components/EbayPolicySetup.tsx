@@ -69,7 +69,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
     const sizeVals = SIZE_FIELDS.map((f) => String(vals[f.key] ?? "").trim()).filter((v) => v !== "");
     if (sizeVals.length === 0 || sizeVals.some((v) => !(Number(v) > 0))) {
       setState("error");
-      setMsg("送料は半角数字で1つ以上入力してください（例: 12）。");
+      setMsg("送料は半角数字で1つ以上入力を（例: 12）。");
       return;
     }
     if (doneTimer.current) {
@@ -104,26 +104,26 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       );
       if (j.ok) {
         setState("done");
-        setMsg("送料・支払い・返品の設定を登録しました。");
+        setMsg("送料・支払い・返品を登録しました。");
         doneTimer.current = setTimeout(() => {
           doneTimer.current = null;
           onDone?.();
         }, 1200);
       } else {
         setState("error");
-        setMsg(j.error || "一部の設定の登録に失敗しました。下の結果を確認してください。");
+        setMsg(j.error || "一部の登録に失敗しました。下の結果を確認してください。");
       }
     } catch {
       setState("error");
-      setMsg("通信に失敗しました。時間をおいて再度お試しください。");
+      setMsg("通信に失敗しました。時間をおいて再度お試しを。");
     }
   };
 
   return (
     <div className="space-y-4">
       <p className="text-[12px] text-gray-500 leading-relaxed">
-        送料・支払い・返品は<b className="text-gray-700">おすすめ設定で自動登録</b>します。
-        基本はこのまま下のボタンを押すだけでOK。変えたい人だけ「詳細オプション」を開いてください。
+        送料・支払い・返品は<b className="text-gray-700">おすすめ設定で自動登録</b>。
+        基本はこのままボタンを押すだけ。変えたい人は「詳細オプション」へ。
       </p>
 
       {/* おすすめ設定サマリー（読むだけ・変更は詳細オプションで） */}
@@ -160,9 +160,9 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             {/* 送料・発送日数 */}
             <div className="space-y-2.5">
               <p className="text-[12px] font-bold text-gray-700">送料（サイズ別・USD）</p>
-              <p className="text-[11px] text-gray-400 leading-relaxed">購入者負担。出品時に重さ・価格からアプリが自動で小/中/大を選びます（目安は日本郵便・米国宛の実費）。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">購入者負担。出品時に重さ・価格から小/中/大を自動選択（目安は日本郵便・米国宛の実費）。</p>
               <div>
-                <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（注文から何日で送るか）</label>
+                <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（注文から発送まで）</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -190,7 +190,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
             <div className="space-y-1.5">
               <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
-              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要5地域です（送料の目安は米国宛ベース。多くの国は同額請求）。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要5地域（送料は米国宛ベース・多くの国は同額請求）。</p>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white">アメリカ（必須）</span>
                 {COUNTRIES.map((c) => {
@@ -223,7 +223,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                 />
                 <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
               </label>
-              <p className="text-[11px] text-gray-400 leading-relaxed">出品/編集で「送料込み（送料無料）」に切り替えられます（送料を価格に含めて買い手の送料は$0。eBayの「送料無料」表示で売れやすい）。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">出品/編集で「送料込み」に切替可（送料を価格に含め買い手の送料は$0）。eBayの「送料無料」表示で売れやすい。</p>
             </div>
 
             {/* 返品ポリシー */}
@@ -241,7 +241,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
               <p className="text-[11px] text-gray-400 leading-relaxed">
                 {returnsAccepted
                   ? "30日以内の返品OK（返送料は買い手負担）。安心感で売れやすい反面、対応の手間は増えます。"
-                  : "返品不可で登録します。"}
+                  : "返品不可で登録。"}
               </p>
             </div>
           </div>

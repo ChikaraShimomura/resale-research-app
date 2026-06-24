@@ -17,9 +17,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 type Prefs = { sold: boolean; newdeal: boolean; weekly: boolean };
 const DEFAULT: Prefs = { sold: true, newdeal: true, weekly: true };
 const LABELS: { key: keyof Prefs; label: string; desc: string }[] = [
-  { key: "sold", label: "売れたとき", desc: "自分のeBay出品が売れた（かも）を検知したら通知" },
-  { key: "newdeal", label: "新着の高利益商品", desc: "利益率の高い新着が出たら通知" },
-  { key: "weekly", label: "週1のまとめ", desc: "成績・新着のダイジェストを週1で通知" },
+  { key: "sold", label: "売れたとき", desc: "自分のeBay出品の売却（かも）を検知して通知" },
+  { key: "newdeal", label: "新着の高利益商品", desc: "高利益率の新着を通知" },
+  { key: "weekly", label: "週1のまとめ", desc: "成績・新着のダイジェストを週1通知" },
 ];
 
 export default function PushSettings() {
@@ -122,16 +122,16 @@ export default function PushSettings() {
 
       {!supported ? (
         <p className="text-[12px] text-gray-400 leading-relaxed">
-          この端末/ブラウザはプッシュ通知に対応していません。iPhoneは「ホーム画面に追加」した後に対応します。
+          この端末/ブラウザはプッシュ通知に非対応。iPhoneは「ホーム画面に追加」後に対応。
         </p>
       ) : !enabled ? (
         <>
           <p className="text-[12px] text-gray-500 mb-3 leading-relaxed">
-            出品が売れた・新着の高利益商品などをお知らせします。いつでもオフにできます。
+            出品の売却・新着の高利益商品などをお知らせ。いつでもオフ可。
           </p>
           {denied && (
             <p className="text-[11px] text-[#2D323B] mb-2 leading-relaxed">
-              通知がブロックされています。端末の設定でこのサイトの通知を許可してください。
+              通知がブロック中。端末の設定でこのサイトの通知を許可してください。
             </p>
           )}
           <button
@@ -144,7 +144,7 @@ export default function PushSettings() {
         </>
       ) : (
         <>
-          <p className="text-[12px] text-gray-500 mb-2">受け取る通知を選べます。</p>
+          <p className="text-[12px] text-gray-500 mb-2">受け取る通知を選択。</p>
           <ul className="divide-y divide-gray-100">
             {LABELS.map((l) => (
               <li key={l.key} className="py-2.5 flex items-center justify-between gap-3">

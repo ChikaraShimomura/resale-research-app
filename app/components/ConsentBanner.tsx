@@ -54,9 +54,9 @@ export default function ConsentBanner() {
     >
       <div className="max-w-2xl mx-auto px-4 py-3.5 flex flex-col gap-2.5">
         <p className="text-[12.5px] text-gray-700 leading-relaxed">
-          本サイトは、利用状況の分析（Google Analytics）のためにCookieを使用します。詳しくは
+          当サイトは利用状況の分析（Google Analytics）にCookieを使用します。詳細は
           <Link href="/privacy" className="text-[#2D323B] underline mx-0.5">プライバシーポリシー</Link>
-          をご覧ください。
+          へ。
         </p>
         <div className="flex gap-2">
           <button

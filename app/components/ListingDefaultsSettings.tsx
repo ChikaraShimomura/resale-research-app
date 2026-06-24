@@ -28,8 +28,8 @@ export default function ListingDefaultsSettings() {
       <div>
         <h2 className="text-sm font-black text-gray-800">出品の既定値</h2>
         <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-          出品画面を開いたときの初期値です（この端末に保存）。商品ごとに変更もできます。
-          状態（新品/中古）は商品名から自動で判定するので、ここには含めません。
+          出品画面を開いたときの初期値（この端末に保存）。商品ごとに変更可。
+          状態（新品/中古）は商品名から自動判定するので含めません。
         </p>
       </div>
 
@@ -40,11 +40,11 @@ export default function ListingDefaultsSettings() {
           onChange={(e) => setBestOffer(e.target.checked)}
           className="accent-[#2D323B] w-4 h-4"
         />
-        <span className="text-[12px] text-gray-700">値下げ交渉（Best Offer）を最初から受け付ける</span>
+        <span className="text-[12px] text-gray-700">値下げ交渉（Best Offer）を受け付ける</span>
       </label>
 
       <div>
-        <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（落札から何日で送るか）</label>
+        <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（落札から何日で発送）</label>
         <div className="flex items-center gap-2">
           <input
             type="text"

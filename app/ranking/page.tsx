@@ -67,17 +67,17 @@ export default async function RankingPage() {
           eBay輸出の利益商品ランキング
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          国内で仕入れて<b>eBay（海外）</b>で売ったときに、いま<b>利益率が高い日本商品</b>を毎日更新でランキング。
-          各商品の<b>仕入れ値 → eBay想定売値（直近の落札価格ベース）→ 利益率</b>の目安を毎日更新（ランキングは無料公開・各商品の詳細はプランで解放）。
+          国内で仕入れ<b>eBay（海外）</b>で売って、いま<b>利益率が高い日本商品</b>を毎日更新。
+          <b>仕入れ値 → eBay想定売値（直近の落札ベース）→ 利益率</b>の目安付き（ランキング無料・各商品の詳細はプランで解放）。
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
-          ※ 海外で売れやすい定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場はeBayの<b>直近落札（実売値）ベース</b>の想定（目安）で、状態・競合・為替で変わります。
+          ※ 定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場はeBayの<b>直近落札（実売値）ベース</b>の目安で、状態・競合・為替で変動。
         </p>
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
-            <p className="text-sm font-bold text-gray-700 mb-1">いま集計中です</p>
-            <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度ご覧ください。</p>
+            <p className="text-sm font-bold text-gray-700 mb-1">集計中</p>
+            <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度どうぞ。</p>
             <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               利益商品をさがす <ArrowRight size={16} />
             </Link>
@@ -134,12 +134,12 @@ export default async function RankingPage() {
             すべての利益商品をさがす <ArrowRight size={16} />
           </Link>
           <Link href="/guide" className="flex items-center justify-center gap-1.5 h-11 bg-white border border-[#A98B5C]/35 text-gray-700 font-bold text-[13px] rounded-xl active:bg-gray-50">
-            eBay輸出の始め方ガイドを見る
+eBay輸出の始め方ガイド
           </Link>
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
-          輸出ラボは、国内で仕入れてeBayへ輸出する副業のための<b>リサーチ＆出品ツール</b>です（ランキングは無料公開・本格利用は月¥500〜）。利益（現金）は仕入れ値・eBay手数料(13.25%)・国内送料・米国関税をもとに算出した想定値で、国際送料は購入者負担のため含めていません。ポイントは利益に含めず別枠（おまけ）で扱います。
+          輸出ラボは国内仕入れ→eBay輸出の副業向け<b>リサーチ＆出品ツール</b>（ランキング無料・本格利用は月¥500〜）。利益（現金）は仕入れ値・eBay手数料(13.25%)・国内送料・米国関税で算出した想定値。国際送料は購入者負担のため非算入、ポイントは利益に含めず別枠（おまけ）扱い。
         </p>
       </main>
 

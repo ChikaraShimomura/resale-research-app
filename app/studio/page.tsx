@@ -31,11 +31,11 @@ function cardUrl(name: string, raku: number, ebay: number, rate: number): string
 // 15〜20秒の台本(断定なし・想定/目安)。
 function script(raku: number, ebay: number, rate: number): string {
   return [
-    `日本で${yen(raku)}のこの商品、海外だと${yen(ebay)}くらいで取引されています。`,
-    `手数料や送料を引いても、想定の利益率はおよそ${rate}パーセント。`,
-    `日本にしかない物が、海外だとこの値段になることがあります。`,
-    `※利益はあくまで想定・目安です。`,
-    `他の利益商品も、登録すれば毎日チェックできます（30日無料でお試し）。プロフィールのリンクからどうぞ。`,
+    `日本で${yen(raku)}のこの商品、海外では${yen(ebay)}くらいで取引。`,
+    `手数料・送料を引いても、想定利益率はおよそ${rate}パーセント。`,
+    `日本にしかない物が、海外ではこの値段に。`,
+    `※利益は想定・目安です。`,
+    `他の利益商品も登録すれば毎日チェック（30日無料）。リンクはプロフィールから。`,
   ].join("\n");
 }
 
@@ -45,7 +45,7 @@ function caption(raku: number, ebay: number, rate: number): string {
     `今日の利益商品💹`,
     `楽天 ${yen(raku)} → eBay想定 ${yen(ebay)}（想定利益率 ${rate}%）`,
     ``,
-    `日本→海外の輸出転売。利益が出やすい商品を毎日チェック（登録で30日無料お試し）。`,
+    `日本→海外の輸出転売。利益が出やすい商品を毎日チェック（登録で30日無料）。`,
     `※数字は想定・目安です`,
     `▶ プロフィールのリンクから`,
     ``,
@@ -73,16 +73,16 @@ export default async function StudioPage() {
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4 mb-3">
           <h1 className="text-[15px] font-black text-gray-900 mb-1">今日の利益商品で動画素材をつくる</h1>
           <p className="text-[12px] text-gray-500 leading-relaxed">
-            各商品ごとに、<b>縦型カード画像（9:16）</b>・<b>台本</b>・<b>キャプション</b>を用意しました。カードを保存して動画に重ね、台本を読み（または合成音声で）、キャプションを貼るだけ。Shorts／TikTok／Reelsに横展開できます。
+            各商品に<b>縦型カード（9:16）</b>・<b>台本</b>・<b>キャプション</b>を用意。カードを動画に重ね、台本を読み（または合成音声で）、キャプションを貼るだけ。Shorts／TikTok／Reelsに横展開可。
           </p>
           <p className="text-[10px] text-gray-400 leading-relaxed mt-1.5">
-            ※ 数字はすべて想定・目安。収入の断定や誇大表現は避けてください（媒体の信頼につながります）。
+            ※ 数字はすべて想定・目安。収入の断定や誇大表現はNG（媒体の信頼に関わります）。
           </p>
         </div>
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm text-sm text-gray-500">
-            いま集計中です。少し時間をおいて再度ご覧ください。
+            集計中です。少し時間をおいて再度ご覧ください。
           </div>
         ) : (
           <div className="space-y-3">

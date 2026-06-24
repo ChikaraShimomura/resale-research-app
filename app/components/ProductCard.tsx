@@ -135,7 +135,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
       {/* eBayで売却済み：仕入れ→発送を促す帯（最下部に沈むカードの目印） */}
       {ebaySold && (
         <div className="bg-emerald-50 border-b border-emerald-100 px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-          <BadgeCheck size={13} /> eBayで売却済み — 楽天で仕入れて発送しよう
+          <BadgeCheck size={13} /> eBay売却済み — 楽天で仕入れて発送
         </div>
       )}
 
@@ -203,7 +203,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-[#A98B5C]/25">
           {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-400">{product.soldBased ? "eBay直近落札" : "eBay最安値"}<span className="text-[10px] text-gray-300 ml-0.5">（あなたの想定売値）</span></span>
+            <span className="text-xs text-gray-400">{product.soldBased ? "eBay直近落札" : "eBay最安値"}<span className="text-[10px] text-gray-300 ml-0.5">（想定売値）</span></span>
             <span className="text-lg font-bold text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</span>
           </div>
           {product.realMedianPrice != null && product.realMedianPrice > product.realAvgPrice && (
@@ -217,7 +217,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               楽天ポイントは「( + ○○ポイント )」で別物として併記（現金で稼げる品もポイ活専用も共通）。 */}
           <div className={`mt-2.5 pt-2.5 border-t flex items-end justify-between gap-2 ${product.profitKind === "point" ? "border-violet-300/50" : "border-[#A98B5C]/25"}`}>
             <div className="shrink-0">
-              <p className="text-xs text-gray-400 mb-1">利益（最安で売れた時）</p>
+              <p className="text-xs text-gray-400 mb-1">利益（最安売却時）</p>
               {product.profitKind === "point" ? (
                 <span className="inline-flex items-center gap-1.5">
                   <PointKatsuBadge />
@@ -296,7 +296,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
             {intlAndDuty > 0 && (
               <div className="flex justify-between text-[#2D323B]">
-                <span>国際発送まわりの目安（送料の手数料＋関税）</span>
+                <span>国際発送の目安（送料手数料＋関税）</span>
                 <span>- {formatJpy(intlAndDuty)}</span>
               </div>
             )}
@@ -310,7 +310,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
             {pointAmount > 0 && (
               <div className="flex justify-between text-[11px] text-[#FF4466] font-bold">
-                <span>＋ 楽天ポイント（{source.pointRate ?? 1}%・利益とは別のおまけ）</span>
+                <span>＋ 楽天ポイント（{source.pointRate ?? 1}%・利益とは別）</span>
                 <span>{pointAmount.toLocaleString()}ポイント</span>
               </div>
             )}

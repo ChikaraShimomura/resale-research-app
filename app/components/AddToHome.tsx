@@ -81,8 +81,8 @@ export default function AddToHome() {
     // アプリ内ブラウザ：まず本物のブラウザで開いてもらう（インストールの前提）
     title = "ブラウザで開くと使いやすいよ";
     desc = env.isIOS
-      ? "右上の … →「ブラウザ（Safari）で開く」を選んでね。ホーム画面追加が使えるようになるよ。"
-      : "右上メニュー →「ブラウザで開く」を選んでね。または下のボタンからどうぞ。";
+      ? "右上の … →「Safariで開く」。ホーム画面追加が使えるよ。"
+      : "右上メニュー →「ブラウザで開く」。または下のボタンから。";
     actions = (
       <div className="flex flex-wrap gap-2 mt-2">
         {env.isAndroid && (
@@ -100,7 +100,7 @@ export default function AddToHome() {
   } else if (canNative) {
     // Android/Chrome 等：1タップでインストール（最優先＝一番簡単）
     title = "ホーム画面に追加";
-    desc = "アプリのように1タップで開けるよ。Xから何度も探さなくてOK。";
+    desc = "1タップでアプリのように開く。Xから探さなくてOK。";
     actions = (
       <div className="mt-2">
         <button onClick={install}
@@ -127,7 +127,7 @@ export default function AddToHome() {
   } else {
     // Android で prompt 未取得：メニューからの追加を案内
     title = "ホーム画面に追加";
-    desc = "右上メニュー（⋮）→「ホーム画面に追加」で、アプリのようにすぐ開けるよ。";
+    desc = "右上メニュー（⋮）→「ホーム画面に追加」。アプリのようにすぐ開く。";
   }
 
   return (

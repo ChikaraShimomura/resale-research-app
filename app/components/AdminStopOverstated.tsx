@@ -16,22 +16,22 @@ export default function AdminStopOverstated() {
     try {
       const r = await fetch("/api/admin/stop-overstated", { cache: "no-store" });
       const j = await r.json();
-      if (!j.ok) { setErr(j.error || "取得に失敗しました。"); setTargets(null); }
+      if (!j.ok) { setErr(j.error || "取得に失敗。"); setTargets(null); }
       else setTargets(j.targets ?? []);
-    } catch { setErr("通信に失敗しました。"); }
+    } catch { setErr("通信に失敗。"); }
     setBusy(false);
   }
 
   async function execute() {
     if (!targets?.length) return;
-    if (!confirm(`${targets.length}件の出品をeBayで停止します。よろしいですか？（再出品は可能）`)) return;
+    if (!confirm(`${targets.length}件の出品をeBayで停止します。よろしいですか？（再出品OK）`)) return;
     setBusy(true); setErr("");
     try {
       const r = await fetch("/api/admin/stop-overstated", { method: "POST", cache: "no-store" });
       const j = await r.json();
-      if (!j.ok) setErr(j.error || "停止に失敗しました。");
+      if (!j.ok) setErr(j.error || "停止に失敗。");
       else { setResults(j.results ?? []); setTargets(null); }
-    } catch { setErr("通信に失敗しました。"); }
+    } catch { setErr("通信に失敗。"); }
     setBusy(false);
   }
 
@@ -39,7 +39,7 @@ export default function AdminStopOverstated() {
     <div>
       <h2 className="text-sm font-black text-gray-800 mb-1">赤字出品の一括停止</h2>
       <p className="text-[11px] text-gray-500 mb-3">
-        eBay直近落札で見ると赤字（現状は利益ありと表示していた）の商品で、いまeBayに出品中のものをまとめて停止します。
+        eBay直近落札で見ると赤字（=利益あり表示だった）の出品中商品を、まとめて停止。
       </p>
 
       <div className="flex gap-2">
@@ -60,7 +60,7 @@ export default function AdminStopOverstated() {
       {targets && (
         <div className="mt-3">
           {targets.length === 0 ? (
-            <p className="text-[12px] text-emerald-700 font-bold">停止対象なし（出品中の赤字商品はありません）。</p>
+            <p className="text-[12px] text-emerald-700 font-bold">停止対象なし（出品中の赤字商品なし）。</p>
           ) : (
             <>
               <p className="text-[12px] text-gray-700 font-bold mb-1">停止対象 {targets.length} 件：</p>

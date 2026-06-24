@@ -37,7 +37,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
         </span>
         <span className="flex-1">
           <span className="block text-sm font-black text-gray-800">海外発送ヘルパー</span>
-          <span className="block text-[11px] text-gray-400">売れたときの発送方法と通関書類の英語</span>
+          <span className="block text-[11px] text-gray-400">発送方法と通関書類の英語</span>
         </span>
         <span aria-hidden="true" className="text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
       </button>
@@ -53,11 +53,11 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
           <div className="flex items-start gap-2 bg-[#2D323B]/[0.05] border border-[#2D323B]/20 rounded-xl px-3 py-2.5 mb-3">
             <AlertTriangle size={15} className="text-[#2D323B] shrink-0 mt-0.5" />
             <p className="text-[11.5px] text-[#2D323B] leading-relaxed">
-              <b>送れない物</b>：モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライター等は航空危険物で発送できません。<b>申告価格は実際の販売額を正直に</b>（過少申告・ギフト偽装は違法です）。
+              <b>送れない物</b>：モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライター等の航空危険物。<b>申告価格は実際の販売額を正直に</b>（過少申告・ギフト偽装は違法）。
             </p>
           </div>
 
-          <p className="text-[11px] font-bold text-gray-600 mb-1.5">通関書類（CN22/CN23）用 — コピーして使えます</p>
+          <p className="text-[11px] font-bold text-gray-600 mb-1.5">通関書類（CN22/CN23）用・コピーして使えます</p>
           <ul className="space-y-1.5">
             {rows.map((r) => (
               <li key={r.key} className="flex items-center gap-2">
@@ -85,7 +85,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
           </a>
 
           <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-            ※ HSコード・品名は目安です（「該当なし」は一律おもちゃ扱いになるので実際の品名を具体的に）。海外宛ては国際郵便マイページで内容品を英語で電子申告（全世界で必須）。高額品は追跡・補償の付く方法を。発送前に規制を必ずご確認ください。
+            ※ HSコード・品名は目安（「該当なし」は一律おもちゃ扱い→品名は具体的に）。海外宛ては国際郵便マイページで内容品を英語で電子申告（全世界で必須）。高額品は追跡・補償付きで。発送前に規制を必ず確認を。
           </p>
         </div>
       )}

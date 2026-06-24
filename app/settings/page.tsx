@@ -80,9 +80,9 @@ export default async function SettingsPage({
                   />
                 </div>
                 {liveCount >= limit ? (
-                  <p className="text-[11px] text-amber-700 mt-1.5 font-bold">上限に達しています。アップグレードでもっと出品できます。</p>
+                  <p className="text-[11px] text-amber-700 mt-1.5 font-bold">上限に到達。アップグレードでもっと出品。</p>
                 ) : nearLimit ? (
-                  <p className="text-[11px] text-amber-600 mt-1.5">上限が近づいています。</p>
+                  <p className="text-[11px] text-amber-600 mt-1.5">上限が近づいています</p>
                 ) : null}
               </div>
             )}
@@ -132,7 +132,7 @@ export default async function SettingsPage({
             <span aria-hidden="true" className="text-gray-300 text-base shrink-0">›</span>
           </div>
           <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-            eBayとの連携・送料・発送先の国・返品・発送元・出品の既定値はこちら。<b className="text-gray-700">出品の準備や設定変更はこのページから。</b>
+            連携・送料・発送先の国・返品・発送元・出品の既定値。<b className="text-gray-700">出品の準備や設定変更はこちら。</b>
           </p>
         </Link>
 

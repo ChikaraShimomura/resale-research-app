@@ -50,7 +50,7 @@ function MoneyFlow({ s }: { s: Stats }) {
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
       <p className="text-[13px] font-black text-gray-800 mb-1">お金の流れ</p>
-      <p className="text-[11px] text-gray-400 mb-3">売れた商品の合計です</p>
+      <p className="text-[11px] text-gray-400 mb-3">売れた商品の合計</p>
 
       {/* 売上＝棒全体。内訳を色分け */}
       <div className="flex items-center justify-between mb-1.5">
@@ -87,7 +87,7 @@ function MoneyFlow({ s }: { s: Stats }) {
       </div>
       {loss && (
         <p className="mt-1 text-[11px] text-[#2D323B] leading-relaxed">
-          いまは赤字です。仕入れ値より安く売れた商品があるかもしれません。相場より高すぎない商品を選ぶと改善します。
+          いまは赤字。仕入れ値より安く売れた商品があるかも。相場より高すぎない商品を選ぶと改善。
         </p>
       )}
     </div>
@@ -132,7 +132,7 @@ function MonthlyChart({ data, soldCount }: { data: MonthPoint[]; soldCount: numb
         })}
       </div>
       {unknown > 0 && (
-        <p className="mt-2 text-[10px] text-gray-400">※ 売却日が不明な{unknown}件はこのグラフに含みません（累計には含みます）</p>
+        <p className="mt-2 text-[10px] text-gray-400">※ 売却日が不明な{unknown}件はグラフ対象外（累計には含む）</p>
       )}
     </div>
   );
@@ -245,7 +245,7 @@ export default function MyDashboard() {
     s && s.listedCount > 0 ? (
       <SaveProgressNudge
         from="dashboard"
-        message="💡 いまの成績はこの端末だけに保存中。ログインすれば、機種変や別の端末でも“育てた利益・称号”が消えません。"
+        message="💡 成績はこの端末だけに保存中。ログインすれば機種変・別端末でも“育てた利益・称号”が消えません。"
       />
     ) : null;
 
@@ -256,16 +256,15 @@ export default function MyDashboard() {
         {nudge}
         <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
           <Package size={40} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm font-black text-gray-800 mb-1">まだ成績がありません</p>
+          <p className="text-sm font-black text-gray-800 mb-1">まだ成績なし</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-            利益商品を選んで最初の1品を出品すると、<br />
-            ここに<b>仕入れ・売上・利益</b>が図で出てきます。
+            最初の1品を出品すると、ここに<b>仕入れ・売上・利益</b>が図で出ます。
           </p>
           <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
             利益商品を見る <ArrowRight size={16} />
           </Link>
           <Link href="/guide" className="block mt-3 text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
-            画像つきの始め方ガイドを見る →
+            画像つき始め方ガイド →
           </Link>
         </div>
         <HubLinks />
@@ -289,7 +288,7 @@ export default function MyDashboard() {
               </p>
             )}
             <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-              売れると、ここに<b>仕入れ・売上・利益</b>が図で出ます。まだ売れていないだけなので、出品しただけで成績が下がることはありません。
+              売れると<b>仕入れ・売上・利益</b>が図で出ます。出品しただけで成績は下がりません。
             </p>
           </div>
         </div>
@@ -305,7 +304,7 @@ export default function MyDashboard() {
 
       {/* 累計利益のヒーロー */}
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-5 shadow-sm text-center">
-        <p className="text-[12px] text-gray-400">このサイトで稼いだ利益（累計・現金）</p>
+        <p className="text-[12px] text-gray-400">稼いだ利益（累計・現金）</p>
         <p className="mt-1 text-4xl font-black text-[#2D323B] tracking-tight">{signedYen(s.totalProfit)}</p>
         {s.totalPoints > 0 && (
           <p className="mt-1 text-[13px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
@@ -327,7 +326,7 @@ export default function MyDashboard() {
       </div>
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
-        ※ 利益（現金）は 売上 − eBay手数料(13.25%+¥47) − 仕入れ値 で計算（為替 $1=¥155）。ポイントは利益に含めず「( + ○○ポイント )」で別表示しています（ポイントはあくまでおまけ）。
+        ※ 利益（現金）＝ 売上 − eBay手数料(13.25%+¥47) − 仕入れ値（為替 $1=¥155）。ポイントは利益に含めず「( + ○○ポイント )」で別表示（おまけ扱い）。
       </p>
 
       <HubLinks />

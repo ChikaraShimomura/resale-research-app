@@ -41,34 +41,34 @@ export default function FaqPage() {
 
       <main className="max-w-2xl mx-auto p-3 space-y-2.5">
         <QA q="料金プランは？">
-          <p>使う量に合わせて3プランです（いずれも月額・税込）。</p>
+          <p>使う量に合わせて3プラン（いずれも月額・税込）。</p>
           <ul className="list-disc pl-4 space-y-0.5">
             <li>ライト：{yen(PLANS.amateur.priceJpy)}（同時出品 {PLANS.amateur.listingLimit}件まで）</li>
             <li>スタンダード：{yen(PLANS.veteran.priceJpy)}（同時出品 {PLANS.veteran.listingLimit}件まで）</li>
             <li>プロ：{yen(PLANS.pro.priceJpy)}（同時出品 {PLANS.pro.listingLimit}件まで）</li>
           </ul>
-          <p><Link href="/pricing" className="text-[#2D323B] underline">料金ページ</Link>からお申し込みいただけます。</p>
+          <p><Link href="/pricing" className="text-[#2D323B] underline">料金ページ</Link>から申し込み。</p>
         </QA>
 
         <QA q="無料で試せますか？">
-          <p>ライトプランは最初の {TRIAL_DAYS} 日間無料です。期間内に解約すれば料金は一切発生しません。</p>
+          <p>ライトプランは最初の {TRIAL_DAYS} 日間無料。期間内に解約すれば料金は一切発生しません。</p>
         </QA>
 
         <QA q="支払い方法は？">
-          <p>クレジットカードのみ（決済代行：Stripe）。お申し込み時に登録し、以降は毎月自動更新されます。</p>
+          <p>クレジットカードのみ（決済代行：Stripe）。申し込み時に登録、以降は毎月自動更新。</p>
         </QA>
 
         <QA q="解約・プラン変更の方法は？">
-          <p>いつでも解約・プラン変更ができます。下のボタンから管理画面（Stripe）を開いてお手続きください。</p>
-          <p>解約しても<b className="text-gray-700">請求期間の終了まではご利用いただけ</b>、それ以降は課金されません。無料トライアル中に解約された場合は料金は発生しません。</p>
+          <p>いつでも解約・プラン変更OK。下のボタンから管理画面（Stripe）で手続き。</p>
+          <p>解約しても<b className="text-gray-700">請求期間の終了まで利用可</b>、それ以降は課金されません。無料トライアル中の解約なら料金は発生しません。</p>
           <div className="pt-1">
             <PortalButton />
           </div>
-          <p className="text-[12px] text-gray-400">※ 設定ページの「ご契約の管理・解約について」からも同じ手続きができます。</p>
+          <p className="text-[12px] text-gray-400">※ 設定ページの「ご契約の管理・解約について」からも同じ手続き可。</p>
         </QA>
 
         <QA q="楽天やeBayの費用も料金に含まれますか？">
-          <p>いいえ。本サービスの利用料に含まれるのはツールの利用権のみです。楽天での仕入れ費用、eBayの販売手数料・送料・関税などは利用者のご負担です。</p>
+          <p>いいえ。利用料に含まれるのはツールの利用権のみ。楽天の仕入れ費用、eBayの販売手数料・送料・関税などは利用者のご負担です。</p>
         </QA>
 
         <div className="pt-3 flex items-center justify-center gap-3 flex-wrap">

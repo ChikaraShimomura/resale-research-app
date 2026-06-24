@@ -17,7 +17,7 @@ export default function LoginPage() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get("e") === "confirm") {
-      setNotice("確認リンクの有効期限が切れているか、すでに使用済みのようです。もう一度ログインするか、新規登録をやり直してください。");
+      setNotice("確認リンクが期限切れか使用済みです。ログインし直すか、新規登録をやり直してください。");
     }
     const f = q.get("from");
     if (f) setFrom(f);
@@ -27,7 +27,7 @@ export default function LoginPage() {
       <BrandHome className="mb-5" />
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-[#A98B5C]/25 p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-1">ログイン</h1>
-        <p className="text-sm text-gray-500 mb-5">サインインすると、利益ダッシュボードが端末を跨いで保存されます。</p>
+        <p className="text-sm text-gray-500 mb-5">サインインで利益ダッシュボードを端末を跨いで保存。</p>
         {notice && (
           <p className="mb-4 text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 leading-relaxed">
             {notice}

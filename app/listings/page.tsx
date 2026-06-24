@@ -25,8 +25,8 @@ export default function ListingsPage() {
 
       <main className="max-w-2xl mx-auto p-3">
         <p className="text-[12px] text-gray-500 mb-3 leading-relaxed">
-          eBayに出した商品の管理です。価格・数量の<b className="text-gray-700">編集</b>、<b className="text-gray-700">再出品</b>、
-          <b className="text-gray-700">出品停止</b>ができます。売れた商品の発送・受け取りは「発送」タブへ。
+          eBay出品の管理。価格・数量の<b className="text-gray-700">編集</b>・<b className="text-gray-700">再出品</b>・
+          <b className="text-gray-700">出品停止</b>。売れた商品の発送・受け取りは「発送」タブへ。
         </p>
         <MyListings show={["live", "stopped"]} />
       </main>

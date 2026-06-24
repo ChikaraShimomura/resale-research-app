@@ -101,7 +101,7 @@ export default function ShipOrders() {
   if (!connected) {
     return (
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm text-[12px] text-gray-600">
-        発送する注文を表示するには、eBay と連携してください。
+        発送する注文を見るには eBay と連携を。
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function ShipOrders() {
 
       {pending.length === 0 && shipped.length === 0 && (
         <p className="text-[12px] text-gray-500 leading-relaxed">
-          まだ発送待ちの注文はありません。売れると自動でここに出ます（「更新」で最新を取り込み）。
+          発送待ちの注文なし。売れると自動でここに出ます（「更新」で最新を取り込み）。
         </p>
       )}
 
@@ -286,7 +286,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
             <Ban size={12} /> 欠品対応中（仕入れ不可）
           </p>
           <p className="text-[10px] text-red-700/90 leading-relaxed">
-            買い手に連絡し、eBayで注文をキャンセル（理由：在庫切れ）してください。買い手には全額返金されます。
+            買い手に連絡→eBayで注文をキャンセル（理由：在庫切れ）。買い手へ全額返金されます。
           </p>
           {recoverLinks}
         </div>
@@ -294,7 +294,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
         <>
           {/* やること（適応表示）：追跡登録は全宛先で必須・Zonos前払いは米国$100超のみの追加ステップ */}
           <p className="text-[10px] text-gray-400 leading-tight">
-            {ddp.needed ? "やること：① 関税前払い（Zonos）→ ② 追跡番号を登録" : "やること：発送したら追跡番号を登録"}
+            {ddp.needed ? "やること：① 関税前払い（Zonos）→ ② 追跡番号を登録" : "やること：発送後、追跡番号を登録"}
           </p>
           {ddp.needed && (
             <a
@@ -306,7 +306,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
               <span className="text-[13px] shrink-0">🛃</span>
               <span className="text-[11px] font-bold text-amber-800 leading-tight">
                 Zonosで関税を前払い（米国・申告額 ${Math.round(ddp.valueUsd)}）
-                <span className="block font-normal text-amber-700/80">前払い→13桁の番号を伝票に記載してから発送</span>
+                <span className="block font-normal text-amber-700/80">前払い→13桁の番号を伝票に記載して発送</span>
               </span>
               <ExternalLink size={12} className="ml-auto text-amber-700 shrink-0" />
             </a>
@@ -346,7 +346,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
           ) : (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 space-y-1.5">
               <p className="text-[10px] text-amber-800 leading-relaxed">
-                楽天で仕入れできない時は、買い手に連絡して eBay の注文をキャンセル（理由：在庫切れ）。下記の導線を使ってください。
+                楽天で仕入れできない時は買い手に連絡→eBayの注文をキャンセル（理由：在庫切れ）。下記の導線を利用。
               </p>
               {recoverLinks}
               <button

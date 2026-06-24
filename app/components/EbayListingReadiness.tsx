@@ -40,7 +40,7 @@ export default function EbayListingReadiness() {
     <section className="mt-3 bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
       <h3 className="text-sm font-black text-gray-800 mb-1">eBay自動出品の準備状況</h3>
       <p className="text-[11px] text-gray-400 mb-3">
-        出品APIで下書きを作るのに必要な項目です（{data.marketplace}）
+        下書き自動作成に必要な項目（{data.marketplace}）
       </p>
       <ul className="space-y-2">
         {items.map((it) => (
@@ -60,7 +60,7 @@ export default function EbayListingReadiness() {
 
       {data.ready ? (
         <p className="mt-3 text-[13px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
-          準備OK！次のアップデートで「下書き自動作成」が使えるようになります。
+          準備OK！次のアップデートで「下書き自動作成」が使えます。
         </p>
       ) : (
         <div className="mt-3 space-y-2">
@@ -75,7 +75,7 @@ export default function EbayListingReadiness() {
             </a>
           )}
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            ※ ビジネスポリシー（支払い・返品・配送）はeBayの「アカウント設定 ＞ ビジネスポリシー」で有効化＆作成できます。在庫ロケーションは準備が整い次第、このアプリから作成できるようにします。
+            ※ ビジネスポリシー（支払い・返品・配送）はeBayの「アカウント設定 ＞ ビジネスポリシー」で作成。在庫ロケーションは準備でき次第アプリから作成可に。
           </p>
         </div>
       )}

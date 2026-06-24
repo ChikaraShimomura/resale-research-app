@@ -43,7 +43,7 @@ export default function LandingPage() {
             在庫ゼロで、<span className="text-[#D8C089]">eBay輸出</span>を副業に
           </h1>
           <p className="text-white/75 text-[13px] leading-relaxed mt-1.5">
-            利益が出る商品が、ひと目でわかる。
+            利益が出る商品がひと目でわかる。
           </p>
         </div>
       </div>
@@ -69,15 +69,15 @@ export default function LandingPage() {
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <div className="flex items-center gap-2 mb-1.5">
           <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
-          <h2 className="text-sm font-black text-gray-800">「海外に売るのは難しそう」は、もう古い</h2>
+          <h2 className="text-sm font-black text-gray-800">「海外に売るのは難しそう」はもう古い</h2>
         </div>
-        <p className="text-[12px] text-gray-500 mb-4 pl-3">日本にいながら、いつもの通販と同じ感覚で始められます。</p>
+        <p className="text-[12px] text-gray-500 mb-4 pl-3">日本にいながら、いつもの通販と同じ感覚で。</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { Icon: Languages, t: "英語はいらない", d: "出品タイトルは自動で作成。購入者とのやり取りも定型文でこなせます。" },
+            { Icon: Languages, t: "英語はいらない", d: "出品タイトルは自動作成。やり取りも定型文でOK。" },
             { Icon: MapPin, t: "日本にいながら完結", d: "仕入れも発送も国内。海外発送は近くの郵便局・国際郵便マイページから。" },
-            { Icon: TrendingUp, t: "海外だから高く売れる", d: "日本にしかない商品は、海外では価値が上がって高値で売れます。" },
-            { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブルを防げます。" },
+            { Icon: TrendingUp, t: "海外だから高く売れる", d: "日本にしかない商品は、海外で価値が上がり高値に。" },
+            { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブル回避。" },
           ].map(({ Icon, t, d }, i) => (
             <div key={i} className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
               <div className="w-9 h-9 rounded-full bg-[#A98B5C]/10 ring-1 ring-[#A98B5C]/30 flex items-center justify-center mb-2.5">
@@ -117,8 +117,7 @@ export default function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 利益（現金）はeBayの想定売値（直近の落札価格ベース）からeBay手数料(13.25%)・国内送料・米国関税($100超)を差し引いて計算しています（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。<br />
-          実際の利益は状態・競合・為替等により異なります。
+          ※ 利益（現金）＝eBay想定売値（直近の落札価格ベース）− eBay手数料(13.25%)・国内送料・米国関税($100超)（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。実際の利益は状態・競合・為替等で変動。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">
           <Link href="/ranking" className="text-gray-500 hover:text-[#2D323B]">ランキング</Link>

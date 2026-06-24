@@ -115,7 +115,7 @@ export default async function ProductPage({
           <div className="text-center py-8">
             <Search size={44} className="mx-auto mb-4 text-gray-300" />
             <p className="text-gray-700 text-sm font-bold mb-1">この商品は現在掲載されていません</p>
-            <p className="text-gray-400 text-xs mb-5">入れ替わった可能性があります。今アツい商品をチェックしてみて！</p>
+            <p className="text-gray-400 text-xs mb-5">入れ替わったかも。今アツい商品をチェック！</p>
             <Link href="/search"
               className="inline-flex items-center min-h-[44px] text-sm font-bold text-white bg-[#2D323B] rounded-full px-6 active:bg-[#1A1D23]">
               利益商品を見る →

@@ -45,12 +45,12 @@ export default function InstallButton() {
 
       {env.standalone ? (
         <p className="text-[12px] text-emerald-600 font-bold flex items-center gap-1.5">
-          <BadgeCheck size={15} /> 追加済みです。ホーム画面のアイコンから開けます。
+          <BadgeCheck size={15} /> 追加済み。ホーム画面のアイコンから開けます。
         </p>
       ) : env.inApp ? (
         <>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-2">
-            いまアプリ内ブラウザで開いています。先にブラウザ（Safari/Chrome）で開くと追加できます。
+            アプリ内ブラウザで開いています。ブラウザ（Safari/Chrome）で開くと追加できます。
           </p>
           <div className="flex flex-wrap gap-2">
             {env.isAndroid && (
@@ -59,20 +59,20 @@ export default function InstallButton() {
               </button>
             )}
             <button onClick={copyUrl} className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#2D323B] border border-[#2D323B]/30 rounded-lg px-3 py-1.5 active:bg-[#2D323B]/5">
-              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "コピーしました" : "URLをコピー"}
+              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "コピー済み" : "URLをコピー"}
             </button>
           </div>
         </>
       ) : canNative ? (
         <>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-2">1タップで追加できます。アプリのようにすぐ開けます。</p>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-2">1タップで追加。アプリのようにすぐ開けます。</p>
           <button onClick={() => promptInstall()} className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]">
             <Plus size={16} /> ホーム画面に追加
           </button>
         </>
       ) : env.isIOS ? (
         <>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-2">かんたん2手で追加できます：</p>
+          <p className="text-[12px] text-gray-500 leading-relaxed mb-2">かんたん2手で追加：</p>
           <ol className="space-y-1.5">
             <Step n={1}>
               画面下の<b className="text-gray-700">共有</b>
@@ -85,7 +85,7 @@ export default function InstallButton() {
         </>
       ) : (
         <p className="text-[12px] text-gray-500 leading-relaxed">
-          ブラウザの右上メニュー（⋮）→「ホーム画面に追加」で、アプリのようにすぐ開けます。
+          ブラウザの右上メニュー（⋮）→「ホーム画面に追加」。アプリのようにすぐ開けます。
         </p>
       )}
     </div>

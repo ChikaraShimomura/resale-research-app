@@ -71,12 +71,12 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         : null;
     if (!eff) {
       setState("error");
-      setMsg(lookupFailed ? "都道府県・市区町村を英字で入力してください。" : "先に郵便番号で住所を検索してください。");
+      setMsg(lookupFailed ? "都道府県・市区町村を英字で入力。" : "先に郵便番号で住所を検索。");
       return;
     }
     if (!addr.trim()) {
       setState("error");
-      setMsg("番地を入力してください。");
+      setMsg("番地を入力。");
       return;
     }
     setState("saving");
@@ -113,7 +113,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   return (
     <div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        郵便番号を入れると住所を自動入力します。日本語のままでOK（eBayには自動で英字変換して登録します）。
+        郵便番号で住所を自動入力。日本語のままでOK（eBay登録時に英字変換）。
       </p>
 
       <div>
@@ -130,7 +130,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         {lookupFailed && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mt-1.5 space-y-2">
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              自動で見つかりませんでした。<b>都道府県・市区町村を英字（ローマ字）で手入力</b>すれば、このまま続けられます。
+              自動で見つかりません。<b>都道府県・市区町村を英字（ローマ字）で手入力</b>すれば続行できます。
             </p>
             <input
               type="text"
@@ -176,7 +176,7 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
         />
         <p className="text-[10px] text-gray-400 mt-1 leading-snug">
-          番地は数字でOK。建物名は英字がおすすめ（日本語のままだとそのまま登録されます）。
+          番地は数字でOK。建物名は英字推奨（日本語はそのまま登録）。
         </p>
       </div>
 
