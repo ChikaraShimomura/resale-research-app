@@ -6,7 +6,7 @@
 //  - /api/ebay/orders : 注文一覧→「発送待ち」件数を算出（未発送・未キャンセル・欠品未対応）
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Tag, Package, Truck, User, ArrowRight, Plug, Sparkles } from "lucide-react";
+import { Tag, Package, Truck, ArrowRight, Plug, Sparkles } from "lucide-react";
 
 type Deal = { productId?: string };
 type PlanInfo = {
@@ -166,31 +166,10 @@ export default function HomeHub() {
         </Link>
       </section>
 
-      {/* 主要タブへのショートカット */}
-      <section aria-label="ショートカット">
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { href: "/search", Icon: Tag, t: "利益商品", d: "仕入れて売れる商品を探す" },
-            { href: "/listings", Icon: Package, t: "出品管理", d: "出品中の商品を確認" },
-            { href: "/ship", Icon: Truck, t: "発送", d: "売れた後の発送・追跡" },
-            { href: "/mypage", Icon: User, t: "マイページ", d: "成績・プラン・設定" },
-          ].map(({ href, Icon, t, d }) => (
-            <Link
-              key={href}
-              href={href}
-              className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm active:bg-gray-50 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#A98B5C]/10 ring-1 ring-[#A98B5C]/30 flex items-center justify-center mb-2">
-                <Icon size={17} strokeWidth={1.75} className="text-[#2D323B]" />
-              </div>
-              <p className="text-[13px] font-black text-gray-800">{t}</p>
-              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">{d}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* 主要タブへの移動は下部ナビ(BottomNav)が担う＝重複するショートカット枠は置かない。
+          ホーム=「これから(状況＋続きの一手)」／マイページ=「これまで(成績・お金・設定)」で役割分離。 */}
 
-      {/* 補助導線：ランキング／ガイド（LPの定番導線をハブにも残す） */}
+      {/* 補助導線：ランキング／ガイド（下部ナビに無い学習/集客の入口なので残す） */}
       <section className="text-center pt-1">
         <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
           🔥 いま稼げる利益商品ランキングを見る →

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Languages, MapPin, TrendingUp, ShieldCheck } from "lucide-react";
+import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Camera, Banknote } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import GuideVideo from "./components/GuideVideo";
@@ -88,10 +88,40 @@ function LandingPage() {
         </div>
       </div>
 
-      {/* ホーム紹介動画＝ファーストビュー直下。画面内でミュート自動再生＋「音声をオン」（焼き込み字幕で内容は伝わる） */}
+      {/* はじめての人が“文字で3秒”で仕組みを掴むための3ステップ（動画/ガイドの前に置く＝受け身の動画頼みをやめる） */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-5 bg-gradient-to-b from-[#2D323B] to-[#A98B5C] rounded-full" />
+          <h2 className="text-sm font-black text-gray-800">どんなサイト？ 3ステップで</h2>
+        </div>
+        <ol className="space-y-2.5">
+          {[
+            { n: 1, Icon: Search, t: "利益商品が毎日みつかる", d: "楽天で安く買えて eBay で高く売れる商品を、ツールが手取りベースの利益つきで提示。探す手間ゼロ。" },
+            { n: 2, Icon: Camera, t: "写真だけで eBay 出品", d: "英語のタイトルも自動。在庫を持たずに出品できる（＝在庫ゼロ）。" },
+            { n: 3, Icon: Banknote, t: "売れたら仕入れて発送", d: "注文が入ってから楽天で仕入れ→郵便局から発送。売上は Payoneer で受け取り。" },
+          ].map(({ n, Icon, t, d }) => (
+            <li key={n} className="flex items-start gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
+              <span className="shrink-0 w-9 h-9 rounded-full bg-[#2D323B] text-white font-black text-sm flex items-center justify-center">{n}</span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-gray-800 flex items-center gap-1.5">
+                  <Icon size={15} className="text-[#A98B5C]" />{t}
+                </p>
+                <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">{d}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-4 text-center">
+          <Link href="/guide" className="inline-flex items-center justify-center gap-1.5 h-11 px-6 rounded-xl bg-[#2D323B] text-white text-[13px] font-black active:bg-[#1A1D23]">
+            使い方を詳しく見る →
+          </Link>
+        </div>
+      </section>
+
+      {/* もっと詳しく：ホーム紹介動画（3ステップの補助。ミュート自動再生＋字幕で内容は伝わる） */}
       <section className="max-w-2xl mx-auto px-4 pt-6">
         <GuideVideo
-          title="在庫ゼロで始めるeBay輸出（約2分）"
+          title="動画でも分かる（約2分）"
           src="/videos/home-intro.mp4"
           poster="/videos/home-intro-poster.jpg"
           durationLabel="約2分"
