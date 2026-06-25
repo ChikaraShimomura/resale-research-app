@@ -20,7 +20,7 @@ export default async function MyPage() {
       <header className="bg-gradient-to-r from-[#2D323B] to-[#2D323B] shadow-sm sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-2.5 flex items-center gap-2 max-w-2xl mx-auto">
-          <Link href="/search" aria-label="検索に戻る"
+          <Link href="/" aria-label="ホームに戻る"
             className="w-11 h-11 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
             ‹
           </Link>

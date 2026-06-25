@@ -11,7 +11,8 @@ export interface Article {
   faq: ArticleFaq[];
 }
 
-export const ARTICLES: Article[] = [
+// 全記事の元データ（温存）。公開する集合は下の ARTICLES（旧モデル汚染が強い記事を除外）。
+const _ALL_ARTICLES: Article[] = [
   {
     "slug": "ebay-uremono",
     "title": "eBay輸出で売れるもの｜海外で人気の日本商品 ジャンル別【2026最新】",
@@ -351,6 +352,12 @@ export const ARTICLES: Article[] = [
     ]
   }
 ];
+
+// 中古ピボットと矛盾する旧モデル記事（ebay-hajimekata＝eBay自動出品前提 / rakuten-point-ebay＝楽天ポイントせどり）は
+// 公開index・sitemap・/guide/[slug] から外す。中古向けにリライトしたら slug をこの除外リストから外して復帰する。
+export const ARTICLES: Article[] = _ALL_ARTICLES.filter(
+  (a) => !["ebay-hajimekata", "rakuten-point-ebay"].includes(a.slug)
+);
 
 export function getArticle(slug: string): Article | undefined {
   return ARTICLES.find((a) => a.slug === slug);

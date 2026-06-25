@@ -16,6 +16,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // クローラが /register に飛ばされ無効になる）。公開の集客面はトップ/ランキング/ガイド/料金/プレス/法務のみ。
   const staticEntries: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
+    // 中古の利益カタログ（新モデルの主役）。公開・masked表示で集客面に出す。
+    { url: `${SITE_URL}/catalog`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/ranking`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/guide`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE_URL}/guide/payoneer-withdraw`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },

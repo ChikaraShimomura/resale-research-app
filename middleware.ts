@@ -20,7 +20,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.endsWith("/opengraph-image") || pathname.endsWith("/twitter-image")) return true;
   // 集客の入口（マーケ/SEO）は未ログインでも見せる＝SEOインデックス＋X流入の着地先。
   // ランキングは「いま稼げる利益商品」のSEO/X流入フックとして公開を維持する。
-  if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing") return true;
+  // /catalog（中古の利益カタログ＝新モデルの主役）も公開。全公開ページのCTA着地先＝未ログインで弾くと
+  // 導線が死ぬ。中身は canViewCatalog のロック表示（未購読/未ログインは仕入れ先/価格をマスク）で担保。
+  if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing" || pathname === "/catalog") return true;
   if (pathname === "/guide" || pathname.startsWith("/guide/")) return true;
   // 2026-06-21: 利益商品そのものが見える画面（検索一覧/検索結果/商品詳細）はログイン必須に変更。
   // 旧フリーミアム（/search・/results・/product/* 公開）を撤回＝登録誘導を強化。/ranking だけは公開フックとして残す。
