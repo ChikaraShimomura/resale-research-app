@@ -141,6 +141,13 @@ export default function EbayListingModal({
   const [bestOffer, setBestOffer] = useState(() => readListingDefaults().bestOffer);
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
+  // 候補のうち「読み込めない/明らかに低解像度(<300px)」を非表示にする集合。クライアントで実寸を見て判定＝
+  // 関係ない別商品のサムネや粗い画像を候補から落とす（ユーザー要望：明らかに解像度が悪い/関係ない画像は出さない）。
+  const [badPhotos, setBadPhotos] = useState<Set<string>>(new Set());
+  const markBadPhoto = (u: string) => {
+    setBadPhotos((s) => (s.has(u) ? s : new Set(s).add(u)));
+    setSelectedImages((cur) => cur.filter((x) => x !== u)); // 低解像度と判明した選択は外す
+  };
   const [zoomIndex, setZoomIndex] = useState<number | null>(null); // 拡大プレビューを開いた起点index（null=閉じ）
   const carouselRef = useRef<HTMLDivElement>(null); // 拡大カルーセルの横スクロール制御
   useEffect(() => {
@@ -406,7 +413,9 @@ export default function EbayListingModal({
   const advOpen = showAdv || !aspectsFilled;
 
   // 出品写真の候補（楽天ギャラリー＋API代表画像・重複除去）。ユーザーがチェックで選ぶ。
-  const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])])).filter(Boolean);
+  const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])]))
+    .filter(Boolean)
+    .filter((u) => !badPhotos.has(u)); // 低解像度/読み込み不可と判定した候補は出さない
   // 拡大プレビューは「実際にeBayへ送る加工後画像」を出す（clean-img の list=1＝enhanceToEpsと同一加工）＝WYSIWYG。
   // プロキシは楽天系ホストのみ許可なので、楽天画像だけ通し、それ以外は元URL。
   const ebayPreviewSrc = (url: string) =>
@@ -624,7 +633,15 @@ export default function EbayListingModal({
                             aria-label={checked ? `写真${i + 1}の選択を外す` : `写真${i + 1}を出品に使う`}
                             className="absolute inset-0 w-full h-full"
                           >
-                            <img src={ebayPreviewSrc(u)} alt={`候補${i + 1}`} loading="lazy" className="w-full h-full object-contain bg-white" />
+                            <img
+                              src={ebayPreviewSrc(u)}
+                              alt={`候補${i + 1}`}
+                              loading="lazy"
+                              // 実寸が小さい(<300px)＝粗い/別商品のサムネは候補から落とす。読み込み失敗(リンク切れ)も同様。
+                              onLoad={(e) => { const t = e.currentTarget; if (t.naturalWidth > 0 && (t.naturalWidth < 300 || t.naturalHeight < 300)) markBadPhoto(u); }}
+                              onError={() => markBadPhoto(u)}
+                              className="w-full h-full object-contain bg-white"
+                            />
                           </button>
                           {/* 選択バッジ（左上・番号）。タップは下の画像ボタンに透過。 */}
                           <span

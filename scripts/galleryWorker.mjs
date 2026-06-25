@@ -84,12 +84,13 @@ async function extractGallery(rawUrl) {
     if (!seen.has(path.toLowerCase())) seen.set(path.toLowerCase(), "https://image.rakuten.co.jp/" + path);
   }
   const urls = [...seen.values()];
-  let gallery = urls.filter((u) => u.toLowerCase().includes(code));
-  if (gallery.length < 2) {
-    const JUNK = /\/(campaign|service|soy|banner|common|btn|icon|logo|footer|header|cp_|review|card|gakuwari|saikyo|victory|deal|thanks)/i;
-    gallery = urls.filter((u) => /\.jpe?g$/i.test(u) && !JUNK.test(u));
-  }
-  const score = (u) => { const f = u.toLowerCase(); if (f.includes(code + "_a1")) return -2; if (f.endsWith("/" + code + ".jpg")) return -1; const n = f.match(new RegExp(code + "_(\d+)\."))?.[1]; return n ? Number(n) : 500; };
+  // 商品コード(itemCode)を含む画像＝この商品の正規画像だけ採用する。
+  // ⚠️旧実装は code 一致<2枚のとき「ページ内の全jpg」を無差別採用し、関連他商品(おすすめ等)のサムネ＝別商品の
+  //    画像を混入させていた(ユーザー指摘:全然関係ない画像)。無差別フォールバックは廃止＝足りなければ少数のまま。
+  //    (出品側は楽天API代表画像 productImages で補完するので画像ゼロにはならない＝fail-safe)
+  const gallery = urls.filter((u) => u.toLowerCase().includes(code));
+  // 並び順スコア。.mjsの文字列内では \d/\. が d/任意1文字に化けるため二重エスケープして正しい正規表現にする。
+  const score = (u) => { const f = u.toLowerCase(); if (f.includes(code + "_a1")) return -2; if (f.endsWith("/" + code + ".jpg")) return -1; const n = f.match(new RegExp(code + "_(\\d+)\\."))?.[1]; return n ? Number(n) : 500; };
   return gallery.sort((a, b) => score(a) - score(b)).slice(0, 24);
 }
 
