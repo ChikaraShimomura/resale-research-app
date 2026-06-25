@@ -1,9 +1,9 @@
-// eBay発掘キーワード（305本）。refresh.mjs(楽天マッチ) と ebaySoldWorker.mjs(Pixel落札発掘) で共有。
+// eBay発掘キーワード（366本）。refresh.mjs(楽天マッチ) と ebaySoldWorker.mjs(Pixel落札発掘) で共有。
 // {q: eBay検索語(英), name: 表示/ジャンルキー}。name は guessCategory/EXPECTED_GENRE と対応（refresh.mjs参照）。
 
 // 【ユーザー厳命】関税問題/国際郵便で送れない航空危険物等は絶対にカタログ対象にしない。発掘(worker)と取込(refresh)の双方で除外＝SSOT。
 //   明確な危険物ワードに限定（腕時計の「電池/ソーラー」やスプレーボトル等の正常品を巻き込まないよう bareの電池/スプレーは使わない）。
-export const PROHIBITED_EXCLUDE = /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|lighter|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
+export const PROHIBITED_EXCLUDE = /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|\blighter\b|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
 
 export const EBAY_JP_QUERIES = [
   { q: 'pokemon card booster box japanese sealed',  name: 'ポケモンカード' },
@@ -313,4 +313,78 @@ export const EBAY_JP_QUERIES = [
   { q: 'furoshiki wrapping cloth japanese japan', name: '風呂敷' },
   { q: 'guitar picks japan made tortex pick', name: 'ギターピック(日本)' },
   { q: 'shamisen koto picks plectrum japan', name: '和楽器爪/撥' },
+
+  // ── ジャンル拡張②(カメラ周辺/釣具/レコード針/ブラインドボックス/ホビー工具/プラモ/文具/楽器小物・2026-06-25)。
+  //    5クラスタ並列リサーチ→「楽天で新品潤沢×中〜低単価×軽量×非危険物×現金黒字」で採点し採用。
+  //    ⚠️見送り(deferred)=中古フィルムカメラ/オールドレンズ(要古物商)・カメラ本体/mini Linkプリンタ(リチウム内蔵)・
+  //      最上位リール/高級時計(現金薄利)・ガス器具/燃料(IATA危険物)・BOSS等ACペダル(100V電圧問題)・アナログ盤(重/割れ)。
+  // カメラ周辺(既存に1本も無かった空白を最優先で埋める)
+  { q: 'fujifilm instax mini film twin pack japan new sealed',        name: 'instaxミニフィルム' },
+  { q: 'fujifilm instax mini film value pack 60 sheets japan new',     name: 'instaxミニフィルムバリューパック' },
+  { q: 'fujifilm instax wide film twin pack japan new sealed',         name: 'instaxワイドフィルム' },
+  { q: 'fujifilm instax square film twin pack japan new sealed',       name: 'instaxスクエアフィルム' },
+  { q: 'fujifilm instax mini rainbow design film japan new sealed',    name: 'instaxデザインフィルム' },
+  { q: 'K&F Concept mount adapter leica m to sony e japan new',        name: 'マウントアダプターLM→SE' },
+  { q: 'K&F Concept lens mount adapter m42 to sony e japan new',       name: 'マウントアダプターM42→SE' },
+  { q: 'K&F Concept mount adapter nikon f to fujifilm x japan new',    name: 'マウントアダプターNF→FX' },
+  { q: 'K&F Concept lens mount adapter canon ef to sony e japan new',  name: 'マウントアダプターEF→SE' },
+  { q: 'kenko PL polarizing filter japan new sealed',                 name: 'ケンコーPLフィルター' },
+  { q: 'hoya ND filter japan new sealed',                             name: 'HOYA NDフィルター' },
+  { q: 'marumi DHG protect lens filter japan new',                    name: 'マルミ プロテクトフィルター' },
+  { q: 'kenko ZX C-PL circular polarizer japan new',                  name: 'ケンコーZX C-PL' },
+  // 釣具(日本製が世界標準・消耗品で回転速い・軽量で関税$100未満)
+  { q: 'shimano metal jig japan new',                                 name: 'シマノ メタルジグ' },
+  { q: 'daiwa saltiga jig japan new',                                 name: 'ダイワ ソルティガ ジグ' },
+  { q: 'major craft jigpara metal jig japan new',                     name: 'メジャークラフト ジグパラ' },
+  { q: 'hayabusa jack eye slow jig japan new',                        name: 'ハヤブサ ジャックアイ' },
+  { q: 'megabass lure japan new',                                     name: 'メガバス ルアー' },
+  { q: 'jackall lure japan new',                                      name: 'ジャッカル ルアー' },
+  { q: 'duo realis lure japan new',                                   name: 'DUO レアリス' },
+  { q: 'evergreen lure japan new',                                    name: 'エバーグリーン ルアー' },
+  { q: 'yamashita egi oh squid jig japan new',                        name: 'ヤマシタ エギ王' },
+  { q: 'yo-zuri aurie-q egi squid jig japan new',                     name: 'ヨーヅリ アオリーQ' },
+  { q: 'shimano sephia egi japan new',                               name: 'シマノ セフィア エギ' },
+  { q: 'ygk pe braid line japan new',                                 name: 'YGK PEライン' },
+  { q: 'varivas pe braid line japan new',                             name: 'バリバス PEライン' },
+  { q: 'sunline pe braid line japan new',                            name: 'サンライン PEライン' },
+  { q: 'gamakatsu hook japan new',                                    name: 'がまかつ フック' },
+  { q: 'owner hook treble japan new',                                 name: 'オーナー トレブルフック' },
+  { q: 'decoy snap swivel japan new',                                 name: 'DECOY スナップ/スイベル' },
+  // オーディオ/レコード針(無電源・小型・消耗交換需要・米バイナル成長)
+  { q: 'Audio-Technica VM540ML phono cartridge japan new',            name: 'オーディオテクニカ VM540ML カートリッジ' },
+  { q: 'Audio-Technica AT-VM95E phono cartridge japan new',           name: 'オーディオテクニカ AT-VM95E カートリッジ' },
+  { q: 'Audio-Technica AT-VM95ML phono cartridge japan new',          name: 'オーディオテクニカ AT-VM95ML カートリッジ' },
+  { q: 'Nagaoka JN-P110 replacement stylus japan new',               name: 'ナガオカ JN-P110 交換針' },
+  { q: 'Nagaoka JN-P200 stylus MP-200 japan new',                    name: 'ナガオカ JN-P200 交換針' },
+  { q: 'JICO replacement stylus japan made new',                      name: 'JICO 交換針' },
+  // ブラインドボックス(国際マークアップ大・新作継続・軽量低単価)
+  { q: 'sonny angel mini figure blind box japan new sealed',          name: 'ソニーエンジェル' },
+  { q: 'sonny angel hippers blind box japan new sealed',              name: 'ソニーエンジェルHIPPERS' },
+  { q: 'smiski blind box japan new sealed',                           name: 'スミスキー' },
+  { q: 'smiski secret series blind box japan new',                    name: 'スミスキー(シリーズ)' },
+  // ホビー: ジグソーパズル/工具/プラモ(既存はガンプラ偏重→工具・他IPプラモの空白)
+  { q: 'ensky jigsaw puzzle 1000 piece japanese anime new sealed',    name: 'エンスカイ1000ピースパズル' },
+  { q: 'ensky art crystal jigsaw puzzle studio ghibli japan new sealed', name: 'アートクリスタルパズル ジブリ' },
+  { q: 'beverly jigsaw puzzle japan new sealed 1000 piece',           name: 'ビバリー1000ピースパズル' },
+  { q: 'godhand ultimate nipper 5.0 model kit japan new',             name: 'ゴッドハンド アルティメットニッパー' },
+  { q: 'godhand nipper SPN-120 single blade japan new',               name: 'ゴッドハンド片刃ニッパー' },
+  { q: 'tamiya sharp pointed side cutter model nipper japan new',     name: 'タミヤ薄刃ニッパー' },
+  { q: 'gundam marker panel line pen set GM01 GM02 GM03 japan new',   name: 'ガンダムマーカー パネルライン' },
+  { q: 'gundam marker EX pen mr hobby gunze japan new',               name: 'ガンダムマーカーEX' },
+  { q: 'pokemon plamo collection select series bandai japan new sealed', name: 'ポケプラ セレクト' },
+  { q: 'pokemon plamo collection quick bandai japan new sealed',      name: 'ポケプラ クイック' },
+  { q: 'plamax max factory model kit japan new sealed',               name: 'PLAMAXプラモ' },
+  { q: 'bandai super mini pla model kit japan new sealed',            name: 'スーパーミニプラ' },
+  // 文具(海外カルト人気・軽量で現金率高い)
+  { q: 'hobonichi techo planner 2026 japan new',                     name: 'ほぼ日手帳' },
+  { q: 'travelers notebook midori leather refill japan new',          name: 'トラベラーズノート' },
+  { q: 'mt washi tape masking tape japan new',                       name: 'mtマスキングテープ' },
+  { q: 'zebra mildliner highlighter set japan new',                  name: 'ゼブラ マイルドライナー' },
+  // 楽器小物(無電源 or 電池抜き発送・電圧問題なしの物だけ)
+  { q: 'Korg Pitchclip 2 plus clip-on tuner japan new',              name: 'コルグ Pitchclip 2+ クリップチューナー' },
+  { q: 'Vox amPlug 2 AC30 headphone guitar amp japan new',           name: 'VOX amPlug 2 AC30 ヘッドホンアンプ' },
+  { q: 'Yamaha Pianica P-37D melodica japan new',                    name: 'ヤマハ ピアニカ P-37D' },
+  { q: 'Suzuki harmonica Manji M-20 japan new',                      name: '鈴木 ハーモニカ Manji M-20' },
+  // アウトドア(チタン食器のみ・ガス器具/燃料は危険物で除外)
+  { q: 'snow peak titanium mug japan new',                            name: 'スノーピーク チタンマグ' },
 ];
