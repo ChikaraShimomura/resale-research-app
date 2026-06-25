@@ -199,7 +199,11 @@ async function discoverSeeds() {
       const prices = g.cards.map((c) => c.price).sort((a, b) => a - b);
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 ? prices[mid] : Math.round((prices[mid - 1] + prices[mid]) / 2);
-      const rep = g.cards.slice().sort((a, b) => a.ageDays - b.ageDays)[0]; // 直近を代表
+      // 代表＝価格が中央値に最も近い落札。soldUrl(落札リンク)/画像が想定売値(=中央値)と一致し、
+      // 「リンク先の落札額が想定売値とズレる」乖離を防ぐ。同距離なら直近(ageDays小)を優先。
+      const rep = g.cards.slice().sort(
+        (a, b) => (Math.abs(a.price - median) - Math.abs(b.price - median)) || (a.ageDays - b.ageDays)
+      )[0];
       seeds.push({ title: g.title, priceJpy: median, category: name, imageUrl: rep.img, itemUrl: rep.url, rank: added, soldCount: g.cards.length, soldWindowDays: WINDOW_DAYS });
       added++;
     }
