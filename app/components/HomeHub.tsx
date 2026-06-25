@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flame, ArrowRight, TrendingUp } from "lucide-react";
+import { Flame, ArrowRight } from "lucide-react";
 
 // ログイン時のホーム＝パーソナルハブ。中古利益カタログ移行後は「儲かる中古の型番カタログ」への導線を主役にする。
 // 旧モデル（出品中/発送待ち/出品ファネル＝連携・育成）は撤去＝研究ツール化。/api/ebay/deals,status,orders への依存も外した。
@@ -29,16 +29,11 @@ export default function HomeHub() {
         </Link>
       </section>
 
-      {/* 補助導線：ランキング／ガイド */}
-      <section className="text-center pt-1 space-y-3">
-        <Link href="/ranking" className="inline-flex items-center gap-1 text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
-          <TrendingUp size={14} /> 利益商品ランキングを見る →
+      {/* 補助導線：ガイド */}
+      <section className="text-center pt-1">
+        <Link href="/guide" className="text-[12px] font-bold text-gray-500 underline underline-offset-2">
+          使い方ガイドを見る →
         </Link>
-        <div>
-          <Link href="/guide" className="text-[12px] font-bold text-gray-500 underline underline-offset-2">
-            使い方ガイドを見る →
-          </Link>
-        </div>
       </section>
     </div>
   );

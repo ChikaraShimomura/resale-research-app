@@ -18,15 +18,10 @@ function isPublicPath(pathname: string): boolean {
   // SNS共有カード画像(OG/Twitter)はクローラ(Twitterbot/facebookexternalhit)が未ログインで取得する＝公開必須。
   // ゲートすると /register(HTML)へ307され、X等でカード画像が一切出ない。ネスト経路(例: /ranking/opengraph-image)も許可。
   if (pathname.endsWith("/opengraph-image") || pathname.endsWith("/twitter-image")) return true;
-  // 集客の入口（マーケ/SEO）は未ログインでも見せる＝SEOインデックス＋X流入の着地先。
-  // ランキングは「いま稼げる利益商品」のSEO/X流入フックとして公開を維持する。
-  // /catalog（中古の利益カタログ＝新モデルの主役）も公開。全公開ページのCTA着地先＝未ログインで弾くと
-  // 導線が死ぬ。中身は canViewCatalog のロック表示（未購読/未ログインは仕入れ先/価格をマスク）で担保。
-  if (pathname === "/" || pathname === "/ranking" || pathname === "/press" || pathname === "/pricing" || pathname === "/catalog") return true;
-  if (pathname === "/guide" || pathname.startsWith("/guide/")) return true;
-  // 2026-06-21: 利益商品そのものが見える画面（検索一覧/検索結果/商品詳細）はログイン必須に変更。
-  // 旧フリーミアム（/search・/results・/product/* 公開）を撤回＝登録誘導を強化。/ranking だけは公開フックとして残す。
-  // 出品・マイページ・設定・スタジオ・管理 も引き続きゲート。
+  // 2026-06-26 完全会員制（ユーザー指示「会員以外は何も見えないように」）＝マーケ/ガイドも含め全ページ ログイン必須。
+  //   公開のままにするのは 認証(login/register/reset/auth) ・法務(privacy/terms/legal/faq) ・PWA資産 ・OG画像 ・/sorry だけ。
+  //   トップ/ランキング/カタログ/料金/プレス/ガイド/検索/商品詳細 等はすべてゲート（未ログインは /register へ）。
+  //   全世界公開に戻す時はここに公開パスを足す。
   return false;
 }
 
@@ -61,31 +56,6 @@ export function middleware(req: NextRequest) {
     pathname !== "/sorry"
   ) {
     return NextResponse.rewrite(new URL("/sorry", req.url));
-  }
-
-  // 私的公開（IP許可リスト）: 公開はするが、許可IP(自宅)以外は /sorry に弾く＝「自宅からだけ見える」状態にする。
-  //  ・許可IPは Vercel env PRIVATE_ALLOWED_IPS（カンマ区切り）で持つ＝公開リポにIPを書かない（git履歴/プライバシー対策）。
-  //    未設定なら誰も入れない（フェイルクローズ＝全世界に漏れない安全側）。全世界公開する時は PRIVATE_LAUNCH=false に。
-  //  ・dev(ローカル)は対象外（プレビュー検証のため）。Webhook（eBay削除通知/cron/Stripe）は外部IPから来るので除外。
-  //  ・Vercelは x-forwarded-for 先頭にクライアント実IPを入れる（クライアントが偽XFFを送っても上書きされる＝詐称不可）。
-  const PRIVATE_LAUNCH = true;
-  if (PRIVATE_LAUNCH && !isDev && pathname !== "/sorry") {
-    const isWebhook =
-      pathname === "/api/ebay/account-deletion" ||
-      pathname === "/api/ebay/list/auto-stop-cron" ||
-      pathname === "/api/billing/webhook";
-    if (!isWebhook) {
-      const allow = (process.env.PRIVATE_ALLOWED_IPS || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const xff = req.headers.get("x-forwarded-for") || "";
-      const ip = (xff.split(",")[0] || "").trim() || req.headers.get("x-real-ip") || "";
-      if (!allow.includes(ip)) {
-        if (pathname.startsWith("/api/")) return new NextResponse("forbidden", { status: 403 });
-        return NextResponse.rewrite(new URL("/sorry", req.url));
-      }
-    }
   }
 
   // 全サイト ログインゲート：会員登録(=Supabaseセッション)が無ければ /register へ。
