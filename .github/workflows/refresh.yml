@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   refresh:
+    # ⏸ 2026-06-25 コスト停止(ユーザー指示「お金かかる系の自動実行を全停止」)。cron-job.orgが叩いても
+    #   このジョブはskip＝Anthropic(画像AIマッチ)は一切呼ばれない＝課金ゼロ。再開はこの if 行を削除するだけ。
+    #   ※中古カタログ移行で配信は used_catalog(Pixelワーカー・Anthropic不使用)へ移行中のため旧refreshは不要。
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 180      # MAX_PROCESS=600（落札seedの楽天マッチ＝画像AI）ぶん余裕を持たせる
 
