@@ -24,13 +24,32 @@ export type UsedCatalogItem = {
   ebaySoldUrl?: string; // 代表落札ページ（型番リファイナが入れる・任意）
 };
 
-// eBayの落札（Sold/Completed）検索URL＝「根拠を確認」ボタンのリンク先。
-// ブランド+型番(code)が最強（eBayは英語市場なので型番=言語非依存が効く）。型番が無ければ ブランド+商品名。
-export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: string }): string {
+// 時計の日本語モデル名→eBay英語表記（出品者が実際に使う語）。ハードオフの型番(code)だけだとeBayで0件になるため、
+// ライン名でフォールバックして「その機種に近い実落札」を必ず出す＝根拠ボタンが空にならない。
+const WATCH_LINE: [RegExp, string][] = [
+  [/オシアナス|OCEANUS/i, "Oceanus"], [/プロマスター|PROMASTER/i, "Promaster"], [/アテッサ|ATTESA/i, "Attesa"],
+  [/プレザージュ|PRESAGE/i, "Presage"], [/プロスペックス|PROSPEX/i, "Prospex"], [/プロトレック|PRO\s?TREK/i, "Pro Trek"],
+  [/エディフィス|EDIFICE/i, "Edifice"], [/オリエント\s?スター|ORIENT\s?STAR/i, "Orient Star"],
+  [/Gショック|G-?SHOCK/i, "G-Shock"], [/アルピニスト|ALPINIST/i, "Alpinist"], [/バンビーノ|BAMBINO/i, "Bambino"],
+  [/セイコー\s?5|SEIKO\s?5|5スポーツ|5SPORTS/i, "Seiko 5"], [/アストロン|ASTRON/i, "Astron"],
+  [/ルキア|LUKIA/i, "Lukia"], [/ドルチェ|DOLCE/i, "Dolce"], [/ツヨサ|TSUYOSA/i, "Tsuyosa"],
+  [/カマス|KAMASU/i, "Kamasu"], [/マコ\b|MAKO/i, "Mako"], [/ダイバー|DIVER/i, "diver"],
+];
+function watchLine(text: string): string {
+  for (const [re, en] of WATCH_LINE) if (re.test(text)) return en;
+  return "";
+}
+
+// eBayの落札（Sold/Completed）検索URL＝「eBay落札を確認」ボタンのリンク先。
+// ライン名が分かれば ブランド+ライン名（必ず結果が出る）、無ければ ブランド+型番、最後に ブランド+商品名。
+// ※型番リファイナが ebaySoldUrl をセット済みの確定品は、UI側でそちら（実際に落札が返ったクエリ）を優先する。
+export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: string; modelKey?: string }): string {
+  const line = watchLine(`${p.name || ""} ${p.code || ""} ${p.modelKey || ""}`);
   const q =
+    (line ? [p.brand, line].filter(Boolean).join(" ") : "") ||
     [p.brand, p.code].filter(Boolean).join(" ").trim() ||
     [p.brand, p.name].filter(Boolean).join(" ").trim();
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&_sop=13`;
 }
 
 // 中古カタログ品 → eBay自動出品フロー(ListingHelper/EbayListingModal)に渡す ProfitProduct へ変換。

@@ -37,11 +37,31 @@ function trimmedMedian(prices) {
   const k = kept.length ? kept : ps;
   return k[Math.floor(k.length / 2)];
 }
-// eBay落札検索URL（=根拠ボタンのリンク先）。ブランド+型番が最強、無ければブランド+商品名。
-function soldQuery(p) {
-  return ([p.brand, p.code].filter(Boolean).join(" ").trim() || [p.brand, p.name].filter(Boolean).join(" ").trim()).replace(/\s+/g, " ");
-}
 const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+
+// 時計の日本語モデル名→eBay英語表記（出品者が実際に使う語）。型番(ハードオフのコード)だけだと0件になるので、
+// ライン名でフォールバックして「その機種に近い実落札」を必ず出す＝根拠ボタンが空にならない。
+const WATCH_LINE = [
+  [/オシアナス|OCEANUS/i, "Oceanus"], [/プロマスター|PROMASTER/i, "Promaster"], [/アテッサ|ATTESA/i, "Attesa"],
+  [/プレザージュ|PRESAGE/i, "Presage"], [/プロスペックス|PROSPEX/i, "Prospex"], [/プロトレック|PRO\s?TREK/i, "Pro Trek"],
+  [/エディフィス|EDIFICE/i, "Edifice"], [/オリエント\s?スター|ORIENT\s?STAR/i, "Orient Star"],
+  [/Gショック|G-?SHOCK/i, "G-Shock"], [/アルピニスト|ALPINIST/i, "Alpinist"], [/バンビーノ|BAMBINO/i, "Bambino"],
+  [/セイコー\s?5|SEIKO\s?5|5スポーツ|5SPORTS/i, "Seiko 5"], [/アストロン|ASTRON/i, "Astron"],
+  [/ルキア|LUKIA/i, "Lukia"], [/ドルチェ|DOLCE/i, "Dolce"], [/ツヨサ|TSUYOSA/i, "Tsuyosa"],
+  [/カマス|KAMASU/i, "Kamasu"], [/マコ\b|MAKO/i, "Mako"], [/レイ\b|\bRAY\b/i, "Ray"],
+  [/ダイバー|DIVER/i, "diver"], [/クロノグラフ|CHRONOGRAPH/i, "chronograph"],
+];
+function watchLine(text) { for (const [re, en] of WATCH_LINE) if (re.test(text)) return en; return ""; }
+// 検索tier（具体的→広め）。最初に十分な落札が返ったものを採用＝根拠リンクが空にならない。
+function queryTiers(p) {
+  const line = watchLine(`${p.name} ${p.code} ${p.modelKey}`);
+  const tiers = [
+    [p.brand, p.code].filter(Boolean).join(" "),        // ①ブランド+型番(最具体)
+    [p.brand, line, p.code].filter(Boolean).join(" "),  // ②ブランド+ライン+型番
+    [p.brand, line].filter(Boolean).join(" "),          // ③ブランド+ライン(広め)
+  ].map((q) => q.replace(/\s+/g, " ").trim()).filter(Boolean);
+  return [...new Set(tiers)];
+}
 
 (async () => {
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
@@ -56,29 +76,33 @@ const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponen
   for (const p of catalog) {
     if (n >= LIMIT) break;
     n++;
-    const q = soldQuery(p);
-    const url = soldUrl(q);
-    p.ebaySoldUrl = url; // 根拠リンクは常に保存（数値が確定しなくても確認はできる）
-    try {
-      const r = await get(url, "https://www.ebay.com/");
-      if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}`); await jitter(); continue; }
-      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, false); // 中古=新品縛りしない
-      if (parsed.prices.length >= 3) {
-        const med = trimmedMedian(parsed.prices);
-        p.ebayMedianJpy = med;
-        p.soldCount = parsed.prices.length;
-        p.ebayConfirmed = true;
-        p.profitJpy = netProfitJPY(p.buyJpy, med);
-        p.profitRate = Math.round((p.profitJpy / med) * 100);
+    // 多段クエリ：①ブランド+型番 ②+ライン名 ③ブランド+ライン名。最も落札が返ったものを採用＝根拠リンクが空にならない。
+    const tiers = queryTiers(p);
+    let best = null;
+    for (const q of tiers) {
+      let r;
+      try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch { await jitter(); continue; }
+      if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}`); break; }
+      const prices = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, false).prices; // 中古=新品縛りしない
+      if (!best || prices.length > best.prices.length) best = { q, prices };
+      await jitter();
+      if (prices.length >= 5) break; // 十分なら広めtierは試さない（eBay負荷を抑える）
+    }
+    if (best && best.prices.length) {
+      p.ebaySoldUrl = soldUrl(best.q); // 最善クエリ＝「eBay落札を確認」が実物を表示する
+      if (best.prices.length >= 3) {
+        const med = trimmedMedian(best.prices);
+        p.ebayMedianJpy = med; p.soldCount = best.prices.length; p.ebayConfirmed = true;
+        p.profitJpy = netProfitJPY(p.buyJpy, med); p.profitRate = Math.round((p.profitJpy / med) * 100);
         confirmed++;
-        console.log(`  ✓ ${q.padEnd(28)} 落札${parsed.prices.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
+        console.log(`  ✓ ${best.q.padEnd(30)} 落札${best.prices.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
       } else {
-        p.ebayConfirmed = false; // 件数不足＝系列中央値の目安のまま（根拠リンクは付く）
-        thin++;
-        console.log(`  ・ ${q.padEnd(28)} 落札${parsed.prices.length}件（不足→系列目安を維持）`);
+        p.ebayConfirmed = false; thin++;
+        console.log(`  ・ ${best.q.padEnd(30)} 落札${best.prices.length}件（不足→系列目安・リンクは最善クエリ）`);
       }
-    } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 40)}`); }
-    await jitter();
+    } else {
+      p.ebaySoldUrl = soldUrl(tiers[0] || p.brand); thin++;
+    }
   }
 
   // 型番確定後に赤字化したものは「利益カタログ」から外す（純益¥500以下）。再ソート。

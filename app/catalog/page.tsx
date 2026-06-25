@@ -150,9 +150,9 @@ export default async function CatalogPage() {
                           >
                             ハードオフで見る <ExternalLink size={14} />
                           </a>
-                          {/* eBayで実際に落札された価格（根拠）を確認。型番一致が取れていれば代表落札ページ、無ければ型番つき落札検索。 */}
+                          {/* eBay落札の根拠。型番一致(confirmed)＝リファイナが実落札を返したクエリ、未確定＝ブランド+ライン名で必ず結果が出る。 */}
                           <a
-                            href={p.ebaySoldUrl || ebaySoldSearchUrl(p)}
+                            href={p.ebayConfirmed && p.ebaySoldUrl ? p.ebaySoldUrl : ebaySoldSearchUrl(p)}
                             target="_blank"
                             rel="nofollow noopener noreferrer"
                             className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"
