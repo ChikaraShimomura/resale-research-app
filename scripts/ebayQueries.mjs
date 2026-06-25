@@ -6,6 +6,21 @@
 export const PROHIBITED_EXCLUDE = /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|\blighter\b|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
 
 export const EBAY_JP_QUERIES = [
+  // 【古着ヴィンテージ(2026-06-25追加)】中古カタログB(2nd STREET)向けのeBay落札相場(demand)をPixel発掘で集める。
+  //   古着は新品sealedが無いのでvintage/used語で。category名は buildUsedCatalog2ndStreet.mjs の2nd ST日本語クエリと対応。
+  { q: 'levis 501 vintage made in usa denim',          name: 'リーバイス501ヴィンテージ' },
+  { q: 'levis vintage trucker jacket type 3 denim',    name: 'リーバイストラッカー' },
+  { q: 'champion reverse weave vintage sweatshirt 80s', name: 'チャンピオンリバースウィーブ' },
+  { q: 'carhartt vintage detroit jacket used',         name: 'カーハートヴィンテージ' },
+  { q: 'patagonia retro x fleece vintage',             name: 'パタゴニアフリース' },
+  { q: 'nike vintage nylon jacket windbreaker 90s',    name: 'ナイキヴィンテージ' },
+  { q: 'stussy vintage 90s t-shirt used',              name: 'ステューシーヴィンテージ' },
+  { q: 'harley davidson vintage t-shirt 90s usa',      name: 'ハーレーヴィンテージT' },
+  { q: 'the north face vintage nuptse jacket 90s',     name: 'ノースフェイスヴィンテージ' },
+  { q: 'comme des garcons used jacket',                name: 'コムデギャルソン' },
+  { q: 'yohji yamamoto used jacket',                   name: 'ヨウジヤマモト' },
+  { q: 'polo ralph lauren vintage 90s used',           name: 'ラルフローレンヴィンテージ' },
+
   { q: 'pokemon card booster box japanese sealed',  name: 'ポケモンカード' },
   { q: 'yu-gi-oh card booster box japanese sealed',  name: '遊戯王' },
   { q: 'one piece card game booster box japanese',   name: 'ワンピースカード' },
