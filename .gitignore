@@ -68,3 +68,6 @@ rakuten-ref/
 scripts/_ebay_*.html
 scripts/ebay_cookies.txt
 scripts/_*.log
+
+# 中古カタログ偵察のスクラッチHTMLダンプ（使い捨て・コミットしない）
+scripts/used/_*.html
