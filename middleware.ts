@@ -50,11 +50,12 @@ function buildCsp(nonce: string): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // メンテナンスモード: 環境変数 MAINTENANCE_MODE=1 のとき、全ページを /sorry に切替。
-  // 通常時は env 参照のみで実質ノーコスト。APIと /sorry 自身は除外。
-  // 切替は Vercel の環境変数（MAINTENANCE_MODE=1/0）＋再デプロイで行う。
+  // メンテナンスモード: 全ページを /sorry に切替（APIと /sorry 自身は除外）。
+  // ⚠️ 2026-06-25〜「中古カタログ(eBay起点→中古照合)」へ作り替え中のため、コードフラグで強制ON。
+  //    作り替え完了時に MAINTENANCE_REBUILD=false に戻す（or 削除）。Vercel env MAINTENANCE_MODE=1 でも切替可。
+  const MAINTENANCE_REBUILD = true;
   if (
-    process.env.MAINTENANCE_MODE === "1" &&
+    (MAINTENANCE_REBUILD || process.env.MAINTENANCE_MODE === "1") &&
     !pathname.startsWith("/api/") &&
     pathname !== "/sorry"
   ) {
