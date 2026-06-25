@@ -5,7 +5,7 @@ import { OG_BADGE } from "./lib/marketing";
 // これが無いと summary_large_image 指定でも画像が出ず、自動投稿の見栄え＝流入が落ちる。
 // 商品ページは generateMetadata 側の og:image（楽天サムネ）で個別に上書きされる。
 
-export const alt = "輸出ラボ｜eBay輸出の利益商品リサーチ";
+export const alt = "輸出ラボ｜eBay輸出の中古利益リサーチ";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -32,9 +32,9 @@ async function loadJpFont(text: string): Promise<ArrayBuffer | null> {
 
 export default async function OpengraphImage() {
   const brand = "輸出ラボ";
-  const label = "eBay輸出 × 利益リサーチ";
+  const label = "eBay輸出 × 中古利益リサーチ";
   const lead = "eBay輸出を、副業に。";
-  const sub = "利益が出る商品を、毎日自動でリサーチ。";
+  const sub = "儲かる中古の型番を、毎日リサーチ。";
   const badge = OG_BADGE;
   const font = await loadJpFont(brand + label + lead + sub + badge + "eBay");
 

@@ -1,18 +1,16 @@
 "use client";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Tag, Sprout, Package, Truck, User } from "lucide-react";
+import { Home, Flame, TrendingUp, User } from "lucide-react";
 import Spinner from "./Spinner";
 
-// 作業の流れに沿った6タブ：ホーム → 利益商品(探す) → 育成(アカウント育成=スターター品/現在地) → 出品管理 → 発送 → マイページ。
-// ※タブ表示は短く「育成」。ページ見出しは「アカウント育成」(/grow)。6タブなので狭幅でも崩れないよう px は詰める。
+// 中古利益カタログ移行後の4タブ：ホーム → 利益カタログ(中古の儲かる型番) → ランキング(集客フック) → マイページ。
+// ※旧モデルの出品管理/発送/育成タブは外した（研究ツール化）。各ページ実体は直リンクでは生きるがナビからは非表示。
 const NAV_ITEMS = [
-  { href: "/",         Icon: Home,    label: "ホーム",     match: (p: string) => p === "/" },
-  { href: "/search",   Icon: Tag,     label: "利益商品",   match: (p: string) => p.startsWith("/search") || p.startsWith("/results") },
-  { href: "/grow",     Icon: Sprout,  label: "育成",       match: (p: string) => p.startsWith("/grow") },
-  { href: "/listings", Icon: Package, label: "出品管理",   match: (p: string) => p.startsWith("/listings") },
-  { href: "/ship",     Icon: Truck,   label: "発送",       match: (p: string) => p.startsWith("/ship") },
-  { href: "/mypage",   Icon: User,    label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
+  { href: "/",        Icon: Home,       label: "ホーム",     match: (p: string) => p === "/" },
+  { href: "/catalog", Icon: Flame,      label: "利益カタログ", match: (p: string) => p.startsWith("/catalog") },
+  { href: "/ranking", Icon: TrendingUp, label: "ランキング", match: (p: string) => p.startsWith("/ranking") },
+  { href: "/mypage",  Icon: User,       label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
 ] as const;
 
 // Link の子として描画し、その Link の遷移中(pending)はアイコンの代わりにグルグルを出す（タブ切替の待ち時間を可視化）。

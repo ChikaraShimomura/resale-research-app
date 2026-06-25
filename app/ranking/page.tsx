@@ -80,7 +80,7 @@ export default async function RankingPage({
             <span className="mt-0.5 shrink-0 text-[#2D323B]" aria-hidden="true"><Flame size={16} /></span>
             <p className="text-[12px] leading-relaxed text-gray-700">
               <b className="text-[#2D323B]">ランキングは無料で見られます。</b>
-              各商品の詳細（仕入れ先・想定売値・利益の内訳）と自動出品は、プランで解放されます。
+              各商品の詳細（仕入れ先・想定売値・利益の内訳）は、プランで解放されます。
             </p>
           </div>
         )}
@@ -180,7 +180,7 @@ export default async function RankingPage({
                 <Lock size={16} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る
               </Link>
               <p className="mt-1.5 text-center text-[11px] text-gray-400 leading-relaxed">
-                ランキングは無料。<b className="text-gray-500">各商品の詳細・検索・自動出品はプラン（月¥500〜・30日無料）で解放</b>されます。
+                ランキングは無料。<b className="text-gray-500">各商品の詳細・仕入れ先はプラン（月¥500〜・30日無料）で解放</b>されます。
               </p>
             </div>
           )}
@@ -190,7 +190,7 @@ export default async function RankingPage({
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
-          輸出ラボは国内仕入れ→eBay輸出の副業向け<b>リサーチ＆出品ツール</b>（ランキング無料・本格利用は月¥500〜）。利益（現金）は仕入れ値・eBay手数料(13.25%)・国内送料・米国関税で算出した想定値。国際送料は購入者負担のため非算入、ポイントは利益に含めず別枠（おまけ）扱い。
+          輸出ラボは国内の中古→eBay輸出の副業向け<b>リサーチツール</b>（ランキング無料・本格利用は月¥500〜）。純利益は仕入れ値・eBay手数料(13.25%)・国際送料・米国関税で算出した想定値。商品の状態・競合・為替で変動。
         </p>
       </main>
 

@@ -63,11 +63,11 @@ export default async function PricingPage({
                 <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 mb-4 text-center shadow-md">
                   <p className="text-base font-black mb-1.5">{gateHeading}</p>
                   <p className="text-[12px] text-white/85 leading-relaxed">
-                    毎日更新の利益リサーチと、写真だけ自動出品。<b className="text-yellow-300">最初の30日無料</b>で全部試せる。合わなければ解約するだけ。
+                    毎日更新の中古利益リサーチ（儲かる型番＋仕入れ先）。<b className="text-yellow-300">最初の30日無料</b>で全部試せる。合わなければ解約するだけ。
                   </p>
-                  {/* 不安解消：無在庫＝在庫を抱えないので赤字リスクなし／固定費は最安プランの月¥500だけ。 */}
+                  {/* 不安解消：純利益が出る型番だけを狙える／固定費は最安プランの月¥500だけ。 */}
                   <p className="mt-2 text-[12px] font-bold text-white/95 leading-relaxed">
-                    在庫を持たないから赤字リスクなし。固定費は<b className="text-yellow-300">月¥500だけ</b>。
+                    純利益が出る型番だけを狙えて、固定費は<b className="text-yellow-300">月¥500だけ</b>。
                   </p>
                   {/* 回遊維持：壁に当たっても無料で見られる場所（ランキング）へ戻れることを明示。 */}
                   {(from === "ranking" || from === "product") && (
@@ -90,16 +90,16 @@ export default async function PricingPage({
             <BadgeCheck size={44} className="mx-auto text-emerald-500 mb-3" aria-hidden="true" />
             <p className="text-2xl font-black text-gray-800 mb-2">現在、すべて無料</p>
             <p className="text-sm text-gray-500 leading-relaxed mb-2">
-              利益商品のリサーチも、写真だけの自動出品も、登録不要・無料。
+              中古の利益リサーチも、儲かる型番カタログも、無料。
             </p>
             <p className="text-[12px] text-gray-400 leading-relaxed mb-7">
-              ※ かかるのは楽天の仕入れ費用と、売れたときのeBay手数料（落札価格の13.25%＋¥47）だけ。
+              ※ かかるのは中古の仕入れ費用と、売れたときのeBay手数料（落札価格の13.25%＋¥47）だけ。
             </p>
             <Link
-              href="/search"
+              href="/catalog"
               className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 rounded-xl text-sm transition-all shadow-md"
             >
-              利益商品を見る →
+              中古の利益カタログを見る →
             </Link>
           </div>
         )}

@@ -35,7 +35,7 @@ const SITE_LD = {
       name: "輸出ラボ",
       url: SITE_URL,
       logo: `${SITE_URL}/icon.svg`,
-      description: "eBay輸出（個人輸出）の利益商品リサーチ＆出品ツール。",
+      description: "eBay輸出向けに、日本の中古の儲かる型番をリサーチするツール。",
     },
     {
       "@type": "WebSite",
@@ -67,24 +67,24 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "輸出ラボ｜eBay輸出の利益商品リサーチ",
+    default: "輸出ラボ｜eBay輸出の中古利益リサーチ",
     template: "%s | 輸出ラボ",
   },
   description: META_DESC,
-  keywords: ["輸出副業", "せどり", "eBay輸出", "個人輸出", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
+  keywords: ["輸出副業", "せどり", "中古せどり", "eBay輸出", "個人輸出", "副業", "在宅副業", "フィギュア転売", "海外輸出"],
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     url: SITE_URL,
     siteName: "輸出ラボ",
-    title: "輸出ラボ｜eBay輸出の利益商品リサーチ",
-    description: "eBay輸出で利益率が高い商品を自動でリストアップ。日本の人気商品を海外へ。",
+    title: "輸出ラボ｜eBay輸出の中古利益リサーチ",
+    description: "eBayで売れる型番を日本の中古サイト価格と照合。純利益で儲かる中古品がわかる。",
     locale: "ja_JP",
   },
   twitter: {
     card: "summary_large_image",
-    title: "輸出ラボ｜eBay輸出の利益商品リサーチ",
-    description: "eBay輸出で利益率が高い商品を自動でリストアップ。日本の人気商品を海外へ。",
+    title: "輸出ラボ｜eBay輸出の中古利益リサーチ",
+    description: "eBayで売れる型番を日本の中古サイト価格と照合。純利益で儲かる中古品がわかる。",
   },
   verification: {
     google: "GGgOF1LGPqzP6qIa95QjVH1iaMw0HuFZUMZALrg5Lck",

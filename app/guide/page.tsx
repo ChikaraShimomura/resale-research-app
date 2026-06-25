@@ -3,14 +3,13 @@ import { ExternalLink, ShoppingCart, Globe, PenLine, Package, Wallet, ChevronRig
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import GuideVideo from "../components/GuideVideo";
-import RakutenPrepCard from "../components/RakutenPrepCard";
 import { ARTICLES } from "./articles";
 import { COCONALA_URL, COCONALA_IS_AD } from "../lib/coconala";
 
 export const metadata = {
-  title: "楽天×eBay輸出のはじめ方ガイド｜仕入れ→出品→発送→入金を5ステップで",
+  title: "中古せどり×eBay輸出のはじめ方ガイド｜リサーチ→仕入れ→出品→発送→入金",
   description:
-    "楽天で仕入れてeBayで売る副業の始め方を、初めてでも分かるように5ステップで解説。eBayセラー登録・出品・国際発送・利益の受け取り（Payoneer）まで、英語ほぼ不要・登録なしで読めます。",
+    "日本の中古を仕入れてeBayで売る副業の始め方を、初めてでも分かるように5ステップで解説。儲かる型番のリサーチ・中古の仕入れ・eBayセラー登録・出品・国際発送・利益の受け取り（Payoneer）まで、英語ほぼ不要で読めます。",
   alternates: { canonical: "/guide" },
 };
 
@@ -28,10 +27,10 @@ const STEPS: Step[] = [
   {
     num: "1",
     Icon: ShoppingCart,
-    title: "楽天で商品を仕入れる",
-    desc: "紹介中の利益商品を楽天で購入。ポイント還元率が高い日（0・5のつく日、楽天スーパーSALE）が狙い目。",
-    tips: ["0・5のつく日はポイント最大5倍", "楽天スーパーSALEは年2回・最大44倍", "対象サービスで倍率が上がる楽天の仕組み（SPU）でさらに底上げ"],
-    link: { label: "利益商品を見る", href: "/search" },
+    title: "儲かる型番を仕入れる",
+    desc: "カタログの「儲かる中古の型番」を、中古サイト（ハードオフ等）で購入。eBayの想定売値と純利益、状態ランクを見てから仕入れられる。",
+    tips: ["カタログは仕入れ値→eBay想定売値→純利益つき", "状態ランク（N/S/A/B/C/D・ジャンク）を確認してから買う", "中古は1点物＝気になった型番は早い者勝ち"],
+    link: { label: "利益カタログを見る", href: "/catalog" },
   },
   {
     num: "2",
@@ -45,10 +44,10 @@ const STEPS: Step[] = [
     num: "3",
     Icon: PenLine,
     title: "eBayに出品する",
-    desc: "商品カードの「eBay自動出品」を押すだけ。タイトル・価格・カテゴリは自動、楽天の画像でそのまま出品。英語不要。",
-    tips: ["写真は楽天の画像が自動（実物写真を後から足すと売れやすい）", "カテゴリが赤字なら、タイトルを具体的にして開き直すと通る", "価格・数量・送料サイズは出品後もアプリで編集可"],
-    warn: "初回だけ、出品前にアプリ設定でeBay連携・送料／返品ポリシー・発送元住所の登録が必要（数分・次回から不要）。",
-    link: { label: "商品を探して出品する", href: "/search" },
+    desc: "仕入れた中古を、自分で撮った実物写真でeBayに出品。カタログのeBay想定売値を参考に、状態（コンディション）を正直に書くのがコツ。",
+    tips: ["写真は自分で撮った実物を使う（中古は状態が命・他サイトの画像転用はNG）", "タイトルはブランド＋型番＋特徴を英語で具体的に", "コンディションと欠点は正直に書く（未着・不一致クレームを防ぐ）"],
+    warn: "出品にはeBayのセラー登録が必要（初回だけ）。中古は正しいコンディション（Used 等）を選び、付属品の有無も明記する。",
+    link: { label: "儲かる型番を見る", href: "/catalog" },
   },
   {
     num: "4",
@@ -63,21 +62,21 @@ const STEPS: Step[] = [
     num: "5",
     Icon: Wallet,
     title: "利益を受け取る",
-    desc: "売上はeBayからPayoneer（受け取り口座）に入り、そこから日本の銀行口座へ出金。楽天ポイントは次の仕入れにそのまま使える。",
-    tips: ["eBay手数料は落札価格の13.25%＋¥47", "売上→Payoneer→銀行の順。反映に数日のラグあり", "楽天ポイントは1pt＝1円で使える"],
+    desc: "売上はeBayからPayoneer（受け取り口座）に入り、そこから日本の銀行口座へ出金。",
+    tips: ["eBay手数料は落札価格の13.25%＋¥47", "売上→Payoneer→銀行の順。反映に数日のラグあり", "純利益＝想定売値−手数料・国際送料・米国関税・仕入れ値"],
     warn: "新規セラーは最初のうち売上が保留（追跡ありは配達確認の数日後／追跡なしは支払いから約1か月）。「売れたのにお金が来ない」は正常。実績がつくと早く受け取れる。",
     link: { label: "売上の受け取り方（出金ガイド）", href: "/guide/payoneer-withdraw" },
   },
 ];
 
 const FLOW = [
-  { Icon: ShoppingCart, label: "楽天で仕入れ", sub: "ポイント還元" },
+  { Icon: ShoppingCart, label: "中古を仕入れ", sub: "状態を確認" },
   { Icon: Globe, label: "eBayで販売", sub: "海外へ高値で" },
-  { Icon: Wallet, label: "利益を回収", sub: "売却益＋pt" },
+  { Icon: Wallet, label: "利益を回収", sub: "純利益で判断" },
 ];
 
 const FAQS = [
-  { q: "初期費用はかかりますか？", a: "楽天・eBayともアカウント作成は無料。仕入れ費用のみ必要です。" },
+  { q: "初期費用はかかりますか？", a: "eBayのアカウント作成は無料。中古の仕入れ費用のみ必要です。" },
   { q: "英語が話せなくても大丈夫ですか？", a: "ほぼ不要。出品タイトルは自動生成、購入者とのやり取りもテンプレートで対応できます。" },
   { q: "どんな商品が売れますか？", a: "ポケモンカード・ガンプラ・LEGO・日本限定フィギュア・日本ブランドの腕時計・コスメが特に人気。ただし香水・スプレー・電池内蔵品などは国際郵便で送れないことがあるので、仕入れ前に発送可否を確認しましょう。" },
   { q: "売れたのに口座にお金が来ません。", a: "新規セラーは最初のうち売上が保留されます（追跡ありなら配達確認の数日後、追跡なしは支払いから約1か月）。これは正常。追跡番号をeBayに登録し、出品実績がつくと早く受け取れます。" },
@@ -85,7 +84,7 @@ const FAQS = [
   { q: "海外に送れない商品はありますか？", a: "モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライターなどは航空危険物で、国際郵便では送れません。仕入れ前に確認を。" },
   { q: "返品不可にすれば返金リスクはありませんか？", a: "いいえ。返品不可でも、未着や「説明と違う」商品はeBayの保証（Money Back Guarantee）で返金・返品の対象になります。追跡付きで発送し、正直な商品説明で身を守りましょう。" },
   { q: "eBayの手数料はいくらですか？", a: "落札価格の13.25%＋固定47円。このサイトの利益計算には算入済みです。" },
-  { q: "楽天ポイントはどう活用しますか？", a: "次の仕入れにそのまま使えます。1pt＝1円として楽天市場で利用可。" },
+  { q: "中古は1点物ですか？在庫はどうなりますか？", a: "はい。中古は基本1点限りです。売り切れたら別の在庫を探します。カタログは在庫を随時入れ替えています。気になった型番は早めの仕入れがおすすめです。" },
 ];
 
 const SITE_URL = "https://www.yushutsu-fukugyo.com";
@@ -105,8 +104,8 @@ const FAQ_LD = {
 const HOWTO_LD = {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  name: "楽天で仕入れてeBayで売る手順",
-  description: "楽天で日本の人気商品を仕入れ、eBayで海外に販売して利益を得るまでの5ステップ。",
+  name: "日本の中古を仕入れてeBayで売る手順",
+  description: "儲かる型番をリサーチし、日本の中古を仕入れてeBayで海外に販売して利益を得るまでの5ステップ。",
   step: STEPS.map((s, i) => ({
     "@type": "HowToStep",
     position: i + 1,
@@ -144,7 +143,7 @@ export default function GuidePage() {
       {/* ヘッダー */}
       <header className="bg-[#2D323B] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">
-          <Link href="/search" aria-label="検索に戻る"
+          <Link href="/" aria-label="ホームに戻る"
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
             ‹
           </Link>
@@ -156,9 +155,9 @@ export default function GuidePage() {
 
         {/* イントロ + フロー図 */}
         <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] rounded-2xl p-5 mb-6 text-white shadow-sm">
-          <p className="font-black text-xl mb-1.5">楽天 × eBay 輸出転売</p>
+          <p className="font-black text-xl mb-1.5">中古 × eBay 輸出</p>
           <p className="text-white/85 text-[13px] leading-relaxed mb-5">
-            楽天でポイントをもらいながら仕入れ、eBayで海外に高く売る副業の始め方を、初めての方向けに解説。
+            日本の中古を安く仕入れ、eBayで海外に高く売る副業の始め方を、初めての方向けに解説。
           </p>
           <div className="flex items-stretch gap-2">
             {FLOW.map((f, i) => (
@@ -178,7 +177,7 @@ export default function GuidePage() {
         <div className="mb-6">
           <SectionTitle>まずは動画で全体像</SectionTitle>
           <GuideVideo
-            title="楽天×eBay 輸出転売のはじめ方"
+            title="eBay輸出のはじめ方（全体像）"
             src="/videos/guide-overview.mp4"
             poster="/videos/guide-overview-poster.jpg"
             durationLabel="約1分"
@@ -205,12 +204,6 @@ export default function GuidePage() {
               note="※ eBayの売上をPayoneer経由で日本の銀行口座に出金する流れ。"
             />
           </div>
-        </div>
-
-        {/* 始める前の準備（楽天経済圏でポイント＝利益を底上げ） */}
-        <div className="mb-6">
-          <SectionTitle>始める前の準備</SectionTitle>
-          <RakutenPrepCard />
         </div>
 
         {/* ステップ */}
@@ -285,19 +278,16 @@ export default function GuidePage() {
           <SectionTitle>利益の計算方法</SectionTitle>
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
-              <div className="flex justify-between"><span>eBay相場価格</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>楽天仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
+              <div className="flex justify-between"><span>eBay想定売値（直近の落札）</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
+              <div className="flex justify-between"><span>中古の仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
-              <div className="flex justify-between"><span>国際送料</span><span className="text-emerald-600 font-bold">購入者負担</span></div>
+              <div className="flex justify-between"><span>国際送料</span><span className="text-[#2D323B]">- 目安を差引</span></div>
               <div className="flex justify-between"><span>米国関税（$100超）</span><span className="text-[#2D323B]">- 目安を差引</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-[#A98B5C]/35 text-sm">
-                <span>利益（現金）</span><span>= ¥X,XXX</span>
-              </div>
-              <div className="flex justify-between text-[#FF4466] font-bold">
-                <span>＋ 楽天ポイント（おまけ・別枠）</span><span>+ XXXポイント</span>
+                <span>純利益</span><span>= ¥X,XXX</span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 text-center mt-2.5">利益は現金（円）で算出。楽天ポイントは利益に含めず別表示（おまけ）。国際送料は購入者負担、$100超の米国関税と送料分のeBay手数料は出品者負担として差引済み。</p>
+            <p className="text-[11px] text-gray-400 text-center mt-2.5">純利益（円）で算出。eBay手数料・国際送料・$100超の米国関税・中古の仕入れ値を差し引いた手取り。実際の利益は商品の状態・競合・為替で変動。</p>
           </div>
         </div>
 
@@ -319,9 +309,9 @@ export default function GuidePage() {
 
         {/* CTA */}
         <div className="text-center py-2">
-          <Link href="/search"
+          <Link href="/catalog"
             className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:scale-[0.99] text-white font-black px-8 py-3 text-sm rounded-full shadow-md transition-all">
-            利益商品を探す →
+            儲かる中古を探す →
           </Link>
         </div>
 

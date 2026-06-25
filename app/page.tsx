@@ -55,7 +55,8 @@ function HubPage() {
 
 function LandingPage() {
   // 有料化後は「登録すれば見える」は誤り（購読が要る）。未購読の主要CTAは /pricing（30日無料）へ誘導。
-  const ctaHref = PAYWALL_ENABLED ? "/pricing" : "/search";
+  // 非PAYWALL時は新モデルの入口＝中古の利益カタログ(/catalog)へ。
+  const ctaHref = PAYWALL_ENABLED ? "/pricing" : "/catalog";
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <TrackView event="visit" />
@@ -80,10 +81,10 @@ function LandingPage() {
       <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white">
         <div className="max-w-2xl mx-auto px-6 py-5 text-center">
           <h1 className="text-xl font-black leading-snug">
-            在庫ゼロで、<span className="text-[#D8C089]">eBay輸出</span>を副業に
+            <span className="text-[#D8C089]">eBay輸出</span>で、儲かる中古を見つける
           </h1>
           <p className="text-white/75 text-[13px] leading-relaxed mt-1.5">
-            利益が出る商品がひと目でわかる。
+            仕入れて利益が出る中古の型番が、ひと目でわかる。
           </p>
         </div>
       </div>
@@ -96,9 +97,9 @@ function LandingPage() {
         </div>
         <ol className="grid grid-cols-3 gap-2">
           {[
-            { n: 1, Icon: Search, t: "利益商品が見つかる", d: "楽天で安く→eBayで高く。ツールが毎日提示" },
-            { n: 2, Icon: Tag, t: "eBayに出品", d: "英語も自動。在庫を持たずに出せる" },
-            { n: 3, Icon: Banknote, t: "売れたら発送", d: "注文後に仕入れ→発送。Payoneerで受取" },
+            { n: 1, Icon: Search, t: "儲かる型番が見つかる", d: "eBayで売れてる型番を毎日提示" },
+            { n: 2, Icon: Tag, t: "純利益で判断", d: "送料・関税・手数料を引いた手取りで表示" },
+            { n: 3, Icon: Banknote, t: "中古を仕入れて輸出", d: "状態ランク付き。仕入れ先リンクから" },
           ].map(({ n, Icon, t, d }) => (
             <li key={n} className="flex flex-col items-center text-center bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
               <span className="w-8 h-8 rounded-full bg-[#2D323B] text-white font-black text-[13px] flex items-center justify-center mb-1.5">{n}</span>
@@ -162,16 +163,16 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* このサイトで使う3つのサービス（仕入れ→販売→受け取り・信頼ブロック／押すと各ガイドへ） */}
+      {/* このサイトで使うサービス（販売=eBay／受け取り=Payoneer。仕入れは中古サイトなので楽天バッジは出さない） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
-        <TrustBadges withRakuten linked />
+        <TrustBadges linked />
       </section>
 
       {/* CTA */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-10 text-center">
         <Link href={ctaHref}
           className="inline-block bg-[#2D323B] hover:bg-[#1A1D23] active:bg-[#1A1D23] text-white font-black px-8 py-3.5 text-sm transition-all shadow-md rounded-xl">
-          {PAYWALL_ENABLED ? "30日無料ではじめる →" : "登録して利益商品を探す →"}
+          {PAYWALL_ENABLED ? "30日無料ではじめる →" : "中古の利益カタログを見る →"}
         </Link>
         <div className="mt-4">
           <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
@@ -184,7 +185,7 @@ function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 利益（現金）＝eBay想定売値（直近の落札価格ベース）− eBay手数料(13.25%)・国内送料・米国関税($100超)（国際送料は購入者負担）。楽天ポイントは利益に含めず別表示（おまけ）。実際の利益は状態・競合・為替等で変動。
+          ※ 純利益＝eBay想定売値（直近の落札価格ベース）− eBay手数料(13.25%)・国際送料・米国関税($100超)・中古の仕入れ値。実際の利益は商品の状態・競合・為替等で変動。中古は1点物のため在庫は流動的。
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">
           <Link href="/ranking" className="text-gray-500 hover:text-[#2D323B]">ランキング</Link>
@@ -195,7 +196,7 @@ function LandingPage() {
           <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/privacy" className="text-gray-500 hover:text-[#2D323B]">プライバシーポリシー</Link>
         </div>
-        <p className="mt-4 text-[10px] text-gray-400">輸出ラボは eBay・楽天とは独立した非公式サービスです。</p>
+        <p className="mt-4 text-[10px] text-gray-400">輸出ラボは eBay・各仕入れ元サイトとは独立した非公式サービスです。</p>
       </footer>
 
       <BottomNav />

@@ -4,10 +4,10 @@ import type { MetadataRoute } from "next";
 // 「ホーム画面に追加」でアプリのように起動できるようにする（Xアプリ内ブラウザ対策の受け皿）。
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "輸出ラボ｜楽天×eBay 輸出リサーチ",
+    name: "輸出ラボ｜eBay輸出の中古利益リサーチ",
     short_name: "輸出ラボ",
-    description: "楽天で仕入れてeBayで売る。利益が出る商品を自動でリサーチ。",
-    start_url: "/search",
+    description: "eBayで売れる型番を日本の中古サイト価格と照合。儲かる中古の型番をリサーチ。",
+    start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#2D323B",
