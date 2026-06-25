@@ -392,6 +392,16 @@ function sizeMismatch(a, b) {
   return false;
 }
 
+// 楽天の商品名/説明から「JAN/EANコード」をラベル付きのときだけ保守的に抽出する。
+// eBay出品で product.ean として渡すと、カタログ一致時にeBayが「公式ストック画像」と必須項目(aspects)を
+// 自動添付する(正規ルート・規約OK・追加スコープ不要)。⚠️誤GTINは別商品の画像/情報を付けてしまうので、
+// 「JAN:」等のラベル付き13/8桁のみ採用(ラベル無しの数字列は不採用＝精度優先・fail-open)。
+function extractJan(it) {
+  const text = `${it?.itemName || ''} ${it?.itemCaption || ''}`;
+  const m = text.match(/(?:JAN(?:コード)?|EAN|GTIN)\s*[:：=]?\s*(\d{13}|\d{8})\b/i);
+  return m ? m[1] : '';
+}
+
 // ========== 楽天商品取得 ==========
 async function fetchRakutenPage(keyword, page) {
   const params = new URLSearchParams({
@@ -1046,7 +1056,7 @@ async function processRakutenFirst(haveIds) {
         }
         haveIds.add(r.itemCode);
         out.push({
-          id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, images: (r.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), category: cat,
+          id: r.itemCode, title: r.itemName, imageUrl: rakutenImg, images: (r.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), category: cat, jan: extractJan(r),
           source: { site: 'rakuten', siteName: '楽天', price: r.itemPrice, url: r.itemUrl || r.affiliateUrl, pointRate, pointAmount, shippingJpy: shipJpy, postageIncluded: Number(r.postageFlag) === 0 }, // 楽天アフィリ廃止：直リンク(itemUrl)を優先保存
           isNew: r.itemName.includes('新品') || r.itemName.includes('未開封'),
           market: 'EBAY_US', coreKeyword,
@@ -1374,6 +1384,7 @@ async function main() {
           imageUrl: rakutenImg,
           images: (rakutenItem.mediumImageUrls ?? []).map(x => x?.imageUrl).filter(Boolean), // 複数画像出品用ギャラリー(最大3)
           category: cat,
+          jan: extractJan(rakutenItem), // 楽天名/説明のラベル付きJAN→eBay出品でproduct.ean=公式ストック画像/必須項目を自動添付(fail-open)
           source: {
             site: 'rakuten',
             siteName: '楽天',

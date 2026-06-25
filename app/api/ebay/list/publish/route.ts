@@ -164,6 +164,7 @@ export async function POST(req: Request) {
     bestOffer,
     autoAcceptUsd,
     autoDeclineUsd,
+    ean: (product as { jan?: string }).jan, // JANがあればeBayに渡し公式ストック画像/必須項目を自動添付(fail-open)
   });
 
   // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで出品者(actor)単位・冪等。

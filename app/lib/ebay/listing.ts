@@ -319,6 +319,7 @@ export interface PublishInput {
   bestOffer?: boolean; // Best Offer(値下げ交渉)を有効化するか
   autoAcceptUsd?: string; // 自動承諾の下限。これ以上のオファーは自動承諾。例 "22.49"
   autoDeclineUsd?: string; // 自動拒否の上限。これ以下のオファーは自動拒否(損益分岐)。例 "17.00"
+  ean?: string; // JAN/EAN(13/8桁)。あれば product.ean に載せ、eBayカタログ一致時に公式ストック画像/必須項目を自動添付(fail-open)
 }
 
 export interface StepResult {
@@ -504,6 +505,10 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   }
 
   // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
+  // JAN/EAN(13/8桁)があれば product.ean に載せる＝eBayがカタログ一致時に「公式ストック画像」と必須項目を
+  // 自動添付(正規ルート・規約OK)。不一致/無しでも従来の楽天画像で出品は必ず通る(fail-open)。
+  const eanDigits = (input.ean || "").replace(/\D/g, "");
+  const eanOk = eanDigits.length === 13 || eanDigits.length === 8;
   const itemBody = {
     availability: { shipToLocationAvailability: { quantity: qty } },
     condition: condEnum,
@@ -514,6 +519,7 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
         .map(upscaleListingImage)
         .slice(0, 12), // eBayは最大12〜24枚。複数の商品写真で信頼度UP（原寸化は適用済みでも冪等）
       aspects: input.aspects,
+      ...(eanOk ? { ean: [eanDigits] } : {}),
     },
   };
   const item = await ebayFetch(

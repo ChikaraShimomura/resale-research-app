@@ -11,6 +11,7 @@ export interface ProfitProduct extends Product {
   matchedEbayUrl?: string;      // 画像照合で一致したeBay出品のURL（「相場を確認」を確実に同一商品へ）
   matchedEbayImageUrl?: string; // 同・画像（監査用）
   matchedEbayTitle?: string;    // 同・タイトル（監査・相場絞り込み用）
+  jan?: string;                 // 楽天の商品名/説明から抽出したJAN/EAN。eBay出品で product.ean に載せる→カタログ一致時にeBayが公式ストック画像/必須項目を自動添付(正規ルート・fail-open)
   restored?: boolean;           // 運営が手動で復活させた商品（一覧の先頭に固定して見つけやすくする）
   // 直近落札ベースの相場（ebaySoldWorker が ebay_soldprice:{id} に保存→配信時 applySoldComp が反映）。
   soldBased?: boolean;          // true なら realAvgPrice/利益は「eBay直近落札中央値」ベース（false/未設定＝現在出品相場）
