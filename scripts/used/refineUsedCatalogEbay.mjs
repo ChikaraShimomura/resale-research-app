@@ -85,6 +85,15 @@ const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponen
   const before = catalog.length;
   const kept = catalog.filter((p) => !p.ebayConfirmed || p.profitJpy > 500).sort((a, b) => b.profitJpy - a.profitJpy);
   await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(kept) });
+  // 出品フロー用 psnap も型番相場で更新（カタログ表示とモーダルの想定売値を揃える）。TTL35日。
+  const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
+    id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: p.imageUrl, images: p.imageUrl ? [p.imageUrl] : [],
+    category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(),
+    realAvgPrice: p.ebayMedianJpy, realMedianPrice: p.ebayMedianJpy, realProfit: p.profitJpy, realProfitRate: p.profitRate,
+    realCount: p.soldCount || 1, soldBased: !!p.ebayConfirmed, soldCount30d: p.soldCount,
+    source: { site: p.site || "hardoff", siteName: p.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: p.buyJpy, url: p.hardoffUrl },
+  }), "EX", String(35 * 24 * 3600)]);
+  if (snapCmds.length) await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(snapCmds) });
   console.log(`\n=== 型番確定 ${confirmed}件 / 件数不足 ${thin}件 / 検問 ${blocked}件 ===`);
   console.log(`赤字化で除外 ${before - kept.length}件 → used_catalog 計 ${kept.length}件`);
 })();

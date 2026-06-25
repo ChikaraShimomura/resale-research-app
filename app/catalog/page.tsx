@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
+import ListingHelper from "../components/ListingHelper";
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
 
@@ -137,26 +138,30 @@ export default async function CatalogPage() {
                       </div>
                     </div>
 
-                    {/* 仕入れ先への導線＋eBay落札の根拠（actionable＝有料のみ）。1点物なので個別URLへ直接。 */}
+                    {/* 仕入れ先＋eBay落札の根拠＋自分でeBay自動出品（actionable＝有料のみ）。1点物なので個別URLへ直接。 */}
                     {!locked ? (
-                      <div className="mt-2.5 flex gap-2">
-                        <a
-                          href={p.hardoffUrl}
-                          target="_blank"
-                          rel="nofollow noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
-                        >
-                          ハードオフで見る <ExternalLink size={14} />
-                        </a>
-                        {/* eBayで実際に落札された価格（根拠）を確認。型番一致が取れていれば代表落札ページ、無ければ型番つき落札検索。 */}
-                        <a
-                          href={p.ebaySoldUrl || ebaySoldSearchUrl(p)}
-                          target="_blank"
-                          rel="nofollow noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"
-                        >
-                          eBay落札を確認 <ExternalLink size={14} />
-                        </a>
+                      <div className="mt-2.5 space-y-2">
+                        <div className="flex gap-2">
+                          <a
+                            href={p.hardoffUrl}
+                            target="_blank"
+                            rel="nofollow noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
+                          >
+                            ハードオフで見る <ExternalLink size={14} />
+                          </a>
+                          {/* eBayで実際に落札された価格（根拠）を確認。型番一致が取れていれば代表落札ページ、無ければ型番つき落札検索。 */}
+                          <a
+                            href={p.ebaySoldUrl || ebaySoldSearchUrl(p)}
+                            target="_blank"
+                            rel="nofollow noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"
+                          >
+                            eBay落札を確認 <ExternalLink size={14} />
+                          </a>
+                        </div>
+                        {/* 自分でeBayへ自動出品（仕入れて実物写真に差し替えてから出すのが前提）。実データは psnap:{id} を prepare が読む。 */}
+                        <ListingHelper product={toListingProduct(p)} />
                       </div>
                     ) : (
                       <Link

@@ -11,9 +11,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const USD_JPY = 155;
 
 function env(k) {
-  const e = fs.readFileSync(".env.local", "utf8");
-  const m = e.match(new RegExp("^" + k + "=(.*)$", "m"));
-  return m ? m[1].trim().replace(/^["']|["']$/g, "") : "";
+  if (process.env[k]) return process.env[k]; // Pixel(Termux)は環境変数
+  try {
+    const e = fs.readFileSync(".env.local", "utf8");
+    const m = e.match(new RegExp("^" + k + "=(.*)$", "m"));
+    return m ? m[1].trim().replace(/^["']|["']$/g, "") : "";
+  } catch { return ""; }
 }
 const KV_URL = env("KV_REST_API_URL") || env("UPSTASH_REDIS_REST_URL");
 const KV_TOK = env("KV_REST_API_TOKEN") || env("UPSTASH_REDIS_REST_TOKEN");
@@ -31,6 +34,10 @@ function netProfitJPY(buyJpy, sellJpy) {
 //  ・コスメ/食品/消耗ペン＝中古で売らない
 //  ・カード/TCG＝eBay(封入/鑑定品)とハードオフ(バラ/まとめ)がカテゴリ単位照合だと誤マッチ→型番照合できるまで除外
 const EXCLUDE = /資生堂|キャンメイク|DHC|ルルルン|セザンヌ|KATE|ファンデ|チーク|アイシャドウ|クレンジング|フェイスマスク|眉ペンシル|コスメ|リップ|エナージェル|ジェットストリーム|ぺんてる|ボールペン|シャーペン|ノック式|食品|お菓子|レトルト|カード|ポケカ|MTG|ヴァンガード|遊戯王|テラスタル|デュエ|バトスピ|ユニオンアリーナ|ヴァイス|ビルディバイド|シャドウバース/i;
+// 【時計だけに絞る】2026-06-26 ユーザー指示（コスト抑制）。時計系カテゴリのみカタログ対象にする。
+const WATCH = /セイコー|シチズン|カシオ|Gショック|G-SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|腕時計|ウォッチ|ダイバー|クロノグラフ|watch/i;
+// 商品レベルの除外：時計カテゴリ検索でも「カマス(魚)」等で釣具が混じる→釣具/楽器/非時計の明確な語を弾く。
+const NONWATCH = /ダイワ|DAIWA|シマノ|SHIMANO|メジャークラフト|MAJOR\s?CRAFT|がまかつ|アブガルシア|ロッド|リール|釣|竿|紅牙|朱紋峰|ルアー|フィッシング/i;
 
 async function loadCategories() {
   const r = await fetch(`${KV_URL}/get/ebay_sold_seed`, { headers: { Authorization: `Bearer ${KV_TOK}` } });
@@ -48,15 +55,12 @@ async function loadCategories() {
   });
   // 中古向き＋値ごろ（中央¥4000以上）＋非除外。需要(soldCount)順。
   return cats
-    .filter((c) => c.ebayMedian >= 4000 && !EXCLUDE.test(c.category))
+    .filter((c) => c.ebayMedian >= 6000 && WATCH.test(c.category) && !EXCLUDE.test(c.category))
     .sort((a, b) => b.soldCount - a.soldCount);
 }
 
 (async () => {
-  // 実測の音響カテゴリ（キャッシュに無いが強いので手動で足す）。
-  const EXTRA = [{ category: "Pioneer アンプ", ebayMedian: 20627, soldCount: 8, query: "Pioneer アンプ", cat: "音響" }];
-  const cacheCats = await loadCategories();
-  const all = [...EXTRA, ...cacheCats];
+  const all = await loadCategories(); // 時計カテゴリのみ（コスト抑制・ユーザー指示）
 
   const catalog = [];
   const TARGET = 60; // 数十件
@@ -70,15 +74,18 @@ async function loadCategories() {
     let added = 0;
     for (const it of items) {
       if (!it.price) continue;
+      if (NONWATCH.test(`${it.brand} ${it.name}`)) continue; // 釣具等の非時計を除外
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
       if (ratio < 0.15 || ratio > 0.8) continue;
       const net = netProfitJPY(it.price, c.ebayMedian);
       const rate = net / c.ebayMedian;
       if (net > 1500 && rate > 0.15) {
+        const idNum = (it.url.match(/\/(?:product|goodsId)\/(\d+)/) || [])[1] || it.url.replace(/\D+/g, "").slice(-12);
         catalog.push({
+          id: `used-hardoff-${idNum}`,
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
-          cat: c.cat || c.category, ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
+          cat: "腕時計", ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
           profitJpy: net, profitRate: Math.round(rate * 100), hardoffUrl: it.url, imageUrl: it.imageUrl,
           site: "hardoff", soldCount: c.soldCount,
         });
@@ -96,6 +103,23 @@ async function loadCategories() {
   // KVへ。
   await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(catalog) });
   console.log(`💾 KV used_catalog に ${catalog.length}件 書込`);
+
+  // 出品フロー用に psnap:{id} へ ProfitProduct を保存（prepare/publish が getProductById で引く）。TTL35日。
+  // 中古の仕入れ先=ハードオフ、想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
+  const cmds = catalog.map((c) => {
+    const snap = {
+      id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
+      category: "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
+      realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
+      realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed,
+      source: { site: "hardoff", siteName: "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
+    };
+    return ["SET", `psnap:${c.id}`, JSON.stringify(snap), "EX", String(35 * 24 * 3600)];
+  });
+  if (cmds.length) {
+    await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(cmds) });
+    console.log(`💾 psnap ${cmds.length}件 書込（出品フロー用）`);
+  }
 
   // メール本文を組み立て→ファイルにも書き出し（ローカルにRESEND鍵値が無くても中身を確認/共有できるように）。
   const rows = catalog.slice(0, 40).map((c) =>

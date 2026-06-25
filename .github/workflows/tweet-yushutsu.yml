@@ -9,8 +9,9 @@ on:
 
 jobs:
   tweet:
-    # ▶ 自動投稿（2026-06-21 再開）。外部cron(cron-job.org)が workflow_dispatch を叩くと実行される。
-    # 一時停止したい時はこの job に「if: false」を足す（または cron-job.org 側を無効化）。
+    # ⏸ 2026-06-26 停止（ユーザー指示「Xの自動投稿を止めていい」）。cron-job.orgが叩いてもジョブskip＝投稿されない。
+    #    再開はこの if 行を削除するだけ。
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

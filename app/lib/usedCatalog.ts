@@ -1,9 +1,11 @@
 import { kvReadOnly } from "./kv";
+import type { ProfitProduct } from "./profitFilter";
 
 // 【中古利益カタログ】eBay起点→中古サイト(ハードオフ等)照合→利益判定で作る「儲かる型番」エントリ。
-// buildUsedCatalog.mjs(住宅IPワーカー)が KV `used_catalog` に書き、ここで読み出す。
+// buildUsedSampleFromCache.mjs(住宅IPワーカー)が KV `used_catalog` に書き、ここで読み出す。
 // ⚠️ 旧モデル(楽天新品の ProfitProduct)とは別系統。中古は1点物なので「型番」を主役に扱う。
 export type UsedCatalogItem = {
+  id?: string; // 出品フロー用の安定ID（psnap:{id} と対応）。buildが付与。
   modelKey: string; // 型番 or 商品名(同型の束ねキー)
   brand: string;
   name: string;
@@ -29,6 +31,29 @@ export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: str
     [p.brand, p.code].filter(Boolean).join(" ").trim() ||
     [p.brand, p.name].filter(Boolean).join(" ").trim();
   return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+}
+
+// 中古カタログ品 → eBay自動出品フロー(ListingHelper/EbayListingModal)に渡す ProfitProduct へ変換。
+// 実データは build が psnap:{id} に書いておくので、prepare/publish は productId(=id) でそれを引いて出品する。
+// ここで返すのはモーダル初期表示＋ id の橋渡し用（軽量）。仕入れ先は中古サイト、想定売値=eBay落札中央値。
+export function toListingProduct(p: UsedCatalogItem): ProfitProduct {
+  const siteName = p.site === "2ndstreet" ? "2nd STREET" : "ハードオフ";
+  return {
+    id: p.id || p.hardoffUrl,
+    title: `${p.brand} ${p.name}`.trim(),
+    imageUrl: p.imageUrl,
+    images: p.imageUrl ? [p.imageUrl] : [],
+    category: p.cat || "腕時計",
+    coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(),
+    realAvgPrice: p.ebayMedianJpy,
+    realMedianPrice: p.ebayMedianJpy,
+    realProfit: p.profitJpy,
+    realProfitRate: p.profitRate,
+    realCount: p.soldCount || 1,
+    soldBased: !!p.ebayConfirmed,
+    soldCount30d: p.soldCount,
+    source: { site: p.site, siteName, price: p.buyJpy, url: p.hardoffUrl },
+  } as unknown as ProfitProduct;
 }
 
 // 状態ランクの表示ラベルと色（eBay輸出での扱いやすさ順）。
