@@ -53,15 +53,39 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // メンテナンスモード: 全ページを /sorry に切替（APIと /sorry 自身は除外）。
-  // ⚠️ 2026-06-25〜「中古カタログ(eBay起点→中古照合)」へ作り替え中のため、コードフラグで強制ON。
-  //    作り替え完了時に MAINTENANCE_REBUILD=false に戻す（or 削除）。Vercel env MAINTENANCE_MODE=1 でも切替可。
-  const MAINTENANCE_REBUILD = true;
+  // 2026-06-26 中古カタログ移行が一段落したので解除（false）。再度全停止したい時は true / Vercel env MAINTENANCE_MODE=1。
+  const MAINTENANCE_REBUILD = false;
   if (
     (MAINTENANCE_REBUILD || process.env.MAINTENANCE_MODE === "1") &&
     !pathname.startsWith("/api/") &&
     pathname !== "/sorry"
   ) {
     return NextResponse.rewrite(new URL("/sorry", req.url));
+  }
+
+  // 私的公開（IP許可リスト）: 公開はするが、許可IP(自宅)以外は /sorry に弾く＝「自宅からだけ見える」状態にする。
+  //  ・許可IPは Vercel env PRIVATE_ALLOWED_IPS（カンマ区切り）で持つ＝公開リポにIPを書かない（git履歴/プライバシー対策）。
+  //    未設定なら誰も入れない（フェイルクローズ＝全世界に漏れない安全側）。全世界公開する時は PRIVATE_LAUNCH=false に。
+  //  ・dev(ローカル)は対象外（プレビュー検証のため）。Webhook（eBay削除通知/cron/Stripe）は外部IPから来るので除外。
+  //  ・Vercelは x-forwarded-for 先頭にクライアント実IPを入れる（クライアントが偽XFFを送っても上書きされる＝詐称不可）。
+  const PRIVATE_LAUNCH = true;
+  if (PRIVATE_LAUNCH && !isDev && pathname !== "/sorry") {
+    const isWebhook =
+      pathname === "/api/ebay/account-deletion" ||
+      pathname === "/api/ebay/list/auto-stop-cron" ||
+      pathname === "/api/billing/webhook";
+    if (!isWebhook) {
+      const allow = (process.env.PRIVATE_ALLOWED_IPS || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const xff = req.headers.get("x-forwarded-for") || "";
+      const ip = (xff.split(",")[0] || "").trim() || req.headers.get("x-real-ip") || "";
+      if (!allow.includes(ip)) {
+        if (pathname.startsWith("/api/")) return new NextResponse("forbidden", { status: 403 });
+        return NextResponse.rewrite(new URL("/sorry", req.url));
+      }
+    }
   }
 
   // 全サイト ログインゲート：会員登録(=Supabaseセッション)が無ければ /register へ。
