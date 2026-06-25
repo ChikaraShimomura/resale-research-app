@@ -1008,6 +1008,24 @@ async function ebayItemsByQuery(query, limit = 8) {
   } catch { return []; }
 }
 
+// eBay現在出品の総数(=競合の厚み)を返す。STR(売れやすさ)=直近落札数÷これ で「出す前に売れるか」を判定する分母。
+// limit=1 で total だけ取得＝軽量。取得不可は null(=競合不明=中立)。
+async function ebayCompetition(query) {
+  if (!query) return null;
+  const token = await getEbayToken();
+  if (!token) return null;
+  try {
+    const params = new URLSearchParams({ q: query.slice(0, 120), filter: 'conditions:{NEW|LIKE_NEW}', limit: '1', fieldgroups: 'COMPACT' });
+    const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return Number.isFinite(d?.total) ? d.total : null;
+  } catch { return null; }
+}
+
 // 楽天人気品を起点に eBay相場を確認して利益商品を作る。haveIds(楽天itemCode集合)で重複排除。
 async function processRakutenFirst(haveIds) {
   const out = [];
@@ -1410,6 +1428,8 @@ async function main() {
           soldUrl: ebayItem.soldSeed ? (ebayItem.itemUrl || undefined) : undefined, // 確認リンク＝実物の落札出品URL
           soldCount30d: ebayItem.soldCount || 0,
           soldWindowDays: ebayItem.soldWindowDays || 0,
+          ebayActiveCount: await ebayCompetition(searchQueryFor(coreKeyword)), // eBay現在出品数=競合。STR(売れやすさ)=soldCount30d÷これ。取得不可はnull(中立)
+
           avgDaysToSell: null, // eBay Finding API(落札データ)が廃止のため現状取得不可。Marketplace Insights API(要承認)が必要
           addedAt: new Date().toISOString(), // 登録順ソート用（初回登録時刻、以降不変）
           // 監査(audit_catalog.mjs)が「本番で実際にマッチさせたeBay商品」を採点できるよう保存（精度計測の信頼性）。

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { track, logEvent } from "../lib/analytics";
 import { cleanImg } from "../lib/cleanImg";
+import { sellThroughPct } from "./SortSelect";
 
 const EBAY_FEE_RATE = 0.1325;
 const EBAY_FEE_FIXED = 47;
@@ -47,6 +48,36 @@ function SoldBadge({ count, days }: { count: number; days: number }) {
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700">
       <Flame size={12} />直近{days}日 {count}件落札
+    </span>
+  );
+}
+
+// 売れやすさ(STR=直近落札÷eBay競合)。「出す前に売れる確度」を一目で。🟢≥50%/🟡20-50%/🔴<20%。不明は非表示。
+function SellThroughBadge({ pct }: { pct: number | null }) {
+  if (pct == null) return null;
+  const t = pct >= 50
+    ? { c: "bg-emerald-600", l: "売れやすい" }
+    : pct >= 20
+    ? { c: "bg-amber-500", l: "ふつう" }
+    : { c: "bg-gray-400", l: "売れにくい" };
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full text-white leading-none ${t.c}`}>
+      売れやすさ {pct}%・{t.l}
+    </span>
+  );
+}
+
+// eBay競合の厚み(現在出品数)。🟢競合少(<200)/🟡競合中/🔴競合多(>2000＝新規アカは可視性が出にくい)。不明は非表示。
+function CompetitionBadge({ count }: { count?: number }) {
+  if (count == null) return null;
+  const t = count < 200
+    ? { c: "text-emerald-600", l: "競合少" }
+    : count <= 2000
+    ? { c: "text-amber-600", l: "競合中" }
+    : { c: "text-red-500", l: "競合多" };
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${t.c}`}>
+      {t.l}・{count.toLocaleString()}件
     </span>
   );
 }
@@ -277,6 +308,15 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
           </div>
+
+          {/* 出す前スコア：売れやすさ(STR=落札÷競合)＋競合の厚み。机上利益でなく「実際に売れる確度」で選ぶための一目シグナル。
+              ※ebayActiveCount(競合数)はrefreshが焼き込み済みの品だけ表示（未取得は非表示＝fail-open）。 */}
+          {(sellThroughPct(product) != null || product.ebayActiveCount != null) && (
+            <div className="flex items-center gap-x-2.5 gap-y-1 mt-3 flex-wrap">
+              <SellThroughBadge pct={sellThroughPct(product)} />
+              <CompetitionBadge count={product.ebayActiveCount} />
+            </div>
+          )}
 
           {/* 信頼バッジ・相場リンク（落札ベースなら実落札件数=需要シグナルを優先） */}
           {(product.realCount > 0 || product.soldBased) && (

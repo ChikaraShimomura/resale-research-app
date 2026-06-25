@@ -16,6 +16,7 @@ export interface ProfitProduct extends Product {
   // 直近落札ベースの相場（ebaySoldWorker が ebay_soldprice:{id} に保存→配信時 applySoldComp が反映）。
   soldBased?: boolean;          // true なら realAvgPrice/利益は「eBay直近落札中央値」ベース（false/未設定＝現在出品相場）
   soldCount30d?: number;        // 直近windowDays(既定30日)の落札件数（需要の目安バッジ）
+  ebayActiveCount?: number;     // eBay現在出品の総数（競合の厚み）。refreshが焼き込み。STR(売れやすさ)=soldCount30d÷これ
   soldWindowDays?: number;      // 落札件数の対象日数（既定30）
   soldUrl?: string;             // AI同一判定が通った実物の落札URL（確認リンクを同一商品に着地させる）
   soldVerified?: boolean;       // AI画像で同一商品の落札を確認済み＝掲載対象（未確定は利益商品に載せない・ユーザー方針2026-06-23）
