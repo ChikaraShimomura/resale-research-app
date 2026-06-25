@@ -17,7 +17,19 @@ export type UsedCatalogItem = {
   hardoffUrl: string; // 仕入れ元の商品URL（リンクのみ＝再ホストしない）
   imageUrl: string; // 仕入れ元の画像URL（リンク参照）
   site: string; // "hardoff" など
+  soldCount?: number; // 直近の落札件数（実需シグナル）。型番単位なら同一機種の件数。
+  ebayConfirmed?: boolean; // true=型番単位でeBay落札相場を取得済み。false/未定義=系列中央値の「目安」。
+  ebaySoldUrl?: string; // 代表落札ページ（型番リファイナが入れる・任意）
 };
+
+// eBayの落札（Sold/Completed）検索URL＝「根拠を確認」ボタンのリンク先。
+// ブランド+型番(code)が最強（eBayは英語市場なので型番=言語非依存が効く）。型番が無ければ ブランド+商品名。
+export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: string }): string {
+  const q =
+    [p.brand, p.code].filter(Boolean).join(" ").trim() ||
+    [p.brand, p.name].filter(Boolean).join(" ").trim();
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+}
 
 // 状態ランクの表示ラベルと色（eBay輸出での扱いやすさ順）。
 export function conditionLabel(c: string | null): { label: string; tone: "good" | "mid" | "risk" } {

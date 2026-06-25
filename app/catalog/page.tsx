@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
-import { getUsedCatalog, conditionLabel } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 
@@ -114,6 +114,15 @@ export default async function CatalogPage() {
                             <>仕入れ {yen(p.buyJpy)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.ebayMedianJpy)}</span></>
                           )}
                         </p>
+                        {!locked && (
+                          <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                            {p.ebayConfirmed ? (
+                              <>eBay落札ベース{p.soldCount ? `・直近${p.soldCount}件` : ""}<span className="text-emerald-600 font-bold">（型番一致）</span></>
+                            ) : (
+                              <>eBay落札ベース（系列の目安・<span className="text-[#0064D2]">型番はリンクで確認↓</span>）</>
+                            )}
+                          </p>
+                        )}
                       </div>
 
                       <div className="text-right shrink-0">
@@ -128,16 +137,27 @@ export default async function CatalogPage() {
                       </div>
                     </div>
 
-                    {/* 仕入れ先への導線（actionable＝有料のみ）。1点物なので個別URLへ直接。 */}
+                    {/* 仕入れ先への導線＋eBay落札の根拠（actionable＝有料のみ）。1点物なので個別URLへ直接。 */}
                     {!locked ? (
-                      <a
-                        href={p.hardoffUrl}
-                        target="_blank"
-                        rel="nofollow noopener noreferrer"
-                        className="mt-2.5 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
-                      >
-                        ハードオフで見る <ExternalLink size={14} />
-                      </a>
+                      <div className="mt-2.5 flex gap-2">
+                        <a
+                          href={p.hardoffUrl}
+                          target="_blank"
+                          rel="nofollow noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
+                        >
+                          ハードオフで見る <ExternalLink size={14} />
+                        </a>
+                        {/* eBayで実際に落札された価格（根拠）を確認。型番一致が取れていれば代表落札ページ、無ければ型番つき落札検索。 */}
+                        <a
+                          href={p.ebaySoldUrl || ebaySoldSearchUrl(p)}
+                          target="_blank"
+                          rel="nofollow noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"
+                        >
+                          eBay落札を確認 <ExternalLink size={14} />
+                        </a>
+                      </div>
                     ) : (
                       <Link
                         href="/pricing?from=catalog"

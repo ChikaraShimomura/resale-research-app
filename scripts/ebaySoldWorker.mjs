@@ -105,7 +105,7 @@ function titleSim(a, b) {
   let inter = 0; for (const t of A) if (B.has(t)) inter++;
   return inter / Math.min(A.size, B.size); // 小さい方に対する重なり率＝片方が長くても効く
 }
-function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
+export function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   // s-card__image を区切りに1カード=1チャンク（画像→落札日→コンディション→URL→価格が同じチャンクに収まる）。
   // ※カード数(items)は s-card__caption の数で別途数える（s-card__image は1カードに複数出るので区切り用途のみ）。
   const chunks = html.split(/class=s-card__image/);
@@ -138,7 +138,7 @@ function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   cards.sort((a, b) => a.ageDays - b.ageDays); // 直近(落札が新しい)順＝検証は先頭から
   return { prices, items, dated, withWindow, usedSkipped, cards };
 }
-async function get(url, referer) {
+export async function get(url, referer) {
   const res = await fetch(url, { headers: browserHeaders(referer), redirect: "follow", signal: AbortSignal.timeout(20000) });
   storeCookies(res); return { status: res.status, html: await res.text() };
 }
@@ -236,4 +236,8 @@ async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定"); process.exit(1); }
   return discoverSeeds(); // このワーカーは発掘モード専用（旧「現在出品×落札中央値」パスは廃止）
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+// 直接実行(Pixel: node scripts/ebaySoldWorker.mjs)の時だけ発掘を走らせる。
+// import(型番リファイナ等)からは main を呼ばない＝パーサ(parseSoldWithin)/取得(get)だけ再利用するため。
+if (process.argv[1]?.endsWith("ebaySoldWorker.mjs")) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
