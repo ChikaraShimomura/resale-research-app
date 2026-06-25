@@ -196,7 +196,12 @@ async function discoverSeeds() {
       .slice(0, SEED_PER_KW);
     let added = 0;
     for (const g of ranked) {
-      const prices = g.cards.map((c) => c.price).sort((a, b) => a - b);
+      const raw = g.cards.map((c) => c.price).sort((a, b) => a - b);
+      const rmid = Math.floor(raw.length / 2);
+      const rawMedian = raw.length % 2 ? raw[rmid] : Math.round((raw[rmid - 1] + raw[rmid]) / 2);
+      // 少数サンプルだと「まとめ売り/別バリエ/異常値」1件で中央値が跳ねる(実例:LEGO10370が3件中央値で¥29,729)。
+      // 中央値基準の価格帯[×0.45〜×2.2]の外を外れ値として除外→残りで中央値を再計算＝跳ねを抑える。
+      const prices = (() => { const k = raw.filter((p) => p >= rawMedian * 0.45 && p <= rawMedian * 2.2); return k.length ? k : raw; })();
       const mid = Math.floor(prices.length / 2);
       const median = prices.length % 2 ? prices[mid] : Math.round((prices[mid - 1] + prices[mid]) / 2);
       // 代表＝価格が中央値に最も近い落札。soldUrl(落札リンク)/画像が想定売値(=中央値)と一致し、
