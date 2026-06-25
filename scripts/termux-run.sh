@@ -40,6 +40,15 @@ while true; do
       || echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
   fi
 
+  # ④ 中古利益カタログ構築(eBay中古落札 × ハードオフ現在庫 → 儲かる型番→KV used_catalog)。
+  #    ③のeBay負荷と重ねないよう半日ずらす(cycle%24==12)。住宅IPのPixelだから連続落札取得でも弾かれにくい。
+  #    取得カテゴリ<3の回は既存カタログを維持(buildUsedCatalog側の安全弁)。
+  if [ $(( cycle % SOLD_EVERY )) -eq $(( SOLD_EVERY / 2 )) ]; then
+    echo "---- $(date) used-catalog ----" >> "$HOME/usedcatalog.log"
+    node scripts/used/buildUsedCatalog.mjs >> "$HOME/usedcatalog.log" 2>&1 \
+      || echo "  (used-catalog失敗・次回再試行)" >> "$HOME/usedcatalog.log"
+  fi
+
   cycle=$(( cycle + 1 ))
   sleep "$INTERVAL"
 done

@@ -60,21 +60,32 @@ function netProfitJPY(buyJpy, sellJpy) {
 }
 
 function kvCreds() {
-  const env = fs.readFileSync(".env.local", "utf8");
-  const get = (k) => { const m = env.match(new RegExp("^" + k + "=(.*)$", "m")); return m ? m[1].trim().replace(/^["']|["']$/g, "") : ""; };
-  return { url: get("KV_REST_API_URL") || get("UPSTASH_REDIS_REST_URL"), tok: get("KV_REST_API_TOKEN") || get("UPSTASH_REDIS_REST_TOKEN") };
+  // Pixel(Termux)は環境変数、ローカルPCは .env.local。process.env を優先しフォールバックする。
+  let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+  let tok = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+  if (!url || !tok) {
+    try {
+      const env = fs.readFileSync(".env.local", "utf8");
+      const get = (k) => { const m = env.match(new RegExp("^" + k + "=(.*)$", "m")); return m ? m[1].trim().replace(/^["']|["']$/g, "") : ""; };
+      url = url || get("KV_REST_API_URL") || get("UPSTASH_REDIS_REST_URL");
+      tok = tok || get("KV_REST_API_TOKEN") || get("UPSTASH_REDIS_REST_TOKEN");
+    } catch { /* .env.local無し(Pixelは環境変数) */ }
+  }
+  return { url, tok };
 }
 
 (async () => {
   await ebayWarmup();
   const catalog = [];
   const byCat = {};
+  let okCategories = 0; // eBay相場が取れたカテゴリ数（少なすぎる時は既存カタログを上書きしない安全弁）
   for (const q of QUERIES) {
     let er = { median: null }, items = [];
     try { er = await ebaySoldMedianJPY(q.ebay); } catch { /* skip */ }
     await sleep(2000);
     try { items = await fetchHardoff(q.hardoff); } catch { /* skip */ }
     if (!er.median) { console.log(`- ${q.hardoff.padEnd(22)} eBay取得不可(status=${er.status} n=${er.n ?? "-"}) ハ${items.length}`); await sleep(EBAY_GAP_MS); continue; }
+    okCategories++;
     let prof = 0;
     for (const it of items) {
       if (!it.price) continue;
@@ -95,11 +106,16 @@ function kvCreds() {
   }
   // 利益額順に並べてKVへ。
   catalog.sort((a, b) => b.profitJpy - a.profitJpy);
-  try {
-    const { url, tok } = kvCreds();
-    await fetch(`${url}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" }, body: JSON.stringify(catalog) });
-    console.log(`\n💾 KV used_catalog に ${catalog.length}件 書き込み`);
-  } catch (e) { console.log("KV書き込み失敗:", e.message); }
+  // 安全弁：eBayが大半ブロックされた回(取得カテゴリ<3)は既存カタログを潰さない＝部分結果での上書きを防ぐ。
+  if (okCategories < 3) {
+    console.log(`\n⚠️ eBay取得カテゴリ ${okCategories}件のみ→既存 used_catalog を維持（上書きしない）`);
+  } else {
+    try {
+      const { url, tok } = kvCreds();
+      await fetch(`${url}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" }, body: JSON.stringify(catalog) });
+      console.log(`\n💾 KV used_catalog に ${catalog.length}件 書き込み（eBay取得 ${okCategories}カテゴリ）`);
+    } catch (e) { console.log("KV書き込み失敗:", e.message); }
+  }
   console.log(`\n=== A(ハードオフ)カタログ: 利益が出る商品 ${catalog.length}件 ===`);
   console.log("カテゴリ別:", Object.entries(byCat).map(([k, v]) => `${k}:${v}`).join("  "));
   console.log("上位例:");
