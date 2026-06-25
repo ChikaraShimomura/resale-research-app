@@ -1026,6 +1026,22 @@ async function ebayCompetition(query) {
   } catch { return null; }
 }
 
+// 既存カタログで ebayActiveCount(競合数) が未取得の品を後追いで埋める＝STR(売れやすさ)バッジを既存品にも点灯させる。
+// 1回あたり cap 件まで(eBay負荷/時間を抑制)。識別語が無い品はスキップ。取得不可は据え置き(次回再試行)。
+async function backfillCompetition(products, cap = 150) {
+  if (!Array.isArray(products)) return;
+  let done = 0;
+  for (const p of products) {
+    if (done >= cap) break;
+    if (!p || p.ebayActiveCount != null) continue;
+    const q = searchQueryFor(p.coreKeyword || p.matchedEbayTitle || p.title || '');
+    if (!q) continue;
+    const c = await ebayCompetition(q);
+    if (c != null) { p.ebayActiveCount = c; done++; }
+  }
+  if (done) console.log(`  📊 競合数バックフィル: ${done}件に ebayActiveCount を付与（STRバッジ点灯）`);
+}
+
 // 楽天人気品を起点に eBay相場を確認して利益商品を作る。haveIds(楽天itemCode集合)で重複排除。
 async function processRakutenFirst(haveIds) {
   const out = [];
@@ -1543,6 +1559,8 @@ async function main() {
       console.log(`  💹 現金純利益率<1%(論外)の商品を利益商品から除外: ${before - kept.length}件`);
     }
   }
+  // STR(売れやすさ)バッジを既存品にも出すため、競合数(ebayActiveCount)が未取得の品を後追いで埋める。
+  await backfillCompetition(profitableProducts);
   // 最終保存（登録順・新着が先頭。利益率ソートは将来の有料機能）
   profitableProducts.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   await kvSet('profitable_products', profitableProducts, 480 * 3600);
