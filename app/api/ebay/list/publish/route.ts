@@ -130,16 +130,21 @@ export async function POST(req: Request) {
   const bestOffer = body.bestOffer !== false;
   let autoAcceptUsd: string | undefined;
   let autoDeclineUsd: string | undefined;
-  if (bestOffer) {
+  if (bestOffer && price > 0) {
     const floor = Number(body.floorUsd);
     const hasFloor = Number.isFinite(floor) && floor > 0;
-    // 自動承諾は「10%引き」だが損益分岐(floor)は絶対に割らない＝赤字を即確定させない。出品価格は上限。
-    const accept = Math.min(price, hasFloor ? Math.max(price * 0.9, floor) : price * 0.9);
-    autoAcceptUsd = accept.toFixed(2);
-    // 自動拒否は floor 未満(赤字)を弾く。eBay制約で 拒否価格 < 承諾価格 のため、等しくならないよう僅かに下げる。
-    if (hasFloor) {
-      const decline = Math.min(floor, accept - 0.01);
-      if (decline > 0 && decline < accept) autoDeclineUsd = decline.toFixed(2);
+    // 自動承諾は「10%引き」だが損益分岐(floor)は絶対に割らない＝赤字を即確定させない。
+    // ⚠️ eBayは「自動承諾額 < 出品価格」を厳密に要求する（==priceは #BEST_OFFER_AUTO_ACCEPT_AMOUNT で拒否）。
+    //    そこで上限を price*0.99 にクランプし、必ず price 未満に収める（低利益品で floor≥price のとき==priceになる事故を防ぐ）。
+    let accept = Math.min(price * 0.99, Math.max(price * 0.9, hasFloor ? floor : 0));
+    if (!(accept > 0) || accept >= price) accept = price * 0.9; // 念のための安全側フォールバック
+    if (accept > 0 && accept < price) {
+      autoAcceptUsd = accept.toFixed(2);
+      // 自動拒否は floor 未満(赤字)を弾く。eBay制約で 拒否価格 < 承諾価格 のため、等しくならないよう僅かに下げる。
+      if (hasFloor) {
+        const decline = Math.min(floor, accept - 0.01);
+        if (decline > 0 && decline < accept) autoDeclineUsd = decline.toFixed(2);
+      }
     }
   }
 
@@ -209,6 +214,30 @@ export async function POST(req: Request) {
     const steps = result.steps?.map((s) =>
       s.ok || !s.error ? s : { ...s, error: friendlyEbayError(s.error).message, errorDetail: s.error }
     );
+    // 未知(unexpected)エラーは「報告」ボタンが出ても押されないことが多い→サーバー側で自動的にKVへ記録し、
+    // 開発者が生eBayエラーで原因を追えるようにする（既知のアカウント要因=出品枠超過等はノイズなので記録しない）。
+    if (!f.known) {
+      try {
+        await kv.lpush(
+          "error_reports",
+          JSON.stringify({
+            where: "ebay_listing_auto",
+            productId: product.id,
+            coreKeyword: product.coreKeyword,
+            message: String(result.error).slice(0, 2000),
+            steps: Array.isArray(result.steps) ? result.steps.slice(0, 30) : undefined,
+            priceUsd: body.priceUsd,
+            category: body.categoryId,
+            auto: true,
+            ts: new Date().toISOString(),
+          })
+        );
+        await kv.ltrim("error_reports", 0, 199);
+        await kv.expire("error_reports", 60 * 24 * 60 * 60);
+      } catch {
+        /* 記録失敗は無視（出品応答は返す） */
+      }
+    }
     return Response.json({ ...result, steps, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: result.error });
   }
   return Response.json(result);

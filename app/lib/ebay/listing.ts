@@ -591,6 +591,19 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
     pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
     steps.push({ step: `在庫の反映待ちで公開を再試行（${attempt}回目）`, ok: pub.ok, error: pub.ok ? undefined : pub.error });
   }
+  // Best Offer の自動承諾額(BEST_OFFER_AUTO_ACCEPT_AMOUNT)が「公開時」に拒否されることがある（特に低価格品）。
+  // 作成時フォールバック(上の574)は「オファー作成失敗」しか救わない＝作成は通り公開で落ちると詰む。
+  // ここで bestOfferTerms を外してオファーを更新→Best Offer無しで再公開し、出品自体は必ず通す（Best Offerは任意機能）。
+  if (!pub.ok && input.bestOffer && listingPolicies.bestOfferTerms &&
+      /best.?offer|auto.?accept|BEST_OFFER_AUTO_ACCEPT/i.test(pub.error ?? "")) {
+    delete listingPolicies.bestOfferTerms;
+    const upd = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, offerBody);
+    steps.push({ step: "Best Offerを外して再設定", ok: upd.ok, error: upd.ok ? undefined : upd.error });
+    if (upd.ok) {
+      pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
+      steps.push({ step: "Best Offer無しで公開を再試行", ok: pub.ok, error: pub.ok ? undefined : pub.error });
+    }
+  }
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
   // 公開できない時、下書き(在庫+オファー)は保存済み。状態別にやさしく案内する。
   // ⓪ 出品上限(件数/金額)に到達。「制限中(accountUnusable)」やセラー登録未完と混同しないよう"先に"判定し、

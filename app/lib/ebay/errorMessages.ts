@@ -55,7 +55,9 @@ function extractFields(raw: string): string[] {
       const v = part.includes("=") ? part.slice(part.indexOf("=") + 1) : part;
       const t = v.trim();
       // 数値のみ/空/長すぎる断片は除外（フィールド名は英字を含む短い語）。
-      if (t && /[a-z]/i.test(t) && t.length <= 40 && !/^\d+$/.test(t)) found.add(t);
+      // 内部フィールド名(BEST_OFFER_AUTO_ACCEPT_AMOUNT 等の全大文字スネーク)や通貨コード(USD)は
+      // ユーザー向けの「必須項目」ではないので拾わない＝小文字を含む人間語、または既知ラベルだけ採用。
+      if (t && (/[a-z]/.test(t) || !!FIELD_LABELS[t.toLowerCase()]) && t.length <= 40 && !/^\d+$/.test(t)) found.add(t);
     }
   }
   const patterns = [
@@ -68,7 +70,7 @@ function extractFields(raw: string): string[] {
     while ((m = re.exec(raw))) {
       for (const piece of m[1].split(",")) {
         const t = piece.trim();
-        if (t && /[a-z]/i.test(t) && t.length <= 40) found.add(t);
+        if (t && (/[a-z]/.test(t) || !!FIELD_LABELS[t.toLowerCase()]) && t.length <= 40) found.add(t);
       }
     }
   }
@@ -143,6 +145,14 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
     };
 
   // ── ここから「出品内容」起因のエラー。errorId を最優先に分類し、疑わしいフィールド名を文に差し込む ──
+
+  // 値下げ交渉(Best Offer)の自動承諾額(BEST_OFFER_AUTO_ACCEPT_AMOUNT)関連。必須Item Specificと誤認しないよう先に判定。
+  // ※サーバー側で「Best Offer無しで再公開」する自動フォールバックがあるため通常はユーザーまで届かない。
+  if (has("best offer", "best_offer", "auto accept", "auto-accept", "auto_accept", "autoacceptprice", "minimum best offer"))
+    return {
+      message: "値下げ交渉（Best Offer）の自動承諾額の設定がeBayに受け付けられませんでした。Best Offer無しで自動的に再出品されます（出品自体は通ります）。続く場合は価格を少し上げてお試しください。",
+      known: true,
+    };
 
   // #25002 = 必須Item Specific 不足/不正（amiibo等で頻発：キャラクター・種類・対応機種 など）。
   if (errorId === "25002" || has("required item specific", "item specific", "missing required", "is a required")) {
