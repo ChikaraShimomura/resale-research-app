@@ -173,19 +173,10 @@ export default function GuidePage() {
           </div>
         </div>
 
-        {/* 全体像の動画 */}
-        <div className="mb-6">
-          <SectionTitle>まずは動画で全体像</SectionTitle>
-          <GuideVideo
-            title="eBay輸出のはじめ方（全体像）"
-            src="/videos/guide-overview.mp4"
-            poster="/videos/guide-overview-poster.jpg"
-            durationLabel="約1分"
-            note="※ 仕入れ→出品→発送→入金の流れを、やさしい音声ナレーションつきでまとめています。"
-          />
-        </div>
+        {/* 全体像の動画(guide-overview.mp4)は楽天フロー前提のため、中古モデル用に再生成するまで一旦非表示。
+            下の eBay登録・出金の動画(モデル非依存)は維持。 */}
 
-        {/* 手順の動画（eBay登録・出金）。ホームの「eBay登録・出金の動画も見る →」の着地。 */}
+        {/* 手順の動画（eBay登録・出金）。モデル非依存（eBayセラー登録・Payoneer出金の手順）。 */}
         <div className="mb-6">
           <SectionTitle>動画で手順を見る</SectionTitle>
           <div className="flex flex-col gap-4">

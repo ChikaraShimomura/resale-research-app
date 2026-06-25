@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Tag, Banknote } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
-import GuideVideo from "./components/GuideVideo";
 import HomeHub from "./components/HomeHub";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
@@ -116,22 +115,8 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* もっと詳しく：ホーム紹介動画（3ステップの補助。ミュート自動再生＋字幕で内容は伝わる） */}
-      <section className="max-w-2xl mx-auto px-4 pt-6">
-        <GuideVideo
-          title="動画でも分かる（約2分）"
-          src="/videos/home-intro.mp4"
-          poster="/videos/home-intro-poster.jpg"
-          durationLabel="約2分"
-          autoplayInView
-          note="※ 相場・利益率は想定／目安で、利益を保証するものではありません。eBay等の各種ポリシーは公式をご確認のうえご利用ください。／ 音声 VOICEVOX:ずんだもん"
-        />
-        <div className="mt-3 text-center">
-          <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
-            eBay登録・出金の動画も見る →
-          </Link>
-        </div>
-      </section>
+      {/* ホーム紹介動画(home-intro.mp4)は楽天前提のナレーションのため、中古モデル用に再生成するまで一旦非表示。
+          eBay登録・出金の動画(モデル非依存)は /guide に置いてあり、上の「使い方を詳しく見る」から到達できる。 */}
 
       {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション（先頭＝まず不安を解く） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">

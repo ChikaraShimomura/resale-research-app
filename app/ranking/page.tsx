@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTopProfitProducts } from "../lib/topProducts";
+import { getUsedCatalog } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で�
 const SITE = "https://www.yushutsu-fukugyo.com";
 const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜想定売値・利益率";
 const DESC =
-  "eBay輸出でいま利益率が高い日本の商品をランキングで毎日更新。カメラ・フィギュア・レトロゲーム・腕時計・炊飯器など、海外で売れる商品の想定売値・利益率の目安をチェック（ランキングは無料公開・各商品の詳細はプランで解放）。";
+  "eBayで売れている型番を、日本の中古サイトの現在価格と照合。送料・関税・手数料を引いた純利益で、いま仕入れて儲かる中古をランキングで毎日更新（無料公開・各商品の仕入れ先はプランで解放）。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -36,8 +36,8 @@ export default async function RankingPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const items = await getTopProfitProducts(30);
-  // 詳細(/product/*)を見られるか＝未購読(free)はゲートで/pricingに飛ぶ。CTA文言を「この先は有料」と事前提示するために使う。
+  const items = (await getUsedCatalog()).slice(0, 30); // 中古の利益カタログ（純利益順）の上位
+  // 仕入れ先(ハードオフ)リンクを見られるか＝未購読(free)はゲートで/pricingに飛ぶ。
   const canView = await canViewCatalog();
   // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
   const sp = await searchParams;
@@ -53,7 +53,7 @@ export default async function RankingPage({
     itemListElement: items.map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      name: p.title.slice(0, 90),
+      name: `${p.brand} ${p.name}`.slice(0, 90),
     })),
   };
 
@@ -86,24 +86,24 @@ export default async function RankingPage({
         )}
 
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">
-          eBay輸出の利益商品ランキング
+          eBay輸出で儲かる中古 ランキング
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          国内で仕入れ<b>eBay（海外）</b>で売って、いま<b>利益率が高い日本商品</b>を毎日更新。
-          <b>仕入れ値 → eBay想定売値（直近の落札ベース）→ 利益率</b>の目安付き（ランキング無料・各商品の詳細はプランで解放）。
+          日本の<b>中古</b>を仕入れ<b>eBay（海外）</b>で売って、いま<b>純利益が出る型番</b>を毎日更新。
+          <b>仕入れ値 → eBay想定売値（直近の落札ベース）→ 純利益</b>の目安付き（ランキング無料・仕入れ先はプランで解放）。
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
-          ※ 定番ジャンル＝カメラ・フィギュア／アニメグッズ・レトロゲーム・腕時計・炊飯器など。利益率・相場はeBayの<b>直近落札（実売値）ベース</b>の目安で、状態・競合・為替で変動。
+          ※ 定番ジャンル＝カメラ・オーディオ・楽器・フィギュア・腕時計など。相場はeBayの<b>直近落札（実売値）ベース</b>の目安で、中古は1点物のため在庫は流動的・状態・競合・為替で変動。
         </p>
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">集計中</p>
             <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度どうぞ。</p>
-            <Link href={canView ? "/search" : "/pricing?from=ranking"}
+            <Link href={canView ? "/catalog" : "/pricing?from=ranking"}
               className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               {canView ? (
-                <>利益商品をさがす <ArrowRight size={16} /></>
+                <>中古カタログを見る <ArrowRight size={16} /></>
               ) : (
                 <><Lock size={15} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る</>
               )}
@@ -113,15 +113,14 @@ export default async function RankingPage({
           <ol className="space-y-2.5">
             {items.map((p, i) => {
               // Top5はモザイク（登録誘導の“ちら見せ”）。6位以降は見せて「実在する」証明にする。
-              // 購読者(canView)は詳細を見られるのでモザイクにせず通常表示＝壁の体験を購読状態に合わせる。
+              // 購読者(canView)は仕入れ先リンクを見られるのでモザイクにしない＝壁の体験を購読状態に合わせる。
               const locked = i < 5 && !canView;
-              // 詳細はゲート対象。未購読は/pricing（戻り先が分かるようfrom=ranking付き）、購読者は商品詳細へ。
-              const href = canView
-                ? `/product/${encodeURIComponent(p.id)}`
-                : "/pricing?from=ranking";
+              // 購読者は仕入れ先(ハードオフ)の実物ページへ、未購読は/pricing（戻り先が分かるようfrom=ranking付き）。
+              const href = canView ? p.hardoffUrl : "/pricing?from=ranking";
+              const ext = canView ? { target: "_blank", rel: "nofollow noopener noreferrer" } : {};
               return (
-                <li key={p.id}>
-                  <Link href={href}
+                <li key={`${p.modelKey}-${i}`}>
+                  <a href={href} {...ext}
                     aria-label={locked ? `${i + 1}位の利益商品（詳細はプランで解放）` : undefined}
                     className="relative flex items-center gap-3 bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm active:bg-gray-50 overflow-hidden">
                     <span className={`w-7 shrink-0 text-center font-black ${i < 3 ? "text-[#2D323B] text-lg" : "text-gray-400 text-sm"}`}>
@@ -136,19 +135,19 @@ export default async function RankingPage({
                         <div className="w-14 h-14 rounded-lg bg-gray-100 shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{locked ? "商品名はプランで解放" : p.title}</p>
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{locked ? "商品名はプランで解放" : `${p.brand} ${p.name}`}</p>
                         <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
                           {/* ロック(Top5)は実値をHTMLに出さない＝CSSぼかしだけだとソース/curlで漏れるため(漏洩対策)。 */}
                           {locked ? (
                             <>仕入れ <span className="text-gray-400">●●●</span> <span className="text-gray-300">→</span> eBay想定 <span className="text-gray-400">●●●</span></>
                           ) : (
-                            <>仕入れ {yen(p.source?.price)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span></>
+                            <>仕入れ {yen(p.buyJpy)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.ebayMedianJpy)}</span></>
                           )}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
-                          <Flame size={13} />{locked ? "●●" : `${p.realProfitRate}%`}
+                          <Flame size={13} />{locked ? "●●" : `${p.profitRate}%`}
                         </span>
                         <p className="text-[9px] text-gray-400">利益率</p>
                       </div>
@@ -160,7 +159,7 @@ export default async function RankingPage({
                         </span>
                       </span>
                     )}
-                  </Link>
+                  </a>
                 </li>
               );
             })}
@@ -170,8 +169,8 @@ export default async function RankingPage({
         {/* 内部リンク（回遊＆SEO）。検索/詳細はゲート対象＝未購読には「この先は有料」と事前提示する。ガイドは無料公開なので通常表示。 */}
         <div className="mt-6 grid grid-cols-1 gap-2">
           {canView ? (
-            <Link href="/search" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
-              すべての利益商品をさがす <ArrowRight size={16} />
+            <Link href="/catalog" className="flex items-center justify-center gap-1.5 h-12 bg-[#2D323B] text-white font-black text-sm rounded-xl active:bg-[#1A1D23]">
+              中古カタログを全部見る <ArrowRight size={16} />
             </Link>
           ) : (
             <div>
