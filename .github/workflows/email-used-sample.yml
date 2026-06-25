@@ -1,0 +1,24 @@
+name: 中古カタログ サンプルをメール送信
+
+# KV used_catalog（中古の利益カタログ）を読んでResendでメール送信する単発ワークフロー。
+# スクレイピングはしない（KV読み＋Resendのみ）＝クラウドで完結。手動(workflow_dispatch)で1回だけ叩く想定。
+on:
+  workflow_dispatch:
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Send sample email
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          RESEND_API_KEY:    ${{ secrets.RESEND_API_KEY }}
+        run: node scripts/used/emailUsedSample.mjs
