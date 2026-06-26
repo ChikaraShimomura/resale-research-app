@@ -53,7 +53,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const canView = await canViewCatalog();
   const actor = await getActorId();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
-  const canList = await canAutoList(); // 自動出品=プロMAX限定。非対象には無在庫警告でプロMAX誘導を出す
+  const canList = await canAutoList(); // 自動出品=有料プラン(ライト以上)。在庫ありの無在庫はサーバーで別途プロMAXゲート(canDropship)
   // チーム共有：?team=オーナーactor。仕入れ権限を持つメンバーが押すと「仕入れた」がオーナーの一覧に入る。
   //   サーバーで権限を必ず再確認（URL改ざん対策）。権限がなければ通常モード（自分の一覧）に落とす。
   const teamReq = sp.team ? decodeURIComponent(sp.team) : "";

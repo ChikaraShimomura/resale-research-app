@@ -40,8 +40,15 @@ export function planRank(id: PlanId): number {
   return PLAN_RANK[id] ?? 0;
 }
 
-// 自動出品(eBay)を使えるプランか＝プロMAX限定（＋身内/管理者）。ユーザー指示2026-06-27。
+// eBay自動出品(写真だけで出品)を使えるプランか＝有料プラン全て（ライト以上）＋身内/管理者。
+// ユーザー指示2026-06-27（リリース監査）：訴求「写真だけ自動出品」と整合させ、ライト以上に開放。free は不可（閲覧のみ）。
 export function planCanAutoList(plan: PlanId): boolean {
+  return PLANS[plan]?.paid === true || plan === "master" || plan === "admin";
+}
+
+// 「在庫ありのまま＝無在庫転売」を登録できるプランか＝最上位(プロMAX)＋身内/管理者に限定。
+// 通常の有在庫出品(canAutoList)とは別ゲート。仕入れ元にまだ在庫がある品の「仕入れた」を許すかの判定に使う。
+export function planCanDropship(plan: PlanId): boolean {
   return plan === "promax" || plan === "master" || plan === "admin";
 }
 

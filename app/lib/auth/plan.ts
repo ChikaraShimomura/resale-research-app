@@ -3,7 +3,7 @@
 // 決済(Stripe)が未設定/未購読なら自然に free に落ちる＝既存挙動は壊さない。
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../supabase/server";
-import { PlanId, PAYWALL_ENABLED, planCanAutoList } from "../plans";
+import { PlanId, PAYWALL_ENABLED, planCanAutoList, planCanDropship } from "../plans";
 import { isAdmin, isMaster } from "./admin";
 import { billingPlanFor } from "../billing";
 
@@ -43,8 +43,13 @@ export async function canViewCatalog(): Promise<boolean> {
   return (await getPlan()) !== "free";
 }
 
-// 自動出品(eBay)を使えるか＝プロMAX限定（＋身内/管理者）。ユーザー指示2026-06-27。
-// ※閲覧(canViewCatalog)と違いPAYWALL OFFでも限定する＝無在庫転売の入口を絞るため。所有者(admin)/身内は使える。
+// eBay自動出品を使えるか＝有料プラン全て（ライト以上）＋身内/管理者。free(未購読)は不可。
+// ※閲覧(canViewCatalog)と違いPAYWALL OFFでも有料判定する＝出品は購読者の機能。
 export async function canAutoList(): Promise<boolean> {
   return planCanAutoList(await getPlan());
+}
+
+// 「在庫ありのまま登録＝無在庫転売」を許すか＝プロMAX限定（＋身内/管理者）。canAutoListより厳しい上位ゲート。
+export async function canDropship(): Promise<boolean> {
+  return planCanDropship(await getPlan());
 }

@@ -15,6 +15,7 @@ import ListingHelper from "../components/ListingHelper";
 import RemoveBoughtButton from "../components/RemoveBoughtButton";
 import ShippingInput from "../components/ShippingInput";
 import PriceTierEdit from "../components/PriceTierEdit";
+import StopListingButton from "../components/StopListingButton";
 import RemoteThumb from "../components/RemoteThumb";
 import type { ProfitProduct } from "../lib/profitFilter";
 
@@ -68,21 +69,25 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const boughtNotListed = boughtItems.filter((p) => !listedIds.has(p.id));
   const counts = { fav: favItems.length, bought: boughtNotListed.length, listed: listedAll.length };
 
-  // 出品中タブのみ：価格変更ボタン用に psnap(相場) を引いて4段を算出。価格編集は「出品中(live)」だけ＝停止/過去は除く。
+  // 出品中タブのみ：psnap(出品用スナップショット)を引いて、価格4段(live)と再出品用の商品(stopped/archived)に使う。
   const tiersById: Record<string, ReturnType<typeof priceTiers>> = {};
-  if (tab === "listed" && deals.live.length) {
+  const snapById: Record<string, ProfitProduct> = {}; // 再出品(ListingHelper)に渡す商品スナップショット
+  if (tab === "listed" && listedAll.length) {
     try {
-      const snaps = (await kvReadOnly.mget(...deals.live.map((d) => `psnap:${d.id}`))) as (
-        { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } } | null
+      const snaps = (await kvReadOnly.mget(...listedAll.map((d) => `psnap:${d.id}`))) as (
+        (ProfitProduct & { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } }) | null
       )[];
-      deals.live.forEach((d, i) => {
+      listedAll.forEach((d, i) => {
         const s = snaps[i];
-        const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
-        const costJpy = d.purchase || Number(s?.source?.price) || 0;
-        tiersById[d.id] = priceTiers(medianJpy, costJpy);
+        if (s && s.id && s.title) snapById[d.id] = s as ProfitProduct;
+        if (d._status === "live") {
+          const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
+          const costJpy = d.purchase || Number(s?.source?.price) || 0;
+          tiersById[d.id] = priceTiers(medianJpy, costJpy);
+        }
       });
     } catch {
-      /* psnap が引けなくても ±0 は cost から出せる */
+      /* psnap が引けなくても ±0 は cost から出せる／再出品は不可表示 */
     }
   }
 
@@ -107,7 +112,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab items={listedAll} tiersById={tiersById} />
+          <ListedTab items={listedAll} tiersById={tiersById} snapById={snapById} canList={canList} />
         )}
       </main>
 
@@ -194,12 +199,12 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
                 <div className="rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1.5">
                   <ShippingInput productId={p.id} buyJpy={buyJpy} initial={p.shippingJpy ?? 1000} />
                 </div>
-                {/* eBay自動出品はプロMAX限定。非対象はアップグレード導線。 */}
+                {/* eBay自動出品は有料プラン（ライト以上）。free はアップグレード導線。 */}
                 {canList ? (
                   <ListingHelper product={p as ProfitProduct} />
                 ) : (
-                  <Link href="/pricing?from=bought" className="flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]">
-                    <Lock size={14} className="text-[#A98B5C]" /> eBay自動出品は<b>プロMAX</b>限定 → プランを見る
+                  <Link href="/pricing?from=manage" className="flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]">
+                    <Lock size={14} className="text-[#A98B5C]" /> eBay自動出品はプラン加入で使えます → プランを見る
                   </Link>
                 )}
                 {/* 「一覧から外す」と「仕入れ元で見る」を小さく横並び（ユーザー指示2026-06-27）。 */}
@@ -227,7 +232,7 @@ const STATUS_BADGE: Record<ListedItem["_status"], { label: string; cls: string }
   stopped: { label: "停止中", cls: "bg-amber-50 text-amber-700 border-amber-200" },
   archived: { label: "過去の出品", cls: "bg-gray-100 text-gray-500 border-gray-200" },
 };
-function ListedTab({ items, tiersById }: { items: ListedItem[]; tiersById: Record<string, ReturnType<typeof priceTiers>> }) {
+function ListedTab({ items, tiersById, snapById, canList }: { items: ListedItem[]; tiersById: Record<string, ReturnType<typeof priceTiers>>; snapById: Record<string, ProfitProduct>; canList: boolean }) {
   if (items.length === 0) {
     return (
       <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />
@@ -236,7 +241,9 @@ function ListedTab({ items, tiersById }: { items: ListedItem[]; tiersById: Recor
   return (
     <ol className="space-y-2.5">
       {items.map((d, i) => {
-        const tiers = d._status === "live" ? tiersById[d.id] : undefined; // 価格編集は出品中(live)のみ
+        const isLive = d._status === "live";
+        const tiers = isLive ? tiersById[d.id] : undefined; // 価格編集は出品中(live)のみ
+        const snap = snapById[d.id]; // 再出品(ListingHelper)用の商品スナップショット
         const badge = STATUS_BADGE[d._status];
         return (
           <li key={`${d.id}-${i}`}>
@@ -254,7 +261,13 @@ function ListedTab({ items, tiersById }: { items: ListedItem[]; tiersById: Recor
               </div>
 
               <div className="mt-2.5 space-y-2">
-                {tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
+                {/* 出品中(live)：価格4段変更＋出品停止。停止中/過去：再出品（ListingHelperで再公開）。 */}
+                {isLive && tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
+                {isLive && <StopListingButton productId={d.id} />}
+                {!isLive && snap && canList && <ListingHelper product={snap} defaultListed={false} />}
+                {!isLive && snap && !canList && (
+                  <p className="text-[11px] text-gray-400 text-center">再出品にはプラン加入が必要です。</p>
+                )}
                 {d.listingId && (
                   <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
                     eBayの出品を見る <ExternalLink size={13} />

@@ -71,10 +71,10 @@ export async function POST(req: Request) {
   const plan = await getPlan();
   const comp = isUnlimited(plan);
 
-  // eBay自動出品はプロMAX限定（＋身内/管理者）。UIでも隠すがサーバーでも弾く＝迂回防止。ユーザー指示2026-06-27。
-  // ※チーム出品(teamListing)はオーナーが出品権限を付与済み＝認可なのでプロMAXゲートはスキップ（オーナー名義で出品）。
+  // eBay自動出品は有料プラン（ライト以上）＋身内/管理者。UIでも隠すがサーバーでも弾く＝迂回防止。ユーザー指示2026-06-27（リリース監査）。
+  // ※チーム出品(teamListing)はオーナーが出品権限を付与済み＝認可なのでプラン判定はスキップ。
   if (!teamListing && !planCanAutoList(plan)) {
-    return Response.json({ ok: false, needsPlan: true, planNeeded: "promax", error: "eBay自動出品はプロMAXプラン限定です。" }, { status: 403 });
+    return Response.json({ ok: false, needsPlan: true, error: "eBay自動出品にはプランへのご加入が必要です。ライトは30日無料でお試しいただけます。" }, { status: 403 });
   }
 
   // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(出品者=アカウント)まで。既に出した本人は再出品OK(冪等)。

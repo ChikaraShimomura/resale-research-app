@@ -1,7 +1,7 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
-import { canAutoList } from "../../../lib/auth/plan";
+import { canDropship } from "../../../lib/auth/plan";
 import { fetchSourceAvailability } from "../../../lib/usedGallery";
 import { hasPerm, type TeamPerm } from "../../../lib/team";
 
@@ -66,11 +66,11 @@ export async function POST(req: Request) {
       } catch { /* noop */ }
 
       // ★在庫ありを「仕入れた」＝無在庫転売。基本は蹴る（カタログから消さない・記録しない）。ユーザー指示2026-06-27。
-      //   無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ許可し、その人の画面からのみ非表示にする。
+      //   無在庫はプロMAX限定(canDropship=プロMAX/身内/管理者)。通常の出品(canAutoList=ライト以上)とは別の上位ゲート。
       //   ⚠️ ゲートは「自分の一覧に・自分で」入れる時(actor===viewer)だけ。チーム買い付け(actor=owner)は
-      //   オーナーが権限付与済み＝認可なので対象外（無在庫の可否は出品時にオーナー/本人のプランで判定。publish と整合）。
-      //   ※ canAutoList() は viewer(セッション)のプランなので、actor===viewer の時だけ正しく一致する。
-      if (availability === "in-stock" && actor === viewer && !(await canAutoList())) {
+      //   オーナーが権限付与済み＝認可なので対象外（無在庫の可否は出品時に判定。publish と整合）。
+      //   ※ canDropship() は viewer(セッション)のプランなので、actor===viewer の時だけ正しく一致する。
+      if (availability === "in-stock" && actor === viewer && !(await canDropship())) {
         return Response.json({ ok: true, added: false, availability, needsPlan: true });
       }
 

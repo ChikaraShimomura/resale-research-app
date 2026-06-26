@@ -4,22 +4,24 @@ import { kv } from "@vercel/kv";
 import type { PlanId } from "./plans";
 
 // 有料プランごとの Stripe Price ID（Vercel env）。料金変更時はStripeで新Priceを作り env を差し替えるだけ。
-const PRICE_ENV: Record<"amateur" | "veteran" | "pro", string | undefined> = {
+// ⚠️ プロMAXを課金で出すには Vercel に STRIPE_PRICE_PROMAX を投入すること（未設定だと申込で 503）。
+const PAID_KEYS = ["amateur", "veteran", "pro", "promax"] as const;
+const PRICE_ENV: Record<(typeof PAID_KEYS)[number], string | undefined> = {
   amateur: process.env.STRIPE_PRICE_AMATEUR,
   veteran: process.env.STRIPE_PRICE_VETERAN,
   pro: process.env.STRIPE_PRICE_PRO,
+  promax: process.env.STRIPE_PRICE_PROMAX,
 };
 
 // planId → Price ID（Checkout作成用）。未設定なら null。
 export function priceIdFor(plan: PlanId): string | null {
-  if (plan === "amateur" || plan === "veteran" || plan === "pro") return PRICE_ENV[plan] || null;
-  return null;
+  return (PAID_KEYS as readonly string[]).includes(plan) ? PRICE_ENV[plan as (typeof PAID_KEYS)[number]] || null : null;
 }
 
 // Price ID → planId（Webhookで購読の中身からプランを判定する用）。
 export function planForPriceId(priceId: string | undefined | null): PlanId | null {
   if (!priceId) return null;
-  for (const p of ["amateur", "veteran", "pro"] as const) {
+  for (const p of PAID_KEYS) {
     if (PRICE_ENV[p] && PRICE_ENV[p] === priceId) return p;
   }
   return null;
