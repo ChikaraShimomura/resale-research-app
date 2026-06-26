@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
 // Item Specifics の初期値。Brand はジャンル別に別途整える。
 // 必須も推奨(任意)も「選択肢が多すぎる」ため、無難な既定を自動で入れておく（ユーザーは画面で変更可）。
 // 推奨項目を埋めると検索に出やすくなる(SEO)＋空のドロップダウンを潰せるので、選ぶ手間を減らせる。
-function defaultAspect(a: RequiredAspect): string {
+function defaultAspect(a: RequiredAspect, productText = ""): string {
   if (/brand/i.test(a.name)) return "Unbranded";
   // 型番(MPN)不明時の公式表記。必須MPNの未入力(#25002)ブロックを防ぐ。
   if (/^mpn$|manufacturer part/i.test(a.name)) return "Does Not Apply";
@@ -39,10 +39,48 @@ function defaultAspect(a: RequiredAspect): string {
     if (jp) return jp;
     if (a.values.length === 0) return "Japan";
   }
-  // 選択式は先頭候補を既定に（必須=未入力#25002回避／推奨=空ドロップダウンを減らす）。
-  // eBayの候補は概ね定番順なので先頭が無難。自由入力の推奨は推測が外れやすいので空のまま。
-  if (a.values.length > 0) return a.values[0];
+  if (a.values.length > 0) {
+    // ★商品テキスト(ブランド/型番/名前)に一致する候補を優先する。
+    //   これが無いと例えば Platform に先頭候補「3DO」が入る等、無関係な値が機械的に入って誤Item Specificsになる。
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const tn = norm(productText);
+    if (tn) {
+      const hit = a.values.find((v) => {
+        const vn = norm(v);
+        if (vn.length < 3) return false;
+        // 候補語が商品テキストに含まれる、or 候補の主要語(4文字以上)が含まれる。
+        return tn.includes(vn) || vn.split(" ").some((w) => w.length >= 4 && tn.includes(w));
+      });
+      if (hit) return hit;
+    }
+    // 一致が無ければ先頭候補（必須=未入力#25002回避）。eBay候補は概ね定番順なので先頭が無難。
+    return a.values[0];
+  }
   return "";
+}
+
+// ジャンル → eBayカテゴリ判定を正す検索ヒント。型番だけだと「Video Games」等に誤分類されるため、
+// カテゴリ候補クエリにジャンル語を足して正しいカテゴリ(コンソール/カメラ/時計…)へ寄せる。
+function categoryHint(cat: string | undefined): string {
+  switch (cat) {
+    case "ゲーム機": return "video game console";
+    case "カメラ": return "camera";
+    case "腕時計": return "wristwatch";
+    case "オーディオ": return "audio";
+    case "楽器": return "musical instrument";
+    default: return "";
+  }
+}
+// ジャンルの英語語（タイトル補強用。例: ゲーム機→Console）。
+function genreWord(cat: string | undefined): string {
+  switch (cat) {
+    case "ゲーム機": return "Console";
+    case "カメラ": return "Camera";
+    case "腕時計": return "Watch";
+    case "オーディオ": return "Audio";
+    case "楽器": return "Instrument";
+    default: return "";
+  }
 }
 
 // ブランド候補をジャンル別に最大3つへ絞り、タイトルから分かれば正しいブランドを既定にする。
@@ -259,7 +297,14 @@ export async function POST(req: Request) {
 
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
   // coreKeyword は eBay の alt 属性由来で &#34; 等のHTMLエンティティが残るので、出品文字列にする前に復号する。
-  const enTitle = decodeHtmlEntities(product.coreKeyword || product.title).slice(0, 80);
+  // ★中古はタイトルが「ブランド+型番」だけで貧弱になりがち→ジャンル語(Console/Camera…)と "Japan" を重複しない範囲で補強。
+  //   日本仕入れの正規品＝"Japan" は検索・信頼の両面で効くキーワード。80字以内に収める（ユーザーは画面で編集可）。
+  const baseTitle = decodeHtmlEntities(product.coreKeyword || product.title);
+  const gw = genreWord(product.category);
+  const titleParts = [baseTitle];
+  if (gw && !new RegExp(`\\b${gw}\\b`, "i").test(baseTitle)) titleParts.push(gw);
+  if (!/japan/i.test(baseTitle)) titleParts.push("Japan");
+  const enTitle = titleParts.join(" ").slice(0, 80).trim();
   // ★中古有在庫モデル：仕入れ元が中古サイト(ハードオフ/2nd ST)なら必ず中古。状態ランク(usedCondition)を段階反映。
   //   ジャンクは USED_ACCEPTABLE＋説明文で「for parts/not working」を明示。旧モデル(楽天新品)だけタイトル判定。
   const srcSite = product.source?.site as string | undefined;
@@ -298,8 +343,11 @@ export async function POST(req: Request) {
   // カテゴリ + 必須Item Specifics（Taxonomy）。アプリトークン優先、不可ならユーザートークン。
   // 送料サイズ（配送ポリシー）一覧も取得。
   const taxoToken = (await getAppAccessToken()) || token;
+  // カテゴリ判定用クエリ＝商品識別(ブランド+型番)＋ジャンルヒント。型番だけだと「Video Games」等へ誤分類するため、
+  // "video game console"等を足して正しいカテゴリ(コンソール/カメラ/時計…)へ寄せる＝誤Item Specifics(例:Platform=3DO)を断つ。
+  const categoryQuery = `${decodeHtmlEntities(product.coreKeyword || product.title)} ${categoryHint(product.category)}`.trim();
   const [cat, shipping, market] = await Promise.all([
-    getCategorySuggestion(taxoToken, enTitle, condition),
+    getCategorySuggestion(taxoToken, categoryQuery, condition),
     listFulfillmentPolicies(token),
     getComparableMarket(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD＋競合数（1回のBrowseで両方）
   ]);
@@ -318,6 +366,8 @@ export async function POST(req: Request) {
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 
+  // Item Specifics の既定を「商品テキスト一致」で埋めるための材料（ブランド/型番/名前）。
+  const productText = `${product.coreKeyword ?? ""} ${product.title ?? ""} ${(product as { name?: string }).name ?? ""}`.trim();
   let requiredAspects: { name: string; values: string[]; free: boolean; required: boolean; value: string }[] = [];
   if (cat?.categoryId) {
     const aspects = await getRequiredAspects(taxoToken, cat.categoryTreeId, cat.categoryId);
@@ -327,7 +377,7 @@ export async function POST(req: Request) {
         const b = brandFor(product.category, `${product.coreKeyword ?? ""} ${product.title ?? ""}`);
         return { ...a, values: b.options, free: false, value: b.value };
       }
-      return { ...a, value: defaultAspect(a) };
+      return { ...a, value: defaultAspect(a, productText) }; // 商品テキスト一致で誤った先頭候補(例:Platform=3DO)を回避
     });
   }
   // 製造国＝日本仕入れ前提。カテゴリが必須/推奨で返さなかった時も「Made in Japan」を既定項目として必ず出す
