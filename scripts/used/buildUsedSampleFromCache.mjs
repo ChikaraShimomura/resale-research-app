@@ -103,9 +103,17 @@ async function loadCategories() {
   console.log(`\n=== 利益候補 ${catalog.length}件（${scanned}カテゴリ走査）===`);
   catalog.slice(0, 12).forEach((c) => console.log(`  [${c.cat}/${c.condition || "中古"}] ${c.brand} ${c.name} 買¥${c.buyJpy}→売¥${c.ebayMedianJpy} 益¥${c.profitJpy}(${c.profitRate}%)`));
 
-  // KVへ。
-  await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(catalog) });
-  console.log(`💾 KV used_catalog に ${catalog.length}件 書込`);
+  // KVへ。既存の2nd ST候補は温存（buildはハードオフ候補を作るだけ・2nd STはPC専用フェッチなので上書きで消さない）。
+  let merged = catalog;
+  try {
+    const existing = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
+    const haveUrls = new Set(catalog.map((p) => p.hardoffUrl));
+    const keep2ndst = existing.filter((p) => p.site === "2ndstreet" && !haveUrls.has(p.hardoffUrl));
+    merged = [...catalog, ...keep2ndst];
+    if (keep2ndst.length) console.log(`  (2nd ST候補 ${keep2ndst.length}件を温存)`);
+  } catch { /* 既存取得失敗時はハードオフ分のみ */ }
+  await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(merged) });
+  console.log(`💾 KV used_catalog に ${merged.length}件 書込`);
 
   // 出品フロー用に psnap:{id} へ ProfitProduct を保存（prepare/publish が getProductById で引く）。TTL35日。
   // 中古の仕入れ先=ハードオフ、想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
