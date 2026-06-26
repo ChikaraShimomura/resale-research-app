@@ -46,9 +46,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const actor = await getActorId();
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   const hidden = await getHiddenCatalogKeys(actor);
-  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク(動作未確認)は除外＋本人が外した品は非表示。
+  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク除外＋本人が外した品は非表示＋利益率5%未満は非表示（薄利を出さない・ユーザー指示）。
   const items = (await getUsedCatalog())
-    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p)))
+    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)))
     .sort(SORTS[sort].cmp);
 
   return (

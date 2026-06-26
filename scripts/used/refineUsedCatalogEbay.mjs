@@ -92,7 +92,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   // ＝別型番混入や系列平均の誤った利益は排除しつつ、ブロックで取りこぼした商品は次回再確認できるよう温存。
   const before = catalog.length;
   const kept = catalog
-    .filter((p) => (p.ebayChecked ? (p.ebayConfirmed && p.profitJpy > 500) : true))
+    .filter((p) => (p.ebayChecked ? (p.ebayConfirmed && p.profitJpy > 500 && p.profitRate >= 5) : true))
     .sort((a, b) => (b.ebayConfirmed ? b.profitJpy : -1) - (a.ebayConfirmed ? a.profitJpy : -1));
   await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(kept) });
   // 出品フロー用 psnap も同一型番相場で更新。TTL35日。

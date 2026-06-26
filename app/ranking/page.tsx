@@ -44,8 +44,8 @@ export default async function RankingPage({
   // カタログと同じ品質バー：同一型番でeBay相場確定済み(ebayConfirmed)＋ジャンク除外のみを公開ランキングに出す
   //（未確定の「系列の目安」やジャンクの不確かな利益を公開面に出さない）。
   const items = (await getUsedCatalog())
-    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p)))
-    .slice(0, 30); // 中古の利益カタログ（純利益順）の上位
+    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)))
+    .slice(0, 30); // 中古の利益カタログ（純利益順）の上位（利益率5%未満は除外）
   // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
   const sp = await searchParams;
   const cameFromPricing = sp.from === "pricing";
