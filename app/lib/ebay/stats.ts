@@ -459,8 +459,10 @@ export interface MonthPoint {
 export interface Stats {
   soldCount: number;
   listedCount: number;
-  boughtOnHandJpy: number; // カタログで「仕入れた」が、まだ出品(deals)に入っていない在庫の仕入れ値合計(JPY)。二重計上回避でdeals分は除く
+  boughtOnHandJpy: number; // 「仕入れた」のうち未出品(deals未在籍)分の仕入れ値合計(JPY・送料込)。参考
   boughtOnHandCount: number; // 同・件数
+  boughtTotalJpy: number; // 「仕入れた商品(used_bought)」全件の仕入れ値合計(JPY・送料込)＝収支の仕入れ累計。/boughtと一致
+  boughtTotalCount: number; // 同・件数
   listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・楽天価格+国内送料)
   totalPurchase: number; // 仕入れ合計(JPY・売れたもの)
   totalSales: number; // 売上合計(JPY換算)
@@ -485,21 +487,27 @@ export async function getStats(actor: string): Promise<Stats> {
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
 
-  // カタログ「仕入れた」のうち、まだ出品(deals)に入っていない在庫の仕入れ累計。
-  // deals に入った時点で listedPurchase/totalPurchase で数えるので、ここでは deals に無いものだけ＝二重計上しない。
-  let boughtOnHandJpy = 0;
-  let boughtOnHandCount = 0;
+  // 「仕入れた商品(used_bought)」の合計＝収支の仕入れ累計（/bought と一致させる）。送料も含める（指定なければ一律1000）。
+  //  ★boughtTotalJpy = 仕入れ商品の総額（出品済みも含む全件）。これを収支の「仕入れ累計」に使う＝旧deals(楽天等)を巻き込まない。
+  //  boughtOnHandJpy = うち未出品分（参考・後方互換）。
+  let boughtOnHandJpy = 0, boughtOnHandCount = 0;
+  let boughtTotalJpy = 0, boughtTotalCount = 0;
   try {
-    // used_bought の値は「仕入れ値(number・旧)」または「スナップショット(ProfitProduct+buyJpy・新)」の両形式を許容。
-    const bought = (await kv.hgetall<Record<string, unknown>>(`used_bought:${actor}`)) ?? {};
-    for (const [id, v] of Object.entries(bought)) {
-      if (deals[id]) continue; // 既に出品/売却の台帳にある＝そちらで計上済み
-      const amt =
+    // used_bought 値は number(旧) or スナップショット(新)。送料は別ハッシュ used_ship:{id→円}（未設定は一律1000）。
+    const [bought, ship] = await Promise.all([
+      kv.hgetall<Record<string, unknown>>(`used_bought:${actor}`),
+      kv.hgetall<Record<string, number>>(`used_ship:${actor}`),
+    ]);
+    for (const [id, v] of Object.entries(bought ?? {})) {
+      const buy =
         typeof v === "number"
           ? v
           : Number((v as { buyJpy?: number })?.buyJpy) || Number((v as { source?: { price?: number } })?.source?.price) || 0;
-      boughtOnHandJpy += amt;
-      boughtOnHandCount += 1;
+      const sRaw = ship && ship[id] !== undefined ? Number(ship[id]) : 1000; // 送料：指定なければ一律1000円
+      const cost = buy + (Number.isFinite(sRaw) ? sRaw : 1000);
+      boughtTotalJpy += cost;
+      boughtTotalCount += 1;
+      if (!deals[id]) { boughtOnHandJpy += cost; boughtOnHandCount += 1; }
     }
   } catch {
     /* noop */
@@ -547,6 +555,8 @@ export async function getStats(actor: string): Promise<Stats> {
     listedCount: sold.length + live.length, // 実際に出品できたもの（出品中＋売却済み）。下書き等は含めない
     boughtOnHandJpy,
     boughtOnHandCount,
+    boughtTotalJpy,
+    boughtTotalCount,
     listedPurchase,
     totalPurchase,
     totalSales,

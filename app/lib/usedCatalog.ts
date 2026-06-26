@@ -133,22 +133,28 @@ export async function getHiddenCatalogKeys(actor: string | undefined | null): Pr
   }
 }
 
-// 「仕入れた」商品のスナップショット＝出品用 ProfitProduct ＋ 仕入れ値/仕入れ日。一覧表示＆eBay出品に使う。
-export type BoughtItem = ProfitProduct & { buyJpy?: number; boughtAt?: string };
+// 「仕入れた」商品のスナップショット＝出品用 ProfitProduct ＋ 仕入れ値/仕入れ日/送料。一覧表示＆eBay出品に使う。
+// shippingJpy は別ハッシュ used_ship:{actor} 由来（未設定は一律1000）。仕入れ原価＝buyJpy + shippingJpy。
+export type BoughtItem = ProfitProduct & { buyJpy?: number; boughtAt?: string; shippingJpy?: number };
+export const DEFAULT_SHIP_JPY = 1000; // 送料未設定時の一律値
 
 // このアクターが「仕入れた」品の一覧（新しい順）。値は /api/catalog/action が psnap から焼いたスナップショット。
 // ⚠️「仕入れ商品」ページ導入前に押した品は値が「仕入れ値の数値」だけ＝スナップショットが無い。
-//    その旧形式は psnap:{id}（出品用ProfitProduct）から再構成して必ず載せる（取りこぼさない）。
+//    その旧形式は psnap:{id}（出品用ProfitProduct）から再構成して必ず載せる（取りこぼさない）。送料は used_ship から付与。
 export async function getBoughtItems(actor: string | undefined | null): Promise<BoughtItem[]> {
   if (!actor) return [];
   try {
-    const map = await kvReadOnly.hgetall<Record<string, unknown>>(`used_bought:${actor}`);
+    const [map, ship] = await Promise.all([
+      kvReadOnly.hgetall<Record<string, unknown>>(`used_bought:${actor}`),
+      kvReadOnly.hgetall<Record<string, number>>(`used_ship:${actor}`),
+    ]);
     if (!map) return [];
+    const shipOf = (id: string) => (ship && ship[id] !== undefined ? Number(ship[id]) : DEFAULT_SHIP_JPY);
     const out: BoughtItem[] = [];
     const legacy: { id: string; buyJpy: number }[] = [];
     for (const [id, v] of Object.entries(map)) {
       if (v && typeof v === "object" && (v as BoughtItem).id && (v as BoughtItem).title) {
-        out.push(v as BoughtItem); // 新形式（スナップショット）
+        out.push({ ...(v as BoughtItem), shippingJpy: shipOf(id) }); // 新形式（スナップショット）
       } else {
         legacy.push({ id, buyJpy: typeof v === "number" ? v : 0 }); // 旧形式（数値だけ）→psnapで再構成
       }
@@ -158,7 +164,7 @@ export async function getBoughtItems(actor: string | undefined | null): Promise<
         legacy.map(async ({ id, buyJpy }) => {
           try {
             const snap = await kvReadOnly.get<ProfitProduct>(`psnap:${id}`);
-            if (snap && snap.id && snap.title) return { ...snap, buyJpy: buyJpy || snap.source?.price, boughtAt: "" } as BoughtItem;
+            if (snap && snap.id && snap.title) return { ...snap, buyJpy: buyJpy || snap.source?.price, boughtAt: "", shippingJpy: shipOf(id) } as BoughtItem;
           } catch { /* noop */ }
           return null;
         })

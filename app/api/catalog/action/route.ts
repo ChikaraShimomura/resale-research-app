@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });
   } catch { /* フェイルオープン */ }
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number; shippingJpy?: number };
   const productId = (body.productId || "").trim();
   if (!productId || productId.length > 256) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   // 仕入れ値は0〜1億円に丸めて保存（異常値で集計を壊さない）。未指定/不正は0（印は付くが金額なし）。
@@ -56,10 +56,18 @@ export async function POST(req: Request) {
       return Response.json({ ok: true });
     }
     if (body.action === "undo") {
-      // どちらの印も解除＝カタログに戻す。
+      // どちらの印も解除＝カタログに戻す。送料設定も消す。
       await kv.hdel(BOUGHT_KEY(actor), productId);
       await kv.srem(SKIP_KEY(actor), productId);
+      try { await kv.hdel(`used_ship:${actor}`, productId); } catch { /* noop */ }
       return Response.json({ ok: true });
+    }
+    if (body.action === "shipping") {
+      // 仕入れた商品の送料（円）を保存。未設定の品は集計時に一律1000円扱い。0〜10万に丸める。
+      const shippingJpy = Math.min(100000, Math.max(0, Math.round(Number(body.shippingJpy) || 0)));
+      await kv.hset(`used_ship:${actor}`, { [productId]: shippingJpy });
+      await kv.expire(`used_ship:${actor}`, BOUGHT_TTL);
+      return Response.json({ ok: true, shippingJpy });
     }
   } catch {
     return Response.json({ ok: false, error: "保存できませんでした。少し待ってお試しください。" }, { status: 503 });

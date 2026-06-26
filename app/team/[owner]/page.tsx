@@ -42,7 +42,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   else ownerEmail = (await getMyTeams(viewer || "")).find((t) => t.ownerActor === ownerActor)?.ownerEmail || "メンバー";
 
   const [items, s] = await Promise.all([getBoughtItems(ownerActor), getStats(ownerActor)]);
-  const totalBuy = s.boughtOnHandJpy + s.listedPurchase + s.totalPurchase;
+  const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝共有相手の仕入れ一覧と一致
   const netCash = s.totalSales - s.totalFees - totalBuy;
 
   return (

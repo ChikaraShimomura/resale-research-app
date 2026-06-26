@@ -6,6 +6,7 @@ import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
 import ListingHelper from "../components/ListingHelper";
 import RemoveBoughtButton from "../components/RemoveBoughtButton";
+import ShippingInput from "../components/ShippingInput";
 import type { ProfitProduct } from "../lib/profitFilter";
 
 export const dynamic = "force-dynamic"; // 自分の仕入れ商品は毎回最新で
@@ -103,6 +104,10 @@ export default async function BoughtPage() {
                     </div>
 
                     <div className="mt-2.5 space-y-2">
+                      {/* 送料（任意・未入力は一律¥1,000で集計）。原価＝仕入れ値＋送料＝収支の仕入れ累計に反映。 */}
+                      <div className="rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1.5">
+                        <ShippingInput productId={p.id} buyJpy={buyJpy} initial={p.shippingJpy ?? 1000} />
+                      </div>
                       {/* 仕入れ元と、eBay自動出品（仕入れ元の写真を取得して候補に入れる）。 */}
                       {p.source?.url && (
                         <a

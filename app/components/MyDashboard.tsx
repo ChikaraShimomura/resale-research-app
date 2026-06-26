@@ -12,6 +12,8 @@ interface Stats {
   listedCount: number;
   boughtOnHandJpy: number;
   boughtOnHandCount: number;
+  boughtTotalJpy: number;
+  boughtTotalCount: number;
   listedPurchase: number;
   totalPurchase: number;
   totalSales: number;
@@ -122,22 +124,21 @@ function Legend({ color, label, value, bold }: { color: string; label: string; v
   );
 }
 
-// 収支（仕入れ ↔ 売上）。カタログの「仕入れた」累計と、自動出品で売れた金額を合算した総合管理。
-// 仕入れ累計＝未出品の「仕入れた」在庫 ＋ 出品中の仕入れ ＋ 売却済みの仕入れ（dealsと重複しないよう集計済み）。
+// 収支（仕入れ ↔ 売上）。仕入れ累計＝「仕入れた商品(used_bought)」の合計（送料込・/boughtと一致）。
+// 売上＝自動出品で売れた金額。差引＝売上−手数料−仕入れ累計。旧モデル(楽天)のdealsは混ぜない。
 function UsedFinancePanel({ s }: { s: Stats }) {
-  const totalBuy = s.boughtOnHandJpy + s.listedPurchase + s.totalPurchase; // 仕入れ累計（全部）
-  const buyCount = s.boughtOnHandCount + s.listedCount; // 仕入れた件数（未出品＋出品済み）
+  const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝/boughtと一致
+  const buyCount = s.boughtTotalCount;
   const sales = s.totalSales; // 自動出品で売れた金額
   const netCash = sales - s.totalFees - totalBuy; // 差引（現金）。未売却在庫があるとマイナスになり得る
-  const outstanding = s.boughtOnHandJpy + s.listedPurchase; // まだ売れていない仕入れ
   if (totalBuy <= 0 && sales <= 0) return null;
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
       <p className="text-[13px] font-black text-gray-800 mb-1">収支（仕入れ ↔ 売上）</p>
-      <p className="text-[11px] text-gray-400 mb-3">「仕入れた」と、自動出品で売れた金額を合算</p>
+      <p className="text-[11px] text-gray-400 mb-3">仕入れた商品（送料込）と、自動出品で売れた金額</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] text-gray-500">仕入れ累計（{buyCount}件）</span>
+          <span className="text-[11px] text-gray-500">仕入れ累計（{buyCount}件・送料込）</span>
           <span className="text-[13px] font-bold text-gray-700 tabular-nums">− {yen(totalBuy)}</span>
         </div>
         <div className="flex items-center justify-between gap-2">
@@ -151,11 +152,7 @@ function UsedFinancePanel({ s }: { s: Stats }) {
           {signedYen(netCash)}
         </span>
       </div>
-      {outstanding > 0 && (
-        <p className="mt-1 text-[11px] text-gray-400 leading-relaxed">
-          うち<b className="text-gray-500">まだ売れていない仕入れ {yen(outstanding)}</b>。これが売れれば差引は改善します。
-        </p>
-      )}
+      <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">※ 送料は各商品の設定値（未設定は一律¥1,000）。在庫が売れると差引が改善します。</p>
     </div>
   );
 }
