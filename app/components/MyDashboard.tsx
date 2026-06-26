@@ -360,7 +360,7 @@ export default function MyDashboard() {
               稼いだ利益（累計・現金）
             </p>
             <p
-              className={`mt-1 text-4xl font-black tracking-tight ${loss ? "text-red-600" : "text-[#2D323B]"}`}
+              className={`mt-1 text-3xl font-black tracking-tight tabular-nums ${loss ? "text-red-600" : "text-[#2D323B]"}`}
               aria-label={`累計利益 ${loss ? "赤字 " : ""}${signedYen(s.totalProfit)}`}
             >
               {signedYen(s.totalProfit)}

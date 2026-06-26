@@ -148,22 +148,14 @@ export default function CatalogActionButtons({
         >
           <Check size={14} /> 仕入れた
         </button>
-        {/* 管理者は「これは無理」(カタログ全体の判断用)、他ユーザーは「非表示(無理と判断)」表記。動作は同じ＝そのユーザーに非表示。 */}
+        {/* 管理者は「これは無理」(カタログ全体の判断用)、他ユーザーは「非表示」。動作は同じ＝そのユーザーに非表示。
+            ※ 1行に統一（旧：小さな「(無理と判断)」を2行目に折り返していて見栄えが悪かった）。 */}
         <button
           onClick={() => post("skip")}
           disabled={busy !== null}
-          className="flex-1 inline-flex flex-col items-center justify-center gap-0 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50 leading-[1.05]"
+          className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50"
         >
-          {isAdmin ? (
-            <span className="inline-flex items-center gap-1">
-              <X size={13} /> これは無理
-            </span>
-          ) : (
-            <>
-              <span>非表示</span>
-              <span className="text-[8px] font-normal text-gray-400">（無理と判断）</span>
-            </>
-          )}
+          <X size={13} /> {isAdmin ? "これは無理" : "非表示"}
         </button>
         {/* 共有＝この商品のリンクを共有シート/コピーで送る（仲間・チームに教える）。 */}
         <button

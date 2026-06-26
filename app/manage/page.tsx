@@ -221,8 +221,8 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
                 {canList ? (
                   <ListingHelper product={p as ProfitProduct} />
                 ) : (
-                  <Link href="/pricing?from=manage" className="flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]">
-                    <Lock size={14} className="text-[#A98B5C]" /> eBay自動出品はプラン加入で使えます → プランを見る
+                  <Link href="/pricing?from=manage" className="flex items-center justify-center gap-1.5 h-11 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]">
+                    <Lock size={14} className="text-[#A98B5C]" /> プラン加入でeBay自動出品
                   </Link>
                 )}
                 {/* 「一覧から外す」と「仕入れ元で見る」を小さく横並び（ユーザー指示2026-06-27）。 */}

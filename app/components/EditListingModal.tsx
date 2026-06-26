@@ -257,9 +257,16 @@ export default function EditListingModal({
                     <button
                       onClick={() => toggleShip("paid")}
                       disabled={shipBusy}
-                      className="w-full h-10 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full min-h-[44px] py-1.5 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex flex-col items-center justify-center leading-tight"
                     >
-                      {shipBusy ? <><Spinner size={14} /> 切替中…</> : `送料別に戻す${ship.unfoldUsd > 0 ? `（価格 −$${ship.unfoldUsd.toFixed(2)}）` : ""}`}
+                      {shipBusy ? (
+                        <span className="inline-flex items-center gap-2"><Spinner size={14} /> 切替中…</span>
+                      ) : (
+                        <>
+                          <span>送料別に戻す</span>
+                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums">価格 −${ship.unfoldUsd.toFixed(2)}</span>}
+                        </>
+                      )}
                     </button>
                   </>
                 ) : (
@@ -268,9 +275,16 @@ export default function EditListingModal({
                     <button
                       onClick={() => toggleShip("free")}
                       disabled={shipBusy || !ship.canFree}
-                      className="w-full h-10 rounded-lg bg-violet-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full min-h-[44px] py-1.5 rounded-lg bg-violet-500 text-white text-sm font-bold disabled:opacity-50 flex flex-col items-center justify-center leading-tight"
                     >
-                      {shipBusy ? <><Spinner size={14} /> 切替中…</> : `送料込み（送料無料）に切替${ship.foldUsd > 0 ? `（価格 +$${ship.foldUsd.toFixed(2)}）` : ""}`}
+                      {shipBusy ? (
+                        <span className="inline-flex items-center gap-2"><Spinner size={14} /> 切替中…</span>
+                      ) : (
+                        <>
+                          <span>送料込み（送料無料）に切替</span>
+                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums">価格 +${ship.foldUsd.toFixed(2)}</span>}
+                        </>
+                      )}
                     </button>
                     {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed">※eBayに「送料無料」の配送ポリシーが必要（eBayで一度作れば切替可）。</p>}
                   </>

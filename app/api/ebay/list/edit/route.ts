@@ -86,13 +86,13 @@ export async function POST(req: Request) {
     if (body.shipMode === "free") {
       if (!free) return Response.json({ ok: false, error: "eBayに『送料無料』の配送ポリシーがありません。eBayで送料無料ポリシーを1つ作成すると切替できます。" });
       if (curIsFree) return Response.json({ ok: true, already: true, mode: "free" }); // 既に送料込み
-      newPrice = (curPrice + Number(cur?.costUsd || 0)).toFixed(2); // 現在の送料を価格に上乗せ
+      newPrice = (Math.round((curPrice + Number(cur?.costUsd || 0)) * 100) / 100).toFixed(2); // 現在の送料を価格に上乗せ（円未満の浮動小数誤差を防ぐためセント丸め）
       newPolicyId = free.fulfillmentPolicyId;
     } else {
       if (curIsFree === false) return Response.json({ ok: true, already: true, mode: "paid" }); // 既に送料別
       const target = paid[0]; // 最安の有料送料に戻す
       if (!target) return Response.json({ ok: false, error: "有料の配送ポリシーがありません。" });
-      newPrice = Math.max(0.01, curPrice - Number(target.costUsd)).toFixed(2); // 上乗せ分を価格から引く
+      newPrice = Math.max(0.01, Math.round((curPrice - Number(target.costUsd)) * 100) / 100).toFixed(2); // 上乗せ分を価格から引く（セント丸め）
       newPolicyId = target.fulfillmentPolicyId;
     }
     const sr = await updateOfferShipping(token, offer.offerId, { priceUsd: newPrice, fulfillmentPolicyId: newPolicyId });

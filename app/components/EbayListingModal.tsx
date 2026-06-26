@@ -736,7 +736,7 @@ export default function EbayListingModal({
                     type="button"
                     onClick={() => chooseStrategy("breakeven")}
                     aria-pressed={strategy === "breakeven"}
-                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                    className={`flex flex-col items-center justify-center h-12 rounded-xl border transition-colors ${
                       strategy === "breakeven" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
@@ -747,7 +747,7 @@ export default function EbayListingModal({
                     type="button"
                     onClick={() => chooseStrategy("custom")}
                     aria-pressed={strategy === "custom"}
-                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                    className={`flex flex-col items-center justify-center h-12 rounded-xl border transition-colors ${
                       strategy === "custom" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
@@ -761,7 +761,7 @@ export default function EbayListingModal({
                     type="button"
                     onClick={() => chooseStrategy("low")}
                     aria-pressed={strategy === "low"}
-                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                    className={`flex flex-col items-center justify-center h-12 rounded-xl border transition-colors ${
                       strategy === "low" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
@@ -772,7 +772,7 @@ export default function EbayListingModal({
                     type="button"
                     onClick={() => chooseStrategy("median")}
                     aria-pressed={strategy === "median"}
-                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                    className={`flex flex-col items-center justify-center h-12 rounded-xl border transition-colors ${
                       strategy === "median" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
@@ -783,7 +783,7 @@ export default function EbayListingModal({
                     type="button"
                     onClick={() => chooseStrategy("high")}
                     aria-pressed={strategy === "high"}
-                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                    className={`flex flex-col items-center justify-center h-12 rounded-xl border transition-colors ${
                       strategy === "high" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
@@ -946,19 +946,20 @@ export default function EbayListingModal({
 
               {/* 送料サイズ（アプリが重さ・価格から最適サイズを自動選択。実費カバーを明示） */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）<OptBadge /><span className="ml-1 text-[9px] text-gray-400">最適サイズを自動選択</span></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">送料（荷物のサイズ）<OptBadge /></label>
                 {data.shipping.length > 0 ? (
                   <>
                     {recoChoice && (
                       <div className={`rounded-xl px-3 py-2 mb-1.5 text-[11px] leading-relaxed border ${recoCovers ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
-                        📦 この商品の最適サイズ：<b className="text-gray-800">{shippingLabel(recoChoice.name)}</b>
-                        （{liveLanded?.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット"}・約{effWeightG}g）<br />
-                        設定送料 <b>${recoChoice.costUsd}</b> ／ 実費の目安 {formatJpy(recoRealJpy)}
-                        {recoCovers ? (
-                          <b className="text-emerald-700"> → ✅ カバーできています（赤字になりません）</b>
-                        ) : (
-                          <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心）</b>
-                        )}
+                        <div>📦 この商品の最適サイズ：<b className="text-gray-800">{shippingLabel(recoChoice.name)}</b>（{liveLanded?.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット"}・約{effWeightG}g）</div>
+                        <div className="mt-0.5">
+                          設定送料 <b className="whitespace-nowrap">${recoChoice.costUsd}</b> ／ 実費の目安 <span className="whitespace-nowrap">{formatJpy(recoRealJpy)}</span>
+                          {recoCovers ? (
+                            <b className="text-emerald-700"> → ✅ カバーできています（赤字になりません）</b>
+                          ) : (
+                            <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心）</b>
+                          )}
+                        </div>
                       </div>
                     )}
                     <select
@@ -1128,8 +1129,8 @@ export default function EbayListingModal({
               <div className="py-10 flex flex-col items-center justify-center gap-4 text-center">
                 <span className="w-8 h-8 border-[3px] border-[#A98B5C]/35 border-t-[#0064D2] rounded-full animate-spin" aria-hidden="true" />
                 <p className="text-sm text-gray-500" role="status" aria-live="polite">
-                  eBayに出品中...（10〜20秒ほど）<br />
-                  <span className="text-[12px] text-gray-400">この画面は閉じないで</span>
+                  eBayに出品中...（10〜20秒ほど）
+                  <span className="block text-[12px] text-gray-400">この画面は閉じないで</span>
                 </p>
                 <ol className="w-full max-w-[260px] space-y-1.5 text-left">
                   {steps.map((s, i) => {
