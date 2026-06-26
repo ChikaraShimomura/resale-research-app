@@ -1,0 +1,36 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
+
+// 「仕入れ商品」一覧から外す（仕入れ印を取り消し＝undo）。誤って仕入れたを押した時や、出品し終えた時に使う。
+export default function RemoveBoughtButton({ productId }: { productId: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/catalog/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "undo", productId }),
+      }).then((r) => r.json());
+      if (res.ok) router.refresh();
+      else setBusy(false);
+    } catch {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={remove}
+      disabled={busy}
+      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50"
+    >
+      <X size={12} /> 一覧から外す
+    </button>
+  );
+}

@@ -1,15 +1,16 @@
 "use client";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Flame, User } from "lucide-react";
+import { Home, Flame, ShoppingBag, User } from "lucide-react";
 import Spinner from "./Spinner";
 
-// 会員制・中古カタログの3タブ：ホーム → 利益カタログ(中古の儲かる型番) → マイページ。
+// 会員制・中古カタログの4タブ：ホーム → 利益カタログ(探す) → 仕入れ商品(仕入れた品をeBay出品) → マイページ。
 // ※ランキングは「いったん不要」(ユーザー指示2026-06-26)で外した。出品管理/発送/育成も非表示(研究ツール化)。
 const NAV_ITEMS = [
-  { href: "/",        Icon: Home,  label: "ホーム",     match: (p: string) => p === "/" },
-  { href: "/catalog", Icon: Flame, label: "利益カタログ", match: (p: string) => p.startsWith("/catalog") },
-  { href: "/mypage",  Icon: User,  label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
+  { href: "/",        Icon: Home,        label: "ホーム",     match: (p: string) => p === "/" },
+  { href: "/catalog", Icon: Flame,       label: "利益カタログ", match: (p: string) => p.startsWith("/catalog") },
+  { href: "/bought",  Icon: ShoppingBag, label: "仕入れ商品",  match: (p: string) => p.startsWith("/bought") },
+  { href: "/mypage",  Icon: User,        label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
 ] as const;
 
 // Link の子として描画し、その Link の遷移中(pending)はアイコンの代わりにグルグルを出す（タブ切替の待ち時間を可視化）。

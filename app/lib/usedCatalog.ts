@@ -130,6 +130,24 @@ export async function getHiddenCatalogKeys(actor: string | undefined | null): Pr
   }
 }
 
+// 「仕入れた」商品のスナップショット＝出品用 ProfitProduct ＋ 仕入れ値/仕入れ日。一覧表示＆eBay出品に使う。
+export type BoughtItem = ProfitProduct & { buyJpy?: number; boughtAt?: string };
+
+// このアクターが「仕入れた」品の一覧（新しい順）。値は /api/catalog/action が psnap から焼いたスナップショット。
+// 旧形式（数値だけ・スナップショット無し）はカードを描けないので除外する。
+export async function getBoughtItems(actor: string | undefined | null): Promise<BoughtItem[]> {
+  if (!actor) return [];
+  try {
+    const map = await kvReadOnly.hgetall<Record<string, BoughtItem>>(`used_bought:${actor}`);
+    if (!map) return [];
+    return Object.values(map)
+      .filter((x): x is BoughtItem => !!x && typeof x === "object" && !!x.id && !!x.title)
+      .sort((a, b) => String(b.boughtAt || "").localeCompare(String(a.boughtAt || "")));
+  } catch {
+    return [];
+  }
+}
+
 // KVから中古カタログを読む（読み取り専用トークン）。型番DB＝中古はモデル単位で見る。
 export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
   try {

@@ -490,10 +490,15 @@ export async function getStats(actor: string): Promise<Stats> {
   let boughtOnHandJpy = 0;
   let boughtOnHandCount = 0;
   try {
-    const bought = (await kv.hgetall<Record<string, number>>(`used_bought:${actor}`)) ?? {};
-    for (const [id, amt] of Object.entries(bought)) {
+    // used_bought の値は「仕入れ値(number・旧)」または「スナップショット(ProfitProduct+buyJpy・新)」の両形式を許容。
+    const bought = (await kv.hgetall<Record<string, unknown>>(`used_bought:${actor}`)) ?? {};
+    for (const [id, v] of Object.entries(bought)) {
       if (deals[id]) continue; // 既に出品/売却の台帳にある＝そちらで計上済み
-      boughtOnHandJpy += Number(amt) || 0;
+      const amt =
+        typeof v === "number"
+          ? v
+          : Number((v as { buyJpy?: number })?.buyJpy) || Number((v as { source?: { price?: number } })?.source?.price) || 0;
+      boughtOnHandJpy += amt;
       boughtOnHandCount += 1;
     }
   } catch {

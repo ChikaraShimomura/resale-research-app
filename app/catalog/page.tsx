@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk, sourceSiteName, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, isJunk, sourceSiteName, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
-import ListingHelper from "../components/ListingHelper";
 import CatalogActionButtons from "../components/CatalogActionButtons";
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
@@ -205,9 +204,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             eBay落札を確認 <ExternalLink size={14} />
                           </a>
                         </div>
-                        {/* 自分でeBayへ自動出品（仕入れて実物写真に差し替えてから出すのが前提）。実データは psnap:{id} を prepare が読む。 */}
-                        <ListingHelper product={toListingProduct(p)} />
-                        {/* triage：仕入れたら / 無理なら 印を付けて一覧から外す（per-actor）。1点物なので「仕入れた」は実質売り切れ印。仕入れ値は収支の累計に乗る。 */}
+                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。 */}
                         <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} />
                       </div>
                     ) : (

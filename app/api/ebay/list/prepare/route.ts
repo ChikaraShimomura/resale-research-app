@@ -14,6 +14,7 @@ import {
 } from "../../../../lib/ebay/listing";
 import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
+import { fetchHardoffGallery } from "../../../../lib/usedGallery";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -295,6 +296,17 @@ export async function POST(req: Request) {
     if (ref?.status === "done" && Array.isArray(ref.urls)) refImages = ref.urls.slice(0, 24);
   } catch {
     /* noop */
+  }
+  // 中古(ハードオフ)はAkamai無し＝ここ(Vercel)から詳細ページの全画像(JSON-LD・1280px)を取りに行ける。
+  // ref_gallery 未取得なら取得して候補に充当＋ref_galleryに焼く（次回以降は再取得不要）。非ハードオフURLは[]で素通り。
+  if (!refImages.length && product.source?.url) {
+    try {
+      const g = await fetchHardoffGallery(product.source.url);
+      if (g.length) {
+        refImages = g;
+        try { await kv.set(`ref_gallery:${productId}`, { status: "done", urls: g }, { ex: 30 * 24 * 3600 }); } catch { /* noop */ }
+      }
+    } catch { /* noop */ }
   }
   const productImages = (product.images?.length ? product.images : [product.imageUrl]).filter(Boolean);
 

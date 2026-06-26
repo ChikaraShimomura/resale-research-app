@@ -34,10 +34,19 @@ export async function POST(req: Request) {
 
   try {
     if (body.action === "bought") {
-      // 仕入れた＝スキップとは排他。仕入れハッシュへ金額付きで入れ、スキップ集合からは外す。
-      await kv.hset(BOUGHT_KEY(actor), { [productId]: buyJpy });
+      // 仕入れた＝スキップとは排他。「仕入れ商品一覧」で出品できるよう、psnap(出品用ProfitProduct)のスナップショットを丸ごと保存。
+      // 金額(buyJpy)は finance(getStats) 用に上位にも持つ。psnap が無い古い品はクライアント送信の buyJpy で最小記録。
+      let snap = null;
+      try { snap = await kv.get(`psnap:${productId}`); } catch { /* noop */ }
+      const item =
+        snap && typeof snap === "object"
+          ? { ...(snap as Record<string, unknown>), buyJpy: Number((snap as { source?: { price?: number } }).source?.price) || buyJpy, boughtAt: new Date().toISOString() }
+          : { id: productId, buyJpy, boughtAt: new Date().toISOString() };
+      await kv.hset(BOUGHT_KEY(actor), { [productId]: item });
       await kv.srem(SKIP_KEY(actor), productId);
       await kv.expire(BOUGHT_KEY(actor), BOUGHT_TTL);
+      // 出品は後日でも動くよう psnap を仕入れTTLまで延命（既定TTL35日で失効すると prepare が引けなくなるため）。
+      if (snap && typeof snap === "object") { try { await kv.set(`psnap:${productId}`, snap, { ex: BOUGHT_TTL }); } catch { /* noop */ } }
       return Response.json({ ok: true });
     }
     if (body.action === "skip") {

@@ -42,7 +42,7 @@ export default function CatalogActionButtons({ productId, buyJpy }: { productId:
     return (
       <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
         <span className="text-[11px] font-bold text-gray-600">
-          {done === "bought" ? "✓ 仕入れたに記録（次回から非表示）" : "非表示にしました（次回から表示されません）"}
+          {done === "bought" ? "✓「仕入れ商品」に追加しました" : "非表示にしました（次回から表示されません）"}
         </span>
         <button
           onClick={() => post("undo")}
