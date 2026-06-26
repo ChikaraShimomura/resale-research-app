@@ -55,30 +55,6 @@ export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: str
   return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
 }
 
-// 中古カタログ品 → eBay自動出品フロー(ListingHelper/EbayListingModal)に渡す ProfitProduct へ変換。
-// 実データは build が psnap:{id} に書いておくので、prepare/publish は productId(=id) でそれを引いて出品する。
-// ここで返すのはモーダル初期表示＋ id の橋渡し用（軽量）。仕入れ先は中古サイト、想定売値=eBay落札中央値。
-export function toListingProduct(p: UsedCatalogItem): ProfitProduct {
-  const siteName = p.site === "2ndstreet" ? "2nd STREET" : "ハードオフ";
-  return {
-    id: p.id || p.hardoffUrl,
-    title: `${p.brand} ${p.name}`.trim(),
-    imageUrl: p.imageUrl,
-    images: p.imageUrl ? [p.imageUrl] : [],
-    category: p.cat || "腕時計",
-    coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(),
-    realAvgPrice: p.ebayMedianJpy,
-    realMedianPrice: p.ebayMedianJpy,
-    realProfit: p.profitJpy,
-    realProfitRate: p.profitRate,
-    realCount: p.soldCount || 1,
-    soldBased: !!p.ebayConfirmed,
-    soldCount30d: p.soldCount,
-    usedCondition: p.condition, // 状態ランク→prepareでeBay condition段階に反映
-    source: { site: p.site, siteName, price: p.buyJpy, url: p.hardoffUrl },
-  } as unknown as ProfitProduct;
-}
-
 // 仕入れ元サイトの表示名。site値("hardoff"/"2ndstreet")→ユーザー向け名称。新サイト追加時はここに足す。
 export function sourceSiteName(site: string | undefined | null): string {
   switch (site) {

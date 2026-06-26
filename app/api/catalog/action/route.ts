@@ -66,9 +66,11 @@ export async function POST(req: Request) {
       } catch { /* noop */ }
 
       // ★在庫ありを「仕入れた」＝無在庫転売。基本は蹴る（カタログから消さない・記録しない）。ユーザー指示2026-06-27。
-      //   無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ許可し、その人(またはチーム)の画面からのみ非表示にする
-      //   （used_bought は per-actor なので global カタログは元から無傷＝「その人の画面からだけ見えなくする」を満たす）。
-      if (availability === "in-stock" && !(await canAutoList())) {
+      //   無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ許可し、その人の画面からのみ非表示にする。
+      //   ⚠️ ゲートは「自分の一覧に・自分で」入れる時(actor===viewer)だけ。チーム買い付け(actor=owner)は
+      //   オーナーが権限付与済み＝認可なので対象外（無在庫の可否は出品時にオーナー/本人のプランで判定。publish と整合）。
+      //   ※ canAutoList() は viewer(セッション)のプランなので、actor===viewer の時だけ正しく一致する。
+      if (availability === "in-stock" && actor === viewer && !(await canAutoList())) {
         return Response.json({ ok: true, added: false, availability, needsPlan: true });
       }
 
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
       return Response.json({ ok: true, shippingJpy });
     }
     if (body.action === "fav") {
-      // ♡お気に入りに追加（個人ブックマーク）。psnapスナップショットを丸ごと保存し /favorites で表示。
+      // ♡お気に入りに追加（個人ブックマーク）。psnapスナップショットを丸ごと保存し /manage?tab=fav で表示。
       // カタログからは隠さない（仕入れた/skipと違い triage ではない）。
       let snap = null;
       try { snap = await kv.get(`psnap:${productId}`); } catch { /* noop */ }

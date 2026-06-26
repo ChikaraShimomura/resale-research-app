@@ -79,7 +79,7 @@ deals(                          -- 利益台帳(永続・ebay_deals の移行先
 5. eBay連携は account に紐付け（callback で `ebay_user_id` を保存。重複連携検知）。
 
 ## 5. ダッシュボード強化（認証後に可能）
-既存(totalProfit/称号)に加えて:
+既存(totalProfit/月別・年別の収支推移)に加えて:
 - 端末跨ぎ合算 / 月別・週別の利益タイムライン / 商品別損益明細 / 「早く売れた順」(avgDaysToSell は Insights 承認後)。
 
 ## 6. 実装フェーズ

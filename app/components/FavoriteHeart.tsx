@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 
-// 利益カタログ各カード右上の♡。押すとお気に入り(used_fav)に登録/解除（per-actor）。/favorites に一覧表示される。
+// 利益カタログ各カード右上の♡。押すとお気に入り(used_fav)に登録/解除（per-actor）。/manage?tab=fav に一覧表示される。
 // カタログからは消えない（仕入れた/非表示と違い triage ではなく、後で見返すブックマーク）。
 // className で配置を上書き可（既定はカード角の絶対配置／カラム内に置く時は className を渡す）。
 export default function FavoriteHeart({

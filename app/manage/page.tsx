@@ -33,7 +33,8 @@ function priceTiers(medianJpy: number, costJpy: number) {
   const floor = floorJpy / USD_JPY;
   const median = medianJpy > 0 ? medianJpy / USD_JPY : 0;
   return {
-    breakeven: Math.max(0.01, floor),
+    // 原価が分からない(0)時は ±0 もボタン無効化（near-free 価格の誤送信を防ぐ）。
+    breakeven: costJpy > 0 ? Math.max(0.01, floor) : 0,
     low: median > 0 ? Math.max(floor, median * 0.9) : 0,
     median: median > 0 ? Math.max(floor, median) : 0,
     high: median > 0 ? Math.max(floor, median * 1.1) : 0,
@@ -54,20 +55,26 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     canAutoList(),
     getCurrentUserEmail().then((e) => isAdmin(e)),
   ]);
-  const live = deals.live;
-  const liveIds = new Set(live.map((d) => d.id));
-  // 仕入れ商品＝「仕入れた」のうち、まだ出品中になっていないもの（出品したら出品中タブへ移る）。
-  const boughtNotListed = boughtItems.filter((p) => !liveIds.has(p.id));
-  const counts = { fav: favItems.length, bought: boughtNotListed.length, listed: live.length };
+  // 出品関連の全deal（出品中＋停止中＋過去）。停止/過去も「出品済み」なので仕入れ商品(未出品)からは必ず外す
+  //   ＝出品済みなのに未出品扱いで二重出品するのを防ぐ。停止/過去はバッジ付きで出品中タブに表示して到達可能にする。
+  const listedAll = [
+    ...deals.live.map((d) => ({ ...d, _status: "live" as const })),
+    ...deals.stopped.map((d) => ({ ...d, _status: "stopped" as const })),
+    ...deals.archived.map((d) => ({ ...d, _status: "archived" as const })),
+  ];
+  const listedIds = new Set(listedAll.map((d) => d.id));
+  // 仕入れ商品＝「仕入れた」のうち、まだ一度も出品していないもの（出品/停止/過去はすべて出品中タブへ）。
+  const boughtNotListed = boughtItems.filter((p) => !listedIds.has(p.id));
+  const counts = { fav: favItems.length, bought: boughtNotListed.length, listed: listedAll.length };
 
-  // 出品中タブのみ：価格変更ボタン用に psnap(相場) を引いて4段を算出。
-  let tiersById: Record<string, ReturnType<typeof priceTiers>> = {};
-  if (tab === "listed" && live.length) {
+  // 出品中タブのみ：価格変更ボタン用に psnap(相場) を引いて4段を算出。価格編集は「出品中(live)」だけ＝停止/過去は除く。
+  const tiersById: Record<string, ReturnType<typeof priceTiers>> = {};
+  if (tab === "listed" && deals.live.length) {
     try {
-      const snaps = (await kvReadOnly.mget(...live.map((d) => `psnap:${d.id}`))) as (
+      const snaps = (await kvReadOnly.mget(...deals.live.map((d) => `psnap:${d.id}`))) as (
         { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } } | null
       )[];
-      live.forEach((d, i) => {
+      deals.live.forEach((d, i) => {
         const s = snaps[i];
         const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
         const costJpy = d.purchase || Number(s?.source?.price) || 0;
@@ -99,7 +106,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab live={live} tiersById={tiersById} />
+          <ListedTab items={listedAll} tiersById={tiersById} />
         )}
       </main>
 
@@ -212,24 +219,31 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
   );
 }
 
-// ── 出品中の商品 ────────────────────────────────────────────
-function ListedTab({ live, tiersById }: { live: Awaited<ReturnType<typeof listDealsForUser>>["live"]; tiersById: Record<string, ReturnType<typeof priceTiers>> }) {
-  if (live.length === 0) {
+// ── 出品中の商品（出品中＋停止中＋過去） ──────────────────────
+type ListedItem = Awaited<ReturnType<typeof listDealsForUser>>["live"][number] & { _status: "live" | "stopped" | "archived" };
+const STATUS_BADGE: Record<ListedItem["_status"], { label: string; cls: string }> = {
+  live: { label: "出品中", cls: "bg-[#0064D2]/10 text-[#0064D2] border-[#0064D2]/20" },
+  stopped: { label: "停止中", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  archived: { label: "過去の出品", cls: "bg-gray-100 text-gray-500 border-gray-200" },
+};
+function ListedTab({ items, tiersById }: { items: ListedItem[]; tiersById: Record<string, ReturnType<typeof priceTiers>> }) {
+  if (items.length === 0) {
     return (
       <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />
     );
   }
   return (
     <ol className="space-y-2.5">
-      {live.map((d, i) => {
-        const tiers = tiersById[d.id];
+      {items.map((d, i) => {
+        const tiers = d._status === "live" ? tiersById[d.id] : undefined; // 価格編集は出品中(live)のみ
+        const badge = STATUS_BADGE[d._status];
         return (
           <li key={`${d.id}-${i}`}>
             <div className="relative bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
               <div className="flex items-start gap-3">
                 <Thumb src={d.imageUrl} />
                 <div className="flex-1 min-w-0">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0064D2]/10 text-[#0064D2] border border-[#0064D2]/20 mb-1">出品中</span>
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border mb-1 ${badge.cls}`}>{badge.label}</span>
                   <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
                   <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
                   {d.sourceStatus && (

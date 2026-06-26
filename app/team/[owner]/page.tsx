@@ -119,6 +119,9 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                 {(netCash < 0 ? "− " : "") + "¥" + Math.abs(Math.round(netCash)).toLocaleString("ja-JP")}
               </span>
             </div>
+            {!shared && (
+              <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 個別モードでは各メンバーの売上は各自のeBayアカウントに計上され、この収支（オーナー分）には含まれません。</p>
+            )}
           </section>
         )}
 
