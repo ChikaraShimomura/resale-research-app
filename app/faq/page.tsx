@@ -67,8 +67,8 @@ export default function FaqPage() {
           <p className="text-[12px] text-gray-400">※ 設定ページの「ご契約の管理・解約について」からも同じ手続き可。</p>
         </QA>
 
-        <QA q="楽天やeBayの費用も料金に含まれますか？">
-          <p>いいえ。利用料に含まれるのはツールの利用権のみ。楽天の仕入れ費用、eBayの販売手数料・送料・関税などは利用者のご負担です。</p>
+        <QA q="仕入れやeBayの費用も料金に含まれますか？">
+          <p>いいえ。利用料に含まれるのはツールの利用権のみ。中古品の仕入れ費用（中古サイト等）、eBayの販売手数料・送料・関税などは利用者のご負担です。</p>
         </QA>
 
         <div className="pt-3 flex items-center justify-center gap-3 flex-wrap">

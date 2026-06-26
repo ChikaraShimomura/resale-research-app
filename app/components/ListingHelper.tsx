@@ -68,7 +68,7 @@ export default function ListingHelper({ product, autoOpen = false, defaultListed
     return (
       <div className="flex-1">
         <a
-          href="/listings"
+          href="/manage?tab=listed"
           className="w-full inline-flex items-center justify-center gap-1 h-12 whitespace-nowrap text-[13px] font-bold rounded-xl bg-gray-100 text-gray-500 border border-[#A98B5C]/35 active:bg-gray-200"
         >
           <Check size={14} /> 出品済み・管理を見る

@@ -253,20 +253,23 @@ export default function TeamManager({
                     <Trash2 size={12} /> 外す
                   </button>
                 </div>
-                {/* 権限（どちらの方式でも有効。仕入れ/出品/削除/収支/送料/非表示/管理を個別に付与） */}
+                {/* 権限（どちらの方式でも有効。仕入れ/出品/削除/収支/送料/非表示を個別に付与）。
+                    ※「チーム管理(manage)」の委譲（メンバーが代理で招待/除名）は未配線のため、誤解を避けて近日対応とし無効化。 */}
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {PERM_LABELS.map(({ key, label }) => {
                     const on = m.perms.includes(key);
+                    const soon = key === "manage"; // 委譲が未実装＝飾りトグルにしない
                     return (
                       <button
                         key={key}
-                        onClick={() => togglePerm(m.actor, key, m.perms)}
-                        disabled={actBusy === `perm:${m.actor}`}
+                        onClick={() => { if (!soon) togglePerm(m.actor, key, m.perms); }}
+                        disabled={soon || actBusy === `perm:${m.actor}`}
+                        title={soon ? "招待・除名の委譲は近日対応です（現在はオーナーのみ）" : undefined}
                         className={`h-7 px-2 rounded-full text-[11px] font-bold border disabled:opacity-50 ${
-                          on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"
+                          soon ? "bg-gray-50 text-gray-400 border-gray-200" : on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"
                         }`}
                       >
-                        {on ? "✓ " : ""}{label}
+                        {soon ? `${label}（近日）` : `${on ? "✓ " : ""}${label}`}
                       </button>
                     );
                   })}

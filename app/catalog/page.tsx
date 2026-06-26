@@ -10,6 +10,7 @@ import { hasPerm, getTeamName } from "../lib/team";
 import BottomNav from "../components/BottomNav";
 import CatalogActionButtons from "../components/CatalogActionButtons";
 import FavoriteHeart from "../components/FavoriteHeart";
+import RemoteThumb from "../components/RemoteThumb";
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
 
@@ -171,17 +172,12 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                 <li key={`${p.modelKey}-${i}`}>
                   <div className="relative bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
                     <div className="flex items-start gap-3">
-                      {p.imageUrl && !locked ? (
-                        // 仕入れ元の画像はリンク参照（再ホストしない・ホットリンク）。
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.imageUrl}
-                          alt=""
-                          className="w-16 h-16 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
-                      )}
+                      {/* 仕入れ元の画像はリンク参照（再ホストしない・ホットリンク）。失効時はRemoteThumbがプレースホルダに差し替え。 */}
+                      <RemoteThumb
+                        src={!locked ? p.imageUrl : undefined}
+                        alt={`${p.brand} ${p.name}`.trim()}
+                        className="w-16 h-16 rounded-lg border border-[#A98B5C]/25 shrink-0"
+                      />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">

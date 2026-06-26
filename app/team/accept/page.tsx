@@ -7,6 +7,13 @@ import AcceptInviteButton from "../../components/AcceptInviteButton";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "チーム招待の承認", robots: { index: false } };
 
+// メールを伏せて表示（招待リンクが転送されても本人以外に平文露出しないように）。例: foo@example.com → f***@example.com
+function maskEmail(e: string): string {
+  const [u, d] = String(e || "").split("@");
+  if (!u || !d) return "****";
+  return `${u[0]}***@${d}`;
+}
+
 export default async function AcceptPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams;
   const invite = token ? await getInvite(token) : null;
@@ -30,10 +37,10 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
         ) : !email ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-              <b>{invite.ownerEmail}</b> さんのチームに招待されています。
+              <b>{maskEmail(invite.ownerEmail)}</b> さんのチームに招待されています。
             </p>
             <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-              承認には <b>{invite.inviteeEmail}</b> のアカウントでのログインが必要です。
+              承認には招待先のアカウント（<b>{maskEmail(invite.inviteeEmail)}</b>）でのログインが必要です。
             </p>
             <Link
               href={`/login?next=${encodeURIComponent(back)}`}
@@ -46,7 +53,7 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
         ) : !matched ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-              この招待は <b>{invite.inviteeEmail}</b> 宛です。
+              この招待は <b>{maskEmail(invite.inviteeEmail)}</b> 宛です。
             </p>
             <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
               いまは <b>{email}</b> でログイン中です。招待されたアカウントでログインし直してください。

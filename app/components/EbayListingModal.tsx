@@ -68,10 +68,10 @@ function aspectLabel(name: string): string {
 }
 // 各項目の必須/任意バッジ（「何を必ず入れるか」を一目で）。
 function ReqBadge() {
-  return <span className="ml-1 align-middle text-[9px] font-bold text-[#BF0000] bg-red-50 border border-red-200 rounded px-1 py-px">必須</span>;
+  return <span className="ml-1 align-middle text-[10px] font-bold text-[#2D323B] bg-[#A98B5C]/15 border border-[#A98B5C]/40 rounded px-1 py-px">必須</span>;
 }
 function OptBadge() {
-  return <span className="ml-1 align-middle text-[9px] text-gray-400 bg-gray-50 border border-gray-200 rounded px-1 py-px">任意</span>;
+  return <span className="ml-1 align-middle text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1 py-px">任意</span>;
 }
 interface PublishResult {
   ok: boolean;
@@ -85,7 +85,8 @@ interface PublishResult {
   errorKind?: "known" | "unexpected"; // known=要因が特定できた／unexpected=予期せぬエラー（報告ボタンを出す）
   errorDetail?: string; // 生のeBayエラー（ユーザーには見せず、開発者報告に同梱）
   planLimitReached?: boolean; // 同時出品数がプラン上限に到達（アップグレード誘導画面を出す）
-  needsPlan?: boolean; // free(プラン未加入)で出品不可（プラン加入＝30日無料の導線を出す。上限到達とは区別）
+  needsPlan?: boolean; // free(プラン未加入)で出品不可（プラン加入の導線を出す。上限到達とは区別）
+  planNeeded?: string; // 必要なプラン。"promax"=eBay自動出品はプロMAX限定（文言の出し分けに使う）
 }
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error" | "limit";
@@ -1230,7 +1231,7 @@ export default function EbayListingModal({
               </button>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <button
-                  onClick={() => router.push("/listings")}
+                  onClick={() => router.push("/manage?tab=listed")}
                   className="h-11 border border-[#A98B5C]/35 rounded-xl text-[13px] font-bold text-gray-700 active:bg-gray-50"
                 >
                   出品管理を見る
@@ -1349,7 +1350,24 @@ export default function EbayListingModal({
           {phase === "limit" && (
             <div className="py-6 text-center">
               <Crown size={36} aria-hidden="true" className="mx-auto mb-3 text-[#A98B5C]" />
-              {result?.needsPlan ? (
+              {result?.needsPlan && result?.planNeeded === "promax" ? (
+                /* eBay自動出品はプロMAX限定。ライト等では使えないので、ここで正しく「プロMAXが必要」と案内する。 */
+                <>
+                  <h2 className="text-sm font-bold text-gray-800 mb-2">eBay自動出品はプロMAX限定です</h2>
+                  <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
+                    写真だけで自動出品する機能は<b className="text-[#2D323B]">プロMAXプラン</b>でご利用いただけます。
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
+                    在庫を確保してから出す通常の出品はそのまま。無在庫での自動出品を使う場合にプロMAXが必要です。
+                  </p>
+                  <a
+                    href="/pricing?from=listing"
+                    className="flex items-center justify-center gap-1.5 w-full h-12 bg-[#2D323B] text-white rounded-xl text-sm font-black active:bg-[#1A1D23] mb-2"
+                  >
+                    <Crown size={16} /> プランを見る →
+                  </a>
+                </>
+              ) : result?.needsPlan ? (
                 /* free(プラン未加入)＝まだ一度も出品できない人。「上限到達」ではなく「加入が必要」＋30日無料で背中を押す。 */
                 <>
                   <h2 className="text-sm font-bold text-gray-800 mb-2">出品にはプラン加入が必要です</h2>

@@ -25,7 +25,7 @@ const rl = new Ratelimit({ redis: kv, limiter: Ratelimit.slidingWindow(60, "10 m
 // used_bought は「id→仕入れ値(JPY)」のハッシュ＝収支の仕入れ累計に使う。used_skip は id の集合（金額不要）。
 export async function POST(req: Request) {
   const viewer = await getActorId();
-  if (!viewer) return Response.json({ ok: false }, { status: 401 });
+  if (!viewer) return Response.json({ ok: false, error: "ログインが必要です。ログインしてからお試しください。" }, { status: 401 });
   try {
     const { success } = await rl.limit(viewer);
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });

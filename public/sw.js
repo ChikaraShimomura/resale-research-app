@@ -37,7 +37,8 @@ self.addEventListener("fetch", (event) => {
           return res;
         } catch {
           const cached = await caches.match(req);
-          return cached || (await caches.match("/catalog")) || Response.error();
+          // オフライン時の最終フォールバックは公開トップ（/catalog は会員ゲートで未ログインだと遷移先が崩れるため）。
+          return cached || (await caches.match("/")) || Response.error();
         }
       })()
     );

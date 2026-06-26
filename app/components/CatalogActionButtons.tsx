@@ -79,6 +79,8 @@ export default function CatalogActionButtons({
         await navigator.clipboard.writeText(url);
         setShared(true);
         setTimeout(() => setShared(false), 1500);
+      } else if (typeof window !== "undefined") {
+        window.prompt("このリンクをコピーして共有してください", url); // 共有API/クリップボード非対応端末のフォールバック
       }
     } catch {
       /* ユーザーがキャンセル/失敗は無視 */
@@ -133,15 +135,15 @@ export default function CatalogActionButtons({
         <button
           onClick={() => post("bought")}
           disabled={busy !== null}
-          className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 active:bg-emerald-700"
+          className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg bg-emerald-600 text-white text-[12px] font-bold disabled:opacity-40 active:bg-emerald-700"
         >
-          <Check size={13} /> 仕入れた
+          <Check size={14} /> 仕入れた
         </button>
         {/* 管理者は「これは無理」(カタログ全体の判断用)、他ユーザーは「非表示(無理と判断)」表記。動作は同じ＝そのユーザーに非表示。 */}
         <button
           onClick={() => post("skip")}
           disabled={busy !== null}
-          className="flex-1 inline-flex flex-col items-center justify-center gap-0 h-8 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50 leading-[1.05]"
+          className="flex-1 inline-flex flex-col items-center justify-center gap-0 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50 leading-[1.05]"
         >
           {isAdmin ? (
             <span className="inline-flex items-center gap-1">
@@ -158,9 +160,9 @@ export default function CatalogActionButtons({
         <button
           onClick={share}
           aria-label="共有（リンクを送る）"
-          className="shrink-0 inline-flex items-center justify-center w-10 h-8 rounded-lg border border-gray-300 bg-white text-gray-500 active:bg-gray-50"
+          className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 active:bg-gray-50"
         >
-          <Share2 size={14} />
+          <Share2 size={16} />
         </button>
       </div>
       {shared && <p className="text-[10px] text-emerald-600 font-bold">リンクをコピーしました</p>}

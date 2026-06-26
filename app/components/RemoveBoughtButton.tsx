@@ -8,9 +8,11 @@ import { X } from "lucide-react";
 export default function RemoveBoughtButton({ productId, teamOwner }: { productId: string; teamOwner?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
 
   const remove = async () => {
     setBusy(true);
+    setErr(false);
     try {
       const res = await fetch("/api/catalog/action", {
         method: "POST",
@@ -18,19 +20,23 @@ export default function RemoveBoughtButton({ productId, teamOwner }: { productId
         body: JSON.stringify({ action: "undo", productId, teamOwner }),
       }).then((r) => r.json());
       if (res.ok) router.refresh();
-      else setBusy(false);
+      else { setBusy(false); setErr(true); }
     } catch {
       setBusy(false);
+      setErr(true);
     }
   };
 
   return (
-    <button
-      onClick={remove}
-      disabled={busy}
-      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50"
-    >
-      <X size={12} /> 一覧から外す
-    </button>
+    <span className="inline-flex items-center gap-1.5">
+      {err && <span className="text-[10px] text-rose-600 font-bold">外せませんでした</span>}
+      <button
+        onClick={remove}
+        disabled={busy}
+        className="inline-flex items-center gap-1 h-9 px-2.5 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40"
+      >
+        <X size={12} /> 一覧から外す
+      </button>
+    </span>
   );
 }

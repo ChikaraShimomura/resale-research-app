@@ -172,7 +172,7 @@ function PeriodBreakdown({ data, soldCount }: { data: MonthPoint[]; soldCount: n
   const months: Period[] = data.map((p) => ({ key: p.month, label: p.label, profit: p.profit, sales: p.sales, purchase: p.purchase, count: p.count }));
   const years = aggregateByYear(data);
   const pts = (view === "month" ? months.slice(-12) : years);
-  const max = Math.max(...pts.map((p) => Math.max(0, p.profit)), 1);
+  const max = Math.max(...pts.map((p) => Math.abs(p.profit)), 1); // 赤字も棒の長さに反映（絶対値基準）
   const charted = data.reduce((a, p) => a + p.count, 0);
   const unknown = Math.max(0, soldCount - charted);
   const rows = [...pts].reverse(); // 新しい順で一覧
@@ -189,12 +189,17 @@ function PeriodBreakdown({ data, soldCount }: { data: MonthPoint[]; soldCount: n
       {/* 利益バー */}
       <div className="flex items-end justify-between gap-1.5 overflow-x-auto">
         {pts.map((p) => {
-          const h = Math.max(6, Math.round((Math.max(0, p.profit) / max) * 100));
+          const loss = p.profit < 0;
+          const h = Math.max(6, Math.round((Math.abs(p.profit) / max) * 100));
           return (
             <div key={p.key} className="flex-1 min-w-[28px] flex flex-col items-center gap-1">
-              <span className="text-[9px] font-bold text-gray-600 tabular-nums whitespace-nowrap">{yenShort(p.profit)}</span>
+              <span className={`text-[9px] font-bold tabular-nums whitespace-nowrap ${loss ? "text-red-500" : "text-gray-600"}`}>{yenShort(p.profit)}</span>
               <div className="w-full h-20 flex items-end">
-                <div className="w-full rounded-t-md bg-gradient-to-t from-[#2D323B] to-[#A98B5C]" style={{ height: `${h}%` }} title={`${p.label}：利益${yen(p.profit)}（${p.count}件）`} />
+                <div
+                  className={`w-full rounded-t-md ${loss ? "bg-gradient-to-t from-red-400 to-red-300" : "bg-gradient-to-t from-[#2D323B] to-[#A98B5C]"}`}
+                  style={{ height: `${h}%` }}
+                  title={`${p.label}：${loss ? "赤字" : "利益"}${yen(p.profit)}（${p.count}件）`}
+                />
               </div>
               <span className="text-[9px] text-gray-400 whitespace-nowrap">{p.label}</span>
             </div>

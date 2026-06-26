@@ -41,11 +41,11 @@ async function recordSignup(formData: FormData): Promise<void> {
 }
 
 // ログイン後の遷移先。フォームの next を受けるが、オープンリダイレクト防止のため
-// 「自サイト内の相対パス（/で始まり//や/\で始まらない）」のみ許可。それ以外は既定の /search。
+// 「自サイト内の相対パス（/で始まり//や/\で始まらない）」のみ許可。それ以外は既定の /catalog。
 function safeNext(formData: FormData): string {
   const raw = String(formData.get("next") ?? "").trim();
   if (raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\")) return raw;
-  return "/search";
+  return "/catalog";
 }
 
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -72,6 +72,8 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   const password = String(formData.get("password") ?? "");
   if (!email) return { error: "メールアドレスを入力してください。" };
   if (password.length < 8) return { error: "パスワードは8文字以上にしてください。" };
+  // 利用規約・プライバシーポリシーへの同意はサーバー側でも必須化（直POST/JS無効で未同意登録を防ぐ）。
+  if (String(formData.get("agree") ?? "") !== "on") return { error: "利用規約とプライバシーポリシーへの同意が必要です。" };
 
   // 確認メール経由でも帰属を保てるよう、from を confirm リンクに引き継ぐ。
   const from = String(formData.get("from") ?? "").trim();
@@ -80,7 +82,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/search${fromQ}` },
+    options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/catalog${fromQ}` },
   });
   if (error) return { error: jpError(error.message) };
   // メール確認OFFなら即セッション → 移行してアプリへ。ONなら確認メール待ち（登録計上は confirm 側）。
@@ -89,7 +91,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     await recordSignup(formData);
     await recordRegisteredUser(data.user.email); // 身内指定の候補リストに記録
     await captureSignupReferral(); // 紹介コード(ref cookie)があれば成果1件を計上
-    redirect("/search");
+    redirect("/catalog");
   }
   return { message: "確認メールを送りました。メール内のリンクを開くと登録が完了します。" };
 }
@@ -99,7 +101,7 @@ export async function signOutAction(): Promise<void> {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
   }
-  redirect("/search");
+  redirect("/catalog");
 }
 
 export async function requestResetAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -123,5 +125,5 @@ export async function updatePasswordAction(_prev: AuthState, formData: FormData)
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: jpError(error.message) };
-  redirect("/search");
+  redirect("/catalog");
 }

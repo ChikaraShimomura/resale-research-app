@@ -19,8 +19,8 @@ export async function GET(request: Request) {
   // オープンリダイレクト防止: next は同一オリジンの相対パス(先頭が単一スラッシュ)のみ許可。
   // "//evil.com"・"https://evil.com"・"/\evil.com"(WHATWG URLが\を/へ正規化して外部に飛ぶ)を弾く。
   // ※ actions.ts の safeNext と同一判定に統一（片方だけ直すと再発するため）。
-  const rawNext = url.searchParams.get("next") ?? "/search";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/search";
+  const rawNext = url.searchParams.get("next") ?? "/catalog";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/catalog";
 
   const supabase = await createSupabaseServerClient();
   let ok = false;

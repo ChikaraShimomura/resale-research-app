@@ -175,8 +175,8 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
       {err && <p className="text-[12px] text-red-600 mt-3 text-center">{err}</p>}
       <p className="text-[11px] text-gray-400 mt-3 leading-relaxed text-center">
         {isSubscriber
-          ? "プラン変更・解約はボタンから（Stripe管理画面）。別途、楽天の仕入れ費用とeBay手数料がかかります。"
-          : "いつでも解約OK。決済はStripe（カード）。別途、楽天の仕入れ費用とeBay手数料がかかります。"}
+          ? "プラン変更・解約はボタンから（Stripe管理画面）。別途、中古品の仕入れ費用とeBay手数料がかかります。"
+          : "いつでも解約OK。決済はStripe（カード）。別途、中古品の仕入れ費用とeBay手数料がかかります。"}
       </p>
     </div>
   );

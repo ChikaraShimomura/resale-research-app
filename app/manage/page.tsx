@@ -15,6 +15,7 @@ import ListingHelper from "../components/ListingHelper";
 import RemoveBoughtButton from "../components/RemoveBoughtButton";
 import ShippingInput from "../components/ShippingInput";
 import PriceTierEdit from "../components/PriceTierEdit";
+import RemoteThumb from "../components/RemoteThumb";
 import type { ProfitProduct } from "../lib/profitFilter";
 
 export const dynamic = "force-dynamic"; // 自分の商品は毎回最新で
@@ -269,12 +270,7 @@ function ListedTab({ items, tiersById }: { items: ListedItem[]; tiersById: Recor
 }
 
 function Thumb({ src }: { src?: string }) {
-  return src ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
-  ) : (
-    <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
-  );
+  return <RemoteThumb src={src} className="w-16 h-16 rounded-lg border border-[#A98B5C]/25 shrink-0" />;
 }
 
 function Empty({ Icon, title, body }: { Icon: typeof Heart; title: string; body: string }) {

@@ -47,8 +47,8 @@ export default function FavoriteHeart({
       onClick={toggle}
       aria-pressed={faved}
       aria-label={faved ? "お気に入りから外す" : "お気に入りに追加"}
-      className={`${className ?? "absolute top-2 right-2 z-10"} w-8 h-8 rounded-full flex items-center justify-center border transition-colors active:scale-90 ${
-        faved ? "bg-rose-50 border-rose-200 text-rose-500" : "bg-white/90 border-[#A98B5C]/30 text-gray-300"
+      className={`${className ?? "absolute top-2 right-2 z-10"} w-11 h-11 rounded-full flex items-center justify-center border transition-colors active:scale-90 ${
+        faved ? "bg-rose-50 border-rose-200 text-rose-500" : "bg-white/90 border-[#A98B5C]/30 text-gray-400"
       }`}
     >
       <Heart size={16} fill={faved ? "currentColor" : "none"} />
