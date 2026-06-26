@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
+import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown } from "lucide-react";
 import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk, sourceSiteName, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
+import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
@@ -29,15 +30,26 @@ const toneCls = (tone: "good" | "mid" | "risk") =>
       ? "bg-rose-50 text-rose-700 border-rose-200"
       : "bg-amber-50 text-amber-700 border-amber-200";
 
-export default async function CatalogPage() {
+// 並べ替えオプション（?sort= の値→ラベル＋比較関数）。既定は利益額の高い順。
+const SORTS: Record<string, { label: string; cmp: (a: UsedCatalogItem, b: UsedCatalogItem) => number }> = {
+  profit: { label: "利益額", cmp: (a, b) => b.profitJpy - a.profitJpy },
+  rate: { label: "利益率", cmp: (a, b) => b.profitRate - a.profitRate },
+  cheap: { label: "仕入れ安い", cmp: (a, b) => a.buyJpy - b.buyJpy },
+  demand: { label: "売れ筋", cmp: (a, b) => (b.soldCount || 0) - (a.soldCount || 0) || b.profitJpy - a.profitJpy },
+};
+const SORT_KEYS = ["profit", "rate", "cheap", "demand"];
+
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
+  const sp = await searchParams;
+  const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "profit";
   const canView = await canViewCatalog();
   const actor = await getActorId();
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   const hidden = await getHiddenCatalogKeys(actor);
   // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク(動作未確認)は除外＋本人が外した品は非表示。
-  const items = (await getUsedCatalog()).filter(
-    (p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p))
-  );
+  const items = (await getUsedCatalog())
+    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p)))
+    .sort(SORTS[sort].cmp);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -66,6 +78,31 @@ export default async function CatalogPage() {
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
           ※ 純利益＝eBay想定売値 −（eBay手数料・国際送料・米国関税・仕入れ値）。中古は1点物のため在庫は流動的。状態・競合・為替で変動。
         </p>
+
+        {/* 並べ替え（サーバー側＝マスク/画像漏洩対策の描画を保ったまま ?sort= で順序だけ変える）。 */}
+        {items.length > 0 && (
+          <div className="mb-4 -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
+            <ArrowUpDown size={14} className="text-gray-400 shrink-0" aria-hidden="true" />
+            {SORT_KEYS.map((k) => {
+              const active = k === sort;
+              return (
+                <Link
+                  key={k}
+                  href={`/catalog?sort=${k}`}
+                  scroll={false}
+                  aria-current={active ? "true" : undefined}
+                  className={`shrink-0 h-8 px-3 inline-flex items-center rounded-full text-[12px] font-bold border ${
+                    active
+                      ? "bg-[#2D323B] text-white border-[#2D323B]"
+                      : "bg-white text-gray-600 border-[#A98B5C]/30 active:bg-gray-50"
+                  }`}
+                >
+                  {SORTS[k].label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
