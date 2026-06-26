@@ -12,7 +12,8 @@ import {
   USD_JPY,
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
-import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
+import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
+import { estimateProductWeightG } from "../../../../lib/ebay/productWeight";
 import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
@@ -347,10 +348,13 @@ export async function POST(req: Request) {
   // カテゴリ判定用クエリ＝商品識別(ブランド+型番)＋ジャンルヒント。型番だけだと「Video Games」等へ誤分類するため、
   // "video game console"等を足して正しいカテゴリ(コンソール/カメラ/時計…)へ寄せる＝誤Item Specifics(例:Platform=3DO)を断つ。
   const categoryQuery = `${decodeHtmlEntities(product.coreKeyword || product.title)} ${categoryHint(product.category)}`.trim();
-  const [cat, shipping, market] = await Promise.all([
+  // 重量推定は「出品時だけ・その商品だけ」(ユーザー指示2026-06-27)。カテゴリ等と並行取得＝モーダルのレイテンシを増やさない。
+  // キャッシュ済みなら即返る。送料サイズ・損益分岐をカテゴリ概算でなく実重量で出すための材料。
+  const [cat, shipping, market, weightG] = await Promise.all([
     getCategorySuggestion(taxoToken, categoryQuery, condition),
     listFulfillmentPolicies(token),
     getComparableMarket(taxoToken, product.coreKeyword || enTitle), // 同等品の現在の最安USD＋競合数（1回のBrowseで両方）
+    estimateProductWeightG({ id: productId, category: product.category, coreKeyword: product.coreKeyword, title: product.title, name: (product as { name?: string }).name }),
   ]);
   const lowestComparable = market.lowestUsd;
   const competitionCount = market.activeCount; // eBay現在出品総数（競合の目安・概算。null=取得不可）
@@ -367,7 +371,8 @@ export async function POST(req: Request) {
   const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
   // 損益分岐に出品者の実負担を織り込む。送料そのものは購入者負担なので引かない。
   // subtractJpy = 「送料にかかるeBay手数料」＋「$100超の米国関税(前払い・立替)」。高額品ほど floor が上がり赤字を防ぐ。
-  const landed = landedCost(product.category, Number(priceUsd));
+  // ★重量は推定実重量(weightG)で計算（カテゴリ概算より正確）。フォールバック時は weightG=カテゴリ概算なので従来と一致。
+  const landed = landedCostForWeight(weightG, Number(priceUsd));
   const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY + landed.subtractJpy) / (1 - EBAY_FEE_RATE));
   const floorUsd = (Math.round((floorJpy / USD_JPY) * 100) / 100).toFixed(2);
   const lowestUsd =
