@@ -33,7 +33,8 @@ export default function CatalogActionButtons({
   const [shared, setShared] = useState(false); // リンクをコピーした（共有API非対応時）
   const [err, setErr] = useState<string | null>(null);
 
-  const post = async (action: "bought" | "skip" | "undo") => {
+  // confirmedBought: 在庫ありで一度蹴られた後、本人が「もう仕入れ済み（在庫表示が古い）」と明示確認した時だけ true で再送。
+  const post = async (action: "bought" | "skip" | "undo", confirmedBought = false) => {
     setBusy(action);
     setErr(null);
     setBlocked(false);
@@ -42,7 +43,7 @@ export default function CatalogActionButtons({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（skip/undoでは無視される）。teamOwner指定時はオーナーのデータへ。
-        body: JSON.stringify({ action, productId, buyJpy, teamOwner }),
+        body: JSON.stringify({ action, productId, buyJpy, teamOwner, confirmedBought }),
       }).then((r) => r.json());
       if (res.ok) {
         if (action === "undo") {
@@ -128,6 +129,14 @@ export default function CatalogActionButtons({
           <Link href="/pricing?from=catalog" className="mt-1.5 inline-block text-[11px] font-bold text-[#2D323B] underline underline-offset-2">
             ※ どうしても無在庫で出すなら<b>無在庫転売プラン（プロMAX）</b> → プランを見る
           </Link>
+          {/* 正直な買い手の救済（控えめな副導線）：実際にもう買った人だけが押す。在庫表示が古いだけのケースを自己申告で通す。 */}
+          <button
+            onClick={() => post("bought", true)}
+            disabled={busy !== null}
+            className="mt-1.5 block text-[10px] text-amber-700 underline underline-offset-2 disabled:opacity-40"
+          >
+            はい、もう仕入れ済みです（在庫表示が古い）
+          </button>
         </div>
       )}
 

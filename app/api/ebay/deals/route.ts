@@ -42,28 +42,32 @@ export async function POST(req: Request) {
   const productId = (body.productId || "").trim();
   if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  // 出品をやめた → 成績から削除。deal＋SKU対応表(値=productId一致で削除＝自己修復SKU rr-{id}-{乱数} も確実に消す)。
-  if (body.action === "remove") {
-    await deleteDealsWithSku(actor, [productId]);
-    return Response.json({ ok: true });
-  }
+  try {
+    // 出品をやめた → 成績から削除。deal＋SKU対応表(値=productId一致で削除＝自己修復SKU rr-{id}-{乱数} も確実に消す)。
+    if (body.action === "remove") {
+      await deleteDealsWithSku(actor, [productId]);
+      return Response.json({ ok: true });
+    }
 
-  // 実は売れていた（自動検知の取りこぼし）→ 売れた金額(円)で手動記録。
-  if (body.action === "sold") {
-    const jpy = Number(body.soldJpy);
-    if (!Number.isFinite(jpy) || jpy <= 0) {
-      return Response.json({ ok: false, error: "売れた金額（円）を入力してください。" }, { status: 400 });
+    // 実は売れていた（自動検知の取りこぼし）→ 売れた金額(円)で手動記録。
+    if (body.action === "sold") {
+      const jpy = Number(body.soldJpy);
+      if (!Number.isFinite(jpy) || jpy <= 0) {
+        return Response.json({ ok: false, error: "売れた金額（円）を入力してください。" }, { status: 400 });
+      }
+      const soldUsd = Math.round((jpy / USD_JPY) * 100) / 100; // 表示は円ベース・保存はUSD（statsが×155で円に戻す）
+      await recordSold(actor, productId, soldUsd, new Date().toISOString());
+      // カタログ表示（売却済み・最下部化）も自動検知と一致させる。
+      try {
+        await kv.sadd(SOLD_KEY(actor), productId);
+        await kv.expire(SOLD_KEY(actor), SOLD_TTL);
+      } catch {
+        /* noop */
+      }
+      return Response.json({ ok: true });
     }
-    const soldUsd = Math.round((jpy / USD_JPY) * 100) / 100; // 表示は円ベース・保存はUSD（statsが×155で円に戻す）
-    await recordSold(actor, productId, soldUsd, new Date().toISOString());
-    // カタログ表示（売却済み・最下部化）も自動検知と一致させる。
-    try {
-      await kv.sadd(SOLD_KEY(actor), productId);
-      await kv.expire(SOLD_KEY(actor), SOLD_TTL);
-    } catch {
-      /* noop */
-    }
-    return Response.json({ ok: true });
+  } catch {
+    return Response.json({ ok: false, error: "記録できませんでした。少し待ってお試しください。" }, { status: 503 });
   }
 
   return Response.json({ ok: false, error: "不明な操作です。" }, { status: 400 });

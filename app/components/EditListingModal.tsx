@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, ImagePlus } from "lucide-react";
 import Spinner from "./Spinner";
 import ReportableError from "./ReportableError";
@@ -36,6 +36,43 @@ export default function EditListingModal({
   const [shipBusy, setShipBusy] = useState(false);
   const [shipMsg, setShipMsg] = useState<string | null>(null);
   const [shipErr, setShipErr] = useState<ErrInfo | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null); // フォーカストラップ＆初期フォーカス用のダイアログ本体
+
+  // Escで閉じる（保存/アップロード中は実行を取りこぼさないため無視）。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (saving || uploading || shipBusy) return;
+      onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [saving, uploading, shipBusy, onClose]);
+
+  // 開いた時にダイアログ先頭へフォーカス＋Tabをダイアログ内でループする簡易フォーカストラップ。
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    el.focus(); // 先頭（ダイアログ本体）へフォーカス
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusable = el.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) { e.preventDefault(); el.focus(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || active === el) { e.preventDefault(); last.focus(); }
+      } else if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    el.addEventListener("keydown", onKey);
+    return () => el.removeEventListener("keydown", onKey);
+  }, [loading]);
 
   useEffect(() => {
     let alive = true;
@@ -133,7 +170,12 @@ export default function EditListingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3" onClick={onClose}>
       <div
-        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 max-h-[88dvh] flex flex-col"
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="出品を編集"
+        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 max-h-[88dvh] flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ヘッダー＝スクロールしても常に見える固定。✕で必ず閉じられる。 */}
@@ -142,7 +184,7 @@ export default function EditListingModal({
             <h2 className="text-[15px] font-black text-gray-900">出品を編集</h2>
             {title && <p className="text-[11px] text-gray-400 truncate mt-0.5">{title}</p>}
           </div>
-          <button onClick={onClose} aria-label="閉じる" className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-100 shrink-0">
+          <button onClick={onClose} aria-label="閉じる" className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-100 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40">
             <X size={18} />
           </button>
         </div>

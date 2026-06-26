@@ -71,9 +71,15 @@ export default function SourceStopRecap() {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 p-3" onClick={close}>
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="src-recap-title"
+        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-[#A98B5C]/25 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
-          <h2 className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
+          <h2 id="src-recap-title" className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
             仕入れ元（楽天）に問題が出た下記を、<b>評価を守るため</b>自動で出品停止（売り切れ・リンク切れ・箱単位で不採算など）。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から）。
           </p>
@@ -96,7 +102,7 @@ export default function SourceStopRecap() {
         <div className="p-3 border-t border-[#A98B5C]/25">
           <button
             onClick={close}
-            className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]"
+            className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:ring-offset-2"
           >
             確認しました（{entries.length}件）
           </button>

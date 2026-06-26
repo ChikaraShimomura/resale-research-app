@@ -208,6 +208,18 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             )}
                           </p>
                         )}
+                        {/* 競合数＝同等品のeBay現在出品総数(概算)。出品前の「狙い目/多め」を一目で。文言/色は EbayListingModal と統一。未取得は非表示。 */}
+                        {!locked && p.ebayActiveCount != null && (
+                          <p className="text-[10px] mt-0.5 leading-snug">
+                            {p.ebayActiveCount <= 5 ? (
+                              <span className="text-green-700 font-bold">🟢 競合 約{p.ebayActiveCount}件・少なめ（狙い目）</span>
+                            ) : p.ebayActiveCount <= 30 ? (
+                              <span className="text-gray-400">eBay競合 約{p.ebayActiveCount}件</span>
+                            ) : (
+                              <span className="text-amber-600 font-bold">🟠 競合 約{p.ebayActiveCount}件・多め</span>
+                            )}
+                          </p>
+                        )}
                       </div>
 
                       <div className="text-right shrink-0 flex flex-col items-end gap-1">

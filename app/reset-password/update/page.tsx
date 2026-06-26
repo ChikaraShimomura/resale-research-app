@@ -18,8 +18,9 @@ export default function UpdatePasswordPage() {
         <h1 className="text-xl font-bold text-gray-900 mb-1">新しいパスワード</h1>
         <p className="text-sm text-gray-500 mb-5">新しいパスワードを設定。</p>
         <form action={action} className="space-y-3">
-          <input name="password" type="password" required minLength={8} placeholder="新しいパスワード（8文字以上）" autoComplete="new-password" className={field} />
-          {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+          {/* エラー時のみ aria-invalid/aria-describedby を付け、スクリーンリーダーにエラーを関連付ける */}
+          <input name="password" type="password" required minLength={8} placeholder="新しいパスワード（8文字以上）" autoComplete="new-password" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "update-error" : undefined} />
+          {state.error && <p id="update-error" role="alert" aria-live="polite" className="text-sm text-[#2D323B]">{state.error}</p>}
           <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
             {pending ? "更新中..." : "パスワードを更新"}
           </button>

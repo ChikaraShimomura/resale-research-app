@@ -26,8 +26,9 @@ export default function ResetPasswordPage() {
           </>
         ) : (
           <form action={action} className="space-y-3">
-            <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} />
-            {state.error && <p className="text-sm text-[#2D323B]">{state.error}</p>}
+            {/* エラー時のみ aria-invalid/aria-describedby を付け、スクリーンリーダーにエラーを関連付ける */}
+            <input name="email" type="email" required placeholder="メールアドレス" autoComplete="email" className={field} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? "reset-error" : undefined} />
+            {state.error && <p id="reset-error" role="alert" aria-live="polite" className="text-sm text-[#2D323B]">{state.error}</p>}
             <button type="submit" disabled={pending} className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-60">
               {pending ? "送信中..." : "再設定メールを送る"}
             </button>

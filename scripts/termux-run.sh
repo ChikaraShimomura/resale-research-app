@@ -7,9 +7,10 @@
 #  - eBay落札発掘(ebay-discover): SOLD_EVERY_CYCLES ごと(既定24≒1日)。住宅IP必須(DC IPは403)。
 #      「売れた出品(Sold)」をキーワード別にスクレイプ→KV ebay_sold_seed。refresh(GitHub)が楽天マッチして
 #      「実際に売れた実績つき」の利益商品を作る＝現在出品でなく実売起点で発掘（ユーザー指摘2026-06-23）。
-INTERVAL="${LIVENESS_INTERVAL_SEC:-3600}"          # 売切検知の間隔(秒・既定1h)
+INTERVAL="${LIVENESS_INTERVAL_SEC:-3600}"          # 売切検知の間隔(秒・既定1h)＝1サイクル
 GALLERY_EVERY="${GALLERY_EVERY_CYCLES:-6}"          # 何サイクルごとにギャラリー取得するか(既定6≒6h)
 SOLD_EVERY="${SOLD_EVERY_CYCLES:-24}"              # 何サイクルごとにeBay落札価格を取得するか(既定24≒1日)
+REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-1200}"   # 型番リファインの小バッチ間隔(秒・既定1200=20分)。1サイクル(1h)内で複数回回す。
 cd "$HOME/resale-research-app" || exit 1
 
 termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て止まるのを防ぐ(Termux:API無ければ無視)
@@ -56,14 +57,23 @@ while true; do
     [ "$brc" -ne 0 ] && echo "  (候補構築失敗・次回再試行)" >> "$HOME/usedcatalog.log"
   fi
 
-  # ⑤ 型番リファインを【毎サイクル・小バッチ(既定12件)】で実行（ユーザー指示2026-06-27）。
+  # ⑤ 型番リファインを【小バッチ(既定12件)・サイクル(1h)内で複数回】実行（ユーザー指示2026-06-27）。
   #    一気に全件やるとeBayのcaptchaで弾かれる→毎回 warmup 付きの小バッチを「細かく・多く」回す方が弾かれにくく、
-  #    未確認の型番を着実に確定できる。件数は REFINE_BATCH（既定12・captcha閾値の十数件未満）で調整可。
-  echo "---- $(date) used-catalog refine batch ----" >> "$HOME/usedcatalog.log"
-  REFINE_LIMIT="${REFINE_BATCH:-12}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
-  [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次サイクル再試行)" >> "$HOME/usedcatalog.log"
-  wl refine "$HOME/usedcatalog.log" "$rrc"
+  #    未確認の型番を着実に確定できる。1h待たず REFINE_SUBINTERVAL(既定20分)ごとに回す＝液活/ギャラリー(毎1h)より細かい刻み。
+  #    件数は REFINE_BATCH（既定12・captcha閾値の十数件未満・毎回新セッションwarmup）で調整可。
+  #    この内側ループが1サイクル(=$INTERVAL秒)ぶんの待ちを兼ねる（末尾の固定sleepは廃止）→他ジョブのスケジュールは不変。
+  spent=0
+  while [ "$spent" -lt "$INTERVAL" ]; do
+    echo "---- $(date) used-catalog refine batch ----" >> "$HOME/usedcatalog.log"
+    REFINE_LIMIT="${REFINE_BATCH:-12}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
+    [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次バッチ再試行)" >> "$HOME/usedcatalog.log"
+    wl refine "$HOME/usedcatalog.log" "$rrc"
+    # 次の小バッチまで待つ。ただしサイクル(1h)を超えない範囲で（残り時間が短ければそのぶんだけ）。
+    remain=$(( INTERVAL - spent ))
+    nap="$REFINE_SUBINTERVAL"; [ "$nap" -gt "$remain" ] && nap="$remain"
+    sleep "$nap"
+    spent=$(( spent + nap ))
+  done
 
   cycle=$(( cycle + 1 ))
-  sleep "$INTERVAL"
 done

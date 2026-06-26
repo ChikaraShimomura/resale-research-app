@@ -31,6 +31,46 @@ function envv(k) {
 const KV_URL = envv("KV_REST_API_URL") || envv("UPSTASH_REDIS_REST_URL");
 const KV_TOK = envv("KV_REST_API_TOKEN") || envv("UPSTASH_REDIS_REST_TOKEN");
 
+// eBay競合数(=現在出品の総数)。型番確定した品に焼き込み、カタログカードで「狙い目/多め」を一目表示する。
+// refresh.mjs の getEbayToken/ebayCompetition と同じ公式 Browse API（HTMLスクレイプでない＝captchaなし）。
+// ★フェイルオープン：EBAY_APP_ID/EBAY_CLIENT_SECRET が無ければ token=null で静かにスキップ（落ちない）。
+const EBAY_APP_ID = envv("EBAY_APP_ID");
+const EBAY_CLIENT_SECRET = envv("EBAY_CLIENT_SECRET");
+let ebayTokenCache = null;
+async function getEbayToken() {
+  if (!EBAY_APP_ID || !EBAY_CLIENT_SECRET) return null; // 鍵が無ければ競合取得はスキップ（fail-open）
+  if (ebayTokenCache && Date.now() < ebayTokenCache.expiresAt) return ebayTokenCache.token;
+  const encoded = Buffer.from(`${EBAY_APP_ID}:${EBAY_CLIENT_SECRET}`).toString("base64");
+  try {
+    const res = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+      method: "POST",
+      headers: { Authorization: `Basic ${encoded}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope",
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    ebayTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+    return data.access_token;
+  } catch { return null; }
+}
+// 現在出品の総数(=競合の厚み)。limit=1 で total だけ取得＝軽量。取得不可は null(=競合不明=中立)。
+async function ebayCompetition(query) {
+  if (!query) return null;
+  const token = await getEbayToken();
+  if (!token) return null;
+  try {
+    const params = new URLSearchParams({ q: query.slice(0, 120), limit: "1", fieldgroups: "COMPACT" });
+    const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return Number.isFinite(d?.total) ? d.total : null;
+  } catch { return null; }
+}
+
 function netProfitJPY(buyJpy, sellJpy) {
   const fee = sellJpy * 0.1325 + 47;          // eBay最終手数料
   const shipFee = 2040 * 0.1325;               // 国際送料にかかる手数料分
@@ -92,6 +132,9 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
       const med = trimmedMedian(same.map((c) => c.price));
       p.ebayMedianJpy = med; p.soldCount = same.length; p.ebayConfirmed = true;
       p.profitJpy = netProfitJPY(p.buyJpy, med); p.profitRate = Math.round((p.profitJpy / med) * 100);
+      // 競合数(現在出品の総数)も同じバッチで焼き込む＝カードで「狙い目/多め」を一目表示。鍵が無ければ null のまま(fail-open)。
+      const comp = await ebayCompetition(q);
+      if (comp != null) p.ebayActiveCount = comp;
       confirmed++;
       console.log(`  ✓ ${q.padEnd(30)} 同一型番${same.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
     } else {
@@ -114,6 +157,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(),
     realAvgPrice: p.ebayMedianJpy, realMedianPrice: p.ebayMedianJpy, realProfit: p.profitJpy, realProfitRate: p.profitRate,
     realCount: p.soldCount || 1, soldBased: !!p.ebayConfirmed, soldCount30d: p.soldCount, usedCondition: p.condition,
+    ebayActiveCount: p.ebayActiveCount, // 競合数(現在出品総数)＝STR/競合バッジ用。未取得は undefined(中立)。
     source: { site: p.site || "hardoff", siteName: p.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: p.buyJpy, url: p.hardoffUrl },
   }), "EX", String(35 * 24 * 3600)]);
   if (snapCmds.length) await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(snapCmds) });

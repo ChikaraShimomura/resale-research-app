@@ -13,6 +13,7 @@ import {
   RequiredAspect,
 } from "../../../../lib/ebay/listing";
 import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
+import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
 import { hasPerm, getTeamMode } from "../../../../lib/team";
@@ -354,6 +355,12 @@ export async function POST(req: Request) {
   const lowestComparable = market.lowestUsd;
   const competitionCount = market.activeCount; // eBay現在出品総数（競合の目安・概算。null=取得不可）
 
+  // ★中古カタログの誤分類フォールバック：候補が categoryId を返せなかった時だけ、
+  //   ジャンル別の既知リーフ(usedCategoryMap)へ着地させる＝コンソール/カメラ/時計を誤カテゴリ(例:Video Games)に置かない。
+  //   候補が categoryId を返している時は eBay の判定をそのまま尊重（フェイルオープン）。
+  const mappedCategoryId = getUsedCategoryId(product.category);
+  const effectiveCategoryId = cat?.categoryId || (cat ? mappedCategoryId : undefined);
+
   // 損益分岐(USD)：このeBay価格を下回ると赤字になる下限。「最安で出す」時もここは割らない。
   // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(楽天価格+国内送料)。
   // ※ ポイントは利益に含めない方針なので原価から引かない＝ポイント頼みで赤字ラインを下げない（安全側）。
@@ -369,8 +376,8 @@ export async function POST(req: Request) {
   // Item Specifics の既定を「商品テキスト一致」で埋めるための材料（ブランド/型番/名前）。
   const productText = `${product.coreKeyword ?? ""} ${product.title ?? ""} ${(product as { name?: string }).name ?? ""}`.trim();
   let requiredAspects: { name: string; values: string[]; free: boolean; required: boolean; value: string }[] = [];
-  if (cat?.categoryId) {
-    const aspects = await getRequiredAspects(taxoToken, cat.categoryTreeId, cat.categoryId);
+  if (cat && effectiveCategoryId) {
+    const aspects = await getRequiredAspects(taxoToken, cat.categoryTreeId, effectiveCategoryId);
     requiredAspects = aspects.map((a) => {
       if (/brand/i.test(a.name)) {
         // ブランドはジャンル別に3択へ絞り、タイトルから分かれば正しいブランドを既定選択にする。
@@ -443,7 +450,7 @@ export async function POST(req: Request) {
       },
       condition,
       category: cat
-        ? { categoryId: cat.categoryId, categoryName: cat.categoryName, categoryTreeId: cat.categoryTreeId }
+        ? { categoryId: effectiveCategoryId, categoryName: cat.categoryName, categoryTreeId: cat.categoryTreeId }
         : null,
       requiredAspects,
       shipping,

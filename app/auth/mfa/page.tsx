@@ -23,15 +23,21 @@ function MfaVerify() {
   useEffect(() => {
     if (!sb) { router.replace("/login"); return; }
     (async () => {
-      const { data: u } = await sb.auth.getUser();
-      if (!u?.user) { router.replace(`/login?next=${encodeURIComponent("/auth/mfa")}`); return; }
-      const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aal?.currentLevel === "aal2") { router.replace(next); return; } // 既に通過済み
-      const { data: list } = await sb.auth.mfa.listFactors();
-      const v = (list?.totp ?? []).find((f) => f.status === "verified");
-      if (!v) { setPhase("none"); return; } // 未設定（先に登録が必要）
-      const { data: ch } = await sb.auth.mfa.challenge({ factorId: v.id });
-      setFactorId(v.id); setChallengeId(ch?.id ?? null); setPhase("ready");
+      try {
+        const { data: u } = await sb.auth.getUser();
+        if (!u?.user) { router.replace(`/login?next=${encodeURIComponent("/auth/mfa")}`); return; }
+        const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal?.currentLevel === "aal2") { router.replace(next); return; } // 既に通過済み
+        const { data: list } = await sb.auth.mfa.listFactors();
+        const v = (list?.totp ?? []).find((f) => f.status === "verified");
+        if (!v) { setPhase("none"); return; } // 未設定（先に登録が必要）
+        const { data: ch } = await sb.auth.mfa.challenge({ factorId: v.id });
+        setFactorId(v.id); setChallengeId(ch?.id ?? null); setPhase("ready");
+      } catch {
+        // 初期化失敗（通信断/セッション失効等）でも行き止まりにせず、エラー表示＋出口を残す
+        setErr("認証の準備に失敗しました。通信状況を確認して開き直してください。");
+        setPhase("none");
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,6 +85,8 @@ function MfaVerify() {
               inputMode="numeric"
               autoFocus
               placeholder="6桁コード"
+              aria-invalid={err ? true : undefined}
+              aria-describedby={err ? "mfa-error" : undefined}
               className="w-full h-12 px-3 rounded-lg border border-gray-300 text-lg tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40 mb-3"
             />
             <button
@@ -90,7 +98,7 @@ function MfaVerify() {
             </button>
           </>
         )}
-        {err && <p className="text-[12px] text-red-600 mt-3">{err}</p>}
+        {err && <p id="mfa-error" role="alert" aria-live="polite" className="text-[12px] text-red-600 mt-3">{err}</p>}
       </div>
     </div>
   );

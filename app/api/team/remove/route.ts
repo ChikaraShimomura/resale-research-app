@@ -1,8 +1,10 @@
 import { getActorId } from "../../../lib/auth/actor";
-import { removeMember, cancelInvite, setTeamName, setTeamMode, setMemberPerms } from "../../../lib/team";
+import { removeMember, cancelInvite, setTeamName, setTeamMode, setMemberPerms, hasPerm } from "../../../lib/team";
 
 // チームの操作：オーナーがメンバー除名 / メンバーが離脱 / オーナーが保留中招待を取消。
-// 権限：除名・取消はオーナー本人(ownerActor===自分)のみ。離脱は自分(viewer)を ownerActor のチームから外す。
+// 権限：
+//   set-name / set-mode / set-perms はオーナー本人(caller===owner)のみ＝昇格防止のため委譲不可。
+//   remove-member / cancel-invite は ownerActor を指定して委譲可（manage 権限保持者のみ・オーナー本人は除名不可）。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -15,27 +17,38 @@ export async function POST(req: Request) {
   };
   const action = body.action;
 
+  // 委譲解決：ownerActor 省略/自分なら自分のチーム。別オーナーなら manage 権限が必要（無ければ 403）。
+  // set-* 系では使わない（オーナー専用）。null=権限なしで拒否。
+  const resolveTeamOwner = async (): Promise<string | null> => {
+    const reqOwner = (body.ownerActor || "").trim();
+    if (!reqOwner || reqOwner === actor) return actor;
+    return (await hasPerm(reqOwner, actor, "manage")) ? reqOwner : null;
+  };
+
   try {
     if (action === "set-name") {
-      // オーナーが自分のチーム名を設定（空なら解除）。
+      // オーナー本人だけが自分のチーム名を設定（空なら解除）。委譲不可。
       await setTeamName(actor, body.name || "");
       return Response.json({ ok: true });
     }
     if (action === "set-mode") {
-      // オーナーが自分のチームの方式（共有/個別）を設定。
+      // オーナー本人だけが自分のチームの方式（共有/個別）を設定。委譲不可。
       await setTeamMode(actor, body.mode === "shared" ? "shared" : "individual");
       return Response.json({ ok: true });
     }
     if (action === "set-perms") {
-      // オーナーが自分のチームのメンバーの権限を設定。
+      // オーナー本人だけがメンバーの権限を設定（昇格防止のため委譲不可）。
       if (!body.memberActor || !Array.isArray(body.perms)) return Response.json({ ok: false, error: "対象/権限がありません。" }, { status: 400 });
       await setMemberPerms(actor, body.memberActor, body.perms);
       return Response.json({ ok: true });
     }
     if (action === "remove-member") {
-      // オーナー本人だけが自分のチームから除名できる。
+      // オーナー本人 or manage 権限保持者が、対象オーナーのチームから除名できる。オーナー本人は除名不可。
       if (!body.memberActor) return Response.json({ ok: false, error: "対象がありません。" }, { status: 400 });
-      await removeMember(actor, body.memberActor);
+      const owner = await resolveTeamOwner();
+      if (!owner) return Response.json({ ok: false, error: "このチームを管理する権限がありません。" }, { status: 403 });
+      if (body.memberActor === owner) return Response.json({ ok: false, error: "オーナーは外せません。" }, { status: 400 });
+      await removeMember(owner, body.memberActor);
       return Response.json({ ok: true });
     }
     if (action === "leave") {
@@ -46,9 +59,11 @@ export async function POST(req: Request) {
       return Response.json({ ok: true });
     }
     if (action === "cancel-invite") {
-      // オーナーが自分の保留中招待を取消。
+      // オーナー本人 or manage 権限保持者が、対象オーナーの保留中招待を取消。
       if (!body.email) return Response.json({ ok: false, error: "対象がありません。" }, { status: 400 });
-      await cancelInvite(actor, body.email);
+      const owner = await resolveTeamOwner();
+      if (!owner) return Response.json({ ok: false, error: "このチームを管理する権限がありません。" }, { status: 403 });
+      await cancelInvite(owner, body.email);
       return Response.json({ ok: true });
     }
   } catch {

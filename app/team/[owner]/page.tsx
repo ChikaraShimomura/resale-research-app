@@ -3,13 +3,14 @@ import Link from "next/link";
 import { Flame, ExternalLink, Lock, ArrowRight } from "lucide-react";
 import { getActorId } from "../../lib/auth/actor";
 import { getCurrentUserEmail } from "../../lib/auth/plan";
-import { isTeamMember, getMyTeams, getTeamName, getMemberPerms, getTeamMode } from "../../lib/team";
+import { isTeamMember, getMyTeams, getTeamName, getMemberPerms, getTeamMode, getRoster, getPending } from "../../lib/team";
 import { getBoughtItems, sourceSiteName } from "../../lib/usedCatalog";
 import { getStats } from "../../lib/ebay/stats";
 import BottomNav from "../../components/BottomNav";
 import ListingHelper from "../../components/ListingHelper";
 import RemoveBoughtButton from "../../components/RemoveBoughtButton";
 import ShippingInput from "../../components/ShippingInput";
+import { TeamRosterAdmin } from "../../components/TeamManager";
 import type { ProfitProduct } from "../../lib/profitFilter";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,11 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   const canDelete = can("delete");
   const canShipping = can("shipping");
   const anyAction = canList || canDelete || canShipping;
+  // 委譲管理：manage 権限を持つ「非オーナー」だけ代理の招待/除名UIを出す（オーナーは /team の管理画面を使う）。
+  const canManage = !isOwner && perms.includes("manage" as never);
+  const [adminRoster, adminPending] = canManage
+    ? await Promise.all([getRoster(ownerActor), getPending(ownerActor)])
+    : [[], []];
 
   const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝共有相手の仕入れ一覧と一致
   const netCash = s.totalSales - s.totalFees - totalBuy;
@@ -97,6 +103,9 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
             </Link>
           )}
         </div>
+
+        {/* 代理のチーム管理（manage 権限のメンバーのみ・招待/除名）。 */}
+        {canManage && <TeamRosterAdmin owner={ownerActor} roster={adminRoster} pending={adminPending} />}
 
         {/* 収支（finance権限のあるメンバー＝オーナーには常に表示） */}
         {canFinance && (

@@ -47,7 +47,7 @@ export default function ConsentBanner() {
     // BottomNav(下部固定ナビ)の上に重ねる。bottom-0 だと下タブを覆って、同意するまで操作不能になるため、
     // ナビ高さ(--nav-h)+safe-area 分だけ持ち上げる（AddToHome と同じ方式）。
     <div
-      role="dialog"
+      role="region"
       aria-label="Cookieの利用について"
       className="fixed inset-x-0 z-50 bg-white border-t border-[#A98B5C]/35 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
       style={{ bottom: "calc(var(--nav-h, 0px) + env(safe-area-inset-bottom, 0px))" }}
@@ -62,14 +62,14 @@ export default function ConsentBanner() {
           <button
             type="button"
             onClick={() => decide(false)}
-            className="flex-1 h-10 bg-gray-100 text-gray-600 font-bold text-[13px] rounded-xl active:bg-gray-200"
+            className="flex-1 h-10 bg-gray-100 text-gray-600 font-bold text-[13px] rounded-xl active:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40"
           >
             拒否する
           </button>
           <button
             type="button"
             onClick={() => decide(true)}
-            className="flex-1 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
+            className="flex-1 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:ring-offset-2"
           >
             同意する
           </button>

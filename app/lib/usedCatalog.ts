@@ -22,6 +22,8 @@ export type UsedCatalogItem = {
   soldCount?: number; // 直近の落札件数（実需シグナル）。型番単位なら同一機種の件数。
   ebayConfirmed?: boolean; // true=型番単位でeBay落札相場を取得済み。false/未定義=系列中央値の「目安」。
   ebaySoldUrl?: string; // 代表落札ページ（型番リファイナが入れる・任意）
+  ebayActiveCount?: number; // eBay現在出品の総数(=競合の厚み)。型番リファイナがBrowse APIで焼き込む。未取得は undefined(=競合不明=中立)。
+
 };
 
 // 時計の日本語モデル名→eBay英語表記（出品者が実際に使う語）。ハードオフの型番(code)だけだとeBayで0件になるため、

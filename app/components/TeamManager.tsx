@@ -21,6 +21,158 @@ const PERM_LABELS: { key: TeamPerm; label: string }[] = [
   { key: "manage", label: "チーム管理" },
 ];
 
+// 委譲管理：manage 権限を持つメンバーが、特定オーナー（owner）のチームで代理の招待・除名を行う小型UI。
+// 権限変更/方式/チーム名はオーナー専用のため、ここには出さない（招待と除名のみ）。
+export function TeamRosterAdmin({
+  owner,
+  roster,
+  pending,
+}: {
+  owner: string;
+  roster: RosterMember[];
+  pending: Pending[];
+}) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "warn" | "err"; text: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [actBusy, setActBusy] = useState<string | null>(null);
+
+  const invite = async () => {
+    const e = email.trim().toLowerCase();
+    if (!e) return;
+    setBusy(true); setMsg(null); setInviteLink(null);
+    try {
+      const res = await fetch("/api/team/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: e, ownerActor: owner }),
+      }).then((r) => r.json());
+      if (res.ok && res.sent) { setMsg({ type: "ok", text: `${e} に招待リンクを送りました。` }); setEmail(""); router.refresh(); }
+      else if (res.ok && res.emailOff) { setMsg({ type: "warn", text: `メール未設定のため、下のリンクを ${e} に共有してください。` }); setInviteLink(res.inviteUrl || null); setEmail(""); router.refresh(); }
+      else if (res.ok && res.notMember) { setMsg({ type: "warn", text: `${e} はまだ会員ではありません。` }); }
+      else { setMsg({ type: "err", text: res.error || "招待に失敗しました。" }); }
+    } catch { setMsg({ type: "err", text: "通信エラーで招待できませんでした。" }); }
+    setBusy(false);
+  };
+
+  const removeM = async (memberActor: string) => {
+    setActBusy(`rm:${memberActor}`);
+    try {
+      const res = await fetch("/api/team/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove-member", ownerActor: owner, memberActor }),
+      }).then((r) => r.json());
+      if (res.ok) router.refresh();
+      else { setMsg({ type: "err", text: res.error || "除名に失敗しました。" }); router.refresh(); }
+    } catch { setMsg({ type: "err", text: "通信エラーで除名できませんでした。" }); router.refresh(); }
+    setActBusy(null);
+  };
+
+  const cancel = async (e: string) => {
+    setActBusy(`cancel:${e}`);
+    try {
+      const res = await fetch("/api/team/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel-invite", ownerActor: owner, email: e }),
+      }).then((r) => r.json());
+      if (res.ok) router.refresh();
+      else { setMsg({ type: "err", text: res.error || "取消に失敗しました。" }); router.refresh(); }
+    } catch { setMsg({ type: "err", text: "通信エラーで取消できませんでした。" }); router.refresh(); }
+    setActBusy(null);
+  };
+
+  return (
+    <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm mb-4">
+      <div className="flex items-center gap-2 mb-1">
+        <UserPlus size={16} className="text-[#2D323B]" />
+        <h2 className="text-sm font-black text-gray-800">チーム管理（代理）</h2>
+      </div>
+      <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
+        あなたは<b>チーム管理</b>権限を持っています。このチームのメンバーを招待・除名できます（権限変更・方式・名前はオーナーのみ）。
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          value={email}
+          onChange={(ev) => setEmail(ev.target.value)}
+          placeholder="member@example.com"
+          className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-[#A98B5C]/40 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
+        />
+        <button
+          onClick={invite}
+          disabled={busy || !email.trim()}
+          className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold disabled:opacity-40 active:bg-[#1A1D23] focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none"
+        >
+          {busy ? "確認中…" : "招待"}
+        </button>
+      </div>
+      {msg && (
+        <p className={`mt-2 text-[12px] leading-relaxed ${msg.type === "ok" ? "text-emerald-700" : msg.type === "warn" ? "text-amber-700" : "text-rose-600"}`}>
+          {msg.text}
+        </p>
+      )}
+      {inviteLink && (
+        <input
+          readOnly
+          value={inviteLink}
+          onFocus={(ev) => ev.currentTarget.select()}
+          className="mt-2 w-full h-9 px-2.5 rounded-lg border border-[#A98B5C]/40 bg-gray-50 text-[11px] text-gray-600 font-mono"
+        />
+      )}
+      {pending.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[12px] font-black text-gray-700 mb-1.5">承認待ち（{pending.length}）</p>
+          <ul className="space-y-1.5">
+            {pending.map((p) => (
+              <li key={p.email} className="flex items-center justify-between gap-2">
+                <span className="text-[12px] text-gray-600 inline-flex items-center gap-1.5 min-w-0">
+                  <Mail size={13} className="text-gray-400 shrink-0" /> <span className="truncate">{p.email}</span>
+                </span>
+                <button
+                  onClick={() => cancel(p.email)}
+                  disabled={actBusy === `cancel:${p.email}`}
+                  className="shrink-0 min-h-9 px-2 text-[11px] font-bold text-gray-400 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none rounded-lg"
+                >
+                  取消
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="mt-3">
+        <p className="text-[12px] font-black text-gray-700 mb-1.5">メンバー（{roster.length}）</p>
+        {roster.length === 0 ? (
+          <p className="text-[12px] text-gray-400">まだいません。</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {roster.map((m) => (
+              <li key={m.actor} className="flex items-center justify-between gap-2">
+                <span className="text-[12px] text-gray-700 inline-flex items-center gap-1.5 min-w-0">
+                  <Users size={13} className="text-gray-400 shrink-0" /> <span className="truncate">{m.email}</span>
+                </span>
+                <button
+                  onClick={() => removeM(m.actor)}
+                  disabled={actBusy === `rm:${m.actor}`}
+                  className="shrink-0 inline-flex items-center gap-1 min-h-9 px-2 text-[11px] font-bold text-rose-500 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none rounded-lg"
+                >
+                  <Trash2 size={12} /> 外す
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function TeamManager({
   roster,
   pending,
@@ -90,7 +242,11 @@ export default function TeamManager({
         body: JSON.stringify(body),
       }).then((r) => r.json());
       if (res.ok) router.refresh();
-    } catch { /* noop */ }
+      else { setMsg({ type: "err", text: res.error || "操作に失敗しました。" }); router.refresh(); }
+    } catch {
+      setMsg({ type: "err", text: "通信エラーで操作できませんでした。" });
+      router.refresh();
+    }
     setActBusy(null);
   };
 
@@ -102,23 +258,35 @@ export default function TeamManager({
         body: JSON.stringify({ action: "set-name", name: name.trim() }),
       }).then((r) => r.json());
       if (res.ok) { setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); router.refresh(); }
-    } catch { /* noop */ }
+      else { setMsg({ type: "err", text: res.error || "チーム名の保存に失敗しました。" }); router.refresh(); }
+    } catch {
+      setMsg({ type: "err", text: "通信エラーでチーム名を保存できませんでした。" });
+      router.refresh();
+    }
   };
 
   const setTeamMode = async (m: "shared" | "individual") => {
     try {
-      await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-mode", mode: m }) });
+      const res = await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-mode", mode: m }) }).then((r) => r.json());
+      if (res.ok) router.refresh();
+      else { setMsg({ type: "err", text: res.error || "方式の変更に失敗しました。" }); router.refresh(); }
+    } catch {
+      setMsg({ type: "err", text: "通信エラーで方式を変更できませんでした。" });
       router.refresh();
-    } catch { /* noop */ }
+    }
   };
 
   const togglePerm = async (memberActor: string, perm: TeamPerm, current: TeamPerm[]) => {
     const next = current.includes(perm) ? current.filter((p) => p !== perm) : [...current, perm];
     setActBusy(`perm:${memberActor}`);
     try {
-      await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-perms", memberActor, perms: next }) }).then((r) => r.json());
+      const res = await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-perms", memberActor, perms: next }) }).then((r) => r.json());
+      if (res.ok) router.refresh();
+      else { setMsg({ type: "err", text: res.error || "権限の変更に失敗しました。" }); router.refresh(); }
+    } catch {
+      setMsg({ type: "err", text: "通信エラーで権限を変更できませんでした。" });
       router.refresh();
-    } catch { /* noop */ }
+    }
     setActBusy(null);
   };
 
@@ -131,14 +299,14 @@ export default function TeamManager({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setTeamMode("shared")}
-            className={`rounded-xl border px-3 py-2.5 text-left ${mode === "shared" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
+            className={`rounded-xl border px-3 py-2.5 text-left focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none ${mode === "shared" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">共有</span>
             <span className="block text-[10px] text-gray-500 leading-snug mt-0.5"><b>あなたの1つのeBay</b>で全員が出品（オーナー名義）</span>
           </button>
           <button
             onClick={() => setTeamMode("individual")}
-            className={`rounded-xl border px-3 py-2.5 text-left ${mode === "individual" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
+            className={`rounded-xl border px-3 py-2.5 text-left focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none ${mode === "individual" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">個別</span>
             <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">メンバーが<b>各自のeBay</b>を連携して出品</span>
@@ -156,7 +324,7 @@ export default function TeamManager({
             placeholder="例：副業チーム"
             className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-[#A98B5C]/40 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
           />
-          <button onClick={saveName} className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+          <button onClick={saveName} className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23] focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none">
             保存
           </button>
         </div>
@@ -185,7 +353,7 @@ export default function TeamManager({
           <button
             onClick={invite}
             disabled={busy || !email.trim()}
-            className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold disabled:opacity-40 active:bg-[#1A1D23]"
+            className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold disabled:opacity-40 active:bg-[#1A1D23] focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none"
           >
             {busy ? "確認中…" : "招待"}
           </button>
@@ -222,7 +390,7 @@ export default function TeamManager({
                 <button
                   onClick={() => act({ action: "cancel-invite", email: p.email }, `cancel:${p.email}`)}
                   disabled={actBusy === `cancel:${p.email}`}
-                  className="shrink-0 text-[11px] font-bold text-gray-400 disabled:opacity-40"
+                  className="shrink-0 min-h-9 px-2 text-[11px] font-bold text-gray-400 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none rounded-lg"
                 >
                   取消
                 </button>
@@ -248,28 +416,27 @@ export default function TeamManager({
                   <button
                     onClick={() => act({ action: "remove-member", memberActor: m.actor }, `rm:${m.actor}`)}
                     disabled={actBusy === `rm:${m.actor}`}
-                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 disabled:opacity-40"
+                    className="shrink-0 inline-flex items-center gap-1 min-h-9 px-2 text-[11px] font-bold text-rose-500 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none rounded-lg"
                   >
                     <Trash2 size={12} /> 外す
                   </button>
                 </div>
-                {/* 権限（どちらの方式でも有効。仕入れ/出品/削除/収支/送料/非表示を個別に付与）。
-                    ※「チーム管理(manage)」の委譲（メンバーが代理で招待/除名）は未配線のため、誤解を避けて近日対応とし無効化。 */}
+                {/* 権限（どちらの方式でも有効。仕入れ/出品/削除/収支/送料/非表示/チーム管理を個別に付与）。
+                    ※「チーム管理(manage)」を付けたメンバーは、このチームで代理の招待・除名ができる（権限変更/方式/名前はオーナー専用）。 */}
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {PERM_LABELS.map(({ key, label }) => {
                     const on = m.perms.includes(key);
-                    const soon = key === "manage"; // 委譲が未実装＝飾りトグルにしない
                     return (
                       <button
                         key={key}
-                        onClick={() => { if (!soon) togglePerm(m.actor, key, m.perms); }}
-                        disabled={soon || actBusy === `perm:${m.actor}`}
-                        title={soon ? "招待・除名の委譲は近日対応です（現在はオーナーのみ）" : undefined}
-                        className={`h-7 px-2 rounded-full text-[11px] font-bold border disabled:opacity-50 ${
-                          soon ? "bg-gray-50 text-gray-400 border-gray-200" : on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"
+                        onClick={() => togglePerm(m.actor, key, m.perms)}
+                        disabled={actBusy === `perm:${m.actor}`}
+                        title={key === "manage" ? "このチームで代理の招待・除名ができます（権限変更/方式/名前はオーナーのみ）" : undefined}
+                        className={`min-h-9 h-9 px-2.5 rounded-full text-[11px] font-bold border disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none ${
+                          on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"
                         }`}
                       >
-                        {soon ? `${label}（近日）` : `${on ? "✓ " : ""}${label}`}
+                        {`${on ? "✓ " : ""}${label}`}
                       </button>
                     );
                   })}
@@ -305,7 +472,7 @@ export default function TeamManager({
                   <button
                     onClick={() => act({ action: "leave", ownerActor: t.ownerActor }, `leave:${t.ownerActor}`)}
                     disabled={actBusy === `leave:${t.ownerActor}`}
-                    className="text-[11px] font-bold text-gray-400 disabled:opacity-40"
+                    className="min-h-9 px-2 text-[11px] font-bold text-gray-400 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none rounded-lg"
                   >
                     このチームから抜ける
                   </button>

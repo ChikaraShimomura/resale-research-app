@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });
   } catch { /* フェイルオープン */ }
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number; shippingJpy?: number; teamOwner?: string; snapshot?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number; shippingJpy?: number; teamOwner?: string; snapshot?: unknown; confirmedBought?: boolean };
   const productId = (body.productId || "").trim();
   if (!productId || productId.length > 256) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   // 仕入れ値は0〜1億円に丸めて保存（異常値で集計を壊さない）。未指定/不正は0（印は付くが金額なし）。
@@ -71,7 +71,12 @@ export async function POST(req: Request) {
       //   オーナーが権限付与済み＝認可なので対象外（無在庫の可否は出品時に判定。publish と整合）。
       //   ※ canDropship() は viewer(セッション)のプランなので、actor===viewer の時だけ正しく一致する。
       if (availability === "in-stock" && actor === viewer && !(await canDropship())) {
-        return Response.json({ ok: true, added: false, availability, needsPlan: true });
+        // ★正直な買い手の救済: 仕入れ元ページが売り切れに更新される前に実際に買ってしまった人を罠に嵌めない。
+        //   confirmedBought=true（本人が「もう仕入れ済み」と明示確認）なら通常通り記録する（本人のみ非表示）。
+        //   未確認なら従来通り needsPlan で蹴る（在庫表示が古いだけのケースを本人の自己申告で救済する設計）。
+        if (!body.confirmedBought) {
+          return Response.json({ ok: true, added: false, availability, needsPlan: true });
+        }
       }
 
       const item =
