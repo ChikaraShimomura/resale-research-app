@@ -83,14 +83,15 @@ export function conditionLabel(c: string | null): { rank: string; label: string;
   if (/JUNK|ジャンク/.test(raw)) rank = "JUNK";
   else if (/新品|未使用/.test(raw)) rank = "N";
   else { const m = raw.match(/(?:中古)?\s*([NSABCD])\b/); rank = m ? m[1] : ""; }
+  // ラベルは「状態が一目で分かる言葉」にする（極上/美品/並のような業界用語は避ける）。
   switch (rank) {
     case "N": return { rank: "N", label: "新品同様", tone: "good" };
-    case "S": return { rank: "S", label: "極上", tone: "good" };
-    case "A": return { rank: "A", label: "美品", tone: "good" };
-    case "B": return { rank: "B", label: "並", tone: "mid" };
-    case "C": return { rank: "C", label: "使用感", tone: "mid" };
+    case "S": return { rank: "S", label: "ほぼ新品", tone: "good" };
+    case "A": return { rank: "A", label: "目立つ傷なし", tone: "good" };
+    case "B": return { rank: "B", label: "普通の使用感", tone: "mid" };
+    case "C": return { rank: "C", label: "傷・使用感あり", tone: "mid" };
     case "D": return { rank: "D", label: "難あり", tone: "risk" };
-    case "JUNK": return { rank: "JUNK", label: "ジャンク", tone: "risk" };
+    case "JUNK": return { rank: "JUNK", label: "ジャンク(動作未確認)", tone: "risk" };
     default: return { rank: "", label: "中古", tone: "mid" };
   }
 }

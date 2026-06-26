@@ -26,9 +26,15 @@ export function parseHardoff(html) {
     const code = stripTags((c.match(/class="item-code"[^>]*>([\s\S]*?)<\/div>/) || [])[1]); // 型番(eBay照合に強い)
     const priceStr = (c.match(/class="font-en item-price-en"[^>]*>\s*([\d,]+)/) || [])[1] || "";
     const price = priceStr ? Number(priceStr.replace(/,/g, "")) : null;
-    // 状態：ランク icon-rank-{x}（N/S/A/B/C/D）。ジャンク品はランクが無く icon-tag-junk が付く＝condition="JUNK"。
-    // ※ジャンクはeBay輸出の大カテゴリ(for parts/未確認で高利益・高リスク)なので明示的に区別する。
-    const rank = ((c.match(/icon-rank-([a-z])\b/i) || [])[1] || "").toUpperCase();
+    // 状態ランク：実マークアップは <img src=".../rank/icon-rank-{size}-{rank}.svg" alt="{rank}">。
+    //   ※先頭の {size} は表示サイズ記号(s=small)で状態ではない。本当のランクは2つ目の文字＝altと一致(例 icon-rank-s-b alt="b" ＝ Bランク)。
+    //   旧実装は先頭の s を拾って全件Sになっていた不具合。altを優先し、無ければ icon-rank-{size}-{rank} の2文字目を採用。
+    //   ジャンク品はランクが無く icon-tag-junk が付く＝condition="JUNK"。ジャンクはeBay輸出では別物(未確認/部品取り)なので明示区別。
+    const rank = (
+      (c.match(/\/rank\/icon-rank-[a-z]-([a-z])\.svg/i) || [])[1] ||
+      (c.match(/<img[^>]*\bsrc="[^"]*\/rank\/[^"]*"[^>]*\balt="([a-z])"/i) || [])[1] ||
+      ""
+    ).toUpperCase();
     const isJunk = /icon-tag-junk|alt="ジャンク品"/.test(c);
     const condition = rank || (isJunk ? "JUNK" : null);
     items.push({ id, url, brand, name, code, price, condition, isJunk, imageUrl, site: "hardoff" });
