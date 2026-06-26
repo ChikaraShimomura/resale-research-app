@@ -6,7 +6,15 @@ import { Check, X, Undo2 } from "lucide-react";
 
 // 中古カタログ各カードの小さな triage ボタン。「仕入れた」「これは無理」を per-actor で記録して一覧から外す。
 // 押下後は楽観的に「記録しました＋元に戻す」へ。再読込/次回訪問時はサーバー側フィルタで非表示が確定する。
-export default function CatalogActionButtons({ productId, buyJpy }: { productId: string; buyJpy: number }) {
+export default function CatalogActionButtons({
+  productId,
+  buyJpy,
+  isAdmin = false,
+}: {
+  productId: string;
+  buyJpy: number;
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<"bought" | "skip" | "undo" | null>(null);
   const [done, setDone] = useState<"bought" | "skip" | null>(null);
@@ -65,12 +73,22 @@ export default function CatalogActionButtons({ productId, buyJpy }: { productId:
         >
           <Check size={13} /> 仕入れた
         </button>
+        {/* 管理者は「これは無理」(カタログ全体の判断用)、他ユーザーは「非表示(無理と判断)」表記。動作は同じ＝そのユーザーに非表示。 */}
         <button
           onClick={() => post("skip")}
           disabled={busy !== null}
-          className="flex-1 inline-flex items-center justify-center gap-1 h-8 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50"
+          className="flex-1 inline-flex flex-col items-center justify-center gap-0 h-8 rounded-lg border border-gray-300 bg-white text-gray-500 text-[11px] font-bold disabled:opacity-40 active:bg-gray-50 leading-[1.05]"
         >
-          <X size={13} /> これは無理
+          {isAdmin ? (
+            <span className="inline-flex items-center gap-1">
+              <X size={13} /> これは無理
+            </span>
+          ) : (
+            <>
+              <span>非表示</span>
+              <span className="text-[8px] font-normal text-gray-400">（無理と判断）</span>
+            </>
+          )}
         </button>
       </div>
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
