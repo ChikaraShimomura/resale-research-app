@@ -76,18 +76,28 @@ export function toListingProduct(p: UsedCatalogItem): ProfitProduct {
   } as unknown as ProfitProduct;
 }
 
-// 状態ランクの表示ラベルと色（eBay輸出での扱いやすさ順）。
-export function conditionLabel(c: string | null): { label: string; tone: "good" | "mid" | "risk" } {
-  switch ((c || "").toUpperCase()) {
-    case "N": return { label: "新品同様", tone: "good" };
-    case "S": return { label: "極上", tone: "good" };
-    case "A": return { label: "美品", tone: "good" };
-    case "B": return { label: "並", tone: "mid" };
-    case "C": return { label: "使用感", tone: "mid" };
-    case "D": return { label: "難あり", tone: "risk" };
-    case "JUNK": return { label: "ジャンク", tone: "risk" };
-    default: return { label: "中古", tone: "mid" };
+// 状態ランクの表示（ランク文字＋意味＋色）。ハードオフ=N/S/A/B/C/D/JUNK、2nd ST=「中古C」等の両方を解釈。
+export function conditionLabel(c: string | null): { rank: string; label: string; tone: "good" | "mid" | "risk" } {
+  const raw = (c || "").toUpperCase();
+  let rank = "";
+  if (/JUNK|ジャンク/.test(raw)) rank = "JUNK";
+  else if (/新品|未使用/.test(raw)) rank = "N";
+  else { const m = raw.match(/(?:中古)?\s*([NSABCD])\b/); rank = m ? m[1] : ""; }
+  switch (rank) {
+    case "N": return { rank: "N", label: "新品同様", tone: "good" };
+    case "S": return { rank: "S", label: "極上", tone: "good" };
+    case "A": return { rank: "A", label: "美品", tone: "good" };
+    case "B": return { rank: "B", label: "並", tone: "mid" };
+    case "C": return { rank: "C", label: "使用感", tone: "mid" };
+    case "D": return { rank: "D", label: "難あり", tone: "risk" };
+    case "JUNK": return { rank: "JUNK", label: "ジャンク", tone: "risk" };
+    default: return { rank: "", label: "中古", tone: "mid" };
   }
+}
+
+// ジャンク(動作未確認/部品取り)判定。eBay相場は「動く品」基準なのでカタログから除外する。
+export function isJunk(c?: string | null): boolean {
+  return /JUNK|ジャンク/i.test(c || "");
 }
 
 // KVから中古カタログを読む（読み取り専用トークン）。型番DB＝中古はモデル単位で見る。

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import ListingHelper from "../components/ListingHelper";
@@ -29,8 +29,8 @@ const toneCls = (tone: "good" | "mid" | "risk") =>
 
 export default async function CatalogPage() {
   const canView = await canViewCatalog();
-  // ★同一型番のeBay実落札で相場が取れた商品だけ表示する（ebayConfirmed）。系列平均/別型番混入の誤った利益は出さない。
-  const items = (await getUsedCatalog()).filter((p) => p.ebayConfirmed);
+  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク(動作未確認)は除外（相場と前提が合わない）。
+  const items = (await getUsedCatalog()).filter((p) => p.ebayConfirmed && !isJunk(p.condition));
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -99,7 +99,7 @@ export default async function CatalogPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${toneCls(cond.tone)}`}>
-                            {cond.label}
+                            {cond.rank ? `${cond.rank}（${cond.label}）` : cond.label}
                           </span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D323B]/[0.06] text-[#2D323B] border border-[#A98B5C]/25">
                             {p.cat}

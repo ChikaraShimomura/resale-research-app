@@ -79,6 +79,7 @@ async function loadCategories() {
     for (const it of items) {
       if (!it.price) continue;
       if (NONWATCH.test(`${it.brand} ${it.name}`)) continue; // 釣具等の非時計を除外
+      if (/JUNK|ジャンク/i.test(it.condition || "")) continue; // ジャンク(動作未確認/部品取り)は除外
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
       if (ratio < 0.15 || ratio > 0.8) continue;

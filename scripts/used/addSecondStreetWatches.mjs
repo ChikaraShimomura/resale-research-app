@@ -59,6 +59,7 @@ function extractModel(name) {
       let n = 0;
       for (const it of items) {
         if (!it.price || !it.url || have.has(it.url)) continue;
+        if (/JUNK|ジャンク/i.test(it.condition || "")) continue; // ジャンク(動作未確認)は除外
         const code = extractModel(it.name);
         if (!code) continue; // 型番が取れない品はrefineで確定できない＝入れない
         const brand = brandOf(it.name, kw);
