@@ -29,9 +29,12 @@ const KV_URL = envv("KV_REST_API_URL") || envv("UPSTASH_REDIS_REST_URL");
 const KV_TOK = envv("KV_REST_API_TOKEN") || envv("UPSTASH_REDIS_REST_TOKEN");
 
 function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;
-  const shipFee = 2040 * 0.1325;
-  const dutyJpy = sellJpy / USD_JPY > 100 ? sellJpy * 0.1 + 230 : 0;
+  const fee = sellJpy * 0.1325 + 47;          // eBay最終手数料
+  const shipFee = 2040 * 0.1325;               // 国際送料にかかる手数料分
+  const sellUsd = sellJpy / USD_JPY;
+  // 米関税: $500以上は真贋保証(AG)経由で買い手負担→セラーは引かない。$500未満は標準出品でDDP必須=セラーが前払い
+  //   (時計の実効≒15%＋通関手数料¥3000。第122条の上乗せは2026-07-24失効予定で流動的なので保守的に概算)。
+  const dutyJpy = sellUsd >= 500 ? 0 : Math.round(sellJpy * 0.15 + 3000);
   return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
 }
 function trimmedMedian(prices) {
@@ -41,7 +44,8 @@ function trimmedMedian(prices) {
   const k = kept.length ? kept : ps;
   return k[Math.floor(k.length / 2)];
 }
-const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+// LH_ItemCondition=3000 ＝ 中古(Used/Pre-owned)のみ＝新品retailを相場計算/根拠表示から除外。
+const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
 const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); // 型番照合用の正規化（記号/大小無視）
 // 新品(retail)を除外＝中古の落札だけで相場を出す。状態(cond)とタイトルの両方を見る。
 const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品|未使用|未開封|dead\s?stock|デッドストック/i.test((s || "").trim());

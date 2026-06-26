@@ -49,7 +49,8 @@ export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: str
     (line ? [p.brand, line].filter(Boolean).join(" ") : "") ||
     [p.brand, p.code].filter(Boolean).join(" ").trim() ||
     [p.brand, p.name].filter(Boolean).join(" ").trim();
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&_sop=13`;
+  // LH_ItemCondition=3000 ＝ 中古(Used/Pre-owned)のみ。新品が混ざるのを防ぐ。
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
 }
 
 // 中古カタログ品 → eBay自動出品フロー(ListingHelper/EbayListingModal)に渡す ProfitProduct へ変換。

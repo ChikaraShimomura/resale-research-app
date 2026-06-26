@@ -24,9 +24,12 @@ const RESEND = env("RESEND_API_KEY");
 
 // 純利益(JPY)。買=ハードオフ価格、売=eBay落札中央。重量500g想定・国際送料は買い手負担(手数料分のみ計上)。
 function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;
-  const shipFee = 2040 * 0.1325;
-  const dutyJpy = sellJpy / USD_JPY > 100 ? sellJpy * 0.1 + 230 : 0;
+  const fee = sellJpy * 0.1325 + 47;          // eBay最終手数料
+  const shipFee = 2040 * 0.1325;               // 国際送料にかかる手数料分
+  const sellUsd = sellJpy / USD_JPY;
+  // 米関税: $500以上は真贋保証(AG)経由で買い手負担→セラーは引かない。$500未満は標準出品でDDP必須=セラーが前払い
+  //   (時計の実効≒15%＋通関手数料¥3000。第122条の上乗せは2026-07-24失効予定で流動的なので保守的に概算)。
+  const dutyJpy = sellUsd >= 500 ? 0 : Math.round(sellJpy * 0.15 + 3000);
   return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
 }
 

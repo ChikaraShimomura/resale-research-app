@@ -24,7 +24,7 @@ catalog.sort((a, b) => b.profitJpy - a.profitJpy);
 // eBay落札(根拠)の検索URL。型番リファイナが入れた ebaySoldUrl 優先、無ければ ブランド+型番 で検索。
 const ebaySold = (c) =>
   c.ebaySoldUrl ||
-  `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([c.brand, c.code].filter(Boolean).join(" ") || [c.brand, c.name].filter(Boolean).join(" "))}&LH_Sold=1&LH_Complete=1&_sop=13`;
+  `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([c.brand, c.code].filter(Boolean).join(" ") || [c.brand, c.name].filter(Boolean).join(" "))}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
 
 const rows = catalog.slice(0, 40).map((c) =>
   `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${c.cat}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${c.brand} ${c.name}${c.code ? "（" + c.code + "）" : ""}${c.ebayConfirmed ? ' <span style="color:#0a8a4a;font-size:11px">型番一致</span>' : ""}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:center">${c.condition || "中古"}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">¥${(c.buyJpy || 0).toLocaleString()}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;color:#0064D2">¥${(c.ebayMedianJpy || 0).toLocaleString()}${c.soldCount ? `<br><span style="color:#999;font-size:10px">落札${c.soldCount}件</span>` : ""}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;color:#A98B5C">+¥${(c.profitJpy || 0).toLocaleString()}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${c.profitRate}%</td><td style="padding:4px 8px;border-bottom:1px solid #eee"><a href="${c.hardoffUrl}">仕入れ</a><br><a href="${ebaySold(c)}" style="color:#0064D2">eBay落札</a></td></tr>`
