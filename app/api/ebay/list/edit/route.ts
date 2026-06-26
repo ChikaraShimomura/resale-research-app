@@ -123,6 +123,13 @@ export async function POST(req: Request) {
   const offer = await getOfferForSku(token, sku);
   if (!offer) return Response.json({ ok: false, error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。" });
 
+  // 価格のみ変更でも、現在の数量(availability)を bulk_update_price_quantity に同梱する。
+  // 在庫(availability)が欠けた状態だと #25604「Availability not found」系で400になることがあるため、
+  // 現数量を明示して送る（同値なので実質no-op・安全側）。数量が取れない時は触らない。
+  if (opts.priceUsd != null && opts.quantity == null && typeof offer.quantity === "number" && offer.quantity >= 1) {
+    opts.quantity = offer.quantity;
+  }
+
   const r = await updateOfferPriceQuantity(token, sku, offer.offerId, opts);
   if (!r.ok) {
     const f = friendlyEbayError(r.error);
