@@ -10,6 +10,7 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
+import { hasPerm } from "../../../../lib/team";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
@@ -32,16 +33,29 @@ interface Payload {
   bestOffer?: boolean; // 値下げ交渉(Best Offer)を受け付けるか（既定ON）
   offerDiscountPct?: number; // 値下げ交渉の自動承諾ライン＝定価の何%引きまで受けるか（0〜60・既定10）
   floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
+  onBehalfOf?: string; // チーム共有：出品権限のあるメンバーが「オーナー名義(オーナーのeBay/台帳)」で出品する時のオーナーactor
   selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
 }
 
 export async function POST(req: Request) {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false, connected: false });
-  const token = await getValidAccessToken(actor);
-  if (!token) return Response.json({ ok: false, connected: false });
+  const viewer = await getActorId();
+  if (!viewer) return Response.json({ ok: false, connected: false });
 
   const body = (await req.json().catch(() => ({}))) as Payload;
+
+  // チーム共有：onBehalfOf 指定＋出品権限があれば「オーナー名義」で出品（オーナーのeBayトークン・台帳・出品枠を使う）。
+  let actor = viewer;
+  const onBehalfOf = (body.onBehalfOf || "").trim();
+  const teamListing = !!onBehalfOf && onBehalfOf !== viewer;
+  if (teamListing) {
+    if (!(await hasPerm(onBehalfOf, viewer, "list"))) {
+      return Response.json({ ok: false, error: "このチームでの出品権限がありません。" }, { status: 403 });
+    }
+    actor = onBehalfOf;
+  }
+
+  const token = await getValidAccessToken(actor); // actor=オーナーならオーナーのeBay。未連携ならここで弾く。
+  if (!token) return Response.json({ ok: false, connected: false });
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   if (!body.categoryId) return Response.json({ ok: false, error: "カテゴリが未指定です。" }, { status: 400 });
   const price = Number(body.priceUsd);
@@ -57,7 +71,8 @@ export async function POST(req: Request) {
   const comp = isUnlimited(plan);
 
   // eBay自動出品はプロMAX限定（＋身内/管理者）。UIでも隠すがサーバーでも弾く＝迂回防止。ユーザー指示2026-06-27。
-  if (!planCanAutoList(plan)) {
+  // ※チーム出品(teamListing)はオーナーが出品権限を付与済み＝認可なのでプロMAXゲートはスキップ（オーナー名義で出品）。
+  if (!teamListing && !planCanAutoList(plan)) {
     return Response.json({ ok: false, needsPlan: true, planNeeded: "promax", error: "eBay自動出品はプロMAXプラン限定です。" }, { status: 403 });
   }
 
@@ -77,7 +92,8 @@ export async function POST(req: Request) {
   }
 
   // プラン上限(同時出品数)ゲート。Stripe決済が稼働するまで PAYWALL_ENABLED=OFF で無効（既存挙動を壊さない）。
-  if (PAYWALL_ENABLED && !comp) {
+  // ※チーム出品はオーナーの枠/設定で出すため、メンバーのプラン上限ゲートはスキップ。
+  if (PAYWALL_ENABLED && !comp && !teamListing) {
     const limit = PLANS[plan].listingLimit; // free=0 / amateur=10 / veteran=50 / pro=100（master/admin は comp で除外済み）
     if (limit <= 0) {
       // free(未購読=プラン未加入)は出品不可。0を「無制限」ではなく「出品できない」として明示的に弾く（PAYWALL ON時のみ到達）。

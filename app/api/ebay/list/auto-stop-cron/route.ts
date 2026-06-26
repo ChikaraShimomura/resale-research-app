@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   }
 
   let totalStopped = 0;
-  let totalPruned = 0;
+  let totalArchived = 0;
   let totalDueNotified = 0;
   let totalOrdersIngested = 0;
   for (const actor of actors) {
@@ -58,11 +58,11 @@ export async function POST(req: Request) {
       /* 1アクターの失敗で全体を止めない */
     }
     try {
-      // 出品停止中に入って24時間を過ぎた取引を自動削除（離席中でも掃除）。
-      const pruned = await pruneExpiredStops(actor);
-      totalPruned += pruned.length;
+      // 出品停止中に入って24時間を過ぎた取引を自動アーカイブ＝「過去の出品」へ移す（離席中でも掃除）。完全削除はしない（archivedAt付与＋2年TTLでレコード保持）。
+      const archived = await pruneExpiredStops(actor);
+      totalArchived += archived.length;
     } catch {
-      /* 削除失敗は次回リトライ */
+      /* アーカイブ失敗は次回リトライ */
     }
     try {
       // 注文(Order)の取り込み＝サーバー側で実行（従来はクライアントの /api/ebay/sold 起動のみ）。
@@ -89,5 +89,5 @@ export async function POST(req: Request) {
       /* 通知失敗は次回リトライ */
     }
   }
-  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalPruned, ordersIngested: totalOrdersIngested, dueNotified: totalDueNotified });
+  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalArchived, ordersIngested: totalOrdersIngested, dueNotified: totalDueNotified });
 }

@@ -115,10 +115,12 @@ export default function EbayListingModal({
   product,
   onClose,
   onListed,
+  onBehalfOf,
 }: {
   product: ProfitProduct;
   onClose: () => void;
   onListed?: () => void;
+  onBehalfOf?: string; // チーム共有：オーナー名義で出品する時のオーナーactor
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -192,7 +194,7 @@ export default function EbayListingModal({
       const p: PrepareData & { ok?: boolean; error?: string; connected?: boolean } = await fetch("/api/ebay/list/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: product.id }),
+        body: JSON.stringify({ productId: product.id, onBehalfOf }),
       })
         .then((r) => r.json())
         .catch(() => ({ ok: false }));
@@ -328,6 +330,7 @@ export default function EbayListingModal({
         offerDiscountPct, // 値下げ交渉の自動承諾ライン（定価の何%引きまで）
         floorUsd: ((Number(floorUsd) || 0) + foldUsd).toFixed(2), // 送料分だけ損益分岐も上げる（送料込みでBest Offer自動承認が送料負けしないように）
         selectedImages, // 出品に使う写真（先頭=メイン）
+        onBehalfOf, // チーム共有：オーナー名義で出品
       }),
     })
       .then((r) => r.json())

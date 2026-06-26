@@ -12,13 +12,15 @@ interface Props {
   autoOpen?: boolean;
   // 既に出品済み（アカウント基準＝別端末で出した分も含む）。検索一覧から渡す。
   defaultListed?: boolean;
+  // チーム共有：出品権限のあるメンバーがオーナー名義で出品する時のオーナーactor。
+  onBehalfOf?: string;
 }
 
 function isProfitProduct(p: ProfitProduct | Product): p is ProfitProduct {
   return "realAvgPrice" in p;
 }
 
-export default function ListingHelper({ product, autoOpen = false, defaultListed = false }: Props) {
+export default function ListingHelper({ product, autoOpen = false, defaultListed = false, onBehalfOf }: Props) {
   const [open, setOpen] = useState(false);
   const [listed, setListed] = useState(defaultListed);
 
@@ -86,7 +88,7 @@ export default function ListingHelper({ product, autoOpen = false, defaultListed
       </button>
 
       {open && isProfitProduct(product) && (
-        <EbayListingModal product={product} onClose={() => setOpen(false)} onListed={handleListed} />
+        <EbayListingModal product={product} onClose={() => setOpen(false)} onListed={handleListed} onBehalfOf={onBehalfOf} />
       )}
     </div>
   );

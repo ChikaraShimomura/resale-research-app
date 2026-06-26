@@ -9,14 +9,46 @@ import { kv } from "@vercel/kv";
 import crypto from "node:crypto";
 
 export type TeamInvite = { ownerActor: string; ownerEmail: string; inviteeEmail: string; createdAt: string };
-export type RosterMember = { actor: string; email: string };
+// 権限：buy=仕入れた / list=eBay自動出品 / delete=一覧から削除 / finance=収支の閲覧 / shipping=送料編集 / skip=非表示 / manage=チーム管理(招待・除名)
+export type TeamPerm = "buy" | "list" | "delete" | "finance" | "shipping" | "skip" | "manage";
+export const ALL_PERMS: TeamPerm[] = ["buy", "list", "delete", "finance", "shipping", "skip", "manage"];
+export type TeamMode = "shared" | "individual"; // shared=オーナーの共有データを操作 / individual=各自のデータ(共有は閲覧のみ)
+export type RosterMember = { actor: string; email: string; perms: TeamPerm[] };
 export type TeamRef = { ownerActor: string; ownerEmail: string; name?: string };
+
+const parsePerms = (s: unknown): TeamPerm[] =>
+  String(s || "").split(",").map((p) => p.trim()).filter((p): p is TeamPerm => (ALL_PERMS as string[]).includes(p));
 
 const INVITE_KEY = (t: string) => `team_invite:${t}`;
 const ROSTER_KEY = (owner: string) => `team_roster:${owner}`;
 const TEAMS_OF_KEY = (member: string) => `team_of:${member}`;
 const PENDING_KEY = (owner: string) => `team_pending:${owner}`;
 const NAME_KEY = (owner: string) => `team_name:${owner}`;
+const MODE_KEY = (owner: string) => `team_mode:${owner}`;
+const PERMS_KEY = (owner: string) => `team_perms:${owner}`; // Hash {memberActor: "buy,list,..."}
+
+// チームの運用方式。既定は individual（共有は閲覧のみ＝従来挙動）。オーナーが shared に切替で代理操作を解禁。
+export async function getTeamMode(owner: string): Promise<TeamMode> {
+  try { return (await kv.get<string>(MODE_KEY(owner))) === "shared" ? "shared" : "individual"; } catch { return "individual"; }
+}
+export async function setTeamMode(owner: string, mode: TeamMode): Promise<void> {
+  try { await kv.set(MODE_KEY(owner), mode === "shared" ? "shared" : "individual"); } catch { /* noop */ }
+}
+// メンバーの権限。オーナー本人は全権。
+export async function getMemberPerms(owner: string, member: string): Promise<TeamPerm[]> {
+  if (member === owner) return [...ALL_PERMS];
+  try { return parsePerms(await kv.hget<string>(PERMS_KEY(owner), member)); } catch { return []; }
+}
+export async function setMemberPerms(owner: string, member: string, perms: string[]): Promise<void> {
+  const clean = perms.filter((p): p is TeamPerm => (ALL_PERMS as string[]).includes(p));
+  try { await kv.hset(PERMS_KEY(owner), { [member]: clean.join(",") }); await kv.expire(PERMS_KEY(owner), 365 * 24 * 60 * 60); } catch { /* noop */ }
+}
+// viewer が owner のチームで perm を持つか（オーナー本人=全権・非メンバー=false）。共有データの操作ゲート。
+export async function hasPerm(owner: string, viewer: string | undefined | null, perm: TeamPerm): Promise<boolean> {
+  if (!viewer || !owner) return false;
+  if (viewer === owner) return true;
+  return (await getMemberPerms(owner, viewer)).includes(perm);
+}
 
 // チーム名（オーナーが設定・任意）。未設定は空文字。
 export async function getTeamName(owner: string): Promise<string> {
@@ -74,11 +106,14 @@ export async function acceptInvite(
   return { ok: true, team: { ownerActor: inv.ownerActor, ownerEmail: inv.ownerEmail } };
 }
 
-// オーナーのチーム名簿（承認済みメンバー）。
+// オーナーのチーム名簿（承認済みメンバー＋各自の権限）。
 export async function getRoster(ownerActor: string): Promise<RosterMember[]> {
   try {
-    const map = (await kv.hgetall<Record<string, string>>(ROSTER_KEY(ownerActor))) ?? {};
-    return Object.entries(map).map(([actor, email]) => ({ actor, email: String(email) }));
+    const [map, permsMap] = await Promise.all([
+      kv.hgetall<Record<string, string>>(ROSTER_KEY(ownerActor)),
+      kv.hgetall<Record<string, string>>(PERMS_KEY(ownerActor)),
+    ]);
+    return Object.entries(map ?? {}).map(([actor, email]) => ({ actor, email: String(email), perms: parsePerms((permsMap ?? {})[actor]) }));
   } catch {
     return [];
   }
@@ -121,6 +156,7 @@ export async function removeMember(ownerActor: string, memberActor: string): Pro
   try {
     await kv.hdel(ROSTER_KEY(ownerActor), memberActor);
     await kv.hdel(TEAMS_OF_KEY(memberActor), ownerActor);
+    await kv.hdel(PERMS_KEY(ownerActor), memberActor);
   } catch { /* noop */ }
 }
 

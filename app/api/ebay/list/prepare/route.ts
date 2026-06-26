@@ -15,6 +15,7 @@ import {
 import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
+import { hasPerm } from "../../../../lib/team";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -230,13 +231,21 @@ function buildDescription(enTitle: string, condition: string, category?: string,
 }
 
 export async function POST(req: Request) {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false, connected: false });
+  const viewer = await getActorId();
+  if (!viewer) return Response.json({ ok: false, connected: false });
+
+  const { productId, onBehalfOf } = (await req.json().catch(() => ({}))) as { productId?: string; onBehalfOf?: string };
+  if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
+
+  // チーム共有：出品権限があればオーナー名義で準備（オーナーのeBayポリシー/カテゴリ/トークンを使う）。
+  let actor = viewer;
+  const owner = (onBehalfOf || "").trim();
+  if (owner && owner !== viewer) {
+    if (!(await hasPerm(owner, viewer, "list"))) return Response.json({ ok: false, error: "出品権限がありません。" }, { status: 403 });
+    actor = owner;
+  }
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
-
-  const { productId } = (await req.json().catch(() => ({}))) as { productId?: string };
-  if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
   const product = await getProductById(productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });

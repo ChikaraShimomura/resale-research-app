@@ -6,6 +6,7 @@ import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import { isAdmin } from "../lib/auth/admin";
+import { hasPerm, getTeamName } from "../lib/team";
 import BottomNav from "../components/BottomNav";
 import CatalogActionButtons from "../components/CatalogActionButtons";
 
@@ -43,7 +44,7 @@ const pillCls = (active: boolean) =>
     active ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-600 border-[#A98B5C]/30 active:bg-gray-50"
   }`;
 
-export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string; genre?: string }> }) {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string; genre?: string; team?: string }> }) {
   const sp = await searchParams;
   const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "profit";
   const genre = sp.genre || "all";
@@ -51,6 +52,11 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const actor = await getActorId();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
   const canList = await canAutoList(); // 自動出品=プロMAX限定。非対象には無在庫警告でプロMAX誘導を出す
+  // チーム共有：?team=オーナーactor。仕入れ権限を持つメンバーが押すと「仕入れた」がオーナーの一覧に入る。
+  //   サーバーで権限を必ず再確認（URL改ざん対策）。権限がなければ通常モード（自分の一覧）に落とす。
+  const teamReq = sp.team ? decodeURIComponent(sp.team) : "";
+  const teamOwner = teamReq && actor && (await hasPerm(teamReq, actor, "buy")) ? teamReq : "";
+  const teamName = teamOwner ? (await getTeamName(teamOwner)) || "チーム" : "";
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   const hidden = await getHiddenCatalogKeys(actor);
   // 表示対象：同一型番の実落札で相場確定（ebayConfirmed）＋利益率5%以上＋本人が外した品/発送不可(危険物)は除外。
@@ -69,6 +75,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     const params = new URLSearchParams();
     if (g && g !== "all") params.set("genre", g);
     if (s && s !== "profit") params.set("sort", s);
+    if (teamOwner) params.set("team", teamOwner); // チームモードを並べ替え/ジャンル遷移でも維持
     const str = params.toString();
     return str ? `/catalog?${str}` : "/catalog";
   };
@@ -92,6 +99,16 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5">
+        {teamOwner && (
+          <div className="mb-3 flex items-center justify-between gap-2 bg-[#A98B5C]/10 border border-[#A98B5C]/30 rounded-xl px-3 py-2">
+            <p className="text-[12px] font-bold text-[#7A6336] leading-snug">
+              「{teamName}」として仕入れ中<span className="block text-[10px] font-normal text-[#7A6336]/80">「仕入れた」はオーナーの一覧に入ります</span>
+            </p>
+            <Link href={`/team/${encodeURIComponent(teamOwner)}`} className="shrink-0 text-[11px] font-bold text-[#2D323B] underline">
+              チームへ戻る
+            </Link>
+          </div>
+        )}
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">eBayで儲かる中古の型番</h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
           <b>eBayで売れている型番</b>を、日本の<b>中古サイト</b>の現在価格と突合。
@@ -229,8 +246,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             eBay落札を確認 <ExternalLink size={14} />
                           </a>
                         </div>
-                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。 */}
-                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} isAdmin={isAdminUser} canAutoList={canList} />
+                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。
+                            チームモード（teamOwner）の時はオーナーの一覧へ入る。 */}
+                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} isAdmin={isAdminUser} canAutoList={canList} teamOwner={teamOwner || undefined} />
                       </div>
                     ) : (
                       <Link

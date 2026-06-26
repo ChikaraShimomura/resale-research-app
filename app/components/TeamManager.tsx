@@ -5,20 +5,34 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserPlus, Trash2, ArrowRight, Mail, Users } from "lucide-react";
 
-type RosterMember = { actor: string; email: string };
+type TeamPerm = "buy" | "list" | "delete" | "finance" | "shipping" | "skip" | "manage";
+type RosterMember = { actor: string; email: string; perms: TeamPerm[] };
 type Pending = { email: string; token: string };
 type TeamRef = { ownerActor: string; ownerEmail: string; name?: string };
+
+// 権限のラベル（表示順）。
+const PERM_LABELS: { key: TeamPerm; label: string }[] = [
+  { key: "buy", label: "仕入れ" },
+  { key: "list", label: "出品" },
+  { key: "delete", label: "削除" },
+  { key: "finance", label: "収支閲覧" },
+  { key: "shipping", label: "送料編集" },
+  { key: "skip", label: "非表示" },
+  { key: "manage", label: "チーム管理" },
+];
 
 export default function TeamManager({
   roster,
   pending,
   myTeams,
   teamName,
+  mode,
 }: {
   roster: RosterMember[];
   pending: Pending[];
   myTeams: TeamRef[];
   teamName: string;
+  mode: "shared" | "individual";
 }) {
   const router = useRouter();
   const [name, setName] = useState(teamName);
@@ -91,8 +105,45 @@ export default function TeamManager({
     } catch { /* noop */ }
   };
 
+  const setTeamMode = async (m: "shared" | "individual") => {
+    try {
+      await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-mode", mode: m }) });
+      router.refresh();
+    } catch { /* noop */ }
+  };
+
+  const togglePerm = async (memberActor: string, perm: TeamPerm, current: TeamPerm[]) => {
+    const next = current.includes(perm) ? current.filter((p) => p !== perm) : [...current, perm];
+    setActBusy(`perm:${memberActor}`);
+    try {
+      await fetch("/api/team/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-perms", memberActor, perms: next }) }).then((r) => r.json());
+      router.refresh();
+    } catch { /* noop */ }
+    setActBusy(null);
+  };
+
   return (
     <div className="space-y-5">
+      {/* チームの方式（共有＝メンバーがオーナーのデータ/eBayを権限に応じて操作 / 個別＝各自のデータ・共有は閲覧のみ） */}
+      <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
+        <h2 className="text-sm font-black text-gray-800 mb-2">チームの方式</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setTeamMode("shared")}
+            className={`rounded-xl border px-3 py-2.5 text-left ${mode === "shared" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
+          >
+            <span className="block text-[12px] font-black text-gray-800">共有</span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">メンバーが権限に応じて<b>あなたの</b>仕入れ一覧・eBayを操作</span>
+          </button>
+          <button
+            onClick={() => setTeamMode("individual")}
+            className={`rounded-xl border px-3 py-2.5 text-left ${mode === "individual" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
+          >
+            <span className="block text-[12px] font-black text-gray-800">個別</span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">各自のデータで作業。共有は<b>閲覧のみ</b></span>
+          </button>
+        </div>
+      </section>
       {/* チーム名（任意・オーナーが設定） */}
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
         <h2 className="text-sm font-black text-gray-800 mb-2">チーム名</h2>
@@ -186,22 +237,45 @@ export default function TeamManager({
         {roster.length === 0 ? (
           <p className="text-[12px] text-gray-400 leading-relaxed">まだいません。上の招待からメンバーを追加できます。</p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="space-y-2.5">
             {roster.map((m) => (
-              <li key={m.actor} className="flex items-center justify-between gap-2">
-                <span className="text-[12px] text-gray-700 inline-flex items-center gap-1.5 min-w-0">
-                  <Users size={13} className="text-gray-400 shrink-0" /> <span className="truncate">{m.email}</span>
-                </span>
-                <button
-                  onClick={() => act({ action: "remove-member", memberActor: m.actor }, `rm:${m.actor}`)}
-                  disabled={actBusy === `rm:${m.actor}`}
-                  className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 disabled:opacity-40"
-                >
-                  <Trash2 size={12} /> 外す
-                </button>
+              <li key={m.actor} className="rounded-xl border border-[#A98B5C]/20 p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-bold text-gray-700 inline-flex items-center gap-1.5 min-w-0">
+                    <Users size={13} className="text-gray-400 shrink-0" /> <span className="truncate">{m.email}</span>
+                  </span>
+                  <button
+                    onClick={() => act({ action: "remove-member", memberActor: m.actor }, `rm:${m.actor}`)}
+                    disabled={actBusy === `rm:${m.actor}`}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 disabled:opacity-40"
+                  >
+                    <Trash2 size={12} /> 外す
+                  </button>
+                </div>
+                {/* 権限（共有モードでオーナーのデータ/eBayに対して有効） */}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {PERM_LABELS.map(({ key, label }) => {
+                    const on = m.perms.includes(key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => togglePerm(m.actor, key, m.perms)}
+                        disabled={actBusy === `perm:${m.actor}`}
+                        className={`h-7 px-2 rounded-full text-[11px] font-bold border disabled:opacity-50 ${
+                          on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"
+                        }`}
+                      >
+                        {on ? "✓ " : ""}{label}
+                      </button>
+                    );
+                  })}
+                </div>
               </li>
             ))}
           </ul>
+        )}
+        {mode === "individual" && roster.length > 0 && (
+          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 権限が実際に効くのは「共有」モードのときです（個別モードでは閲覧のみ。収支閲覧は両モードで有効）。</p>
         )}
       </section>
 

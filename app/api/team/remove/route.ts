@@ -1,5 +1,5 @@
 import { getActorId } from "../../../lib/auth/actor";
-import { removeMember, cancelInvite, setTeamName } from "../../../lib/team";
+import { removeMember, cancelInvite, setTeamName, setTeamMode, setMemberPerms } from "../../../lib/team";
 
 // チームの操作：オーナーがメンバー除名 / メンバーが離脱 / オーナーが保留中招待を取消。
 // 権限：除名・取消はオーナー本人(ownerActor===自分)のみ。離脱は自分(viewer)を ownerActor のチームから外す。
@@ -10,13 +10,26 @@ export async function POST(req: Request) {
   const actor = await getActorId();
   if (!actor) return Response.json({ ok: false, error: "ログインしてください。" }, { status: 401 });
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; ownerActor?: string; memberActor?: string; email?: string; name?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    action?: string; ownerActor?: string; memberActor?: string; email?: string; name?: string; mode?: string; perms?: string[];
+  };
   const action = body.action;
 
   try {
     if (action === "set-name") {
       // オーナーが自分のチーム名を設定（空なら解除）。
       await setTeamName(actor, body.name || "");
+      return Response.json({ ok: true });
+    }
+    if (action === "set-mode") {
+      // オーナーが自分のチームの方式（共有/個別）を設定。
+      await setTeamMode(actor, body.mode === "shared" ? "shared" : "individual");
+      return Response.json({ ok: true });
+    }
+    if (action === "set-perms") {
+      // オーナーが自分のチームのメンバーの権限を設定。
+      if (!body.memberActor || !Array.isArray(body.perms)) return Response.json({ ok: false, error: "対象/権限がありません。" }, { status: 400 });
+      await setMemberPerms(actor, body.memberActor, body.perms);
       return Response.json({ ok: true });
     }
     if (action === "remove-member") {

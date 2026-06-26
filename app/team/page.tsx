@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getActorId } from "../lib/auth/actor";
 import { getCurrentUserEmail } from "../lib/auth/plan";
-import { getRoster, getPending, getMyTeams, getTeamName } from "../lib/team";
+import { getRoster, getPending, getMyTeams, getTeamName, getTeamMode } from "../lib/team";
 import BottomNav from "../components/BottomNav";
 import TeamManager from "../components/TeamManager";
 
@@ -12,9 +12,9 @@ export const metadata: Metadata = { title: "チーム共有", robots: { index: f
 export default async function TeamPage() {
   const actor = await getActorId();
   const email = await getCurrentUserEmail();
-  const [roster, pending, myTeams, teamName] = actor
-    ? await Promise.all([getRoster(actor), getPending(actor), getMyTeams(actor), getTeamName(actor)])
-    : [[], [], [], ""];
+  const [roster, pending, myTeams, teamName, mode] = actor
+    ? await Promise.all([getRoster(actor), getPending(actor), getMyTeams(actor), getTeamName(actor), getTeamMode(actor)])
+    : [[], [], [], "", "individual" as const];
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -39,7 +39,7 @@ export default async function TeamPage() {
           会員のメンバーを招待して、あなたの<b>「仕入れた商品」一覧</b>と<b>収支（仕入れ額・売上額）</b>を共有できます。共有は読み取り専用で、相手が承認したときだけ有効です。
         </p>
         {actor && email ? (
-          <TeamManager roster={roster} pending={pending} myTeams={myTeams} teamName={teamName} />
+          <TeamManager roster={roster} pending={pending} myTeams={myTeams} teamName={teamName} mode={mode} />
         ) : (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">ログインが必要です</p>

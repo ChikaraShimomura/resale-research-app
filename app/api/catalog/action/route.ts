@@ -2,6 +2,7 @@ import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
 import { fetchSourceAvailability } from "../../../lib/usedGallery";
+import { hasPerm, type TeamPerm } from "../../../lib/team";
 
 // 中古カタログの「仕入れた」「これは無理(スキップ)」印。アクター単位の集合に記録し、カタログ/ランキングの表示から外す。
 // eBay もカタログ生成も叩かない。ログイン時は actor=acct:{uuid} なので別端末でも同じ印が効く。
@@ -20,18 +21,30 @@ const rl = new Ratelimit({ redis: kv, limiter: Ratelimit.slidingWindow(60, "10 m
 // POST: { action: "bought"|"skip"|"undo", productId, buyJpy? }
 // used_bought は「id→仕入れ値(JPY)」のハッシュ＝収支の仕入れ累計に使う。used_skip は id の集合（金額不要）。
 export async function POST(req: Request) {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false }, { status: 401 });
+  const viewer = await getActorId();
+  if (!viewer) return Response.json({ ok: false }, { status: 401 });
   try {
-    const { success } = await rl.limit(actor);
+    const { success } = await rl.limit(viewer);
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });
   } catch { /* フェイルオープン */ }
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number; shippingJpy?: number };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number; shippingJpy?: number; teamOwner?: string };
   const productId = (body.productId || "").trim();
   if (!productId || productId.length > 256) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   // 仕入れ値は0〜1億円に丸めて保存（異常値で集計を壊さない）。未指定/不正は0（印は付くが金額なし）。
   const buyJpy = Math.min(Math.max(0, Math.round(Number(body.buyJpy) || 0)), 100_000_000);
+
+  // 操作対象のアクター。teamOwner 指定時はチーム共有＝オーナーのデータを操作する（権限チェック後）。既定は自分。
+  const PERM_FOR: Record<string, TeamPerm> = { bought: "buy", skip: "skip", undo: "delete", shipping: "shipping" };
+  let actor = viewer;
+  const teamOwner = (body.teamOwner || "").trim();
+  if (teamOwner && teamOwner !== viewer) {
+    const need = PERM_FOR[body.action || ""];
+    if (!need || !(await hasPerm(teamOwner, viewer, need))) {
+      return Response.json({ ok: false, error: "この操作の権限がありません。" }, { status: 403 });
+    }
+    actor = teamOwner;
+  }
 
   try {
     if (body.action === "bought") {

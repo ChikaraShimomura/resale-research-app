@@ -5,7 +5,7 @@ import { useState } from "react";
 const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 
 // 仕入れた商品の送料（任意）。未入力（＝既定）は一律¥1,000で集計される。入力するとその額。原価＝仕入れ値＋送料。
-export default function ShippingInput({ productId, buyJpy, initial }: { productId: string; buyJpy: number; initial: number }) {
+export default function ShippingInput({ productId, buyJpy, initial, teamOwner }: { productId: string; buyJpy: number; initial: number; teamOwner?: string }) {
   const [val, setVal] = useState(String(initial));
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -18,7 +18,7 @@ export default function ShippingInput({ productId, buyJpy, initial }: { productI
       const res = await fetch("/api/catalog/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "shipping", productId, shippingJpy: n }),
+        body: JSON.stringify({ action: "shipping", productId, shippingJpy: n, teamOwner }),
       }).then((r) => r.json());
       if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 1200); }
     } catch { /* noop */ }

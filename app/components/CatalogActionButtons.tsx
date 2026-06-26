@@ -12,11 +12,13 @@ export default function CatalogActionButtons({
   buyJpy,
   isAdmin = false,
   canAutoList = false,
+  teamOwner,
 }: {
   productId: string;
   buyJpy: number;
   isAdmin?: boolean;
   canAutoList?: boolean;
+  teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"bought" | "skip" | "undo" | null>(null);
@@ -31,8 +33,8 @@ export default function CatalogActionButtons({
       const res = await fetch("/api/catalog/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（skip/undoでは無視される）。
-        body: JSON.stringify({ action, productId, buyJpy }),
+        // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（skip/undoでは無視される）。teamOwner指定時はオーナーのデータへ。
+        body: JSON.stringify({ action, productId, buyJpy, teamOwner }),
       }).then((r) => r.json());
       if (res.ok) {
         if (action === "undo") {
