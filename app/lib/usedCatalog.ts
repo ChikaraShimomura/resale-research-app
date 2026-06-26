@@ -110,6 +110,26 @@ export function isJunk(c?: string | null): boolean {
   return /JUNK|ジャンク/i.test(c || "");
 }
 
+// カタログ商品の安定キー（per-actorの「仕入れた/これは無理」印の保存キー）。idがあればid、無ければ仕入れURL。
+export function catalogItemKey(p: { id?: string; hardoffUrl: string }): string {
+  return p.id || p.hardoffUrl;
+}
+
+// このアクターが「仕入れた」or「これは無理」で外した商品キーの集合。カタログ/ランキングの表示から差し引く。
+// 書き込みは /api/catalog/action（used_bought:{actor} / used_skip:{actor}）。読みは read-only トークン。
+export async function getHiddenCatalogKeys(actor: string | undefined | null): Promise<Set<string>> {
+  if (!actor) return new Set();
+  try {
+    const [bought, skip] = await Promise.all([
+      kvReadOnly.smembers(`used_bought:${actor}`),
+      kvReadOnly.smembers(`used_skip:${actor}`),
+    ]);
+    return new Set<string>([...(bought ?? []), ...(skip ?? [])] as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 // KVから中古カタログを読む（読み取り専用トークン）。型番DB＝中古はモデル単位で見る。
 export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
   try {

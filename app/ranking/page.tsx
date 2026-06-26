@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getUsedCatalog, isJunk } from "../lib/usedCatalog";
+import { getUsedCatalog, isJunk, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
+import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
 import { Flame, ArrowRight, Lock } from "lucide-react";
@@ -36,13 +37,15 @@ export default async function RankingPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  // 仕入れ先(ハードオフ/2nd STREET)リンクを見られるか＝未購読(free)はゲートで/pricingに飛ぶ。
+  const canView = await canViewCatalog();
+  // ログイン中なら本人が「仕入れた/これは無理」で外した品はランキングからも差し引く（カタログと整合）。
+  const hidden = await getHiddenCatalogKeys(await getActorId());
   // カタログと同じ品質バー：同一型番でeBay相場確定済み(ebayConfirmed)＋ジャンク除外のみを公開ランキングに出す
   //（未確定の「系列の目安」やジャンクの不確かな利益を公開面に出さない）。
   const items = (await getUsedCatalog())
-    .filter((p) => p.ebayConfirmed && !isJunk(p.condition))
+    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p)))
     .slice(0, 30); // 中古の利益カタログ（純利益順）の上位
-  // 仕入れ先(ハードオフ/2nd STREET)リンクを見られるか＝未購読(free)はゲートで/pricingに飛ぶ。
-  const canView = await canViewCatalog();
   // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
   const sp = await searchParams;
   const cameFromPricing = sp.from === "pricing";

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk, sourceSiteName } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk, sourceSiteName, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
+import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
 import ListingHelper from "../components/ListingHelper";
+import CatalogActionButtons from "../components/CatalogActionButtons";
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
 
@@ -29,8 +31,13 @@ const toneCls = (tone: "good" | "mid" | "risk") =>
 
 export default async function CatalogPage() {
   const canView = await canViewCatalog();
-  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク(動作未確認)は除外（相場と前提が合わない）。
-  const items = (await getUsedCatalog()).filter((p) => p.ebayConfirmed && !isJunk(p.condition));
+  const actor = await getActorId();
+  // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
+  const hidden = await getHiddenCatalogKeys(actor);
+  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク(動作未確認)は除外＋本人が外した品は非表示。
+  const items = (await getUsedCatalog()).filter(
+    (p) => p.ebayConfirmed && !isJunk(p.condition) && !hidden.has(catalogItemKey(p))
+  );
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -163,6 +170,8 @@ export default async function CatalogPage() {
                         </div>
                         {/* 自分でeBayへ自動出品（仕入れて実物写真に差し替えてから出すのが前提）。実データは psnap:{id} を prepare が読む。 */}
                         <ListingHelper product={toListingProduct(p)} />
+                        {/* triage：仕入れたら / 無理なら 印を付けて一覧から外す（per-actor）。1点物なので「仕入れた」は実質売り切れ印。 */}
+                        <CatalogActionButtons productId={catalogItemKey(p)} />
                       </div>
                     ) : (
                       <Link
