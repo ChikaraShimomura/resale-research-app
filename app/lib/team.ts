@@ -10,12 +10,22 @@ import crypto from "node:crypto";
 
 export type TeamInvite = { ownerActor: string; ownerEmail: string; inviteeEmail: string; createdAt: string };
 export type RosterMember = { actor: string; email: string };
-export type TeamRef = { ownerActor: string; ownerEmail: string };
+export type TeamRef = { ownerActor: string; ownerEmail: string; name?: string };
 
 const INVITE_KEY = (t: string) => `team_invite:${t}`;
 const ROSTER_KEY = (owner: string) => `team_roster:${owner}`;
 const TEAMS_OF_KEY = (member: string) => `team_of:${member}`;
 const PENDING_KEY = (owner: string) => `team_pending:${owner}`;
+const NAME_KEY = (owner: string) => `team_name:${owner}`;
+
+// チーム名（オーナーが設定・任意）。未設定は空文字。
+export async function getTeamName(owner: string): Promise<string> {
+  try { return (await kv.get<string>(NAME_KEY(owner))) || ""; } catch { return ""; }
+}
+export async function setTeamName(owner: string, name: string): Promise<void> {
+  const n = (name || "").trim().slice(0, 40);
+  try { if (n) await kv.set(NAME_KEY(owner), n); else await kv.del(NAME_KEY(owner)); } catch { /* noop */ }
+}
 const INVITE_TTL = 7 * 24 * 60 * 60; // 招待は7日で失効
 const norm = (e: string) => (e || "").trim().toLowerCase();
 
@@ -84,11 +94,12 @@ export async function getPending(ownerActor: string): Promise<{ email: string; t
   }
 }
 
-// そのメンバーが閲覧できるチーム一覧（逆引き）。
+// そのメンバーが閲覧できるチーム一覧（逆引き・チーム名つき）。
 export async function getMyTeams(memberActor: string): Promise<TeamRef[]> {
   try {
     const map = (await kv.hgetall<Record<string, string>>(TEAMS_OF_KEY(memberActor))) ?? {};
-    return Object.entries(map).map(([ownerActor, ownerEmail]) => ({ ownerActor, ownerEmail: String(ownerEmail) }));
+    const refs = Object.entries(map).map(([ownerActor, ownerEmail]) => ({ ownerActor, ownerEmail: String(ownerEmail) }));
+    return Promise.all(refs.map(async (r) => ({ ...r, name: await getTeamName(r.ownerActor) })));
   } catch {
     return [];
   }

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, ArrowRight, ArrowDown, Settings, BookOpen, Store, Users, type LucideIcon } from "lucide-react";
+import { Package, ArrowRight, ArrowDown, Settings, Store, Users, type LucideIcon } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
 
@@ -244,13 +244,11 @@ function RankBlock({ s }: { s: Stats }) {
 function HubLinks() {
   // 設定は「輸出ラボアカウント設定(/settings)」と「eBayアカウント設定(/settings/ebay)」に分離。
   // 別物（自社サービスのアカウント vs 連携先eBayのアカウント）なので入口から2つに分ける。
+  // ユーザー指示2026-06-27：出品管理・発送・受け取り・使い方ガイドの導線はマイページから外す。
   const items: { href: string; Icon: LucideIcon; label: string; full?: boolean }[] = [
-    { href: "/listings", Icon: Package, label: "出品管理" },
-    { href: "/ship", Icon: Truck, label: "発送・受け取り" },
-    { href: "/team", Icon: Users, label: "チーム共有" },
+    { href: "/team", Icon: Users, label: "チーム共有", full: true },
     { href: "/settings", Icon: Settings, label: "輸出ラボアカウント設定" },
     { href: "/settings/ebay", Icon: Store, label: "eBayアカウント設定" },
-    { href: "/guide", Icon: BookOpen, label: "使い方ガイド", full: true },
   ];
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -318,44 +316,22 @@ export default function MyDashboard() {
         <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
           <Package size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-black text-gray-800 mb-1">まだ成績なし</p>
-          <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
+          <p className="text-[12px] text-gray-500 leading-relaxed">
             カタログで<b>「仕入れた」</b>を押す → <b>eBayへ出品</b> → 売れると、ここに<b>仕入れ・売上・差引</b>が出ます。
           </p>
-          <Link href="/catalog" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
-            利益カタログを見る <ArrowRight size={16} />
-          </Link>
-          <Link href="/guide" className="block mt-3 text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
-            画像つき始め方ガイド →
-          </Link>
         </div>
         <HubLinks />
       </div>
     );
   }
 
-  // まだ売れていない（「仕入れた」在庫 or 出品中はあり得る）＝収支パネル＋状況メッセージ
+  // まだ売れていない（「仕入れた」在庫 or 出品中はあり得る）＝収支パネルのみ（ユーザー指示2026-06-27でメッセージ/CTAは削除）。
   if (s.soldCount === 0) {
     return (
       <div className="space-y-3">
         {nudge}
         <UsedFinancePanel s={s} />
         {s.listedCount > 0 && <RankBlock s={s} />}
-        <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm flex items-start gap-3">
-          <Package size={22} className="text-gray-400 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-gray-800">
-              {s.listedCount > 0 ? `出品中です（${s.listedCount}件）` : "出品はまだありません"}
-            </p>
-            <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-              {s.listedCount > 0
-                ? "売れると売上・差引が上の収支に反映されます。出品しただけで成績は下がりません。"
-                : "「仕入れた」在庫をeBayへ出品すると、売れた時に売上が自動で乗ります。"}
-            </p>
-          </div>
-        </div>
-        <Link href="/catalog" className="flex items-center justify-center gap-1.5 min-h-[48px] px-5 py-2.5 rounded-2xl bg-[#2D323B] text-white font-bold text-sm shadow-sm active:bg-[#1A1D23]">
-          利益カタログを見る <ArrowRight size={16} className="shrink-0" />
-        </Link>
         <HubLinks />
       </div>
     );

@@ -47,10 +47,10 @@ while true; do
     wl discover "$HOME/ebaysold.log" "$rc"
   fi
 
-  # ④ 中古カタログ(ハードオフ中古ジャンル)を週1で更新（2026-06-26 時計のみ→拡張：オーディオ/カメラ/ゲーム機/エフェクター）。
+  # ④ 中古カタログ(ハードオフ中古ジャンル)を【3時間ごと】に更新（ユーザー指示2026-06-27・Anthropic不使用＝無料）。
   #    候補構築(キャッシュ ebay_sold_seed × ハードオフ現在庫) → 型番リファイン(ブランド+型番でeBay落札→実値・同一型番のみ採用)。
-  #    住宅IPのPixelだからHard Off/eBay落札とも取得可。168サイクル≒7日ごと(cycle%168==3でずらす)。
-  if [ $(( cycle % 168 )) -eq 3 ]; then
+  #    住宅IPのPixelだからHard Off/eBay落札とも取得可。3サイクル(=3h)ごと。eBay検問は retain-on-block で自己回復。
+  if [ $(( cycle % 3 )) -eq 0 ]; then
     echo "---- $(date) used-catalog build ----" >> "$HOME/usedcatalog.log"
     node scripts/used/buildUsedSampleFromCache.mjs >> "$HOME/usedcatalog.log" 2>&1; brc=$?
     wl build "$HOME/usedcatalog.log" "$brc"

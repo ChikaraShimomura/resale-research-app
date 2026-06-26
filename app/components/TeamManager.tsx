@@ -7,18 +7,22 @@ import { UserPlus, Trash2, ArrowRight, Mail, Users } from "lucide-react";
 
 type RosterMember = { actor: string; email: string };
 type Pending = { email: string; token: string };
-type TeamRef = { ownerActor: string; ownerEmail: string };
+type TeamRef = { ownerActor: string; ownerEmail: string; name?: string };
 
 export default function TeamManager({
   roster,
   pending,
   myTeams,
+  teamName,
 }: {
   roster: RosterMember[];
   pending: Pending[];
   myTeams: TeamRef[];
+  teamName: string;
 }) {
   const router = useRouter();
+  const [name, setName] = useState(teamName);
+  const [nameSaved, setNameSaved] = useState(false);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "warn" | "err"; text: string } | null>(null);
@@ -76,8 +80,37 @@ export default function TeamManager({
     setActBusy(null);
   };
 
+  const saveName = async () => {
+    try {
+      const res = await fetch("/api/team/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-name", name: name.trim() }),
+      }).then((r) => r.json());
+      if (res.ok) { setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); router.refresh(); }
+    } catch { /* noop */ }
+  };
+
   return (
     <div className="space-y-5">
+      {/* チーム名（任意・オーナーが設定） */}
+      <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
+        <h2 className="text-sm font-black text-gray-800 mb-2">チーム名</h2>
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={40}
+            placeholder="例：副業チーム"
+            className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-[#A98B5C]/40 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#A98B5C]/40"
+          />
+          <button onClick={saveName} className="shrink-0 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+            保存
+          </button>
+        </div>
+        {nameSaved && <p className="mt-1 text-[12px] font-bold text-emerald-600">保存しました。</p>}
+      </section>
+
       {/* 招待＝あなたのデータを共有する相手を追加 */}
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
@@ -185,7 +218,7 @@ export default function TeamManager({
                   href={`/team/${encodeURIComponent(t.ownerActor)}`}
                   className="flex items-center justify-between gap-2 rounded-xl border border-[#A98B5C]/25 px-3 py-2.5 active:bg-gray-50"
                 >
-                  <span className="text-[12px] font-bold text-gray-800 min-w-0 truncate">{t.ownerEmail} のチーム</span>
+                  <span className="text-[12px] font-bold text-gray-800 min-w-0 truncate">{t.name || `${t.ownerEmail} のチーム`}</span>
                   <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-bold text-[#2D323B]">
                     見る <ArrowRight size={14} />
                   </span>

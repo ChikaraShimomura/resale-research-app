@@ -108,9 +108,17 @@ export function conditionLabel(c: string | null): { rank: string; label: string;
   }
 }
 
-// ジャンク(動作未確認/部品取り)判定。eBay相場は「動く品」基準なのでカタログから除外する。
+// ジャンク(動作未確認/部品取り)判定。※2026-06-27 ユーザー指示でカタログ掲載は許可（除外しない）。状態ランク表示＋出品説明で明示。
 export function isJunk(c?: string | null): boolean {
   return /JUNK|ジャンク/i.test(c || "");
+}
+
+// 発送不可（航空危険物・国際郵便不可）の判定＝配信からも除外する（buildの ebayQueries.PROHIBITED_EXCLUDE と同種・二重ガード）。
+// ※.mjs/TSの境界でSSOT共有が難しいため要点を二重管理。新ジャンル追加時はこちらも見直す。
+const PROHIBITED =
+  /香水|フレグランス|オードトワレ|オーデコロン|パフューム|perfume|cologne|fragrance|eau de|スプレー缶|エアゾール|エアゾル|ヘアスプレー|制汗スプレー|殺虫スプレー|aerosol|モバイルバッテリー|リチウムイオンバッテリー|power\s?bank|ライター|チャッカマン|\blighter\b|花火|火薬|爆竹|firework|カセットボンベ|ガスボンベ|gas\s?canister|マニキュア|除光液|ネイルリムーバー|nail\s?polish|消毒用アルコール|エタノール|医薬品|劇薬|農薬/i;
+export function isProhibited(text: string | null | undefined): boolean {
+  return PROHIBITED.test(text || "");
 }
 
 // カタログ商品の安定キー（per-actorの「仕入れた/これは無理」印の保存キー）。idがあればid、無ければ仕入れURL。

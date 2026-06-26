@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getUsedCatalog, isJunk, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
+import { getUsedCatalog, getHiddenCatalogKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import BottomNav from "../components/BottomNav";
@@ -44,8 +44,8 @@ export default async function RankingPage({
   // カタログと同じ品質バー：同一型番でeBay相場確定済み(ebayConfirmed)＋ジャンク除外のみを公開ランキングに出す
   //（未確定の「系列の目安」やジャンクの不確かな利益を公開面に出さない）。
   const items = (await getUsedCatalog())
-    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)))
-    .slice(0, 30); // 中古の利益カタログ（純利益順）の上位（利益率5%未満は除外）
+    .filter((p) => p.ebayConfirmed && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)) && !isProhibited(`${p.brand} ${p.name}`))
+    .slice(0, 30); // 中古の利益カタログ（純利益順）の上位（利益率5%未満/発送不可は除外・ジャンクは掲載）
   // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
   const sp = await searchParams;
   const cameFromPricing = sp.from === "pricing";

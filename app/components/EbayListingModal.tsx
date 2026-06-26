@@ -605,6 +605,7 @@ export default function EbayListingModal({
                   <option value="NEW">新品（New）</option>
                   <option value="USED_EXCELLENT">中古 - 非常に良い</option>
                   <option value="USED_GOOD">中古 - 良い</option>
+                  <option value="USED_ACCEPTABLE">中古 - 可（難あり/ジャンク）</option>
                 </select>
               </div>
               </>)}

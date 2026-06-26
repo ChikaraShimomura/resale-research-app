@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Flame, ExternalLink, Lock } from "lucide-react";
 import { getActorId } from "../../lib/auth/actor";
 import { getCurrentUserEmail } from "../../lib/auth/plan";
-import { isTeamMember, getMyTeams } from "../../lib/team";
+import { isTeamMember, getMyTeams, getTeamName } from "../../lib/team";
 import { getBoughtItems, sourceSiteName } from "../../lib/usedCatalog";
 import { getStats } from "../../lib/ebay/stats";
 import BottomNav from "../../components/BottomNav";
@@ -36,10 +36,12 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
     );
   }
 
-  // オーナー表示名（自分のチームなら自分のメール、他人なら参加チーム一覧から引く）。
+  // オーナー表示名（自分のチームなら自分のメール、他人なら参加チーム一覧から引く）。チーム名があれば優先表示。
   let ownerEmail = "";
   if (viewer === ownerActor) ownerEmail = (await getCurrentUserEmail()) || "あなた";
   else ownerEmail = (await getMyTeams(viewer || "")).find((t) => t.ownerActor === ownerActor)?.ownerEmail || "メンバー";
+  const teamName = await getTeamName(ownerActor);
+  const teamLabel = teamName || `${ownerEmail} のチーム`;
 
   const [items, s] = await Promise.all([getBoughtItems(ownerActor), getStats(ownerActor)]);
   const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝共有相手の仕入れ一覧と一致
@@ -55,7 +57,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
           <Link href="/team" aria-label="チームへ" className="w-9 h-9 flex items-center justify-center rounded-full bg-white/20 text-white text-lg font-bold shrink-0 active:scale-95">
             ‹
           </Link>
-          <span className="text-white font-black text-base tracking-tight truncate">{ownerEmail} のチーム</span>
+          <span className="text-white font-black text-base tracking-tight truncate">{teamLabel}</span>
         </div>
       </header>
 

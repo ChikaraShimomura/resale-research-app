@@ -15,8 +15,8 @@ if (!KV_URL || !KV_TOK || !RESEND) {
 
 const r = await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } });
 const all = JSON.parse((await r.json()).result || "[]");
-// ジャンク(動作未確認/部品取り)＋利益率5%未満は配信から除外＝サイト掲載と同じ品質バー。
-const catalog = (Array.isArray(all) ? all : []).filter((c) => !/JUNK|ジャンク/i.test(c.condition || "") && (c.profitRate ?? 0) >= 5);
+// 利益率5%未満は配信から除外＝サイト掲載と同じ品質バー（ジャンクは掲載するので除外しない・ユーザー指示2026-06-27）。
+const catalog = (Array.isArray(all) ? all : []).filter((c) => (c.profitRate ?? 0) >= 5);
 if (catalog.length === 0) {
   console.error("used_catalog が空。先に buildUsedSampleFromCache を回すこと。");
   process.exit(1);

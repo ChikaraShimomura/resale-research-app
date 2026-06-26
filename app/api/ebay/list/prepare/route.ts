@@ -111,11 +111,29 @@ function rankToEbayCondition(raw?: string): string | null {
 
 // 英語の説明文（編集可）。購入者がよく気にする点をQ&Aで手厚く、かつトラブル回避の文言を網羅する。
 // プレーンテキストで返し（編集しやすい）、公開時に listing.ts が改行→HTMLに変換する。
-function buildDescription(enTitle: string, condition: string, category?: string): string {
+// ジャンル別「中古品として明示すべき注意」。説明文と実物の差によるクレーム(Not as described)を防ぐ核心。
+function usedConditionNotes(category?: string): string {
+  switch (category) {
+    case "腕時計":
+      return "Watch notes: the battery may be depleted and need replacement; timekeeping accuracy is NOT guaranteed; water resistance is NOT guaranteed (gaskets age) so please avoid water exposure. The band/case may show scratches and wear; sizing is as shown in the photos.";
+    case "オーディオ":
+      return "Audio notes: tested and working unless otherwise stated; cosmetic wear such as scratches and dust is normal for used audio. IMPORTANT: this unit is designed for Japan 100V and a Japanese plug — a voltage step-up/step-down transformer and plug adapter may be required in your country. On vintage units, internal parts (capacitors, belts, etc.) may age and could need future servicing.";
+    case "カメラ":
+      return "Camera/lens notes: optics may have minor dust, haze, or small marks — please check the photos closely. Mechanical functions are checked as far as possible, but this is a used item sold as-is. For film cameras, light seals may need replacement; battery/film are not included unless shown.";
+    case "ゲーム機":
+      return "Game hardware notes: tested to power on and function unless otherwise stated. This is the Japanese (NTSC-J) version and may be region-locked; it is made for Japan 100V with a Japanese plug, so please confirm region/voltage/plug compatibility before buying. Any internal save battery in retro hardware may be depleted.";
+    case "楽器":
+      return "Instrument/gear notes: tested and working unless otherwise stated; cosmetic wear is normal. Any included power adapter is Japan-spec (100V) — please confirm compatibility. Sold as-is.";
+    default:
+      return "";
+  }
+}
+
+function buildDescription(enTitle: string, condition: string, category?: string, junk = false): string {
   const isNew = condition === "NEW";
   const condLine = isNew
     ? "Brand new and unused (factory sealed unless the photos show otherwise)."
-    : "Pre-owned and in good overall condition. Please check the photos for the exact condition.";
+    : "Pre-owned. This is a used item and may show signs of use (scratches, wear, etc.) appropriate for its age. It is sold AS-IS in the exact condition shown in the photos.";
 
   const L: string[] = [];
   L.push(enTitle);
@@ -127,6 +145,18 @@ function buildDescription(enTitle: string, condition: string, category?: string)
   L.push("【 Condition 】");
   L.push(condLine);
   L.push("The photos are part of the description, so please review them carefully.");
+  // 中古品のジャンル別注意（クレーム回避の徹底）。
+  if (!isNew) {
+    const note = usedConditionNotes(category);
+    if (note) L.push(note);
+  }
+  // ジャンク品は「動作未確認/不動・返品不可・部品取り」を明確に警告。
+  if (junk) {
+    L.push("");
+    L.push(
+      "⚠️ IMPORTANT — SOLD AS JUNK / FOR PARTS OR NOT WORKING: this item is untested or has known problems and may NOT function at all. Please buy only if you are comfortable with parts or repair. No returns are accepted for junk items. Review all photos carefully."
+    );
+  }
   L.push("");
   L.push("【 Frequently Asked Questions 】");
   L.push("");
@@ -189,14 +219,6 @@ function buildDescription(enTitle: string, condition: string, category?: string)
         (category === "ガンプラ" ? " Note: model kits are sold unbuilt and require assembly." : "")
     );
   }
-  if (category === "腕時計") {
-    L.push("");
-    L.push("Q. Anything to know about the watch?");
-    L.push(
-      "A. The battery may need replacement over time, and water resistance is not guaranteed unless stated. Please see the photos and feel free to ask before buying."
-    );
-  }
-
   L.push("");
   L.push("【 Important Notes 】");
   L.push("- Please make sure your shipping address is complete and correct before ordering.");
@@ -229,14 +251,18 @@ export async function POST(req: Request) {
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
   // coreKeyword は eBay の alt 属性由来で &#34; 等のHTMLエンティティが残るので、出品文字列にする前に復号する。
   const enTitle = decodeHtmlEntities(product.coreKeyword || product.title).slice(0, 80);
-  // ★中古有在庫モデル：仕入れ元が中古サイト(ハードオフ/2nd ST)なら必ず中古。状態ランク(usedCondition)があれば段階反映、無ければUSED_GOOD既定。
-  //   旧モデル(楽天新品)の品だけ従来のタイトル判定。これで中古品が新品(NEW)で出る不具合を解消。
+  // ★中古有在庫モデル：仕入れ元が中古サイト(ハードオフ/2nd ST)なら必ず中古。状態ランク(usedCondition)を段階反映。
+  //   ジャンクは USED_ACCEPTABLE＋説明文で「for parts/not working」を明示。旧モデル(楽天新品)だけタイトル判定。
   const srcSite = product.source?.site as string | undefined;
+  const usedCond = (product as { usedCondition?: string }).usedCondition;
+  const isJunkItem = /JUNK|ジャンク/i.test(usedCond || "");
   const condition =
     srcSite === "hardoff" || srcSite === "2ndstreet"
-      ? rankToEbayCondition((product as { usedCondition?: string }).usedCondition) || "USED_GOOD"
+      ? isJunkItem
+        ? "USED_ACCEPTABLE"
+        : rankToEbayCondition(usedCond) || "USED_GOOD"
       : detectCondition(product.title);
-  const description = buildDescription(enTitle, condition, product.category);
+  const description = buildDescription(enTitle, condition, product.category, isJunkItem);
 
   // AIチェック：作り込んだ定型文を Claude(Haiku) で自然化。必須の方針/トラブル回避文が残っている時だけ採用。
   // 商品×状態でキャッシュ（無料枠の節約＋高速化）。失敗・欠落時は定型をそのまま使う（安全側）。

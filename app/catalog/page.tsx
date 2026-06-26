@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, isJunk, sourceSiteName, getHiddenCatalogKeys, catalogItemKey } from "../lib/usedCatalog";
+import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown, Tag } from "lucide-react";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getHiddenCatalogKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -38,19 +38,39 @@ const SORTS: Record<string, { label: string; cmp: (a: UsedCatalogItem, b: UsedCa
   demand: { label: "売れ筋", cmp: (a, b) => (b.soldCount || 0) - (a.soldCount || 0) || b.profitJpy - a.profitJpy },
 };
 const SORT_KEYS = ["profit", "rate", "cheap", "demand"];
+const pillCls = (active: boolean) =>
+  `shrink-0 h-8 px-3 inline-flex items-center rounded-full text-[12px] font-bold border ${
+    active ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-600 border-[#A98B5C]/30 active:bg-gray-50"
+  }`;
 
-export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string; genre?: string }> }) {
   const sp = await searchParams;
   const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "profit";
+  const genre = sp.genre || "all";
   const canView = await canViewCatalog();
   const actor = await getActorId();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   const hidden = await getHiddenCatalogKeys(actor);
-  // ★同一型番のeBay実落札で相場が取れた商品だけ表示（ebayConfirmed）＋ジャンク除外＋本人が外した品は非表示＋利益率5%未満は非表示（薄利を出さない・ユーザー指示）。
-  const items = (await getUsedCatalog())
-    .filter((p) => p.ebayConfirmed && !isJunk(p.condition) && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)))
-    .sort(SORTS[sort].cmp);
+  // 表示対象：同一型番の実落札で相場確定（ebayConfirmed）＋利益率5%以上＋本人が外した品/発送不可(危険物)は除外。
+  //   ※ジャンク品は掲載する（ユーザー指示2026-06-27）。状態はカードにランク表示＋出品時の説明文で明示。
+  const base = (await getUsedCatalog()).filter(
+    (p) => p.ebayConfirmed && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)) && !isProhibited(`${p.brand} ${p.name}`)
+  );
+  // ジャンル一覧（件数つき・多い順）。?genre= で絞り込む。
+  const genreCounts = base.reduce<Record<string, number>>((m, p) => { const c = p.cat || "中古"; m[c] = (m[c] || 0) + 1; return m; }, {});
+  const genres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
+  const items = (genre === "all" ? base : base.filter((p) => (p.cat || "中古") === genre)).sort(SORTS[sort].cmp);
+  // 並べ替え/ジャンルのリンク（互いのクエリを保持）。
+  const qs = (o: { sort?: string; genre?: string }) => {
+    const g = o.genre ?? genre;
+    const s = o.sort ?? sort;
+    const params = new URLSearchParams();
+    if (g && g !== "all") params.set("genre", g);
+    if (s && s !== "profit") params.set("sort", s);
+    const str = params.toString();
+    return str ? `/catalog?${str}` : "/catalog";
+  };
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -80,28 +100,30 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           ※ 純利益＝eBay想定売値 −（eBay手数料・国際送料・米国関税・仕入れ値）。中古は1点物のため在庫は流動的。状態・競合・為替で変動。
         </p>
 
+        {/* ジャンル絞り込み（?genre=）。2ジャンル以上ある時だけ出す。サーバー側でフィルタ＝マスク/漏洩対策を維持。 */}
+        {genres.length > 1 && (
+          <div className="mb-2 -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
+            <Tag size={14} className="text-gray-400 shrink-0" aria-hidden="true" />
+            <Link href={qs({ genre: "all" })} scroll={false} aria-current={genre === "all" ? "true" : undefined} className={pillCls(genre === "all")}>
+              すべて
+            </Link>
+            {genres.map((g) => (
+              <Link key={g} href={qs({ genre: g })} scroll={false} aria-current={genre === g ? "true" : undefined} className={pillCls(genre === g)}>
+                {g}（{genreCounts[g]}）
+              </Link>
+            ))}
+          </div>
+        )}
+
         {/* 並べ替え（サーバー側＝マスク/画像漏洩対策の描画を保ったまま ?sort= で順序だけ変える）。 */}
         {items.length > 0 && (
           <div className="mb-4 -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
             <ArrowUpDown size={14} className="text-gray-400 shrink-0" aria-hidden="true" />
-            {SORT_KEYS.map((k) => {
-              const active = k === sort;
-              return (
-                <Link
-                  key={k}
-                  href={`/catalog?sort=${k}`}
-                  scroll={false}
-                  aria-current={active ? "true" : undefined}
-                  className={`shrink-0 h-8 px-3 inline-flex items-center rounded-full text-[12px] font-bold border ${
-                    active
-                      ? "bg-[#2D323B] text-white border-[#2D323B]"
-                      : "bg-white text-gray-600 border-[#A98B5C]/30 active:bg-gray-50"
-                  }`}
-                >
-                  {SORTS[k].label}
-                </Link>
-              );
-            })}
+            {SORT_KEYS.map((k) => (
+              <Link key={k} href={qs({ sort: k })} scroll={false} aria-current={k === sort ? "true" : undefined} className={pillCls(k === sort)}>
+                {SORTS[k].label}
+              </Link>
+            ))}
           </div>
         )}
 
