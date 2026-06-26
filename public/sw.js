@@ -1,7 +1,8 @@
 // 輸出ラボ Service Worker。役割は2つ：
 //  ① 軽いオフライン耐性（一度見たページはネット不通でも表示）。動的データ(/api/*)はキャッシュしない＝常に最新。
 //  ② Web プッシュ通知の受信・クリック処理（再訪を促すリテンション施策の受け皿）。
-const CACHE = "yl-v1";
+// ⚠️ 中古モデルへ移行：旧キャッシュ(yl-v1)には旧 /search(新品商材)ページが残るため、版を上げて activate で必ず破棄する。
+const CACHE = "yl-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting(); // すぐ新SWを有効化
@@ -36,7 +37,7 @@ self.addEventListener("fetch", (event) => {
           return res;
         } catch {
           const cached = await caches.match(req);
-          return cached || (await caches.match("/search")) || Response.error();
+          return cached || (await caches.match("/catalog")) || Response.error();
         }
       })()
     );
@@ -52,7 +53,7 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    data: { url: data.url || "/search" },
+    data: { url: data.url || "/catalog" },
     tag: data.tag, // 同じtagは1つにまとめる（通知の氾濫を防ぐ）
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -61,7 +62,7 @@ self.addEventListener("push", (event) => {
 // 通知クリック → 既存タブがあれば前面化、無ければ開く。
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/search";
+  const target = (event.notification.data && event.notification.data.url) || "/catalog";
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

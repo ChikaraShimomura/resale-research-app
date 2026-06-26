@@ -115,7 +115,7 @@ export default function PrivacyPage() {
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header className="bg-[#2D323B] sticky top-0 z-20 shadow-sm" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-3 py-3 flex items-center gap-2 max-w-2xl mx-auto">
-          <Link href="/search" aria-label="戻る"
+          <Link href="/" aria-label="戻る"
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white text-xl font-bold shrink-0 active:scale-95">
             ‹
           </Link>

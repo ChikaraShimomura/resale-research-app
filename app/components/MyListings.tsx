@@ -222,10 +222,10 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
           </div>
           {/* 次ループ導線：最重要ファネル起点へワンタップ。 */}
           <a
-            href="/search"
+            href="/catalog"
             className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]"
           >
-            次の利益商品を出す →
+            次の利益商品を見る →
           </a>
         </div>
       )}
@@ -268,8 +268,8 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
           <div className="py-1.5">
             <EmptyNote text="出品中の商品はまだありません。商品を選んで「eBayに出品」するとここに並びます。" />
             {/* 行き止まりにしない：初出品=最重要ファネル起点へワンタップで戻す。 */}
-            <a href="/search" className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
-              利益商品を探す →
+            <a href="/catalog" className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
+              利益商品を見る →
             </a>
           </div>
         ) : (
