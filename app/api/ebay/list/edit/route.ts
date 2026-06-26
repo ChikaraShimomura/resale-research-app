@@ -5,6 +5,7 @@ import { getOfferForSku, updateOfferPriceQuantity, updateOfferShipping, listFulf
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
+import { recordAutoError } from "../../../../lib/errorReport";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
 // GET  ?id=商品ID         → 現在の価格・数量・公開IDを返す（編集モーダルのプリフィル用）
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
     const sr = await updateOfferShipping(token, offer.offerId, { priceUsd: newPrice, fulfillmentPolicyId: newPolicyId });
     if (!sr.ok) {
       const f = friendlyEbayError(sr.error);
+      if (!f.known) await recordAutoError({ where: "ebay_edit_shipmode", message: f.message, errorDetail: sr.error, productId: body.productId, actor, shipMode: body.shipMode });
       return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: sr.error });
     }
     return Response.json({ ok: true, mode: body.shipMode, priceUsd: newPrice });
@@ -124,6 +126,8 @@ export async function POST(req: Request) {
   const r = await updateOfferPriceQuantity(token, sku, offer.offerId, opts);
   if (!r.ok) {
     const f = friendlyEbayError(r.error);
+    // 未知エラーはサーバー側で自動記録（ユーザーの報告操作を待たずに回収）。生エラーは errorDetail に温存。
+    if (!f.known) await recordAutoError({ where: "ebay_edit_price", message: f.message, errorDetail: r.error, productId: body.productId, actor, priceUsd: opts.priceUsd, quantity: opts.quantity });
     return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: r.error });
   }
   return Response.json({ ok: true });

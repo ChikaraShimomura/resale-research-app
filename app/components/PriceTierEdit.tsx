@@ -25,6 +25,8 @@ export default function PriceTierEdit({
         body: JSON.stringify({ productId, priceUsd: usd.toFixed(2) }),
       }).then((r) => r.json());
       if (res.ok) setDoneUsd(usd);
+      // 未知エラーはサーバー側で自動報告済み（recordAutoError）＝ユーザーには調査中であることだけ伝える。
+      else if (res.errorKind === "unexpected") setErr("エラーが発生しました。自動で報告したので調査して直します。");
       else setErr(res.error || "価格を変更できませんでした。");
     } catch {
       setErr("通信エラーで変更できませんでした。");

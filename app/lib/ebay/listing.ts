@@ -63,7 +63,10 @@ interface EbayResult {
 }
 
 function extractError(data: EbayBody | null, status: number): string {
-  const e0 = data?.errors?.[0];
+  // 通常エラーは data.errors[0]。bulk系API(bulk_update_price_quantity等)はHTTP 400でも
+  // 詳細を data.responses[0].errors[0] にネストして返すため、両方を見る（でないと「HTTP 400」だけになり原因不明＝予期せぬエラー化）。
+  const nested = (data as { responses?: { errors?: EbayError[] }[] } | null)?.responses;
+  const e0 = data?.errors?.[0] ?? (Array.isArray(nested) ? nested.find((r) => r?.errors?.length)?.errors?.[0] : undefined);
   if (!e0) return `HTTP ${status}`;
   const params = (e0.parameters ?? [])
     .map((p) => `${p.name ?? ""}=${p.value ?? ""}`)
