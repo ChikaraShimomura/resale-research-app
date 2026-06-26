@@ -194,9 +194,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           >
                             {sourceSiteName(p.site)}で見る <ExternalLink size={14} />
                           </a>
-                          {/* eBay落札の根拠。型番一致(confirmed)＝リファイナが実落札を返したクエリ、未確定＝ブランド+ライン名で必ず結果が出る。 */}
+                          {/* eBay落札の根拠。型番(ハイフン空白化)で検索＝特定型番の落札。古い保存URL(p.ebaySoldUrl)は "-"入りで該当が出ないので使わず、毎回 ebaySoldSearchUrl で生成する。 */}
                           <a
-                            href={p.ebayConfirmed && p.ebaySoldUrl ? p.ebaySoldUrl : ebaySoldSearchUrl(p)}
+                            href={ebaySoldSearchUrl(p)}
                             target="_blank"
                             rel="nofollow noopener noreferrer"
                             className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"

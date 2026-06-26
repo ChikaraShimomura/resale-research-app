@@ -63,8 +63,11 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     if (n >= LIMIT) break;
     n++;
     const code = (p.code || "").trim();
-    const q = [p.brand, code].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番の落札検索
+    // ⚠️ eBayは "-" を除外(NOT)演算子として扱う＝型番の "-" をそのまま検索すると "-XXXX" 以降が除外され落札が出ない。
+    //    検索クエリは "-"→空白に置換（照合 norm は元から記号無視なので整合）。これで実際の型番落札がヒットし確認精度も上がる。
+    const codeQ = code.replace(/-/g, " ").replace(/\s+/g, " ").trim();
+    const q = [p.brand, codeQ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番(ハイフン空白化)の落札検索
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
     if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }

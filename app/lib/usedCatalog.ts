@@ -41,13 +41,15 @@ function watchLine(text: string): string {
 }
 
 // eBayの落札（Sold/Completed）検索URL＝「eBay落札を確認」ボタンのリンク先。
-// ライン名が分かれば ブランド+ライン名（必ず結果が出る）、無ければ ブランド+型番、最後に ブランド+商品名。
-// ※型番リファイナが ebaySoldUrl をセット済みの確定品は、UI側でそちら（実際に落札が返ったクエリ）を優先する。
+// ⚠️ eBay検索で "-" は「除外(NOT)演算子」扱い＝型番の "-" をそのまま入れると "-XXXX" 以降が除外され該当落札が出ない。
+//    そのため型番の "-" は空白に置換してから検索する（照合側 norm は元から記号無視なので整合する）。
+//    "-"空白化で型番がちゃんと効くようになったので、ライン名フォールバックより「型番」を優先＝特定型番の落札を出す。
 export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: string; modelKey?: string }): string {
+  const code = (p.code || "").replace(/-/g, " ").replace(/\s+/g, " ").trim(); // 型番の "-"→空白（eBayの除外演算子回避）
   const line = watchLine(`${p.name || ""} ${p.code || ""} ${p.modelKey || ""}`);
   const q =
-    (line ? [p.brand, line].filter(Boolean).join(" ") : "") ||
-    [p.brand, p.code].filter(Boolean).join(" ").trim() ||
+    [p.brand, code].filter(Boolean).join(" ").trim() ||        // 型番(ハイフン空白化)を最優先＝特定型番の落札
+    (line ? [p.brand, line].filter(Boolean).join(" ") : "") || // 型番が無い時はライン名
     [p.brand, p.name].filter(Boolean).join(" ").trim();
   // LH_ItemCondition=3000 ＝ 中古(Used/Pre-owned)のみ。新品が混ざるのを防ぐ。
   return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
@@ -134,15 +136,35 @@ export async function getHiddenCatalogKeys(actor: string | undefined | null): Pr
 export type BoughtItem = ProfitProduct & { buyJpy?: number; boughtAt?: string };
 
 // このアクターが「仕入れた」品の一覧（新しい順）。値は /api/catalog/action が psnap から焼いたスナップショット。
-// 旧形式（数値だけ・スナップショット無し）はカードを描けないので除外する。
+// ⚠️「仕入れ商品」ページ導入前に押した品は値が「仕入れ値の数値」だけ＝スナップショットが無い。
+//    その旧形式は psnap:{id}（出品用ProfitProduct）から再構成して必ず載せる（取りこぼさない）。
 export async function getBoughtItems(actor: string | undefined | null): Promise<BoughtItem[]> {
   if (!actor) return [];
   try {
-    const map = await kvReadOnly.hgetall<Record<string, BoughtItem>>(`used_bought:${actor}`);
+    const map = await kvReadOnly.hgetall<Record<string, unknown>>(`used_bought:${actor}`);
     if (!map) return [];
-    return Object.values(map)
-      .filter((x): x is BoughtItem => !!x && typeof x === "object" && !!x.id && !!x.title)
-      .sort((a, b) => String(b.boughtAt || "").localeCompare(String(a.boughtAt || "")));
+    const out: BoughtItem[] = [];
+    const legacy: { id: string; buyJpy: number }[] = [];
+    for (const [id, v] of Object.entries(map)) {
+      if (v && typeof v === "object" && (v as BoughtItem).id && (v as BoughtItem).title) {
+        out.push(v as BoughtItem); // 新形式（スナップショット）
+      } else {
+        legacy.push({ id, buyJpy: typeof v === "number" ? v : 0 }); // 旧形式（数値だけ）→psnapで再構成
+      }
+    }
+    if (legacy.length) {
+      const recon = await Promise.all(
+        legacy.map(async ({ id, buyJpy }) => {
+          try {
+            const snap = await kvReadOnly.get<ProfitProduct>(`psnap:${id}`);
+            if (snap && snap.id && snap.title) return { ...snap, buyJpy: buyJpy || snap.source?.price, boughtAt: "" } as BoughtItem;
+          } catch { /* noop */ }
+          return null;
+        })
+      );
+      for (const r of recon) if (r) out.push(r);
+    }
+    return out.sort((a, b) => String(b.boughtAt || "").localeCompare(String(a.boughtAt || "")));
   } catch {
     return [];
   }
