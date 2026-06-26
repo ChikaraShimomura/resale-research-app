@@ -15,6 +15,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/legal" || pathname === "/faq" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
+  // チーム招待の承認ページは未ログインで踏まれ得る（メールのリンク）→ページ内でログイン状態を判定し誘導する。
+  if (pathname === "/team/accept") return true;
   // SNS共有カード画像(OG/Twitter)はクローラ(Twitterbot/facebookexternalhit)が未ログインで取得する＝公開必須。
   // ゲートすると /register(HTML)へ307され、X等でカード画像が一切出ない。ネスト経路(例: /ranking/opengraph-image)も許可。
   if (pathname.endsWith("/opengraph-image") || pathname.endsWith("/twitter-image")) return true;

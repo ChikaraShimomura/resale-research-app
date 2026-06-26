@@ -75,3 +75,15 @@ export async function listRegisteredUsers(): Promise<string[]> {
     return [];
   }
 }
+
+// メールが「うちの会員」か（過去にログイン/登録した＝registered_usersに居る）。チーム招待の会員確認に使う。
+// ※Supabase service役鍵が無くてもメール集合で判定できる。承認時に本人ログインで二重に担保するので、ここは早期UX判定。
+export async function isRegisteredEmail(email: string | null | undefined): Promise<boolean> {
+  const e = (email ?? "").trim().toLowerCase();
+  if (!e || !e.includes("@")) return false;
+  try {
+    return (await kv.sismember(REGISTERED_KEY, e)) === 1;
+  } catch {
+    return false;
+  }
+}

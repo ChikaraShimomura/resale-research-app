@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Truck, ArrowRight, ArrowDown, Settings, BookOpen, Store, type LucideIcon } from "lucide-react";
+import { Package, Truck, ArrowRight, ArrowDown, Settings, BookOpen, Store, Users, type LucideIcon } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
 
@@ -250,6 +250,7 @@ function HubLinks() {
   const items: { href: string; Icon: LucideIcon; label: string; full?: boolean }[] = [
     { href: "/listings", Icon: Package, label: "出品管理" },
     { href: "/ship", Icon: Truck, label: "発送・受け取り" },
+    { href: "/team", Icon: Users, label: "チーム共有" },
     { href: "/settings", Icon: Settings, label: "輸出ラボアカウント設定" },
     { href: "/settings/ebay", Icon: Store, label: "eBayアカウント設定" },
     { href: "/guide", Icon: BookOpen, label: "使い方ガイド", full: true },
