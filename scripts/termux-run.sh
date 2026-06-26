@@ -47,22 +47,22 @@ while true; do
     wl discover "$HOME/ebaysold.log" "$rc"
   fi
 
-  # ④ 中古カタログ(ハードオフ中古ジャンル)を【3時間ごと】に更新（ユーザー指示2026-06-27・Anthropic不使用＝無料）。
-  #    候補構築(キャッシュ ebay_sold_seed × ハードオフ現在庫) → 型番リファイン(ブランド+型番でeBay落札→実値・同一型番のみ採用)。
-  #    住宅IPのPixelだからHard Off/eBay落札とも取得可。3サイクル(=3h)ごと。eBay検問は retain-on-block で自己回復。
+  # ④ 中古カタログの候補構築(build)を【3時間ごと】に更新（Anthropic不使用＝無料）。
+  #    キャッシュ ebay_sold_seed × ハードオフ現在庫 から利益候補を作る。確定相場は build が型番単位で引き継ぐ(崩落しない)。
   if [ $(( cycle % 3 )) -eq 0 ]; then
     echo "---- $(date) used-catalog build ----" >> "$HOME/usedcatalog.log"
     node scripts/used/buildUsedSampleFromCache.mjs >> "$HOME/usedcatalog.log" 2>&1; brc=$?
     wl build "$HOME/usedcatalog.log" "$brc"
-    if [ "$brc" -eq 0 ]; then
-      echo "---- $(date) used-catalog refine ----" >> "$HOME/usedcatalog.log"
-      node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
-      [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次週再試行)" >> "$HOME/usedcatalog.log"
-      wl refine "$HOME/usedcatalog.log" "$rrc"
-    else
-      echo "  (候補構築失敗・次週再試行)" >> "$HOME/usedcatalog.log"
-    fi
+    [ "$brc" -ne 0 ] && echo "  (候補構築失敗・次回再試行)" >> "$HOME/usedcatalog.log"
   fi
+
+  # ⑤ 型番リファインを【毎サイクル・小バッチ(既定12件)】で実行（ユーザー指示2026-06-27）。
+  #    一気に全件やるとeBayのcaptchaで弾かれる→毎回 warmup 付きの小バッチを「細かく・多く」回す方が弾かれにくく、
+  #    未確認の型番を着実に確定できる。件数は REFINE_BATCH（既定12・captcha閾値の十数件未満）で調整可。
+  echo "---- $(date) used-catalog refine batch ----" >> "$HOME/usedcatalog.log"
+  REFINE_LIMIT="${REFINE_BATCH:-12}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
+  [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次サイクル再試行)" >> "$HOME/usedcatalog.log"
+  wl refine "$HOME/usedcatalog.log" "$rrc"
 
   cycle=$(( cycle + 1 ))
   sleep "$INTERVAL"

@@ -12,7 +12,10 @@ import { get, parseSoldWithin } from "../ebaySoldWorker.mjs";
 const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
 const GAP_MS = Number(process.env.EBAY_GAP_MS) || 8000;
-const LIMIT = Number(process.argv[2]) || Infinity;
+// 1回あたりの処理件数（既定12＝小バッチ）。eBayのcaptchaは「同一セッションで連続十数件」で出るため、
+// 一気に全件やらず、毎回 warmup 付きの小バッチで「細かく・多く」回す方が弾かれにくい（ユーザー指示2026-06-27）。
+// 上書き：REFINE_LIMIT env もしくは argv[2]。フル実行したい時は大きい数を渡す。
+const LIMIT = Number(process.env.REFINE_LIMIT || process.argv[2]) || 12;
 const MIN_SAME = 1; // 同一型番(中古)がこの件数以上で相場確定（ユーザー指示2026-06-26：0件だけ弾き1件以上は出す）
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = () => sleep(Math.round(GAP_MS * (1 + Math.random())));
@@ -53,13 +56,20 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
 (async () => {
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
   if (!catalog.length) { console.log("used_catalog が空"); return; }
-  console.log(`対象 ${Math.min(catalog.length, LIMIT)} / ${catalog.length}件（同一型番${MIN_SAME}件以上で確定）`);
 
-  await get("https://www.ebay.com/"); // warmup
+  // 小バッチでも毎回ちゃんと前進するよう、未確認(ebayChecked無し)→未確定→確定済み の順で処理する。
+  // ＝確定済みの上位ばかり再チェックして未確認が永遠に残るのを防ぐ。同ランク内は利益額の高い順。
+  //   ※ catalog と同じオブジェクト参照を並べ替えるだけ（書き戻しは元の catalog ベースなので不変条件は保たれる）。
+  const pri = (p) => (p.ebayConfirmed ? 2 : p.ebayChecked ? 1 : 0); // 0=未確認 を最優先
+  const order = [...catalog].sort((a, b) => pri(a) - pri(b) || (b.profitJpy || 0) - (a.profitJpy || 0));
+  const pending = order.filter((p) => !p.ebayConfirmed).length;
+  console.log(`対象 ${Math.min(order.length, LIMIT)} / ${order.length}件（未確定 ${pending}件・未確認優先・1回${LIMIT}件で確定${MIN_SAME}件以上）`);
+
+  await get("https://www.ebay.com/"); // warmup（毎バッチ新セッション＝captcha回避）
   await sleep(1500);
 
   let confirmed = 0, dropped = 0, blocked = 0, n = 0;
-  for (const p of catalog) {
+  for (const p of order) {
     if (n >= LIMIT) break;
     n++;
     const code = (p.code || "").trim();
