@@ -13,7 +13,7 @@ const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
 const GAP_MS = Number(process.env.EBAY_GAP_MS) || 8000;
 const LIMIT = Number(process.argv[2]) || Infinity;
-const MIN_SAME = 2; // 同一型番(中古)がこの件数以上で相場確定（ユーザー指示2026-06-26：2件で出す）
+const MIN_SAME = 1; // 同一型番(中古)がこの件数以上で相場確定（ユーザー指示2026-06-26：0件だけ弾き1件以上は出す）
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = () => sleep(Math.round(GAP_MS * (1 + Math.random())));
 
