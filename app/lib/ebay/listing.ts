@@ -738,6 +738,51 @@ export async function updateOfferPriceQuantity(
   return { ok: true };
 }
 
+// 出品中の「価格(+数量)」を更新する。bulk_update_price_quantity と違い Best Offer の自動承諾/拒否額も
+// 新価格に合わせて作り直す。eBayは「自動承諾額 < 出品価格」を厳密に要求するため、価格を下げると
+// 出品時に設定した旧しきい値(≈定価の90%)が新価格を上回り "price must be greater than … auto-accept" で拒否される。
+// フルoffer(GET→価格/Best Offerだけ差し替え→PUT)で更新し、公開中の listing に即反映する。
+export async function updateOfferPriceFull(
+  token: string,
+  offerId: string,
+  opts: { priceUsd: string; quantity?: number }
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await ebayFetch(token, "GET", `/sell/inventory/v1/offer/${offerId}`);
+  if (!g.ok || !g.data || typeof g.data !== "object") return { ok: false, error: g.error || "オファー取得失敗" };
+  const base: Record<string, unknown> = { ...(g.data as Record<string, unknown>) };
+  delete base.offerId; delete base.listing; delete base.status; // 読み取り専用はPUTに含めない
+  const price = Number(opts.priceUsd);
+
+  const buildBody = (keepBestOffer: boolean): Record<string, unknown> => {
+    const o: Record<string, unknown> = { ...base };
+    o.pricingSummary = { ...((o.pricingSummary as Record<string, unknown>) || {}), price: { value: opts.priceUsd, currency: "USD" } };
+    if (opts.quantity != null) o.availableQuantity = opts.quantity;
+    const lp: Record<string, unknown> = { ...((o.listingPolicies as Record<string, unknown>) || {}) };
+    const bo = lp.bestOfferTerms as { bestOfferEnabled?: boolean } | undefined;
+    if (keepBestOffer && bo?.bestOfferEnabled && price > 0) {
+      // 自動承諾=新価格の90%(必ず price 未満にクランプ)・自動拒否=75%(decline<accept)。新価格に追従させる。
+      const accept = Math.min(price * 0.99, price * 0.9);
+      const decline = price * 0.75;
+      lp.bestOfferTerms = {
+        bestOfferEnabled: true,
+        autoAcceptPrice: { value: accept.toFixed(2), currency: "USD" },
+        ...(decline > 0 && decline < accept ? { autoDeclinePrice: { value: decline.toFixed(2), currency: "USD" } } : {}),
+      };
+    } else if (!keepBestOffer) {
+      delete lp.bestOfferTerms; // しきい値が原因の拒否に備え、Best Offer を外して再試行（価格変更自体は通す）
+    }
+    o.listingPolicies = lp;
+    return o;
+  };
+
+  let r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, buildBody(true));
+  if (!r.ok && /best.?offer|auto.?accept|best_offer_auto_accept|price must|value must|minimum/i.test(r.error ?? "")) {
+    r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, buildBody(false)); // フェイルオープン：Best Offer無しで通す
+  }
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true };
+}
+
 // 出品中の「送料の出し方」を切替: 価格と配送ポリシーを同時更新する。
 // bulk_update_price_quantity は配送ポリシーを変えられないため、フルoffer(GET→必要部だけ差し替え→PUT)で更新する。
 // 公開中(PUBLISHED)のオファーをPUTで更新すると、出品中の listing にも反映される。

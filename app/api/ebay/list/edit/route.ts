@@ -1,7 +1,7 @@
 import { kvReadOnly } from "../../../../lib/kv";
 import { getActorId } from "../../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
-import { getOfferForSku, updateOfferPriceQuantity, updateOfferShipping, listFulfillmentPolicies } from "../../../../lib/ebay/listing";
+import { getOfferForSku, updateOfferPriceQuantity, updateOfferPriceFull, updateOfferShipping, listFulfillmentPolicies } from "../../../../lib/ebay/listing";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
@@ -123,18 +123,23 @@ export async function POST(req: Request) {
   const offer = await getOfferForSku(token, sku);
   if (!offer) return Response.json({ ok: false, error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。" });
 
-  // 価格のみ変更でも、現在の数量(availability)を bulk_update_price_quantity に同梱する。
+  // 価格のみ変更でも、現在の数量(availability)を更新リクエストに同梱する。
   // 在庫(availability)が欠けた状態だと #25604「Availability not found」系で400になることがあるため、
   // 現数量を明示して送る（同値なので実質no-op・安全側）。数量が取れない時は触らない。
   if (opts.priceUsd != null && opts.quantity == null && typeof offer.quantity === "number" && offer.quantity >= 1) {
     opts.quantity = offer.quantity;
   }
 
-  const r = await updateOfferPriceQuantity(token, sku, offer.offerId, opts);
+  // 価格変更を含む時はフルoffer PUT（Best Offer の自動承諾額も新価格に追従＝旧しきい値との衝突で拒否されるのを防ぐ）。
+  // 数量だけの変更は従来どおり bulk_update_price_quantity（軽い）。
+  const r =
+    opts.priceUsd != null
+      ? await updateOfferPriceFull(token, offer.offerId, { priceUsd: opts.priceUsd, quantity: opts.quantity })
+      : await updateOfferPriceQuantity(token, sku, offer.offerId, opts);
   if (!r.ok) {
     const f = friendlyEbayError(r.error);
-    // 未知エラーはサーバー側で自動記録（ユーザーの報告操作を待たずに回収）。生エラーは errorDetail に温存。
-    if (!f.known) await recordAutoError({ where: "ebay_edit_price", message: f.message, errorDetail: r.error, productId: body.productId, actor, priceUsd: opts.priceUsd, quantity: opts.quantity });
+    // リリース硬化中：価格変更の失敗は既知/未知を問わず生エラーをKVに残す（既知はメール抑止=silent）。原因の特定を確実にする。
+    await recordAutoError({ where: "ebay_edit_price", message: f.message, errorDetail: r.error, productId: body.productId, actor, priceUsd: opts.priceUsd, quantity: opts.quantity, silent: f.known });
     return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: r.error });
   }
   return Response.json({ ok: true });

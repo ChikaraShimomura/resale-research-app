@@ -15,6 +15,7 @@ export interface AutoErrorReport {
   errorDetail?: string;     // 生のeBayエラー（詳細・診断用）
   productId?: string;
   actor?: string;
+  silent?: boolean;         // true=KVには残すがメール通知はしない（既知エラーの診断ログ用）
   [k: string]: unknown;     // priceUsd 等の文脈
 }
 
@@ -31,7 +32,7 @@ export async function recordAutoError(input: AutoErrorReport): Promise<void> {
   } catch {
     /* KV障害でもメール通知は試みる */
   }
-  if (emailConfigured()) {
+  if (!input.silent && emailConfigured()) {
     try {
       await sendEmail({
         to: REPORT_TO,
