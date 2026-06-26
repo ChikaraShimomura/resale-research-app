@@ -5,7 +5,6 @@ import { Package, ArrowRight, ArrowDown, Settings, Store, Users, type LucideIcon
 import { fetchSoldIds } from "../lib/ebaySold";
 import SaveProgressNudge from "./SaveProgressNudge";
 
-interface Rank { name: string; icon: string; min: number }
 interface MonthPoint { month: string; label: string; profit: number; sales: number; purchase: number; count: number }
 interface Stats {
   soldCount: number;
@@ -23,9 +22,6 @@ interface Stats {
   avgProfit: number;
   bestProfit: number;
   monthly: MonthPoint[];
-  rank: Rank;
-  nextRank: Rank | null;
-  toNext: number;
 }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -157,36 +153,72 @@ function UsedFinancePanel({ s }: { s: Stats }) {
   );
 }
 
-// 月別の利益推移（直近6ヶ月）。CSS の高さ比で描く軽量バーチャート。
-function MonthlyChart({ data, soldCount }: { data: MonthPoint[]; soldCount: number }) {
-  const pts = data.slice(-6);
-  const max = Math.max(...pts.map((p) => p.profit), 1);
-  const charted = data.reduce((a, p) => a + p.count, 0); // 月別に集計できた件数
-  const unknown = Math.max(0, soldCount - charted); // 売却日が不明で月別に出せない件数
+// 月別→年別に集約（年単位の利益/売上/仕入れ/件数）。
+interface Period { key: string; label: string; profit: number; sales: number; purchase: number; count: number }
+function aggregateByYear(data: MonthPoint[]): Period[] {
+  const m = new Map<string, Period>();
+  for (const p of data) {
+    const y = p.month.slice(0, 4);
+    const cur = m.get(y) ?? { key: y, label: `${y}年`, profit: 0, sales: 0, purchase: 0, count: 0 };
+    cur.profit += p.profit; cur.sales += p.sales; cur.purchase += p.purchase; cur.count += p.count;
+    m.set(y, cur);
+  }
+  return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+// 収支の推移（月別／年別の切替）。利益のバーチャート＋各期間の 仕入れ/売上/利益 を一覧で。CSS高さ比の軽量チャート。
+function PeriodBreakdown({ data, soldCount }: { data: MonthPoint[]; soldCount: number }) {
+  const [view, setView] = useState<"month" | "year">("month");
+  const months: Period[] = data.map((p) => ({ key: p.month, label: p.label, profit: p.profit, sales: p.sales, purchase: p.purchase, count: p.count }));
+  const years = aggregateByYear(data);
+  const pts = (view === "month" ? months.slice(-12) : years);
+  const max = Math.max(...pts.map((p) => Math.max(0, p.profit)), 1);
+  const charted = data.reduce((a, p) => a + p.count, 0);
+  const unknown = Math.max(0, soldCount - charted);
+  const rows = [...pts].reverse(); // 新しい順で一覧
+  const tabCls = (on: boolean) => `h-7 px-3 rounded-full text-[11px] font-bold border ${on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"}`;
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
-      <p className="text-[13px] font-black text-gray-800 mb-3">月ごとの利益</p>
-      <div className="flex items-end justify-between gap-2">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[13px] font-black text-gray-800">収支の推移</p>
+        <div className="flex gap-1.5">
+          <button onClick={() => setView("month")} className={tabCls(view === "month")}>月別</button>
+          <button onClick={() => setView("year")} className={tabCls(view === "year")}>年別</button>
+        </div>
+      </div>
+      {/* 利益バー */}
+      <div className="flex items-end justify-between gap-1.5 overflow-x-auto">
         {pts.map((p) => {
           const h = Math.max(6, Math.round((Math.max(0, p.profit) / max) * 100));
           return (
-            <div key={p.month} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-              <span className="text-[9px] font-bold text-gray-600 tabular-nums">{yenShort(p.profit)}</span>
+            <div key={p.key} className="flex-1 min-w-[28px] flex flex-col items-center gap-1">
+              <span className="text-[9px] font-bold text-gray-600 tabular-nums whitespace-nowrap">{yenShort(p.profit)}</span>
               <div className="w-full h-20 flex items-end">
-                <div
-                  className="w-full rounded-t-md bg-gradient-to-t from-[#2D323B] to-[#A98B5C]"
-                  style={{ height: `${h}%` }}
-                  title={`${p.label}：${yen(p.profit)}（${p.count}件）`}
-                />
+                <div className="w-full rounded-t-md bg-gradient-to-t from-[#2D323B] to-[#A98B5C]" style={{ height: `${h}%` }} title={`${p.label}：利益${yen(p.profit)}（${p.count}件）`} />
               </div>
-              <span className="text-[10px] text-gray-400">{p.label}</span>
+              <span className="text-[9px] text-gray-400 whitespace-nowrap">{p.label}</span>
             </div>
           );
         })}
       </div>
-      {unknown > 0 && (
-        <p className="mt-2 text-[10px] text-gray-400">※ 売却日が不明な{unknown}件はグラフ対象外（累計には含む）</p>
-      )}
+      {/* 期間別の 仕入れ/売上/利益 一覧 */}
+      <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 space-y-1.5">
+        <div className="flex items-center text-[10px] text-gray-400 font-bold">
+          <span className="w-14 shrink-0">{view === "month" ? "月" : "年"}</span>
+          <span className="flex-1 text-right">仕入れ</span>
+          <span className="flex-1 text-right">売上</span>
+          <span className="flex-1 text-right">利益</span>
+        </div>
+        {rows.map((p) => (
+          <div key={p.key} className="flex items-center text-[11px] tabular-nums">
+            <span className="w-14 shrink-0 text-gray-600 font-bold">{p.label}</span>
+            <span className="flex-1 text-right text-gray-500">{yen(p.purchase)}</span>
+            <span className="flex-1 text-right text-[#0064D2] font-bold">{yen(p.sales)}</span>
+            <span className={`flex-1 text-right font-black ${p.profit < 0 ? "text-red-500" : "text-emerald-600"}`}>{signedYen(p.profit)}</span>
+          </div>
+        ))}
+      </div>
+      {unknown > 0 && <p className="mt-2 text-[10px] text-gray-400">※ 売却日が不明な{unknown}件はグラフ対象外（累計には含む）</p>}
     </div>
   );
 }
@@ -197,44 +229,6 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       <p className="text-[11px] text-gray-400">{label}</p>
       <p className="mt-0.5 text-sm font-black text-gray-800 tabular-nums">{value}</p>
       {sub && <p className="text-[9px] text-gray-400 mt-0.5">{sub}</p>}
-    </div>
-  );
-}
-
-// 称号は「マイページ」だけに置く（控えめに1ブロック）。
-function RankBlock({ s }: { s: Stats }) {
-  // 昇格バーは「現ランク→次ランク」の区間内での進捗で出す（区間相対）。
-  // 旧実装は totalProfit/nextRank.min の絶対比だったため、昇格直後に割合が下がって
-  // 逆戻りして見える問題があった。span=0 や負の余白でも 0除算/負値を避けてクランプ。
-  const pct = s.nextRank
-    ? (() => {
-        const span = s.nextRank.min - s.rank.min;
-        const ratio = span > 0 ? (s.totalProfit - s.rank.min) / span : 1;
-        return Math.max(2, Math.min(100, Math.round(ratio * 100)));
-      })()
-    : 100;
-  return (
-    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">{s.rank.icon}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-gray-400">いまの称号</p>
-          <p className="text-sm font-black text-gray-800">{s.rank.name}</p>
-        </div>
-        {s.nextRank && (
-          <span className="text-[11px] text-gray-400 shrink-0">
-            次は {s.nextRank.icon} {s.nextRank.name}
-          </span>
-        )}
-      </div>
-      {s.nextRank && (
-        <div className="mt-3">
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#2D323B] to-[#A98B5C]" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="text-[11px] text-gray-400 mt-1.5">あと {yen(s.toNext)} で昇格</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -304,7 +298,7 @@ export default function MyDashboard() {
     s && s.listedCount > 0 ? (
       <SaveProgressNudge
         from="dashboard"
-        message="💡 成績はこの端末だけに保存中。ログインすれば機種変・別端末でも“育てた利益・称号”が消えません。"
+        message="💡 成績はこの端末だけに保存中。ログインすれば機種変・別端末でも“仕入れ・売上・利益”が消えません。"
       />
     ) : null;
 
@@ -331,7 +325,6 @@ export default function MyDashboard() {
       <div className="space-y-3">
         {nudge}
         <UsedFinancePanel s={s} />
-        {s.listedCount > 0 && <RankBlock s={s} />}
         <HubLinks />
       </div>
     );
@@ -395,11 +388,9 @@ export default function MyDashboard() {
         );
       })()}
 
-      <RankBlock s={s} />
-
       <MoneyFlow s={s} />
 
-      {s.monthly.length >= 2 && <MonthlyChart data={s.monthly} soldCount={s.soldCount} />}
+      {s.monthly.length >= 1 && <PeriodBreakdown data={s.monthly} soldCount={s.soldCount} />}
 
       {/* 数値タイル。最高利益は正の取引が無い（全部赤字/初期値0）と ¥0 誤表示になるため、
           bestProfit>0 の時だけ「最高利益」を出し、それ以外は「ベスト記録待ち」のプレースホルダにする。 */}

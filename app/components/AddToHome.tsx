@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { X, Share, Copy, Check, ExternalLink, Smartphone, Plus } from "lucide-react";
 import { canInstallNative, onInstallChange, promptInstall, pwaEnv, type PwaEnv } from "../lib/pwaInstall";
 
-const DISMISS_KEY = "a2hs_dismissed_v1";
+// v2＝旧 v1 の「恒久 dismiss」をリセットして再度促す（ホーム画面追加を徹底して勧める方針）。
+const DISMISS_KEY = "a2hs_dismissed_v2";
+const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000; // 閉じても3日後にまた促す。実際に追加(installed)した時だけ恒久的に出さない。
 
 export default function AddToHome() {
   const [env, setEnv] = useState<PwaEnv | null>(null);
@@ -26,7 +28,10 @@ export default function AddToHome() {
       }
     };
     try {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+      const v = localStorage.getItem(DISMISS_KEY);
+      if (v === "installed") setDismissed(true); // 追加済み＝恒久的に出さない
+      else if (v && Number(v) > 0) setDismissed(Date.now() - Number(v) < SNOOZE_MS); // 閉じた→3日間だけスヌーズ
+      else setDismissed(false);
     } catch {
       setDismissed(false);
     }
@@ -46,7 +51,7 @@ export default function AddToHome() {
 
   const close = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, "1");
+      localStorage.setItem(DISMISS_KEY, String(Date.now())); // スヌーズ（3日後にまた促す）
     } catch {
       /* noop */
     }
@@ -70,7 +75,10 @@ export default function AddToHome() {
 
   const install = async () => {
     const r = await promptInstall();
-    if (r === "accepted") close(); // 追加を承諾した時だけ恒久 dismiss。キャンセルでは再訪で再表示。
+    if (r === "accepted") {
+      try { localStorage.setItem(DISMISS_KEY, "installed"); } catch { /* noop */ }
+      setDismissed(true); // 実際に追加した時だけ恒久的に出さない。キャンセルでは再訪で再表示。
+    }
   };
 
   let title: string;

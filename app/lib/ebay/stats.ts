@@ -1,4 +1,4 @@
-// 「育てるダッシュボード」用：アプリ出品→売れた取引の集計と称号(ランク)。サーバー専用。
+// マイページの収支ダッシュボード用：アプリ出品→売れた取引の集計（仕入れ/売上/利益・月別/年別）。サーバー専用。
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
 import { toRakutenProductUrl } from "../utils";
@@ -423,30 +423,7 @@ export async function removeDeal(actor: string, productId: string): Promise<void
   }
 }
 
-export interface Rank {
-  name: string;
-  icon: string;
-  min: number; // 昇格に必要な利益累計(JPY)
-}
-
-// 利益累計で昇格する称号。
-export const RANKS: Rank[] = [
-  { name: "輸出ルーキー", icon: "🌱", min: 0 },
-  { name: "輸出みならい", icon: "🔰", min: 5000 },
-  { name: "輸出ハンター", icon: "⚡", min: 30000 },
-  { name: "輸出プロ", icon: "🔥", min: 100000 },
-  { name: "輸出マスター", icon: "👑", min: 300000 },
-  { name: "輸出レジェンド", icon: "💎", min: 1000000 },
-];
-
-export function rankFor(profit: number): { rank: Rank; nextRank: Rank | null } {
-  let rank = RANKS[0];
-  for (const r of RANKS) if (profit >= r.min) rank = r;
-  const idx = RANKS.indexOf(rank);
-  return { rank, nextRank: idx < RANKS.length - 1 ? RANKS[idx + 1] : null };
-}
-
-// 月別(売却月)集計。マイページの「利益の推移」グラフ用。
+// 月別(売却月)集計。マイページの「収支の推移」グラフ（月別/年別）用。
 export interface MonthPoint {
   month: string; // "2026-06"
   label: string; // "6月"
@@ -471,10 +448,7 @@ export interface Stats {
   totalFees: number; // eBay手数料合計(JPY)
   avgProfit: number; // 1件あたり平均利益(売れたもの)
   bestProfit: number; // 最も稼いだ1取引の利益
-  monthly: MonthPoint[]; // 月別集計(売却月・昇順)
-  rank: Rank;
-  nextRank: Rank | null;
-  toNext: number; // 次の称号まで(円)
+  monthly: MonthPoint[]; // 月別集計(売却月・昇順)。マイページで月別/年別グラフに使う
 }
 
 export async function getStats(actor: string): Promise<Stats> {
@@ -549,7 +523,6 @@ export async function getStats(actor: string): Promise<Stats> {
   }
   const monthly = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
 
-  const { rank, nextRank } = rankFor(totalProfit);
   return {
     soldCount: sold.length,
     listedCount: sold.length + live.length, // 実際に出品できたもの（出品中＋売却済み）。下書き等は含めない
@@ -566,8 +539,5 @@ export async function getStats(actor: string): Promise<Stats> {
     avgProfit: sold.length ? Math.round(totalProfit / sold.length) : 0,
     bestProfit,
     monthly,
-    rank,
-    nextRank,
-    toNext: nextRank ? Math.max(0, nextRank.min - totalProfit) : 0,
   };
 }

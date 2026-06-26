@@ -5,7 +5,6 @@ import { getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { createSupabaseServerClient } from "../lib/supabase/server";
 import MastersAdmin from "../components/MastersAdmin";
-import AdminStopOverstated from "../components/AdminStopOverstated";
 import CatalogHealth from "../components/CatalogHealth";
 
 // 管理者ハブ。ログイン中のメールが ADMIN_EMAILS のときだけ表示（それ以外は404）。
@@ -43,14 +42,9 @@ export default async function AdminPage() {
           <MastersAdmin />
         </section>
 
-        {/* カタログ健康診断：配信ゲートが何件落としているか＝件数急減を即検知。 */}
+        {/* 中古カタログ健康診断：配信ゲートが何件落としているか＝件数急減を即検知。 */}
         <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <CatalogHealth />
-        </section>
-
-        {/* eBay直近落札で赤字になった出品中商品の一括停止。 */}
-        <section className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
-          <AdminStopOverstated />
         </section>
 
         {/* 既存の運営ツールへの導線。 */}
