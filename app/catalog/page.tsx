@@ -62,8 +62,8 @@ export default async function CatalogPage() {
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
-            <p className="text-sm font-bold text-gray-700 mb-1">集計中</p>
-            <p className="text-[12px] text-gray-500 mb-4">中古の在庫は随時入れ替わります。少し時間をおいて再度どうぞ。</p>
+            <p className="text-sm font-bold text-gray-700 mb-1">同一型番の相場を再取得中</p>
+            <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">eBayで<b>同じ型番の実落札だけ</b>を集めて利益を再計算しています（別モデルの価格を混ぜないため）。正確な相場が取れた商品から順に表示されます。</p>
             <Link
               href={canView ? "/" : "/pricing?from=catalog"}
               className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
