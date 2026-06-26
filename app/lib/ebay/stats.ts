@@ -393,7 +393,7 @@ export async function listDealsForUser(
 
   const sold: SoldDeal[] = soldEntries
     .map(([id, d]) => {
-      const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
+      const saleJpy = Math.round(Math.max(0, Number(d.soldUsd) || 0) * USD_JPY); // 不正値(NaN/負)で利益が汚染されないようクランプ
       const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
       return {
         id,
@@ -539,7 +539,7 @@ export async function getStats(actor: string): Promise<Stats> {
   let bestProfit = 0;
   const byMonth = new Map<string, MonthPoint>();
   for (const d of sold) {
-    const saleJpy = Math.round((d.soldUsd ?? 0) * USD_JPY);
+    const saleJpy = Math.round(Math.max(0, Number(d.soldUsd) || 0) * USD_JPY); // 不正値(NaN/負)で利益が汚染されないようクランプ
     const fee = Math.round(saleJpy * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
     const profit = saleJpy - fee - d.purchase; // 現金利益（ポイントは含めない＝totalPoints で別集計）
     totalPurchase += d.purchase;

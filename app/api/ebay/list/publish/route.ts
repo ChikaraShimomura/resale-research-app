@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     /* fail-open: 元URLのまま */
   }
 
-  // Best Offer（値下げ交渉）: 既定ON。出品価格の「指定%引き」以上は自動承諾、損益分岐(floor)未満は自動拒否。
+  // Best Offer（値下げ交渉）は廃止済み＝eBay自動出品は定額価格のみ（自動値下げ機能は付けない）。
   const result = await createAndPublish(token, {
     productId: product.id,
     title,

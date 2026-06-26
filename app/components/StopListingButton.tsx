@@ -22,7 +22,7 @@ export default function StopListingButton({ productId }: { productId: string }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId }),
       }).then((r) => r.json());
-      if (res.ok) router.refresh();
+      if (res.ok) { setBusy(false); router.refresh(); }
       else { setErr(res.error || "停止できませんでした。"); setBusy(false); }
     } catch {
       setErr("通信エラーで停止できませんでした。");

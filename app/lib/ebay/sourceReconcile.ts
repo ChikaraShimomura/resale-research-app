@@ -73,8 +73,19 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
       continue;
     }
     // sku未保存の旧deal×自己修復SKU(rr-{id}-{乱数})だと基本SKUでオファーが当たらず ended=false(未検出)になり得る。
-    // その場合「本当に取り下げた確証なし」なので停止扱い/recapにせず次回送り（誤報告＝実出品が残るのを防ぐ）。
-    if (!r.ended && !d.sku) continue;
+    // 「本当に取り下げた確証なし」なので停止扱い/recapにはしない（誤報告防止）。ただし黙って continue すると
+    // 楽天売切なのに eBay 売出中(欠品販売)のゾンビ出品が放置されるため、取り下げ失敗と同じく手動対応フラグを立てて可視化する。
+    if (!r.ended && !d.sku) {
+      try {
+        const fails = (Number(d.stopFailedCount) || 0) + 1;
+        await kv.hset(`ebay_deals:${actor}`, {
+          [productId]: { ...d, stopFailedCount: fails, stopFailedAt: new Date().toISOString() },
+        });
+      } catch {
+        /* noop */
+      }
+      continue;
+    }
     await markStopped(actor, productId); // 出品停止中一覧へ（sourceStatus は維持＝理由が残る）
     stopped.push({ id: productId, title: d.title ?? "", imageUrl: d.imageUrl ?? "", reason, at: new Date().toISOString() });
   }

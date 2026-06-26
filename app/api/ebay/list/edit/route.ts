@@ -130,7 +130,8 @@ export async function POST(req: Request) {
     opts.quantity = offer.quantity;
   }
 
-  // 価格変更を含む時はフルoffer PUT（Best Offer の自動承諾額も新価格に追従＝旧しきい値との衝突で拒否されるのを防ぐ）。
+  // 価格変更を含む時はフルoffer PUT（Best Offerは廃止＝bestOfferTermsを除去して出す。旧しきい値との衝突＝
+  // 「価格の指定に問題があります」も根治。既存出品からのBest Offer除去の移行も兼ねる）。
   // 数量だけの変更は従来どおり bulk_update_price_quantity（軽い）。
   const r =
     opts.priceUsd != null

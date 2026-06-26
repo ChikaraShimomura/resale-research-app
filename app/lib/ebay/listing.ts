@@ -764,7 +764,9 @@ export async function updateOfferShipping(
   // 読み取り専用フィールドはPUTに含めない（含めると拒否される）。
   delete o.offerId; delete o.listing; delete o.status;
   o.pricingSummary = { ...((o.pricingSummary as Record<string, unknown>) || {}), price: { value: opts.priceUsd, currency: "USD" } };
-  o.listingPolicies = { ...((o.listingPolicies as Record<string, unknown>) || {}), fulfillmentPolicyId: opts.fulfillmentPolicyId };
+  const lp: Record<string, unknown> = { ...((o.listingPolicies as Record<string, unknown>) || {}), fulfillmentPolicyId: opts.fulfillmentPolicyId };
+  delete lp.bestOfferTerms; // 値下げ交渉は廃止。旧しきい値を残すと新価格と衝突して「価格の指定に問題」で拒否されるため必ず外す。
+  o.listingPolicies = lp;
   const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, o);
   if (!r.ok) return { ok: false, error: r.error };
   return { ok: true };
