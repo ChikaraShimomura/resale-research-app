@@ -15,7 +15,7 @@ import {
 import { landedCost, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
-import { hasPerm } from "../../../../lib/team";
+import { hasPerm, getTeamMode } from "../../../../lib/team";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -237,12 +237,12 @@ export async function POST(req: Request) {
   const { productId, onBehalfOf } = (await req.json().catch(() => ({}))) as { productId?: string; onBehalfOf?: string };
   if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  // チーム共有：出品権限があればオーナー名義で準備（オーナーのeBayポリシー/カテゴリ/トークンを使う）。
+  // チーム：出品権限があれば共有在庫を準備。eBay(ポリシー/カテゴリ/トークン)は方式で決まる＝共有はオーナー、個別はメンバー本人。
   let actor = viewer;
   const owner = (onBehalfOf || "").trim();
   if (owner && owner !== viewer) {
     if (!(await hasPerm(owner, viewer, "list"))) return Response.json({ ok: false, error: "出品権限がありません。" }, { status: 403 });
-    actor = owner;
+    actor = (await getTeamMode(owner)) === "shared" ? owner : viewer;
   }
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });

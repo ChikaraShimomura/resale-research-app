@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown, Tag } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getHiddenCatalogKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -9,6 +9,7 @@ import { isAdmin } from "../lib/auth/admin";
 import { hasPerm, getTeamName } from "../lib/team";
 import BottomNav from "../components/BottomNav";
 import CatalogActionButtons from "../components/CatalogActionButtons";
+import FavoriteHeart from "../components/FavoriteHeart";
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
 
@@ -58,7 +59,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const teamOwner = teamReq && actor && (await hasPerm(teamReq, actor, "buy")) ? teamReq : "";
   const teamName = teamOwner ? (await getTeamName(teamOwner)) || "チーム" : "";
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
-  const hidden = await getHiddenCatalogKeys(actor);
+  // ♡お気に入りはカードの♡初期状態に使う（カタログからは隠さない）。
+  const [hidden, favKeys] = await Promise.all([getHiddenCatalogKeys(actor), getFavoriteKeys(actor)]);
   // 表示対象：同一型番の実落札で相場確定（ebayConfirmed）＋利益率5%以上＋本人が外した品/発送不可(危険物)は除外。
   //   ※ジャンク品は掲載する（ユーザー指示2026-06-27）。状態はカードにランク表示＋出品時の説明文で明示。
   const base = (await getUsedCatalog()).filter(
@@ -212,15 +214,21 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                         )}
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
-                          <Flame size={13} />
-                          {p.profitRate}%
-                        </span>
-                        <p className="text-[9px] text-gray-400">利益率</p>
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        {/* ♡お気に入り（右上）。閲覧可のユーザーのみ。押すと /favorites に入る（カタログからは消えない）。 */}
                         {!locked && (
-                          <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums">+{yen(p.profitJpy)}</p>
+                          <FavoriteHeart productId={catalogItemKey(p)} initialFaved={favKeys.has(catalogItemKey(p))} className="relative" />
                         )}
+                        <div>
+                          <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm">
+                            <Flame size={13} />
+                            {p.profitRate}%
+                          </span>
+                          <p className="text-[9px] text-gray-400">利益率</p>
+                          {!locked && (
+                            <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums">+{yen(p.profitJpy)}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -246,9 +254,17 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             eBay落札を確認 <ExternalLink size={14} />
                           </a>
                         </div>
-                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。
+                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）＋共有でリンクを送る。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。
                             チームモード（teamOwner）の時はオーナーの一覧へ入る。 */}
-                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} isAdmin={isAdminUser} canAutoList={canList} teamOwner={teamOwner || undefined} />
+                        <CatalogActionButtons
+                          productId={catalogItemKey(p)}
+                          buyJpy={p.buyJpy}
+                          isAdmin={isAdminUser}
+                          canAutoList={canList}
+                          teamOwner={teamOwner || undefined}
+                          shareUrl={p.hardoffUrl}
+                          shareTitle={`${p.brand} ${p.name}`.trim()}
+                        />
                       </div>
                     ) : (
                       <Link

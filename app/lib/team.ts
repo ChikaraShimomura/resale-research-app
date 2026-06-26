@@ -12,7 +12,10 @@ export type TeamInvite = { ownerActor: string; ownerEmail: string; inviteeEmail:
 // 権限：buy=仕入れた / list=eBay自動出品 / delete=一覧から削除 / finance=収支の閲覧 / shipping=送料編集 / skip=非表示 / manage=チーム管理(招待・除名)
 export type TeamPerm = "buy" | "list" | "delete" | "finance" | "shipping" | "skip" | "manage";
 export const ALL_PERMS: TeamPerm[] = ["buy", "list", "delete", "finance", "shipping", "skip", "manage"];
-export type TeamMode = "shared" | "individual"; // shared=オーナーの共有データを操作 / individual=各自のデータ(共有は閲覧のみ)
+// 方式＝出品に使うeBayアカウントの違い（どちらも輸出ラボの機能/在庫/収支は共有）。
+//   shared     = オーナーの1つのeBayアカウントで出品（onBehalfOf＝オーナー名義）。
+//   individual = メンバーが各自のeBayを連携し、共有在庫を自分のアカウントで出品。
+export type TeamMode = "shared" | "individual";
 export type RosterMember = { actor: string; email: string; perms: TeamPerm[] };
 export type TeamRef = { ownerActor: string; ownerEmail: string; name?: string };
 
@@ -27,7 +30,7 @@ const NAME_KEY = (owner: string) => `team_name:${owner}`;
 const MODE_KEY = (owner: string) => `team_mode:${owner}`;
 const PERMS_KEY = (owner: string) => `team_perms:${owner}`; // Hash {memberActor: "buy,list,..."}
 
-// チームの運用方式。既定は individual（共有は閲覧のみ＝従来挙動）。オーナーが shared に切替で代理操作を解禁。
+// チームの運用方式。既定は individual（各自のeBayで出品）。出品に使うeBayアカウントの違いのみ（機能/在庫/収支はどちらも共有）。
 export async function getTeamMode(owner: string): Promise<TeamMode> {
   try { return (await kv.get<string>(MODE_KEY(owner))) === "shared" ? "shared" : "individual"; } catch { return "individual"; }
 }

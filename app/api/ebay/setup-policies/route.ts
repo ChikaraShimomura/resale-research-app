@@ -15,12 +15,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
-// 国際発送を許可できる国コード（ホワイトリスト）。送料計算は米国基準なので主要英語/EU圏に絞る。
-// ⚠️ IT(イタリア)/ES(スペイン)は不可：EBAY_US の配送ポリシーでは発送先に登録できず、
-//    createFulfillmentPolicy が errorId=216347「unsupported destinations for this marketplace」で落ちる
-//    （EUのVAT/輸入規制絡み）。UI(EbayPolicySetup の COUNTRIES)と必ず一致させること。
-const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR"];
-const DEFAULT_REGIONS = ["AU", "GB", "CA", "DE", "FR"]; // 推奨発送先（主要5地域）。UI(EbayPolicySetup)の既定と一致。
+// 国際発送を許可できる国コード（ホワイトリスト）。主要英語/EU圏（core）＋低リスクなアジア（JP/HK/SG/TW/KR）。
+// アジア5市場は配送/詐欺・INR/制裁/需要の4軸で低リスクと確認（2026-06-27 調査）。香港=関税ゼロが最有力。
+// ⚠️ 除外：CN/IN/PH/ID/VN/TH/MY（詐欺・INR/通関摩擦が高い）。IT/ES は EBAY_US で 216347 で弾かれるため不可。
+//    万一 eBay がいずれかの発送先を非対応(216347)とした場合は sellApi 側のフォールバックが core だけで作り直す。
+//    UI(EbayPolicySetup の COUNTRIES)と必ず一致させること。
+const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"];
+const DEFAULT_REGIONS = ["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"]; // 推奨発送先。UI(EbayPolicySetup)の既定と一致。
 
 export async function POST(req: Request) {
   const conn = await getActorId();

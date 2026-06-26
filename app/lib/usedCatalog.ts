@@ -185,6 +185,48 @@ export async function getBoughtItems(actor: string | undefined | null): Promise<
   }
 }
 
+// ♡お気に入りの商品キー集合（カードの♡初期状態に使う・per-actor）。書き込みは /api/catalog/action の fav/unfav。
+export async function getFavoriteKeys(actor: string | undefined | null): Promise<Set<string>> {
+  if (!actor) return new Set();
+  try {
+    const ids = await kvReadOnly.hkeys(`used_fav:${actor}`);
+    return new Set<string>((ids ?? []) as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+// ♡お気に入り一覧（新しい順）。値は fav 時に psnap から焼いたスナップショット。旧来idだけの分は psnap で再構成。
+export type FavItem = ProfitProduct & { favAt?: string };
+export async function getFavoriteItems(actor: string | undefined | null): Promise<FavItem[]> {
+  if (!actor) return [];
+  try {
+    const map = await kvReadOnly.hgetall<Record<string, unknown>>(`used_fav:${actor}`);
+    if (!map) return [];
+    const out: FavItem[] = [];
+    const legacy: string[] = [];
+    for (const [id, v] of Object.entries(map)) {
+      if (v && typeof v === "object" && (v as FavItem).id && (v as FavItem).title) out.push(v as FavItem);
+      else legacy.push(id);
+    }
+    if (legacy.length) {
+      const recon = await Promise.all(
+        legacy.map(async (id) => {
+          try {
+            const snap = await kvReadOnly.get<ProfitProduct>(`psnap:${id}`);
+            if (snap && snap.id && snap.title) return { ...snap, favAt: "" } as FavItem;
+          } catch { /* noop */ }
+          return null;
+        })
+      );
+      for (const r of recon) if (r) out.push(r);
+    }
+    return out.sort((a, b) => String(b.favAt || "").localeCompare(String(a.favAt || "")));
+  } catch {
+    return [];
+  }
+}
+
 // KVから中古カタログを読む（読み取り専用トークン）。型番DB＝中古はモデル単位で見る。
 export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
   try {

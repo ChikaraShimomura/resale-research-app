@@ -10,7 +10,7 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
-import { hasPerm } from "../../../../lib/team";
+import { hasPerm, getTeamMode } from "../../../../lib/team";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
@@ -33,7 +33,7 @@ interface Payload {
   bestOffer?: boolean; // 値下げ交渉(Best Offer)を受け付けるか（既定ON）
   offerDiscountPct?: number; // 値下げ交渉の自動承諾ライン＝定価の何%引きまで受けるか（0〜60・既定10）
   floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
-  onBehalfOf?: string; // チーム共有：出品権限のあるメンバーが「オーナー名義(オーナーのeBay/台帳)」で出品する時のオーナーactor
+  onBehalfOf?: string; // チーム：出品権限のあるメンバーがチームの共有在庫を出品する時のオーナーactor。eBayアカウントはモードで決まる。
   selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
 }
 
@@ -43,7 +43,8 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as Payload;
 
-  // チーム共有：onBehalfOf 指定＋出品権限があれば「オーナー名義」で出品（オーナーのeBayトークン・台帳・出品枠を使う）。
+  // チーム：onBehalfOf 指定＋出品権限があれば、チームの共有在庫を出品できる。eBayアカウント(台帳・出品枠)は方式で決まる：
+  //   共有(shared)＝オーナーの1つのeBayで出品（actor=オーナー）／個別(individual)＝メンバー自身のeBayで出品（actor=本人）。
   let actor = viewer;
   const onBehalfOf = (body.onBehalfOf || "").trim();
   const teamListing = !!onBehalfOf && onBehalfOf !== viewer;
@@ -51,10 +52,10 @@ export async function POST(req: Request) {
     if (!(await hasPerm(onBehalfOf, viewer, "list"))) {
       return Response.json({ ok: false, error: "このチームでの出品権限がありません。" }, { status: 403 });
     }
-    actor = onBehalfOf;
+    actor = (await getTeamMode(onBehalfOf)) === "shared" ? onBehalfOf : viewer;
   }
 
-  const token = await getValidAccessToken(actor); // actor=オーナーならオーナーのeBay。未連携ならここで弾く。
+  const token = await getValidAccessToken(actor); // 共有=オーナー / 個別=本人 のeBay。未連携ならここで弾く。
   if (!token) return Response.json({ ok: false, connected: false });
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   if (!body.categoryId) return Response.json({ ok: false, error: "カテゴリが未指定です。" }, { status: 400 });

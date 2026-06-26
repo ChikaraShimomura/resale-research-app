@@ -90,11 +90,10 @@ interface PublishResult {
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error" | "limit";
 
-// 「はやく売る」＝相場より少し安く（8%）して早く売れやすくする。
+// 「最安」フォールバック＝eBay現在の最安が取れない時は相場(中央値)より少し安く（8%）。
 const FAST_DISCOUNT = 0.08;
-const FAST_UNDERCUT = 0.05; // 「はやく」＝「最安」からさらに5%オフ（最速で売る）
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)から import に統一（旧:ローカル155）。クライアントでは既定155に解決。
-const HIGH_MARKUP = 0.10; // 「高値出品」＝eBay相場(中央値)から10%高く
+const HIGH_MARKUP = 0.10; // 「高値」＝eBay相場(中央値)から10%高く
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
@@ -131,7 +130,8 @@ export default function EbayListingModal({
   const [weightInput, setWeightInput] = useState(""); // 重さ(任意・g・梱包込み)。入力すると送料/損益分岐を再計算
   const [showWeight, setShowWeight] = useState(false); // 重さ入力欄は既定で隠し、押したら開く
   const [acceptLoss, setAcceptLoss] = useState(false); // 損益分岐を下回る価格でも「承知の上で」確認した時だけ出品可（警告＋確認で続行）
-  const [strategy, setStrategy] = useState<"fast" | "market" | "lowest" | "high">("lowest"); // 売り方（既定: 最安出品＝最速・カード表示と一致）
+  // 価格の選び方：breakeven(±0=育成) / custom(自由入力) / low(最安) / median(中央値) / high(高値)。既定=最安（最速・カード表示と一致）。
+  const [strategy, setStrategy] = useState<"breakeven" | "custom" | "low" | "median" | "high">("low");
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   // 送料の出し方: true=送料込み(価格に上乗せして「送料無料」表示) / false=送料別(購入者が送料を払う)。
@@ -473,16 +473,18 @@ export default function EbayListingModal({
   const paidShipUsd = Number(recoChoice?.costUsd || 0); // 送料別のとき買い手に別途請求する送料(表示用)
   const lowestAvailable = lowUsd > 0;
   const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
-  const lowestTarget = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? medianUsd * (1 - FAST_DISCOUNT) : 0;
-  // 「はやく」＝「最安」からさらに5%オフ（最速で売る）。ただし損益分岐(floor)は割らない。
-  const fastTarget = lowestTarget > 0 ? Math.max(lowestTarget * (1 - FAST_UNDERCUT), floorUsd) : 0;
-  const highTarget = medianUsd > 0 ? medianUsd * (1 + HIGH_MARKUP) : 0; // 高値出品＝eBay相場+10%
-  const chooseStrategy = (s: "fast" | "market" | "lowest" | "high") => {
+  // 価格の3段（過去落札ベース）。いずれも損益分岐(floor)は割らない。最安=eBay現在の最安 or 中央値-8%／中央値＝eBay落札中央値／高値＝中央値+10%。
+  const lowSel = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? Math.max(medianUsd * (1 - FAST_DISCOUNT), floorUsd) : 0;
+  const medianSel = medianUsd > 0 ? Math.max(medianUsd, floorUsd) : 0;
+  const highSel = medianUsd > 0 ? Math.max(medianUsd * (1 + HIGH_MARKUP), floorUsd) : 0;
+  // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
+  const chooseStrategy = (s: "breakeven" | "custom" | "low" | "median" | "high") => {
     setStrategy(s);
-    if (s === "market") { const t = Math.max(medianUsd, floorUsd); if (t > 0) setPriceUsd(t.toFixed(2)); return; } // 相場でも損益分岐は割らない
-    if (s === "high") { const t = Math.max(highTarget, floorUsd); if (t > 0) setPriceUsd(t.toFixed(2)); return; } // 高値でも損益分岐は割らない
-    if (s === "fast") { if (fastTarget > 0) setPriceUsd(fastTarget.toFixed(2)); return; }
-    if (lowestTarget > 0) setPriceUsd(lowestTarget.toFixed(2)); // 最安出品（損益分岐は割らない）
+    if (s === "custom") return; // 自由入力（価格はそのまま）
+    if (s === "breakeven") { if (floorUsd > 0) setPriceUsd(floorUsd.toFixed(2)); return; } // ±0＝損益分岐（利益ほぼ0・アカウント育成）
+    if (s === "median") { if (medianSel > 0) setPriceUsd(medianSel.toFixed(2)); return; }
+    if (s === "high") { if (highSel > 0) setPriceUsd(highSel.toFixed(2)); return; }
+    if (lowSel > 0) setPriceUsd(lowSel.toFixed(2)); // 最安（既定）
   };
   const overlay = (
     <div
@@ -730,42 +732,57 @@ export default function EbayListingModal({
               )}
 
               {advOpen && (<>
-              {/* 売り方（激安出品=最安-5% / 最安出品=最安値 / 相場出品=eBay相場 / 高値出品=相場+10%）。既定は最安出品 */}
+              {/* 価格の選び方（上段2＝±0育成/カスタム、下段3＝過去落札の最安/中央/高値）。既定は最安＝最速で売れやすい。 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-1">売り方<OptBadge /></label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-[11px] text-gray-500 mb-1">価格の選び方<OptBadge /></label>
+                {/* 上段（2）：±0出品(育成用) / カスタム(自由入力) */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
                     type="button"
-                    onClick={() => chooseStrategy("fast")}
-                    aria-pressed={strategy === "fast"}
+                    onClick={() => chooseStrategy("breakeven")}
+                    aria-pressed={strategy === "breakeven"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "fast" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
+                      strategy === "breakeven" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">⚡ 激安出品</span>
-                    <span className="text-[10px]">最安−5%</span>
+                    <span className="text-[12px] font-bold">🌱 ±0出品</span>
+                    <span className="text-[10px]">アカウント育成用{floorUsd > 0 ? `・$${Math.round(floorUsd)}` : ""}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => chooseStrategy("lowest")}
-                    aria-pressed={strategy === "lowest"}
+                    onClick={() => chooseStrategy("custom")}
+                    aria-pressed={strategy === "custom"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "lowest" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
+                      strategy === "custom" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">🔽 最安出品</span>
-                    <span className="text-[10px]">最安値と同額</span>
+                    <span className="text-[12px] font-bold">✏️ カスタム設定</span>
+                    <span className="text-[10px]">価格を自由に入力</span>
+                  </button>
+                </div>
+                {/* 下段（3）：過去落札の 最安 / 中央値 / 高値 */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => chooseStrategy("low")}
+                    aria-pressed={strategy === "low"}
+                    className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
+                      strategy === "low" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
+                    }`}
+                  >
+                    <span className="text-[12px] font-bold">最安</span>
+                    <span className="text-[10px]">{lowSel > 0 ? `$${Math.round(lowSel)}` : "—"}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => chooseStrategy("market")}
-                    aria-pressed={strategy === "market"}
+                    onClick={() => chooseStrategy("median")}
+                    aria-pressed={strategy === "median"}
                     className={`flex flex-col items-center justify-center h-14 rounded-xl border transition-colors ${
-                      strategy === "market" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
+                      strategy === "median" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">📊 相場出品</span>
-                    <span className="text-[10px]">eBay相場</span>
+                    <span className="text-[12px] font-bold">中央値</span>
+                    <span className="text-[10px]">{medianSel > 0 ? `$${Math.round(medianSel)}` : "—"}</span>
                   </button>
                   <button
                     type="button"
@@ -775,23 +792,26 @@ export default function EbayListingModal({
                       strategy === "high" ? "border-[#2D323B] bg-[#2D323B]/5 text-[#2D323B]" : "border-[#A98B5C]/35 text-gray-500"
                     }`}
                   >
-                    <span className="text-[12px] font-bold">💎 高値出品</span>
-                    <span className="text-[10px]">相場+10%</span>
+                    <span className="text-[12px] font-bold">高値</span>
+                    <span className="text-[10px]">{highSel > 0 ? `$${Math.round(highSel)}` : "—"}</span>
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  {strategy === "fast"
-                    ? "eBay最安よりさらに5%安く。最速で売れやすい（おすすめ・損益分岐は割りません）"
+                <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                  {strategy === "breakeven"
+                    ? "利益ほぼ±0で出す。eBayアカウントの評価を早く貯める育成向け（損益分岐ぎりぎり・赤字にはしません）"
+                    : strategy === "custom"
+                    ? "下の「本体価格」に好きな金額を入力できます"
                     : strategy === "high"
-                    ? "eBay相場より10%高く。利益重視（売れるまで時間がかかります）"
-                    : strategy === "market"
-                    ? "eBay相場（中央値）どおりの価格。売れるまで少し待ちます"
+                    ? "過去落札の中央値より10%高く。利益重視（売れるまで時間がかかります）"
+                    : strategy === "median"
+                    ? "過去落札の中央値どおり。売れるまで少し待ちます"
                     : !lowestAvailable
-                    ? "eBay最安が取れず、相場より少し安くしています"
+                    ? "過去落札ベースで安めに（eBay現在の最安が取れず、中央値より少し安く）"
                     : lowestClamped
                     ? `eBay最安は赤字のため、損益分岐 $${floorUsd.toFixed(2)} で出します（赤字回避）`
-                    : "eBay最安値と同額。最速で売れやすく（赤字にはしません）"}
+                    : "eBay現在の最安値と同額。最速で売れやすく（赤字にはしません）"}
                 </p>
+                <p className="text-[9px] text-gray-300 mt-0.5">※ 最安/中央値/高値は eBayの過去落札の中央値と現在の最安値をもとに算出（いずれも損益分岐は割りません）</p>
               </div>
               </>)}
 

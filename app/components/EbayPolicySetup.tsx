@@ -29,24 +29,30 @@ const DEFAULTS: Record<string, string> = {
   large: String(SHIP_TIER_USD.large),
 };
 
-// 国際発送を許可できる国（アメリカは常に対象＝DOMESTIC）。送料計算は米国基準なので主要英語/EU圏に絞る。
-// ⚠️ イタリア(IT)・スペイン(ES)は入れない：EBAY_US の配送ポリシーでは発送先として登録できず、
-//    createFulfillmentPolicy が errorId=216347「Few unsupported destinations found ... for this marketplace」で
-//    ポリシー作成全体を失敗させる（EUのVAT/輸入規制絡みで eBay 側が個別指定を弾く）。AU/GB/CA/DE/FR は許可される。
-//    eBay が他国を制限した場合もここから外すこと（サーバーは regions をそのまま regionName に渡すため）。
+// 国際発送を許可できる国（アメリカは常に対象＝DOMESTIC）。主要英語/EU圏（core）＋低リスクなアジア（JP/HK/SG/TW/KR）。
+// アジア5市場は配送/詐欺・INR/制裁/需要の4軸で低リスクと確認（2026-06-27 調査）。香港=関税ゼロが最有力。
+// ⚠️ 除外：CN/IN/PH/ID/VN/TH/MY（詐欺・INR/通関摩擦が高い）。IT(イタリア)/ES(スペイン)は EBAY_US の配送ポリシーで
+//    errorId=216347「unsupported destinations for this marketplace」で弾かれるため不可。
+//    eBay が他国を制限した場合もここから外すこと（サーバーは regions を regionName に渡す＝非対応時は core だけで作り直す）。
+//    UI と route(ALLOWED_REGIONS) を必ず一致させること。
 const COUNTRIES = [
   { code: "AU", label: "オーストラリア" },
   { code: "GB", label: "イギリス" },
   { code: "CA", label: "カナダ" },
   { code: "DE", label: "ドイツ" },
   { code: "FR", label: "フランス" },
+  { code: "JP", label: "日本（国内）" },
+  { code: "HK", label: "香港" },
+  { code: "SG", label: "シンガポール" },
+  { code: "TW", label: "台湾" },
+  { code: "KR", label: "韓国" },
 ];
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
   const [showAdvanced, setShowAdvanced] = useState(false); // 詳細オプション（変更したい人だけ）
-  // 発送先の国（アメリカは常に含む）。規定＝推奨発送先（主要5地域）。基本このままでOK、詳細オプションで増減できる。
-  const [regions, setRegions] = useState<string[]>(["AU", "GB", "CA", "DE", "FR"]);
+  // 発送先の国（アメリカは常に含む）。規定＝推奨発送先（主要英語/EU圏＋低リスクなアジア）。基本このままでOK、詳細オプションで増減できる。
+  const [regions, setRegions] = useState<string[]>(["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"]);
   const toggleRegion = (code: string) =>
     setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
   // 返品：規定で受け付ける（30日・返送料は買い手負担）。eBayは30日返品可を検索/Top Rated で優遇＝売れやすい。
@@ -131,7 +137,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         <p className="text-[11px] font-black text-[#2D323B]">おすすめ設定（このまま登録でOK）</p>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料</span><span className="font-bold text-gray-800 text-right">サイズで自動（小${vals.small}・中${vals.medium}・大${vals.large}／購入者負担）</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料無料（送料込み）</span><span className="font-bold text-gray-800">{freeShipping ? "使える（おすすめ）" : "作らない"}</span></div>
-        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right">アメリカ＋主要{regions.length}地域</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right">アメリカ＋{regions.length}の国・地域</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">返品</span><span className="font-bold text-gray-800">{returnsAccepted ? "30日OK（売れやすい）" : "なし"}</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送まで</span><span className="font-bold text-gray-800">{vals.handlingDays}日</span></div>
       </div>
@@ -190,7 +196,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
             <div className="space-y-1.5">
               <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
-              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要5地域（送料は米国宛ベース・多くの国は同額請求）。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要英語/EU圏＋低リスクなアジア（香港・シンガポール・台湾・韓国・日本）。送料は米国宛ベースで同額請求。詐欺/通関リスクの高い国は外しています。</p>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white">アメリカ（必須）</span>
                 {COUNTRIES.map((c) => {

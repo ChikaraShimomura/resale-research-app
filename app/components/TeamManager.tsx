@@ -124,23 +124,24 @@ export default function TeamManager({
 
   return (
     <div className="space-y-5">
-      {/* チームの方式（共有＝メンバーがオーナーのデータ/eBayを権限に応じて操作 / 個別＝各自のデータ・共有は閲覧のみ） */}
+      {/* チームの方式＝出品に使うeBayアカウントの違い（どちらも在庫・収支・カタログは共有）。 */}
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
-        <h2 className="text-sm font-black text-gray-800 mb-2">チームの方式</h2>
+        <h2 className="text-sm font-black text-gray-800 mb-1">チームの方式</h2>
+        <p className="text-[10px] text-gray-400 mb-2 leading-snug">どちらも在庫・収支・カタログは共有。違いは<b>出品に使うeBayアカウント</b>です。</p>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setTeamMode("shared")}
             className={`rounded-xl border px-3 py-2.5 text-left ${mode === "shared" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">共有</span>
-            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">メンバーが権限に応じて<b>あなたの</b>仕入れ一覧・eBayを操作</span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5"><b>あなたの1つのeBay</b>で全員が出品（オーナー名義）</span>
           </button>
           <button
             onClick={() => setTeamMode("individual")}
             className={`rounded-xl border px-3 py-2.5 text-left ${mode === "individual" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">個別</span>
-            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">各自のデータで作業。共有は<b>閲覧のみ</b></span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">メンバーが<b>各自のeBay</b>を連携して出品</span>
           </button>
         </div>
       </section>
@@ -252,7 +253,7 @@ export default function TeamManager({
                     <Trash2 size={12} /> 外す
                   </button>
                 </div>
-                {/* 権限（共有モードでオーナーのデータ/eBayに対して有効） */}
+                {/* 権限（どちらの方式でも有効。仕入れ/出品/削除/収支/送料/非表示/管理を個別に付与） */}
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {PERM_LABELS.map(({ key, label }) => {
                     const on = m.perms.includes(key);
@@ -274,8 +275,8 @@ export default function TeamManager({
             ))}
           </ul>
         )}
-        {mode === "individual" && roster.length > 0 && (
-          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 権限が実際に効くのは「共有」モードのときです（個別モードでは閲覧のみ。収支閲覧は両モードで有効）。</p>
+        {roster.length > 0 && (
+          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 権限はどちらの方式でも有効です。方式は出品に使うeBayアカウント（共有＝あなたの1つ／個別＝各自）の違いだけです。</p>
         )}
       </section>
 

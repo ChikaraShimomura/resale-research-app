@@ -3,32 +3,40 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, X, Undo2 } from "lucide-react";
+import { Check, X, Undo2, Share2 } from "lucide-react";
 
-// 中古カタログ各カードの小さな triage ボタン。「仕入れた」「これは無理」を per-actor で記録して一覧から外す。
-// 「仕入れた」時はサーバーが仕入れ元の在庫を確認し、まだ在庫ありなら無在庫転売リスクを警告＋自動出品はプロMAX限定を案内。
+// 中古カタログ各カードの小さな triage ボタン。「仕入れた」「これは無理」を per-actor で記録して一覧から外す＋「共有」でリンク共有。
+// 「仕入れた」時はサーバーが仕入れ元の在庫を確認：まだ在庫ありなら基本は蹴る（カタログから消さない）。
+// 無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ在庫ありでも登録でき、その人の画面からのみ非表示になる。
 export default function CatalogActionButtons({
   productId,
   buyJpy,
   isAdmin = false,
   canAutoList = false,
   teamOwner,
+  shareUrl,
+  shareTitle,
 }: {
   productId: string;
   buyJpy: number;
   isAdmin?: boolean;
   canAutoList?: boolean;
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
+  shareUrl?: string; // 共有するリンク（仕入れ元の商品URL）
+  shareTitle?: string; // 共有時のタイトル（商品名）
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"bought" | "skip" | "undo" | null>(null);
   const [done, setDone] = useState<"bought" | "skip" | null>(null);
-  const [inStock, setInStock] = useState(false); // 仕入れ元がまだ在庫あり＝無在庫転売の疑い
+  const [inStock, setInStock] = useState(false); // 無在庫プランの人が在庫ありを登録した＝無在庫転売
+  const [blocked, setBlocked] = useState(false); // 在庫あり＋無在庫プラン無し＝蹴った（記録せずカタログに残す）
+  const [shared, setShared] = useState(false); // リンクをコピーした（共有API非対応時）
   const [err, setErr] = useState<string | null>(null);
 
   const post = async (action: "bought" | "skip" | "undo") => {
     setBusy(action);
     setErr(null);
+    setBlocked(false);
     try {
       const res = await fetch("/api/catalog/action", {
         method: "POST",
@@ -41,9 +49,15 @@ export default function CatalogActionButtons({
           setDone(null);
           setInStock(false);
           router.refresh(); // 印を消してカタログに戻す
+        } else if (action === "bought") {
+          if (res.added === false && res.needsPlan) {
+            setBlocked(true); // 在庫あり＝無在庫転売→蹴った。カタログに残す（done にしない）。
+          } else {
+            setInStock(res.availability === "in-stock"); // 在庫ありでも登録できた＝無在庫プランの人
+            setDone("bought"); // カードはこのセッションは残し、次回読込でサーバーが非表示にする
+          }
         } else {
-          if (action === "bought") setInStock(res.availability === "in-stock"); // 在庫ありなら無在庫警告
-          setDone(action); // カードはこのセッションは残し、次回読込でサーバーが非表示にする
+          setDone(action); // skip（非表示）
         }
       } else {
         setErr(res.error || "操作に失敗しました。");
@@ -52,6 +66,23 @@ export default function CatalogActionButtons({
       setErr("通信エラーで操作できませんでした。");
     }
     setBusy(null);
+  };
+
+  // 共有：Web Share API（対応端末は標準の共有シート）→ 非対応はクリップボードへコピー。
+  const share = async () => {
+    const url = shareUrl || (typeof window !== "undefined" ? window.location.href : "");
+    const title = shareTitle || "利益が出る中古品";
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title, url });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        setShared(true);
+        setTimeout(() => setShared(false), 1500);
+      }
+    } catch {
+      /* ユーザーがキャンセル/失敗は無視 */
+    }
   };
 
   if (done) {
@@ -69,18 +100,13 @@ export default function CatalogActionButtons({
             <Undo2 size={12} /> 元に戻す
           </button>
         </div>
-        {/* 仕入れ元がまだ在庫あり＝無在庫転売の疑い→リスク提言＋自動出品はプロMAX限定を案内（ユーザー指示2026-06-27）。 */}
+        {/* 無在庫プランの人が在庫ありを登録＝無在庫転売。カタログ自体は消さず、本人/チームの画面からのみ非表示。 */}
         {done === "bought" && inStock && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
-            <p className="text-[11px] font-bold text-amber-800 leading-relaxed">⚠️ 仕入れ元でまだ「在庫あり」の商品です。</p>
+            <p className="text-[11px] font-bold text-amber-800 leading-relaxed">⚠️ 在庫ありのまま登録（無在庫転売）</p>
             <p className="text-[10px] text-amber-700 leading-relaxed mt-0.5">
-              「売れてから仕入れる」<b>無在庫転売</b>は、欠品・価格変動・eBay規約違反（出品取消でアカウント評価低下）のリスクがあります。<b>在庫を確保してから</b>出品するのが安全です。
+              仕入れ元にまだ在庫がある商品です。<b>あなた（チーム）の画面からのみ非表示</b>になり、カタログ自体には残ります。欠品・価格変動・eBay規約違反のリスクにご注意ください。
             </p>
-            {!canAutoList && (
-              <Link href="/pricing?from=catalog" className="mt-1.5 inline-block text-[11px] font-bold text-[#2D323B] underline underline-offset-2">
-                ※ eBay自動出品は<b>プロMAX</b>プラン限定 → プランを見る
-              </Link>
-            )}
           </div>
         )}
       </div>
@@ -88,7 +114,21 @@ export default function CatalogActionButtons({
   }
 
   return (
-    <div className="mt-2">
+    <div className="mt-2 space-y-1.5">
+      {/* 在庫ありを「仕入れた」＝無在庫転売で蹴られた時の案内＋無在庫転売プラン誘導。 */}
+      {blocked && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
+          <p className="text-[11px] font-bold text-amber-800 leading-relaxed">⚠️ まだ仕入れ元に在庫があります</p>
+          <p className="text-[10px] text-amber-700 leading-relaxed mt-0.5">
+            在庫が残っている＝<b>まだ実際に仕入れていない</b>状態です。在庫がある商品をeBayに出すのは<b>無在庫転売</b>で、欠品・価格変動・eBay規約違反（出品取消で評価低下）のリスクがあります。
+            本当に仕入れ済みなら、<b>仕入れ元が売り切れになってから</b>押してください。
+          </p>
+          <Link href="/pricing?from=catalog" className="mt-1.5 inline-block text-[11px] font-bold text-[#2D323B] underline underline-offset-2">
+            ※ どうしても無在庫で出すなら<b>無在庫転売プラン（プロMAX）</b> → プランを見る
+          </Link>
+        </div>
+      )}
+
       <div className="flex gap-1.5">
         <button
           onClick={() => post("bought")}
@@ -114,7 +154,16 @@ export default function CatalogActionButtons({
             </>
           )}
         </button>
+        {/* 共有＝この商品のリンクを共有シート/コピーで送る（仲間・チームに教える）。 */}
+        <button
+          onClick={share}
+          aria-label="共有（リンクを送る）"
+          className="shrink-0 inline-flex items-center justify-center w-10 h-8 rounded-lg border border-gray-300 bg-white text-gray-500 active:bg-gray-50"
+        >
+          <Share2 size={14} />
+        </button>
       </div>
+      {shared && <p className="text-[10px] text-emerald-600 font-bold">リンクをコピーしました</p>}
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
     </div>
   );

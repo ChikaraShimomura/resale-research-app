@@ -56,12 +56,13 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   ]);
   const isOwner = viewer === ownerActor;
   const shared = mode === "shared";
+  // 操作可否は権限のみで決まる（どちらの方式でもメンバーは権限に応じて操作できる）。方式は出品に使うeBayアカウントの違いだけ。
   const can = (p: string) => isOwner || perms.includes(p as never);
   const canFinance = can("finance");
-  const canBuy = shared && can("buy");
-  const canList = shared && can("list");
-  const canDelete = shared && can("delete");
-  const canShipping = shared && can("shipping");
+  const canBuy = can("buy");
+  const canList = can("list");
+  const canDelete = can("delete");
+  const canShipping = can("shipping");
   const anyAction = canList || canDelete || canShipping;
 
   const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝共有相手の仕入れ一覧と一致
@@ -84,8 +85,8 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
       <main className="max-w-2xl mx-auto px-4 py-5">
         {/* モード表示＋仕入れCTA（共有モード・buy権限のみ） */}
         <div className="mb-4 flex items-center justify-between gap-2">
-          <span className={`inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-[11px] font-bold ${shared ? "bg-[#A98B5C]/15 text-[#7A6336]" : "bg-gray-100 text-gray-500"}`}>
-            {shared ? "共有モード（メンバーも操作可）" : "個別モード（読み取り専用）"}
+          <span className={`inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-[11px] font-bold ${shared ? "bg-[#A98B5C]/15 text-[#7A6336]" : "bg-gray-100 text-gray-600"}`}>
+            {shared ? "共有：オーナーのeBayで出品" : "個別：各自のeBayで出品"}
           </span>
           {canBuy && (
             <Link
@@ -182,8 +183,8 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
         )}
         <p className="mt-4 text-[10px] text-gray-400 leading-relaxed">
           {shared
-            ? "※ 共有モード：権限を持つメンバーはオーナー名義で操作できます。出品はオーナーのeBay・プランで行われます。"
-            : "※ 個別モード：このチームは読み取り専用です。各自の仕入れ・出品は各自のマイページで行います。"}
+            ? "※ 共有モード：在庫・収支を共有し、出品はオーナーの1つのeBayアカウント（オーナーのプラン枠）で行います。"
+            : "※ 個別モード：在庫・収支を共有しつつ、出品は各メンバー自身が連携したeBayアカウントで行います。"}
         </p>
       </main>
 

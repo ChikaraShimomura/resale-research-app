@@ -4,12 +4,13 @@ import { usePathname } from "next/navigation";
 import { Home, Flame, ShoppingBag, User } from "lucide-react";
 import Spinner from "./Spinner";
 
-// 会員制・中古カタログの4タブ：ホーム → 利益カタログ(探す) → 仕入れ商品(仕入れた品をeBay出品) → マイページ。
+// 会員制・中古カタログの4タブ：ホーム → 利益カタログ(探す) → 商品管理(お気に入り/仕入れ/出品中) → マイページ。
+// ※「商品管理」は1宛先＝/manage（中で3タブ切替）。旧 /bought・/favorites は /manage に集約（リダイレクト）。
 // ※ランキングは「いったん不要」(ユーザー指示2026-06-26)で外した。出品管理/発送/育成も非表示(研究ツール化)。
 const NAV_ITEMS = [
   { href: "/",        Icon: Home,        label: "ホーム",     match: (p: string) => p === "/" },
-  { href: "/catalog", Icon: Flame,       label: "利益カタログ", match: (p: string) => p.startsWith("/catalog") },
-  { href: "/bought",  Icon: ShoppingBag, label: "仕入れ商品",  match: (p: string) => p.startsWith("/bought") },
+  { href: "/catalog", Icon: Flame,       label: "カタログ",   match: (p: string) => p.startsWith("/catalog") },
+  { href: "/manage",  Icon: ShoppingBag, label: "商品管理",   match: (p: string) => p.startsWith("/manage") || p.startsWith("/bought") || p.startsWith("/favorites") },
   { href: "/mypage",  Icon: User,        label: "マイページ", match: (p: string) => p.startsWith("/mypage") },
 ] as const;
 

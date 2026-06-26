@@ -538,6 +538,13 @@ async function upsertFulfillmentPolicy(
   return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
 }
 
+// EBAY_US の配送ポリシーで確実に受理される既知の安全圏。Asia等を楽観追加した時に eBay が
+// 216347「unsupported destinations for this marketplace」で弾いたら、この集合だけで作り直す（全体失敗を防ぐ）。
+const CORE_SAFE_REGIONS = ["AU", "GB", "CA", "DE", "FR"];
+function isUnsupportedDestError(err?: string): boolean {
+  return /216347|unsupported destination/i.test(err ?? "");
+}
+
 // サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。regions＝国際発送を許可する国コード(規定 AU/GB)。
 export async function createFlatIntlFulfillmentPolicy(
   token: string,
@@ -547,19 +554,26 @@ export async function createFlatIntlFulfillmentPolicy(
   handlingDays: number,
   regions: string[] = ["AU", "GB"]
 ): Promise<EbayPostResult> {
-  const shippingOptions: Record<string, unknown>[] = [
-    {
-      // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
-      optionType: "DOMESTIC",
-      costType: "FLAT_RATE",
-      shippingServices: [
-        { sortOrder: 1, shippingServiceCode: "USPSPriority", shippingCost: { value: shippingCostUsd, currency: "USD" } },
-      ],
-    },
-  ];
-  const intl = intlShippingOption(shippingCostUsd, regions);
-  if (intl) shippingOptions.push(intl);
-  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
+  const build = (regs: string[]): Record<string, unknown> => {
+    const shippingOptions: Record<string, unknown>[] = [
+      {
+        // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
+        optionType: "DOMESTIC",
+        costType: "FLAT_RATE",
+        shippingServices: [
+          { sortOrder: 1, shippingServiceCode: "USPSPriority", shippingCost: { value: shippingCostUsd, currency: "USD" } },
+        ],
+      },
+    ];
+    const intl = intlShippingOption(shippingCostUsd, regs);
+    if (intl) shippingOptions.push(intl);
+    return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
+  };
+  const res = await upsertFulfillmentPolicy(token, marketplace, name, build(regions));
+  if (res.ok || !isUnsupportedDestError(res.error)) return res;
+  // 非対応の発送先が混ざっていた → 既知の安全圏だけで作り直す（Asia等の楽観追加でポリシー全体が失敗するのを防ぐ）。
+  const safe = regions.filter((r) => CORE_SAFE_REGIONS.includes(r));
+  return upsertFulfillmentPolicy(token, marketplace, name, build(safe.length ? safe : CORE_SAFE_REGIONS));
 }
 
 // 送料無料の配送ポリシー（送料込み出品＝価格に送料を内包し、買い手の送料は$0）。
@@ -573,14 +587,21 @@ export async function createFreeIntlFulfillmentPolicy(
   handlingDays: number,
   regions: string[] = ["AU", "GB"]
 ): Promise<EbayPostResult> {
-  const shippingOptions: Record<string, unknown>[] = [
-    {
-      optionType: "DOMESTIC",
-      costType: "FLAT_RATE",
-      shippingServices: [{ sortOrder: 1, shippingServiceCode: "USPSPriority", freeShipping: true }],
-    },
-  ];
-  const intl = intlShippingOption("0.00", regions); // 国際は0.00で無料に
-  if (intl) shippingOptions.push(intl);
-  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
+  const build = (regs: string[]): Record<string, unknown> => {
+    const shippingOptions: Record<string, unknown>[] = [
+      {
+        optionType: "DOMESTIC",
+        costType: "FLAT_RATE",
+        shippingServices: [{ sortOrder: 1, shippingServiceCode: "USPSPriority", freeShipping: true }],
+      },
+    ];
+    const intl = intlShippingOption("0.00", regs); // 国際は0.00で無料に
+    if (intl) shippingOptions.push(intl);
+    return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
+  };
+  const res = await upsertFulfillmentPolicy(token, marketplace, name, build(regions));
+  if (res.ok || !isUnsupportedDestError(res.error)) return res;
+  // 非対応の発送先 → 既知の安全圏だけで作り直す（全体失敗を防ぐ）。
+  const safe = regions.filter((r) => CORE_SAFE_REGIONS.includes(r));
+  return upsertFulfillmentPolicy(token, marketplace, name, build(safe.length ? safe : CORE_SAFE_REGIONS));
 }
