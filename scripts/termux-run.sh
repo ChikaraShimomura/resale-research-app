@@ -14,42 +14,53 @@ cd "$HOME/resale-research-app" || exit 1
 
 termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て止まるのを防ぐ(Termux:API無ければ無視)
 
+# 各ジョブの結果(時刻/終了コード/gitコミット/ログ末尾)を KV に push＝PC側から遠隔でログを見られるようにする。
+wl() { node scripts/workerLog.mjs "$1" "$2" "$3" >/dev/null 2>&1 || true; }  # wl <key> <logfile> <exit>
+
 echo "ワーカー常駐開始: 売切検知=毎${INTERVAL}秒 / ギャラリー=${GALLERY_EVERY}サイクルごと / eBay落札発掘=${SOLD_EVERY}サイクルごと。ログ: ~/liveness.log ~/gallery.log ~/ebaysold.log"
 cycle=0
 while true; do
-  # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)
-  git pull --ff-only >/dev/null 2>&1 || true
+  # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)。pull結果＋現在のgitコミットをKVに記録＝旧コードで止まってないか遠隔で分かる。
+  git pull --ff-only > "$HOME/gitpull.log" 2>&1; gitrc=$?
+  wl meta "$HOME/gitpull.log" "$gitrc"
 
   # ① 売切/削除検知(毎回・本番)
   echo "---- $(date) ----" >> "$HOME/liveness.log"
-  LIVENESS_DRY=0 node scripts/sourceLivenessWorker.mjs >> "$HOME/liveness.log" 2>&1 \
-    || echo "  (liveness失敗・次回再試行)" >> "$HOME/liveness.log"
+  LIVENESS_DRY=0 node scripts/sourceLivenessWorker.mjs >> "$HOME/liveness.log" 2>&1; rc=$?
+  [ "$rc" -ne 0 ] && echo "  (liveness失敗・次回再試行)" >> "$HOME/liveness.log"
+  wl liveness "$HOME/liveness.log" "$rc"
 
   # ② ギャラリー取得(起動直後＝cycle0＋6サイクルごと・ONESHOTで1巡)
   if [ $(( cycle % GALLERY_EVERY )) -eq 0 ]; then
     echo "---- $(date) gallery ----" >> "$HOME/gallery.log"
-    ONESHOT=1 CAP_PER_CYCLE="${CAP_PER_CYCLE:-30}" node scripts/galleryWorker.mjs >> "$HOME/gallery.log" 2>&1 \
-      || echo "  (gallery失敗・次回再試行)" >> "$HOME/gallery.log"
+    ONESHOT=1 CAP_PER_CYCLE="${CAP_PER_CYCLE:-30}" node scripts/galleryWorker.mjs >> "$HOME/gallery.log" 2>&1; rc=$?
+    [ "$rc" -ne 0 ] && echo "  (gallery失敗・次回再試行)" >> "$HOME/gallery.log"
+    wl gallery "$HOME/gallery.log" "$rc"
   fi
 
   # ③ eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→refreshが楽天マッチ。実売起点の発掘。
   if [ $(( cycle % SOLD_EVERY )) -eq 0 ]; then
     echo "---- $(date) ebay-discover ----" >> "$HOME/ebaysold.log"
-    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_USED_GENRES=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1 \
-      || echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
+    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_USED_GENRES=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1; rc=$?
+    [ "$rc" -ne 0 ] && echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
+    wl discover "$HOME/ebaysold.log" "$rc"
   fi
 
   # ④ 中古カタログ(ハードオフ中古ジャンル)を週1で更新（2026-06-26 時計のみ→拡張：オーディオ/カメラ/ゲーム機/エフェクター）。
   #    候補構築(キャッシュ ebay_sold_seed × ハードオフ現在庫) → 型番リファイン(ブランド+型番でeBay落札→実値・同一型番のみ採用)。
   #    住宅IPのPixelだからHard Off/eBay落札とも取得可。168サイクル≒7日ごと(cycle%168==3でずらす)。
   if [ $(( cycle % 168 )) -eq 3 ]; then
-    echo "---- $(date) used-watch-catalog ----" >> "$HOME/usedcatalog.log"
-    if node scripts/used/buildUsedSampleFromCache.mjs >> "$HOME/usedcatalog.log" 2>&1; then
-      node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1 \
-        || echo "  (型番リファイン失敗・次週再試行)" >> "$HOME/usedcatalog.log"
+    echo "---- $(date) used-catalog build ----" >> "$HOME/usedcatalog.log"
+    node scripts/used/buildUsedSampleFromCache.mjs >> "$HOME/usedcatalog.log" 2>&1; brc=$?
+    wl build "$HOME/usedcatalog.log" "$brc"
+    if [ "$brc" -eq 0 ]; then
+      echo "---- $(date) used-catalog refine ----" >> "$HOME/usedcatalog.log"
+      node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
+      [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次週再試行)" >> "$HOME/usedcatalog.log"
+      wl refine "$HOME/usedcatalog.log" "$rrc"
     else
-      echo "  (時計サンプル構築失敗・次週再試行)" >> "$HOME/usedcatalog.log"
+      echo "  (候補構築失敗・次週再試行)" >> "$HOME/usedcatalog.log"
     fi
   fi
 
