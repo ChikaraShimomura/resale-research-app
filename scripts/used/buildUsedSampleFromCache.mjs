@@ -66,7 +66,8 @@ async function loadCategories() {
   const all = await loadCategories(); // 時計カテゴリのみ（コスト抑制・ユーザー指示）
 
   const catalog = [];
-  const TARGET = 60; // 数十件
+  const TARGET = Number(process.env.TARGET) || 150; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 10; // 1カテゴリあたりの上限（env CAP_PER_CAT で調整可）
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
@@ -93,7 +94,7 @@ async function loadCategories() {
           site: "hardoff", soldCount: c.soldCount,
         });
         added++;
-        if (added >= 4) break; // 1カテゴリ偏重を防ぐ（多様性）
+        if (added >= CAP_PER_CAT) break; // 1カテゴリ偏重を防ぐ（多様性）
       }
     }
     if (added) console.log(`+${String(added).padStart(2)}  ${c.category.padEnd(20)} eBay中央¥${c.ebayMedian}  (計${catalog.length})`);

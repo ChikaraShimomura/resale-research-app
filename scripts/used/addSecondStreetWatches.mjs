@@ -17,7 +17,7 @@ function env(k) {
 }
 const KV_URL = env("KV_REST_API_URL") || env("UPSTASH_REDIS_REST_URL");
 const KV_TOK = env("KV_REST_API_TOKEN") || env("UPSTASH_REDIS_REST_TOKEN");
-const CAP_PER_KW = Number(process.env.CAP_PER_KW) || 6; // 1キーワードあたり追加上限（refineのeBay負荷を抑える）
+const CAP_PER_KW = Number(process.env.CAP_PER_KW) || 12; // 1キーワードあたり追加上限（env CAP_PER_KW で調整可・上げると候補↑）
 
 // 2nd ST 時計キーワード（型番がeBayに出やすいCASIO＋高額帯を優先）。
 const KEYWORDS = [
