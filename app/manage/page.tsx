@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Lock } from "lucide-react";
+import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock } from "lucide-react";
 import { getFavoriteItems, getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
 import { listDealsForUser } from "../lib/ebay/stats";
 import { getActorId } from "../lib/auth/actor";
@@ -52,11 +52,11 @@ function priceTiers(medianJpy: number, costJpy: number, category?: string) {
   };
 }
 
-type Tab = "fav" | "bought" | "listed";
+type Tab = "fav" | "bought" | "listed" | "ended";
 
 export default async function ManagePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
-  const tab: Tab = sp.tab === "fav" || sp.tab === "listed" ? sp.tab : "bought";
+  const tab: Tab = sp.tab === "fav" || sp.tab === "listed" || sp.tab === "ended" ? sp.tab : "bought";
   const actor = await getActorId();
 
   const [favItems, boughtItems, deals, canList, isAdminUser] = await Promise.all([
@@ -66,27 +66,33 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     canAutoList(),
     getCurrentUserEmail().then((e) => isAdmin(e)),
   ]);
-  // 出品関連の全deal（出品中＋停止中＋過去）。停止/過去も「出品済み」なので仕入れ商品(未出品)からは必ず外す
-  //   ＝出品済みなのに未出品扱いで二重出品するのを防ぐ。停止/過去はバッジ付きで出品中タブに表示して到達可能にする。
-  const listedAll = [
-    ...deals.live.map((d) => ({ ...d, _status: "live" as const })),
-    ...deals.stopped.map((d) => ({ ...d, _status: "stopped" as const })),
-    ...deals.archived.map((d) => ({ ...d, _status: "archived" as const })),
-  ];
-  const listedIds = new Set(listedAll.map((d) => d.id));
-  // 仕入れ商品＝「仕入れた」のうち、まだ一度も出品していないもの（出品/停止/過去はすべて出品中タブへ）。
+  // 出品中（live）＝出品中の商品タブ。停止中／過去（stopped/archived）＝終了商品タブ。
+  // いずれも「出品済み」なので仕入れ商品(未出品)からは必ず外す＝出品済みなのに二重出品するのを防ぐ。
+  const live = deals.live.map((d) => ({ ...d, _status: "live" as const }));
+  const stopped = deals.stopped.map((d) => ({ ...d, _status: "stopped" as const }));
+  const archived = deals.archived.map((d) => ({ ...d, _status: "archived" as const }));
+  const endedAll = [...stopped, ...archived]; // 終了商品タブの中身
+  const listedIds = new Set([...live, ...stopped, ...archived].map((d) => d.id));
+  // 仕入れ商品＝「仕入れた」のうち、まだ一度も出品していないもの（出品/停止/過去はすべて除外）。
   const boughtNotListed = boughtItems.filter((p) => !listedIds.has(p.id));
-  const counts = { fav: favItems.length, bought: boughtNotListed.length, listed: listedAll.length };
+  const counts = {
+    fav: favItems.length,
+    bought: boughtNotListed.length,
+    listed: live.length + deals.sold.length, // 出品中＋売れた商品
+    ended: endedAll.length, // 停止中＋過去の出品
+  };
 
-  // 出品中タブのみ：psnap(出品用スナップショット)を引いて、価格4段(live)と再出品用の商品(stopped/archived)に使う。
+  // psnap(出品用スナップショット)：出品中タブは価格4段(live)、終了商品タブは再出品用の商品(stopped/archived)に使う。
+  // アクティブなタブの分だけ引く（無駄な読み出しを避ける）。
   const tiersById: Record<string, ReturnType<typeof priceTiers>> = {};
   const snapById: Record<string, ProfitProduct> = {}; // 再出品(ListingHelper)に渡す商品スナップショット
-  if (tab === "listed" && listedAll.length) {
+  const needSnap = tab === "listed" ? live : tab === "ended" ? endedAll : [];
+  if (needSnap.length) {
     try {
-      const snaps = (await kvReadOnly.mget(...listedAll.map((d) => `psnap:${d.id}`))) as (
+      const snaps = (await kvReadOnly.mget(...needSnap.map((d) => `psnap:${d.id}`))) as (
         (ProfitProduct & { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } }) | null
       )[];
-      listedAll.forEach((d, i) => {
+      needSnap.forEach((d, i) => {
         const s = snaps[i];
         if (s && s.id && s.title) snapById[d.id] = s as ProfitProduct;
         if (d._status === "live") {
@@ -121,7 +127,10 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab items={listedAll} sold={deals.sold} tiersById={tiersById} snapById={snapById} canList={canList} />
+          <ListedTab live={live} sold={deals.sold} tiersById={tiersById} />
+        )}
+        {tab === "ended" && (
+          <EndedTab stopped={stopped} archived={archived} snapById={snapById} canList={canList} />
         )}
       </main>
 
@@ -234,18 +243,15 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
   );
 }
 
-// ── 出品中の商品タブ：出品中／売れた商品／停止中／過去の出品 の4セクション ──────────────────────
+// ── 出品中の商品タブ：出品中／売れた商品 の2セクション ──────────────────────
 type ListedItem = Awaited<ReturnType<typeof listDealsForUser>>["live"][number] & { _status: "live" | "stopped" | "archived" };
 type SoldItem = Awaited<ReturnType<typeof listDealsForUser>>["sold"][number];
 
-function ListedTab({ items, sold, tiersById, snapById, canList }: {
-  items: ListedItem[]; sold: SoldItem[];
-  tiersById: Record<string, ReturnType<typeof priceTiers>>; snapById: Record<string, ProfitProduct>; canList: boolean;
+function ListedTab({ live, sold, tiersById }: {
+  live: ListedItem[]; sold: SoldItem[];
+  tiersById: Record<string, ReturnType<typeof priceTiers>>;
 }) {
-  const live = items.filter((d) => d._status === "live");
-  const stopped = items.filter((d) => d._status === "stopped");
-  const archived = items.filter((d) => d._status === "archived");
-  if (live.length + sold.length + stopped.length + archived.length === 0) {
+  if (live.length + sold.length === 0) {
     return <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />;
   }
   return (
@@ -260,6 +266,20 @@ function ListedTab({ items, sold, tiersById, snapById, canList }: {
           {sold.map((d) => <SoldCard key={d.id} d={d} />)}
         </Section>
       )}
+    </div>
+  );
+}
+
+// ── 終了商品タブ：停止中／過去の出品 の2セクション（どちらも再出品できる） ──────────────────────
+function EndedTab({ stopped, archived, snapById, canList }: {
+  stopped: ListedItem[]; archived: ListedItem[];
+  snapById: Record<string, ProfitProduct>; canList: boolean;
+}) {
+  if (stopped.length + archived.length === 0) {
+    return <Empty Icon={Archive} title="終了した商品はありません" body="出品を終了・停止すると、ここに移ります。再出品もできます。" />;
+  }
+  return (
+    <div className="space-y-5">
       {stopped.length > 0 && (
         <Section title="停止中" count={stopped.length} dot="bg-amber-500" note="24時間後に「過去の出品」へ移ります。">
           {stopped.map((d) => <RelistCard key={d.id} d={d} snap={snapById[d.id]} canList={canList} />)}
