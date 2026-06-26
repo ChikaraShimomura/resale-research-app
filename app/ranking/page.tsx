@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getUsedCatalog } from "../lib/usedCatalog";
+import { getUsedCatalog, isJunk } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import JsonLd from "../components/JsonLd";
@@ -36,8 +36,12 @@ export default async function RankingPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const items = (await getUsedCatalog()).slice(0, 30); // 中古の利益カタログ（純利益順）の上位
-  // 仕入れ先(ハードオフ)リンクを見られるか＝未購読(free)はゲートで/pricingに飛ぶ。
+  // カタログと同じ品質バー：同一型番でeBay相場確定済み(ebayConfirmed)＋ジャンク除外のみを公開ランキングに出す
+  //（未確定の「系列の目安」やジャンクの不確かな利益を公開面に出さない）。
+  const items = (await getUsedCatalog())
+    .filter((p) => p.ebayConfirmed && !isJunk(p.condition))
+    .slice(0, 30); // 中古の利益カタログ（純利益順）の上位
+  // 仕入れ先(ハードオフ/2nd STREET)リンクを見られるか＝未購読(free)はゲートで/pricingに飛ぶ。
   const canView = await canViewCatalog();
   // /pricing から戻ってきた時の出口メッセージ用（回遊維持：ランキング自体は無料で見られることを伝える）。
   const sp = await searchParams;
@@ -115,7 +119,8 @@ export default async function RankingPage({
               // Top5はモザイク（登録誘導の“ちら見せ”）。6位以降は見せて「実在する」証明にする。
               // 購読者(canView)は仕入れ先リンクを見られるのでモザイクにしない＝壁の体験を購読状態に合わせる。
               const locked = i < 5 && !canView;
-              // 購読者は仕入れ先(ハードオフ)の実物ページへ、未購読は/pricing（戻り先が分かるようfrom=ranking付き）。
+              // 購読者は仕入れ先(ハードオフ/2nd STREET)の実物ページへ、未購読は/pricing（戻り先が分かるようfrom=ranking付き）。
+              // ※ hardoffUrl は命名が紛らわしいが値は site に応じた正しい商品URL（2nd STは 2ndstreet.jp）が入る。
               const href = canView ? p.hardoffUrl : "/pricing?from=ranking";
               const ext = canView ? { target: "_blank", rel: "nofollow noopener noreferrer" } : {};
               return (

@@ -76,6 +76,15 @@ export function toListingProduct(p: UsedCatalogItem): ProfitProduct {
   } as unknown as ProfitProduct;
 }
 
+// 仕入れ元サイトの表示名。site値("hardoff"/"2ndstreet")→ユーザー向け名称。新サイト追加時はここに足す。
+export function sourceSiteName(site: string | undefined | null): string {
+  switch (site) {
+    case "2ndstreet": return "2nd STREET";
+    case "hardoff": return "ハードオフ";
+    default: return "中古サイト";
+  }
+}
+
 // 状態ランクの表示（ランク文字＋意味＋色）。ハードオフ=N/S/A/B/C/D/JUNK、2nd ST=「中古C」等の両方を解釈。
 export function conditionLabel(c: string | null): { rank: string; label: string; tone: "good" | "mid" | "risk" } {
   const raw = (c || "").toUpperCase();

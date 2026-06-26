@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, toListingProduct, isJunk, sourceSiteName } from "../lib/usedCatalog";
 import { canViewCatalog } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import ListingHelper from "../components/ListingHelper";
@@ -149,7 +149,7 @@ export default async function CatalogPage() {
                             rel="nofollow noopener noreferrer"
                             className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
                           >
-                            ハードオフで見る <ExternalLink size={14} />
+                            {sourceSiteName(p.site)}で見る <ExternalLink size={14} />
                           </a>
                           {/* eBay落札の根拠。型番一致(confirmed)＝リファイナが実落札を返したクエリ、未確定＝ブランド+ライン名で必ず結果が出る。 */}
                           <a

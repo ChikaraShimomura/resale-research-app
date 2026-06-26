@@ -14,8 +14,10 @@ if (!KV_URL || !KV_TOK || !RESEND) {
 }
 
 const r = await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } });
-const catalog = JSON.parse((await r.json()).result || "[]");
-if (!Array.isArray(catalog) || catalog.length === 0) {
+const all = JSON.parse((await r.json()).result || "[]");
+// ジャンク(動作未確認/部品取り)は配信から除外＝サイト掲載と同じ品質バー。
+const catalog = (Array.isArray(all) ? all : []).filter((c) => !/JUNK|ジャンク/i.test(c.condition || ""));
+if (catalog.length === 0) {
   console.error("used_catalog が空。先に buildUsedSampleFromCache を回すこと。");
   process.exit(1);
 }
@@ -31,7 +33,7 @@ const rows = catalog.slice(0, 40).map((c) =>
 ).join("");
 const html = `<div style="font-family:sans-serif;color:#2D323B">
 <h2>中古の利益カタログ サンプル（${catalog.length}件）</h2>
-<p>eBay落札の実データ（Pixel収集）× ハードオフ現在庫で、送料・関税・手数料を引いた純利益で抽出した「儲かる中古」の上位40件です。eBay想定売値はカテゴリ（型番系列）中央値ベースの目安、状態・競合・為替で変動します。</p>
+<p>eBay落札の実データ（Pixel収集）× 中古サイト（ハードオフ・2nd STREET）の現在庫で、送料・関税・手数料を引いた純利益で抽出した「儲かる中古」の上位40件です。eBay想定売値は同一型番の落札ベース（一部は型番系列の目安）、状態・競合・為替で変動します。</p>
 <p><b>全${catalog.length}件</b>が利益候補（純益¥1,500超・利益率15%超）。</p>
 <table style="border-collapse:collapse;font-size:13px;width:100%">
   <tr style="background:#2D323B;color:#fff"><th style="padding:6px 8px;text-align:left">ジャンル</th><th style="padding:6px 8px;text-align:left">商品</th><th style="padding:6px 8px">状態</th><th style="padding:6px 8px">仕入れ</th><th style="padding:6px 8px">eBay想定</th><th style="padding:6px 8px">純利益</th><th style="padding:6px 8px">率</th><th style="padding:6px 8px">仕入れ先</th></tr>

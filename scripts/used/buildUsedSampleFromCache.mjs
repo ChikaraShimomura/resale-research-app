@@ -118,14 +118,15 @@ async function loadCategories() {
   console.log(`💾 KV used_catalog に ${merged.length}件 書込`);
 
   // 出品フロー用に psnap:{id} へ ProfitProduct を保存（prepare/publish が getProductById で引く）。TTL35日。
-  // 中古の仕入れ先=ハードオフ、想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
+  // 仕入れ先サイトは c.site から導出（ここで作る catalog はハードオフのみだが、将来 merged を回しても誤ラベルしないよう堅牢化）。
+  // ※2nd ST候補のpsnapは refineUsedCatalogEbay が site 込みで書く。想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
   const cmds = catalog.map((c) => {
     const snap = {
       id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
       category: "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
       realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
       realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed,
-      source: { site: "hardoff", siteName: "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
+      source: { site: c.site || "hardoff", siteName: c.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
     };
     return ["SET", `psnap:${c.id}`, JSON.stringify(snap), "EX", String(35 * 24 * 3600)];
   });
