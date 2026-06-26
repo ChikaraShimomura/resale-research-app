@@ -36,7 +36,7 @@ while true; do
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→refreshが楽天マッチ。実売起点の発掘。
   if [ $(( cycle % SOLD_EVERY )) -eq 0 ]; then
     echo "---- $(date) ebay-discover ----" >> "$HOME/ebaysold.log"
-    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1 \
+    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_WATCH_ONLY=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1 \
       || echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
   fi
 

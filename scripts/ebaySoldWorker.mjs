@@ -152,7 +152,12 @@ async function discoverSeeds() {
   console.log(`★発掘モード(discover): ${(DISCOVER_KW_MAX>0?DISCOVER_KW_MAX:EBAY_JP_QUERIES.length)}キーワード × 最大${SEED_PER_KW}件/語 × ${DISCOVER_PAGES}ページ → ebay_sold_seed (窓${WINDOW_DAYS}日)`);
   try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでない可能性"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
 
-  const queries = DISCOVER_KW_MAX > 0 ? EBAY_JP_QUERIES.slice(0, DISCOVER_KW_MAX) : EBAY_JP_QUERIES;
+  // 時計だけに絞った運用では、発掘も時計キーワードのみにして eBay 負荷を1/10に下げる（IP枯渇→refineが検問になるのを防ぐ）。
+  const WATCH_KW = /セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|腕時計|ウォッチ|watch/i;
+  let queries = EBAY_JP_QUERIES;
+  if (process.env.EBAY_WATCH_ONLY === "1") queries = queries.filter((x) => WATCH_KW.test(x.name) || WATCH_KW.test(x.q));
+  if (DISCOVER_KW_MAX > 0) queries = queries.slice(0, DISCOVER_KW_MAX);
+  console.log(`  実行キーワード数: ${queries.length}${process.env.EBAY_WATCH_ONLY === "1" ? "（時計のみ）" : ""}`);
   const seeds = [];
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {
