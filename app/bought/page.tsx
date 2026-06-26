@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, ExternalLink, ShoppingBag } from "lucide-react";
+import { Flame, ArrowRight, ExternalLink, ShoppingBag, Lock } from "lucide-react";
 import { getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
 import { getActorId } from "../lib/auth/actor";
+import { canAutoList } from "../lib/auth/plan";
 import BottomNav from "../components/BottomNav";
 import ListingHelper from "../components/ListingHelper";
 import RemoveBoughtButton from "../components/RemoveBoughtButton";
@@ -21,6 +22,7 @@ const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 export default async function BoughtPage() {
   const actor = await getActorId();
   const items = await getBoughtItems(actor);
+  const canList = await canAutoList(); // eBay自動出品はプロMAX限定（＋身内/管理者）
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
@@ -119,7 +121,17 @@ export default async function BoughtPage() {
                           {sourceSiteName(p.source.site)}で見る <ExternalLink size={13} />
                         </a>
                       )}
-                      <ListingHelper product={p as ProfitProduct} />
+                      {/* eBay自動出品はプロMAX限定。非対象はアップグレード導線（無在庫転売の入口を絞る・ユーザー指示2026-06-27）。 */}
+                      {canList ? (
+                        <ListingHelper product={p as ProfitProduct} />
+                      ) : (
+                        <Link
+                          href="/pricing?from=bought"
+                          className="flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
+                        >
+                          <Lock size={14} className="text-[#A98B5C]" /> eBay自動出品は<b>プロMAX</b>限定 → プランを見る
+                        </Link>
+                      )}
                       <div className="flex justify-end">
                         <RemoveBoughtButton productId={p.id} />
                       </div>

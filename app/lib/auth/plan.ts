@@ -3,7 +3,7 @@
 // 決済(Stripe)が未設定/未購読なら自然に free に落ちる＝既存挙動は壊さない。
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../supabase/server";
-import { PlanId, PAYWALL_ENABLED } from "../plans";
+import { PlanId, PAYWALL_ENABLED, planCanAutoList } from "../plans";
 import { isAdmin, isMaster } from "./admin";
 import { billingPlanFor } from "../billing";
 
@@ -41,4 +41,10 @@ export async function getPlan(): Promise<PlanId> {
 export async function canViewCatalog(): Promise<boolean> {
   if (!PAYWALL_ENABLED) return true;
   return (await getPlan()) !== "free";
+}
+
+// 自動出品(eBay)を使えるか＝プロMAX限定（＋身内/管理者）。ユーザー指示2026-06-27。
+// ※閲覧(canViewCatalog)と違いPAYWALL OFFでも限定する＝無在庫転売の入口を絞るため。所有者(admin)/身内は使える。
+export async function canAutoList(): Promise<boolean> {
+  return planCanAutoList(await getPlan());
 }

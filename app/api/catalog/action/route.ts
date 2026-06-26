@@ -1,6 +1,7 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
+import { fetchSourceAvailability } from "../../../lib/usedGallery";
 
 // 中古カタログの「仕入れた」「これは無理(スキップ)」印。アクター単位の集合に記録し、カタログ/ランキングの表示から外す。
 // eBay もカタログ生成も叩かない。ログイン時は actor=acct:{uuid} なので別端末でも同じ印が効く。
@@ -47,7 +48,13 @@ export async function POST(req: Request) {
       await kv.expire(BOUGHT_KEY(actor), BOUGHT_TTL);
       // 出品は後日でも動くよう psnap を仕入れTTLまで延命（既定TTL35日で失効すると prepare が引けなくなるため）。
       if (snap && typeof snap === "object") { try { await kv.set(`psnap:${productId}`, snap, { ex: BOUGHT_TTL }); } catch { /* noop */ } }
-      return Response.json({ ok: true });
+      // 在庫確認：仕入れ元がまだ「在庫あり」なら無在庫転売の疑い→クライアントで注意喚起＋プロMAX誘導。Hard Offのみ判定可。
+      let availability: "in-stock" | "sold-out" | "unknown" = "unknown";
+      try {
+        const srcUrl = snap && typeof snap === "object" ? String((snap as { source?: { url?: string } }).source?.url || "") : "";
+        if (srcUrl) availability = await fetchSourceAvailability(srcUrl);
+      } catch { /* noop */ }
+      return Response.json({ ok: true, availability });
     }
     if (body.action === "skip") {
       await kv.sadd(SKIP_KEY(actor), productId);

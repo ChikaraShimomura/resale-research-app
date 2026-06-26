@@ -12,6 +12,24 @@ export function upscaleImageflux(url: string): string {
   return url.replace(/\/c!\/[^/]*\//, "/c!/w=1280,h=1280,a=0,u=1,q=85/");
 }
 
+// 仕入れ元(ハードオフ)の在庫状況。詳細ページの schema.org availability で判定。
+// "in-stock"=在庫あり / "sold-out"=売切/掲載終了 / "unknown"=判定不能(2nd ST等はAkamaiでVercelから取得不可)。
+export async function fetchSourceAvailability(productUrl: string): Promise<"in-stock" | "sold-out" | "unknown"> {
+  if (!productUrl || !/netmall\.hardoff\.co\.jp\/product\//.test(productUrl)) return "unknown";
+  try {
+    const res = await fetch(productUrl, { headers: { "User-Agent": UA, "Accept-Language": "ja,en;q=0.8" }, signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return "unknown";
+    const html = await res.text();
+    const m = html.match(/"availability"\s*:\s*"([^"]+)"/);
+    if (!m) return "unknown";
+    if (/SoldOut|OutOfStock|Discontinued/i.test(m[1])) return "sold-out";
+    if (/InStock|InStoreOnly|PreOrder|LimitedAvailability/i.test(m[1])) return "in-stock";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 // ハードオフ商品URL(.../product/{id}/)→ 詳細ページの全画像URL(最大12枚・1280px)。非ハードオフURLや失敗は []。
 export async function fetchHardoffGallery(productUrl: string): Promise<string[]> {
   if (!productUrl || !/netmall\.hardoff\.co\.jp\/product\//.test(productUrl)) return [];

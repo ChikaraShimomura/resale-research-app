@@ -9,6 +9,7 @@ const PLAN_PERSONA: Record<string, string> = {
   amateur: "まずは試す人に",
   veteran: "副業を伸ばす人に",
   pro: "本格的に取り組む人に",
+  promax: "eBay自動出品で本気で稼ぐ人に",
 };
 
 // 料金ページの有料プランカード。現在のプランに応じて出し分ける：
@@ -21,7 +22,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
   const [busy, setBusy] = useState<PlanId | "portal" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const isSubscriber = currentPlan === "amateur" || currentPlan === "veteran" || currentPlan === "pro";
+  const isSubscriber = currentPlan === "amateur" || currentPlan === "veteran" || currentPlan === "pro" || currentPlan === "promax";
 
   // 未購読 → 新規申込（Checkout）。未ログイン(401)なら /login?from=checkout&plan=<id> へ送り、
   // ログイン成功後に /pricing?resume=<id> へ戻して Checkout を自動再開する（申込導線を切らさない）。

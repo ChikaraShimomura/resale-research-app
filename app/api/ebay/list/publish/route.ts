@@ -10,7 +10,7 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
-import { PLANS, PAYWALL_ENABLED } from "../../../../lib/plans";
+import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
@@ -55,6 +55,11 @@ export async function POST(req: Request) {
   // 行為者のプラン。admin/master(あなた＋身内=無料・無制限)は満了・プラン上限の対象外。
   const plan = await getPlan();
   const comp = isUnlimited(plan);
+
+  // eBay自動出品はプロMAX限定（＋身内/管理者）。UIでも隠すがサーバーでも弾く＝迂回防止。ユーザー指示2026-06-27。
+  if (!planCanAutoList(plan)) {
+    return Response.json({ ok: false, needsPlan: true, planNeeded: "promax", error: "eBay自動出品はプロMAXプラン限定です。" }, { status: 403 });
+  }
 
   // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(出品者=アカウント)まで。既に出した本人は再出品OK(冪等)。
   // メンバーは台帳(ebay_deals:{actor})と同じ actor に統一。端末did基準だと複数端末で多重消費＋停止/売却で解放できない。

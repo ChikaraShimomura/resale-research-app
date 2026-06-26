@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown, Tag } from "lucide-react";
 import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getHiddenCatalogKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
-import { canViewCatalog, getCurrentUserEmail } from "../lib/auth/plan";
+import { canViewCatalog, getCurrentUserEmail, canAutoList } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import { isAdmin } from "../lib/auth/admin";
 import BottomNav from "../components/BottomNav";
@@ -50,6 +50,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const canView = await canViewCatalog();
   const actor = await getActorId();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
+  const canList = await canAutoList(); // 自動出品=プロMAX限定。非対象には無在庫警告でプロMAX誘導を出す
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   const hidden = await getHiddenCatalogKeys(actor);
   // 表示対象：同一型番の実落札で相場確定（ebayConfirmed）＋利益率5%以上＋本人が外した品/発送不可(危険物)は除外。
@@ -229,7 +230,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           </a>
                         </div>
                         {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。 */}
-                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} isAdmin={isAdminUser} />
+                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} isAdmin={isAdminUser} canAutoList={canList} />
                       </div>
                     ) : (
                       <Link

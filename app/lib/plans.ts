@@ -9,7 +9,8 @@
 //  - pro     : プロ       ¥3,000/月。
 //  - master  : 身内（管理者が管理画面で指定）。無料・無制限。
 //  - admin   : 管理者（ADMIN_EMAILS）。無料・無制限＋/admin＋身内の指定。
-export type PlanId = "free" | "amateur" | "veteran" | "pro" | "master" | "admin";
+// promax(プロMAX) = 自動出品(eBay)が使える最上位プラン。価格は仮(¥100,000)・見直し予定。
+export type PlanId = "free" | "amateur" | "veteran" | "pro" | "promax" | "master" | "admin";
 
 export interface Plan {
   id: PlanId;
@@ -24,17 +25,24 @@ export const PLANS: Record<PlanId, Plan> = {
   amateur: { id: "amateur", name: "ライト",     priceJpy: 500,  listingLimit: 10,       paid: true  },
   veteran: { id: "veteran", name: "スタンダード", priceJpy: 2000, listingLimit: 50,     paid: true  },
   pro:     { id: "pro",     name: "プロ",       priceJpy: 3000, listingLimit: 100,      paid: true  },
+  // ⚠️価格は仮(¥100,000)・見直し予定。自動出品(eBay)が使える唯一の有料プラン。
+  promax:  { id: "promax",  name: "プロMAX",    priceJpy: 100000, listingLimit: 300,    paid: true  },
   master:  { id: "master",  name: "身内",       priceJpy: 0,    listingLimit: Infinity, paid: false },
   admin:   { id: "admin",   name: "管理者",     priceJpy: 0,    listingLimit: Infinity, paid: false },
 };
 
 // 料金ページに並べる有料プラン（表示順）。
-export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
+export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro", "promax"];
 
-// プランの序列（アップグレード/ダウングレード判定用）。free<ライト<スタンダード<プロ。身内/管理者は無制限=最上位扱い。
-const PLAN_RANK: Record<PlanId, number> = { free: 0, amateur: 1, veteran: 2, pro: 3, master: 9, admin: 9 };
+// プランの序列（アップグレード/ダウングレード判定用）。free<ライト<スタンダード<プロ<プロMAX。身内/管理者は無制限=最上位扱い。
+const PLAN_RANK: Record<PlanId, number> = { free: 0, amateur: 1, veteran: 2, pro: 3, promax: 4, master: 9, admin: 9 };
 export function planRank(id: PlanId): number {
   return PLAN_RANK[id] ?? 0;
+}
+
+// 自動出品(eBay)を使えるプランか＝プロMAX限定（＋身内/管理者）。ユーザー指示2026-06-27。
+export function planCanAutoList(plan: PlanId): boolean {
+  return plan === "promax" || plan === "master" || plan === "admin";
 }
 
 // ライト(amateur)の無料トライアル日数（最初の30日＝約1ヶ月）。スタンダード/プロ はトライアルなし。
