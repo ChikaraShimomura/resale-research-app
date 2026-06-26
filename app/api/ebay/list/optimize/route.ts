@@ -7,6 +7,7 @@ import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { reviseInventoryItemContent, updateOfferListingDescription, descriptionToHtml } from "../../../../lib/ebay/listing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
+import { recordAutoError } from "../../../../lib/errorReport";
 import {
   OPTIMIZE_VERSION,
   buildOptimizedTitle,
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
   const inv = await reviseInventoryItemContent(token, sku, { title, descriptionHtml, aspects });
   if (!inv.ok) {
     const f = friendlyEbayError(inv.error);
+    if (!f.known) await recordAutoError({ where: "ebay_optimize_inventory", message: f.message, errorDetail: inv.error, productId: id, actor });
     return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: inv.error });
   }
 
@@ -100,6 +102,7 @@ export async function POST(req: Request) {
   const off = await updateOfferListingDescription(token, sku, descriptionHtml);
   if (!off.ok) {
     const f = friendlyEbayError(off.error);
+    if (!f.known) await recordAutoError({ where: "ebay_optimize_offer", message: f.message, errorDetail: off.error, productId: id, actor });
     return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: off.error });
   }
 

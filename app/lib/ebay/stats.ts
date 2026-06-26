@@ -12,9 +12,11 @@ const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
 // SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。
 const SKU_MAP_KEY = (actor: string) => `ebay_sku_map:${actor}`;
 const TTL_SECONDS = 730 * 24 * 60 * 60; // 取引履歴は2年保持（出品/出荷の都度 expire を再延長）
-// 出品停止中に入ってから24時間で「アーカイブ（既定で隠す）」へ移す。レコード・成績は消さない（2年保持のまま）。
-// 完全削除はユーザーの手動操作(removeDeal / deleteDealsWithSku)だけ。旧名 STOPPED_TTL_MS のまま意味を「自動削除→自動アーカイブ」に変更。
+// 出品停止中に入ってから24時間で「アーカイブ（過去の出品）」へ移す。
 const STOPPED_TTL_MS = 24 * 60 * 60 * 1000;
+// アーカイブ（過去の出品）に入ってから24時間で完全削除する（ユーザー指示2026-06-27：停止中/過去は24hで削除）。
+// ＝ 停止 → 24h → 過去 → 24h → 削除。未売却のみ対象（売れた商品=成績は残す）。仕入れ記録(used_bought)も併せて消す。
+const ARCHIVE_DELETE_MS = 24 * 60 * 60 * 1000;
 
 // 満了(SOLD)枠＝1商品を同時出品中の出品者(actor)集合。publish が acquire、出品停止/やめた/売却で必ず release する。
 // メンバーは台帳(ebay_deals:{actor})と同じ actor に統一（旧実装は端末did基準で、複数端末の多重消費＋解放不能＝枠が
@@ -176,11 +178,43 @@ async function archiveDeals(actor: string, deals: Record<string, Deal>, ids: str
   if (!Object.keys(patch).length) return;
   try {
     await kv.hset(DEALS_KEY(actor), patch);
-    await kv.expire(DEALS_KEY(actor), TTL_SECONDS); // 2年保持を再延長（消さずに保持し続ける）
+    await kv.expire(DEALS_KEY(actor), TTL_SECONDS);
     for (const id of ids) if (deals[id]) deals[id] = patch[id]; // 呼び出し元のローカルコピーも同期
   } catch {
     /* noop（次回リトライ） */
   }
+}
+
+// アーカイブ（過去の出品）に入って24時間を過ぎた未売却取引のID。これを過ぎたら完全削除する（ユーザー指示2026-06-27）。
+function expiredArchivedIds(deals: Record<string, Deal>, now: number): string[] {
+  return Object.entries(deals)
+    .filter(([, d]) => d && d.soldUsd == null && d.archivedAt != null && now - Date.parse(d.archivedAt) >= ARCHIVE_DELETE_MS)
+    .map(([id]) => id);
+}
+
+// 過去の出品（アーカイブ後24h）を完全削除する。取引(deals)＋SKU対応表＋仕入れ記録(used_bought)を消し、満了枠も解放。
+// ＝ 商品管理から完全に消える（出品中/仕入れ商品/お気に入りのどれにも出戻らない）。売れた商品は対象外（成績は残す）。
+async function deleteArchivedExpired(actor: string, deals: Record<string, Deal>, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  await deleteDealsWithSku(actor, ids); // deals本体＋SKU対応表
+  try { await kv.hdel(`used_bought:${actor}`, ...ids); } catch { /* noop */ }
+  try { await kv.hdel(`used_ship:${actor}`, ...ids); } catch { /* noop */ }
+  for (const id of ids) {
+    delete deals[id]; // ローカルコピーからも除外
+    await releaseListingSlot(actor, id);
+  }
+}
+
+// cron/読み込み用：停止24h→アーカイブ／アーカイブ24h→完全削除 をまとめて適用。削除/アーカイブした件数の合計を返す。
+export async function pruneExpiredArchived(actor: string): Promise<number> {
+  let deals: Record<string, Deal> = {};
+  try { deals = (await kv.hgetall<Record<string, Deal>>(DEALS_KEY(actor))) ?? {}; } catch { return 0; }
+  const now = Date.now();
+  const stops = expiredStopIds(deals, now);
+  await archiveDeals(actor, deals, stops);
+  const archived = expiredArchivedIds(deals, now);
+  await deleteArchivedExpired(actor, deals, archived);
+  return stops.length + archived.length;
 }
 
 // 取引を完全削除する（deals本体＋SKU対応表の該当エントリ）。⚠️ ユーザーの手動操作専用
@@ -232,11 +266,16 @@ export async function listDealsForUser(
   } catch {
     return { live: [], stopped: [], archived: [], sold: [] };
   }
-  // 出品停止中に入って24時間を過ぎた取引は「アーカイブ（既定で隠す）」へ移す（読み込み時にも実行＝cronが回らない間も反映）。
-  // ⚠️ 完全削除はしない＝レコード・成績・再出品候補は保持。完全削除はユーザーの手動操作(removeDeal)だけ。
-  const expiredStops = expiredStopIds(deals, Date.now());
+  // 停止24h→アーカイブ（過去の出品）／アーカイブ24h→完全削除 を読み込み時にも実行（cronが回らない間も反映）。
+  // 過去の出品は24h後に取引・SKU対応表・仕入れ記録ごと完全削除（ユーザー指示2026-06-27）。売れた商品は対象外。
+  const now = Date.now();
+  const expiredStops = expiredStopIds(deals, now);
   if (expiredStops.length) {
     await archiveDeals(actor, deals, expiredStops); // deals のローカルコピーも archivedAt 付きに同期される
+  }
+  const expiredArchived = expiredArchivedIds(deals, now);
+  if (expiredArchived.length) {
+    await deleteArchivedExpired(actor, deals, expiredArchived); // deals のローカルからも除去される
   }
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);

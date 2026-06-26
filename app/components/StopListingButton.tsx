@@ -13,7 +13,7 @@ export default function StopListingButton({ productId }: { productId: string }) 
 
   const stop = async () => {
     if (busy) return;
-    if (typeof window !== "undefined" && !window.confirm("この出品をeBayから取り下げて「停止中」に移します。よろしいですか？")) return;
+    if (typeof window !== "undefined" && !window.confirm("この出品をeBayから取り下げて終了します（「停止中」に移ります・再出品も可能）。よろしいですか？")) return;
     setBusy(true);
     setErr(null);
     try {
@@ -37,7 +37,7 @@ export default function StopListingButton({ productId }: { productId: string }) 
         disabled={busy}
         className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 font-bold text-[12px] disabled:opacity-50 active:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-300"
       >
-        <PauseCircle size={14} /> {busy ? "停止中…" : "出品を停止する"}
+        <PauseCircle size={14} /> {busy ? "終了中…" : "出品を終了する"}
       </button>
       {err && <p className="text-[10px] text-rose-600 font-bold text-center">{err}</p>}
     </div>

@@ -1,6 +1,6 @@
 import { kv } from "@vercel/kv";
 import { reconcileActorStops } from "../../../../lib/ebay/sourceReconcile";
-import { pruneExpiredStops } from "../../../../lib/ebay/stats";
+import { pruneExpiredArchived } from "../../../../lib/ebay/stats";
 import { notifyShipDue, recordOrders } from "../../../../lib/ebay/orders";
 import { getValidAccessToken, loadTokens } from "../../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../../lib/ebay/sellApi";
@@ -58,11 +58,11 @@ export async function POST(req: Request) {
       /* 1アクターの失敗で全体を止めない */
     }
     try {
-      // 出品停止中に入って24時間を過ぎた取引を自動アーカイブ＝「過去の出品」へ移す（離席中でも掃除）。完全削除はしない（archivedAt付与＋2年TTLでレコード保持）。
-      const archived = await pruneExpiredStops(actor);
-      totalArchived += archived.length;
+      // 停止24h→過去の出品へ／過去24h→完全削除（離席中でも掃除）。ユーザー指示2026-06-27：停止中/過去は24hで削除。
+      const n = await pruneExpiredArchived(actor);
+      totalArchived += n;
     } catch {
-      /* アーカイブ失敗は次回リトライ */
+      /* 失敗は次回リトライ */
     }
     try {
       // 注文(Order)の取り込み＝サーバー側で実行（従来はクライアントの /api/ebay/sold 起動のみ）。

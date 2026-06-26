@@ -7,6 +7,7 @@ import { getActorId } from "../lib/auth/actor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
+import { landedCost } from "../lib/ebay/landedCost";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
 import FavoriteHeart from "../components/FavoriteHeart";
@@ -16,8 +17,10 @@ import RemoveBoughtButton from "../components/RemoveBoughtButton";
 import ShippingInput from "../components/ShippingInput";
 import PriceTierEdit from "../components/PriceTierEdit";
 import StopListingButton from "../components/StopListingButton";
+import OptimizeButton from "../components/OptimizeButton";
 import RemoteThumb from "../components/RemoteThumb";
 import type { ProfitProduct } from "../lib/profitFilter";
+import type { ReactNode } from "react";
 
 export const dynamic = "force-dynamic"; // 自分の商品は毎回最新で
 
@@ -30,10 +33,16 @@ const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 const USD_JPY = 155;
 
 // 出品中の価格変更ボタン用の4段（±0育成 / 最安 / 中央値 / 高値）をUSDで算出。損益分岐は割らない。
-function priceTiers(medianJpy: number, costJpy: number) {
-  const floorJpy = Math.max(1, (costJpy + 47) / (1 - 0.1325)); // 損益分岐(手数料込・概算)
-  const floor = floorJpy / USD_JPY;
+// ★損益分岐(floor)＝(仕入れ原価 ＋ eBay固定手数料¥47 ＋ 着地コスト) ÷ (1−eBay料率13.25%)。
+//   着地コスト = landedCost(国際送料へのeBay手数料 ＋ $100超の米国関税前払い ＋ 送料不足)。
+//   つまり ±0 も 最安/中央/高値 も「送料・関税・手数料を全て加味」した上で損益分岐を割らない（出品モーダルの floor と同一ロジック）。
+function priceTiers(medianJpy: number, costJpy: number, category?: string) {
   const median = medianJpy > 0 ? medianJpy / USD_JPY : 0;
+  // 着地コストは「想定売価(中央値USD)」で見積もる。中央値が無ければ原価USDで概算。
+  const valueUsd = median > 0 ? median : costJpy > 0 ? costJpy / USD_JPY : 1;
+  const landed = landedCost(category, valueUsd);
+  const floorJpy = Math.max(1, (costJpy + 47 + landed.subtractJpy) / (1 - 0.1325));
+  const floor = floorJpy / USD_JPY;
   return {
     // 原価が分からない(0)時は ±0 もボタン無効化（near-free 価格の誤送信を防ぐ）。
     breakeven: costJpy > 0 ? Math.max(0.01, floor) : 0,
@@ -83,7 +92,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         if (d._status === "live") {
           const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
           const costJpy = d.purchase || Number(s?.source?.price) || 0;
-          tiersById[d.id] = priceTiers(medianJpy, costJpy);
+          tiersById[d.id] = priceTiers(medianJpy, costJpy, (s as { category?: string } | null)?.category);
         }
       });
     } catch {
@@ -112,7 +121,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab items={listedAll} tiersById={tiersById} snapById={snapById} canList={canList} />
+          <ListedTab items={listedAll} sold={deals.sold} tiersById={tiersById} snapById={snapById} canList={canList} />
         )}
       </main>
 
@@ -225,60 +234,137 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
   );
 }
 
-// ── 出品中の商品（出品中＋停止中＋過去） ──────────────────────
+// ── 出品中の商品タブ：出品中／売れた商品／停止中／過去の出品 の4セクション ──────────────────────
 type ListedItem = Awaited<ReturnType<typeof listDealsForUser>>["live"][number] & { _status: "live" | "stopped" | "archived" };
-const STATUS_BADGE: Record<ListedItem["_status"], { label: string; cls: string }> = {
-  live: { label: "出品中", cls: "bg-[#0064D2]/10 text-[#0064D2] border-[#0064D2]/20" },
-  stopped: { label: "停止中", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  archived: { label: "過去の出品", cls: "bg-gray-100 text-gray-500 border-gray-200" },
-};
-function ListedTab({ items, tiersById, snapById, canList }: { items: ListedItem[]; tiersById: Record<string, ReturnType<typeof priceTiers>>; snapById: Record<string, ProfitProduct>; canList: boolean }) {
-  if (items.length === 0) {
-    return (
-      <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />
-    );
+type SoldItem = Awaited<ReturnType<typeof listDealsForUser>>["sold"][number];
+
+function ListedTab({ items, sold, tiersById, snapById, canList }: {
+  items: ListedItem[]; sold: SoldItem[];
+  tiersById: Record<string, ReturnType<typeof priceTiers>>; snapById: Record<string, ProfitProduct>; canList: boolean;
+}) {
+  const live = items.filter((d) => d._status === "live");
+  const stopped = items.filter((d) => d._status === "stopped");
+  const archived = items.filter((d) => d._status === "archived");
+  if (live.length + sold.length + stopped.length + archived.length === 0) {
+    return <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />;
   }
   return (
-    <ol className="space-y-2.5">
-      {items.map((d, i) => {
-        const isLive = d._status === "live";
-        const tiers = isLive ? tiersById[d.id] : undefined; // 価格編集は出品中(live)のみ
-        const snap = snapById[d.id]; // 再出品(ListingHelper)用の商品スナップショット
-        const badge = STATUS_BADGE[d._status];
-        return (
-          <li key={`${d.id}-${i}`}>
-            <div className="relative bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
-              <div className="flex items-start gap-3">
-                <Thumb src={d.imageUrl} />
-                <div className="flex-1 min-w-0">
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border mb-1 ${badge.cls}`}>{badge.label}</span>
-                  <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
-                  <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
-                  {d.sourceStatus && (
-                    <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 仕入れ元が{d.sourceStatus === "soldout" ? "売り切れ" : "掲載終了"}</p>
-                  )}
-                </div>
-              </div>
+    <div className="space-y-5">
+      {live.length > 0 && (
+        <Section title="出品中" count={live.length} dot="bg-[#0064D2]">
+          {live.map((d) => <LiveCard key={d.id} d={d} tiers={tiersById[d.id]} />)}
+        </Section>
+      )}
+      {sold.length > 0 && (
+        <Section title="売れた商品" count={sold.length} dot="bg-emerald-500">
+          {sold.map((d) => <SoldCard key={d.id} d={d} />)}
+        </Section>
+      )}
+      {stopped.length > 0 && (
+        <Section title="停止中" count={stopped.length} dot="bg-amber-500" note="24時間後に「過去の出品」へ移ります。">
+          {stopped.map((d) => <RelistCard key={d.id} d={d} snap={snapById[d.id]} canList={canList} />)}
+        </Section>
+      )}
+      {archived.length > 0 && (
+        <Section title="過去の出品" count={archived.length} dot="bg-gray-400" note="24時間後に自動で削除されます。">
+          {archived.map((d) => <RelistCard key={d.id} d={d} snap={snapById[d.id]} canList={canList} />)}
+        </Section>
+      )}
+    </div>
+  );
+}
 
-              <div className="mt-2.5 space-y-2">
-                {/* 出品中(live)：価格4段変更＋出品停止。停止中/過去：再出品（ListingHelperで再公開）。 */}
-                {isLive && tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
-                {isLive && <StopListingButton productId={d.id} />}
-                {!isLive && snap && canList && <ListingHelper product={snap} defaultListed={false} />}
-                {!isLive && snap && !canList && (
-                  <p className="text-[11px] text-gray-400 text-center">再出品にはプラン加入が必要です。</p>
-                )}
-                {d.listingId && (
-                  <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
-                    eBayの出品を見る <ExternalLink size={13} />
-                  </a>
-                )}
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+function Section({ title, count, dot, note, children }: { title: string; count: number; dot: string; note?: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={`w-2 h-2 rounded-full ${dot}`} aria-hidden="true" />
+        <h2 className="text-[13px] font-black text-gray-800">{title}</h2>
+        <span className="text-[11px] text-gray-400 font-bold">{count}</span>
+      </div>
+      {note && <p className="text-[10px] text-gray-400 mb-2 leading-snug">{note}</p>}
+      <ol className="space-y-2.5">{children}</ol>
+    </section>
+  );
+}
+
+// 出品中：価格4段変更＋最適化＋出品終了。
+function LiveCard({ d, tiers }: { d: ListedItem; tiers?: ReturnType<typeof priceTiers> }) {
+  return (
+    <li>
+      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
+        <div className="flex items-start gap-3">
+          <Thumb src={d.imageUrl} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
+            <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
+            {d.sourceStatus && (
+              <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 仕入れ元が{d.sourceStatus === "soldout" ? "売り切れ" : "掲載終了"}</p>
+            )}
+          </div>
+        </div>
+        <div className="mt-2.5 space-y-2">
+          {tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
+          <OptimizeButton productId={d.id} />
+          <StopListingButton productId={d.id} />
+          {d.listingId && (
+            <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
+              eBayの出品を見る <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// 売れた商品：売値と利益を表示（読み取り専用）。
+function SoldCard({ d }: { d: SoldItem }) {
+  return (
+    <li>
+      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-start gap-3">
+          <Thumb src={d.imageUrl} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
+            <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)} <span className="text-gray-300">→</span> 売れた {yen(d.soldJpy)}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className={`text-[13px] font-black tabular-nums ${d.profitJpy < 0 ? "text-red-500" : "text-emerald-600"}`}>{d.profitJpy < 0 ? "−" : "+"}{yen(Math.abs(d.profitJpy))}</p>
+            <p className="text-[9px] text-gray-400">利益</p>
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// 停止中／過去の出品：再出品（ListingHelperで再公開）。
+function RelistCard({ d, snap, canList }: { d: ListedItem; snap?: ProfitProduct; canList: boolean }) {
+  return (
+    <li>
+      <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-start gap-3">
+          <Thumb src={d.imageUrl} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
+            <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
+            {d.sourceStatus && (
+              <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 仕入れ元が{d.sourceStatus === "soldout" ? "売り切れ" : "掲載終了"}</p>
+            )}
+          </div>
+        </div>
+        <div className="mt-2.5 space-y-2">
+          {snap && canList && <ListingHelper product={snap} defaultListed={false} />}
+          {snap && !canList && <p className="text-[11px] text-gray-400 text-center">再出品にはプラン加入が必要です。</p>}
+          {d.listingId && (
+            <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
+              eBayの出品を見る <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
 
