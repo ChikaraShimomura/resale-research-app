@@ -118,22 +118,45 @@ async function loadCategories() {
   console.log(`\n=== 利益候補 ${catalog.length}件（${scanned}カテゴリ走査）===`);
   catalog.slice(0, 12).forEach((c) => console.log(`  [${c.cat}/${c.condition || "中古"}] ${c.brand} ${c.name} 買¥${c.buyJpy}→売¥${c.ebayMedianJpy} 益¥${c.profitJpy}(${c.profitRate}%)`));
 
-  // KVへ。既存の2nd ST候補は温存（buildはハードオフ候補を作るだけ・2nd STはPC専用フェッチなので上書きで消さない）。
+  // KVへ。既存の2nd ST候補は温存（buildはハードオフ候補を作るだけ）。
+  // ★重要：buildはハードオフ品を ebayConfirmed 無しの素の状態で作る。そのまま上書きすると、
+  //   refineUsedCatalogEbay が型番一致でつけた ebayConfirmed/相場が毎build消え、カタログが「確定分だけ」に崩落する。
+  //   → 既存の確定結果(型番=code 単位)を新規build品へ引き継ぐ。同一型番なら eBay落札中央値は同じなので妥当。
+  let enriched = catalog;
   let merged = catalog;
   try {
     const existing = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
+    const normCode = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    // 型番→確定相場（refine済み・ebayConfirmed）の対応表。同一型番は最初の確定を採用。
+    const refinedByCode = new Map();
+    for (const p of existing) {
+      const k = normCode(p.code);
+      if (k && p.ebayConfirmed && Number(p.ebayMedianJpy) > 0 && !refinedByCode.has(k)) refinedByCode.set(k, p);
+    }
+    let carried = 0;
+    enriched = catalog.map((c) => {
+      const prev = refinedByCode.get(normCode(c.code));
+      if (!prev) return c;
+      const median = Number(prev.ebayMedianJpy); // 型番一致の確定相場
+      const net = netProfitJPY(c.buyJpy, median); // 仕入れは新規品の値、相場は確定値で利益を再計算
+      carried++;
+      return {
+        ...c, ebayMedianJpy: median, profitJpy: net, profitRate: Math.round((net / median) * 100),
+        soldCount: prev.soldCount ?? c.soldCount, ebayConfirmed: true, ebayChecked: true, ebaySoldUrl: prev.ebaySoldUrl,
+      };
+    });
     const haveUrls = new Set(catalog.map((p) => p.hardoffUrl));
     const keep2ndst = existing.filter((p) => p.site === "2ndstreet" && !haveUrls.has(p.hardoffUrl));
-    merged = [...catalog, ...keep2ndst];
-    if (keep2ndst.length) console.log(`  (2nd ST候補 ${keep2ndst.length}件を温存)`);
+    merged = [...enriched, ...keep2ndst];
+    console.log(`  (確定相場を引き継ぎ ${carried}件 / 2nd ST温存 ${keep2ndst.length}件)`);
   } catch { /* 既存取得失敗時はハードオフ分のみ */ }
   await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(merged) });
-  console.log(`💾 KV used_catalog に ${merged.length}件 書込`);
+  console.log(`💾 KV used_catalog に ${merged.length}件 書込（うち確定 ${merged.filter((p) => p.ebayConfirmed).length}件）`);
 
   // 出品フロー用に psnap:{id} へ ProfitProduct を保存（prepare/publish が getProductById で引く）。TTL35日。
   // 仕入れ先サイトは c.site から導出（ここで作る catalog はハードオフのみだが、将来 merged を回しても誤ラベルしないよう堅牢化）。
   // ※2nd ST候補のpsnapは refineUsedCatalogEbay が site 込みで書く。想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
-  const cmds = catalog.map((c) => {
+  const cmds = enriched.map((c) => {
     const snap = {
       id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
       category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
