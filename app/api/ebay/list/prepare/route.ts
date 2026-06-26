@@ -96,6 +96,19 @@ function detectCondition(jaTitle: string): string {
   return "NEW";
 }
 
+// 中古サイト(ハードオフ/2nd ST)の状態ランク → eBay condition。N/S/A=極上〜美品→USED_EXCELLENT、B/C/D→USED_GOOD。
+// モーダルの状態プルダウン(NEW/USED_EXCELLENT/USED_GOOD)に収まる値だけ返す。判定不能は null。
+function rankToEbayCondition(raw?: string): string | null {
+  if (!raw) return null;
+  const r = String(raw).toUpperCase();
+  if (/新品|未使用/.test(r)) return "USED_EXCELLENT";
+  const m = r.match(/(?:中古)?\s*([NSABCD])\b/);
+  const code = m ? m[1] : "";
+  if (code === "N" || code === "S" || code === "A") return "USED_EXCELLENT";
+  if (code === "B" || code === "C" || code === "D") return "USED_GOOD";
+  return null;
+}
+
 // 英語の説明文（編集可）。購入者がよく気にする点をQ&Aで手厚く、かつトラブル回避の文言を網羅する。
 // プレーンテキストで返し（編集しやすい）、公開時に listing.ts が改行→HTMLに変換する。
 function buildDescription(enTitle: string, condition: string, category?: string): string {
@@ -216,7 +229,13 @@ export async function POST(req: Request) {
   // タイトルは英語(coreKeyword=マッチしたeBay商品の英語タイトル)を既定にする。
   // coreKeyword は eBay の alt 属性由来で &#34; 等のHTMLエンティティが残るので、出品文字列にする前に復号する。
   const enTitle = decodeHtmlEntities(product.coreKeyword || product.title).slice(0, 80);
-  const condition = detectCondition(product.title);
+  // ★中古有在庫モデル：仕入れ元が中古サイト(ハードオフ/2nd ST)なら必ず中古。状態ランク(usedCondition)があれば段階反映、無ければUSED_GOOD既定。
+  //   旧モデル(楽天新品)の品だけ従来のタイトル判定。これで中古品が新品(NEW)で出る不具合を解消。
+  const srcSite = product.source?.site as string | undefined;
+  const condition =
+    srcSite === "hardoff" || srcSite === "2ndstreet"
+      ? rankToEbayCondition((product as { usedCondition?: string }).usedCondition) || "USED_GOOD"
+      : detectCondition(product.title);
   const description = buildDescription(enTitle, condition, product.category);
 
   // AIチェック：作り込んだ定型文を Claude(Haiku) で自然化。必須の方針/トラブル回避文が残っている時だけ採用。

@@ -139,6 +139,8 @@ export default function EbayListingModal({
   const [handlingDays, setHandlingDays] = useState(() => readListingDefaults().handlingDays);
   const [quantity, setQuantity] = useState(1); // 出品する個数（在庫数。既定1）
   const [bestOffer, setBestOffer] = useState(() => readListingDefaults().bestOffer);
+  // 値下げ交渉の自動承諾ライン＝定価の何%引きまで受けるか（既定値から・出品ごとに変更可）。
+  const [offerDiscountPct, setOfferDiscountPct] = useState(() => readListingDefaults().offerDiscountPct);
   const [aspects, setAspects] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // 出品に使う写真URL（先頭=メイン・チェックで選択）
   // 候補のうち「読み込めない/明らかに低解像度(<300px)」を非表示にする集合。クライアントで実寸を見て判定＝
@@ -323,6 +325,7 @@ export default function EbayListingModal({
         handlingDays,
         quantity,
         bestOffer,
+        offerDiscountPct, // 値下げ交渉の自動承諾ライン（定価の何%引きまで）
         floorUsd: ((Number(floorUsd) || 0) + foldUsd).toFixed(2), // 送料分だけ損益分岐も上げる（送料込みでBest Offer自動承認が送料負けしないように）
         selectedImages, // 出品に使う写真（先頭=メイン）
       }),
@@ -918,14 +921,31 @@ export default function EbayListingModal({
                   />
                   <span className="text-xs font-bold text-gray-700">値下げ交渉（Best Offer）を受け付ける<OptBadge /></span>
                 </label>
-                {bestOffer && listedPriceUsd > 0 && (
-                  <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
-                    {/* 自動承諾/拒否はeBay出品価格(送料込みなら上乗せ後=listedPriceUsd)基準。送料別は shipFoldUsd=0 で従来どおり。 */}
-                    ${(listedPriceUsd * 0.9).toFixed(2)}（{formatJpy(Math.round(listedPriceUsd * 0.9 * USD_JPY))}）以上のオファーは<b>自動承諾</b>（10%引きまで即売）
-                    {(floorUsd + shipFoldUsd) > 0 && (floorUsd + shipFoldUsd) < listedPriceUsd * 0.9 && (
-                      <>／ 損益分岐 ${(floorUsd + shipFoldUsd).toFixed(2)}（{formatJpy(Math.round((floorUsd + shipFoldUsd) * USD_JPY))}）未満は<b>自動拒否</b></>
+                {bestOffer && (
+                  <div className="mt-2 space-y-1.5">
+                    {/* 何%引きまで自動承諾するかをユーザーが指定（中古有在庫＝自分で値引き幅を決める）。 */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-gray-600">定価の</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={60}
+                        value={offerDiscountPct}
+                        onChange={(e) => setOfferDiscountPct(Math.min(60, Math.max(0, Math.round(Number(e.target.value) || 0))))}
+                        className="w-16 h-8 px-2 rounded-lg border border-[#A98B5C]/40 text-[12px] text-center focus:outline-none focus:border-[#2D323B]"
+                      />
+                      <span className="text-[11px] text-gray-600">%引きまで自動承諾</span>
+                    </div>
+                    {listedPriceUsd > 0 && (
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        {/* 自動承諾/拒否はeBay出品価格(送料込みなら上乗せ後=listedPriceUsd)基準。送料別は shipFoldUsd=0 で従来どおり。 */}
+                        ${(listedPriceUsd * (1 - offerDiscountPct / 100)).toFixed(2)}（{formatJpy(Math.round(listedPriceUsd * (1 - offerDiscountPct / 100) * USD_JPY))}）以上のオファーは<b>自動承諾</b>（{offerDiscountPct}%引きまで即売）
+                        {(floorUsd + shipFoldUsd) > 0 && (
+                          <>／ 損益分岐 ${(floorUsd + shipFoldUsd).toFixed(2)}（{formatJpy(Math.round((floorUsd + shipFoldUsd) * USD_JPY))}）未満は<b>自動拒否</b></>
+                        )}
+                      </p>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
 

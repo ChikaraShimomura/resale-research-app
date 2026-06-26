@@ -30,6 +30,7 @@ interface Payload {
   handlingDays?: number; // 発送までの日数（落札後）
   quantity?: number; // 出品個数（在庫数）。1〜30
   bestOffer?: boolean; // 値下げ交渉(Best Offer)を受け付けるか（既定ON）
+  offerDiscountPct?: number; // 値下げ交渉の自動承諾ライン＝定価の何%引きまで受けるか（0〜60・既定10）
   floorUsd?: number | string; // 損益分岐USD（自動拒否ラインに使う）
   selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
 }
@@ -126,18 +127,21 @@ export async function POST(req: Request) {
     /* fail-open: 元URLのまま */
   }
 
-  // Best Offer（値下げ交渉）: 既定ON。出品価格の90%以上は自動承諾、損益分岐(floor)未満は自動拒否。
+  // Best Offer（値下げ交渉）: 既定ON。出品価格の「指定%引き」以上は自動承諾、損益分岐(floor)未満は自動拒否。
   const bestOffer = body.bestOffer !== false;
+  // 自動承諾ライン＝定価の何%引きまで受けるか（ユーザー指定・0〜60・既定10%）。中古有在庫モデルで自分で値引き幅を決められる。
+  const offerPct = Math.min(60, Math.max(0, Math.round(Number(body.offerDiscountPct ?? 10)) || 0));
+  const acceptRatio = 1 - offerPct / 100;
   let autoAcceptUsd: string | undefined;
   let autoDeclineUsd: string | undefined;
   if (bestOffer && price > 0) {
     const floor = Number(body.floorUsd);
     const hasFloor = Number.isFinite(floor) && floor > 0;
-    // 自動承諾は「10%引き」だが損益分岐(floor)は絶対に割らない＝赤字を即確定させない。
+    // 自動承諾は「指定%引き」だが損益分岐(floor)は絶対に割らない＝赤字を即確定させない。
     // ⚠️ eBayは「自動承諾額 < 出品価格」を厳密に要求する（==priceは #BEST_OFFER_AUTO_ACCEPT_AMOUNT で拒否）。
     //    そこで上限を price*0.99 にクランプし、必ず price 未満に収める（低利益品で floor≥price のとき==priceになる事故を防ぐ）。
-    let accept = Math.min(price * 0.99, Math.max(price * 0.9, hasFloor ? floor : 0));
-    if (!(accept > 0) || accept >= price) accept = price * 0.9; // 念のための安全側フォールバック
+    let accept = Math.min(price * 0.99, Math.max(price * acceptRatio, hasFloor ? floor : 0));
+    if (!(accept > 0) || accept >= price) accept = Math.min(price * 0.99, price * acceptRatio); // 念のための安全側フォールバック
     if (accept > 0 && accept < price) {
       autoAcceptUsd = accept.toFixed(2);
       // 自動拒否は floor 未満(赤字)を弾く。eBay制約で 拒否価格 < 承諾価格 のため、等しくならないよう僅かに下げる。
@@ -155,7 +159,8 @@ export async function POST(req: Request) {
     imageUrl: product.imageUrl,
     images,
     priceUsd: price.toFixed(2),
-    condition: body.condition || "NEW",
+    // 状態はモーダルの選択値。未指定でも中古サイト由来なら新品(NEW)にせずUSED_GOODを既定にする（中古品が新品で出る事故防止）。
+    condition: body.condition || ((product.source?.site as string) === "hardoff" || (product.source?.site as string) === "2ndstreet" ? "USED_GOOD" : "NEW"),
     categoryId: body.categoryId,
     aspects,
     fulfillmentPolicyId: body.fulfillmentPolicyId,

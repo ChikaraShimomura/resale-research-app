@@ -74,6 +74,7 @@ export function toListingProduct(p: UsedCatalogItem): ProfitProduct {
     realCount: p.soldCount || 1,
     soldBased: !!p.ebayConfirmed,
     soldCount30d: p.soldCount,
+    usedCondition: p.condition, // 状態ランク→prepareでeBay condition段階に反映
     source: { site: p.site, siteName, price: p.buyJpy, url: p.hardoffUrl },
   } as unknown as ProfitProduct;
 }
