@@ -422,4 +422,55 @@ export const EBAY_JP_QUERIES = [
   { q: 'Suzuki harmonica Manji M-20 japan new',                      name: '鈴木 ハーモニカ Manji M-20' },
   // アウトドア(チタン食器のみ・ガス器具/燃料は危険物で除外)
   { q: 'snow peak titanium mug japan new',                            name: 'スノーピーク チタンマグ' },
+
+  // ── 【ハードオフ中古の本領＝型番で売れる中古(2026-06-26)】eBay落札相場(demand)を発掘→buildがハードオフ現在庫と
+  //    同一型番で突合。新品sealed(TCG/フィギュア/ゲームソフト)はハードオフ中古×型番照合と相性が悪いので避け、
+  //    「型番がeBayタイトルに出る×ハードオフが中古で扱う×輸出できる(非危険物)」ジャンルに限定。name は USED_GENRE_KW と対応＋ハードオフ検索語も兼ねる。
+  // ポータブルオーディオ(軽量・eBay高需要・型番一致しやすい)
+  { q: 'sony walkman cassette WM personal player japan',  name: 'ソニー ウォークマン' },
+  { q: 'sony walkman MD minidisc player MZ japan',        name: 'ソニー MDウォークマン' },
+  { q: 'sony walkman NW digital audio player japan',      name: 'ソニー ウォークマンNW' },
+  { q: 'sony MDR headphones japan',                       name: 'ソニー MDR ヘッドホン' },
+  { q: 'audio-technica ATH headphones japan',             name: 'オーディオテクニカ ATH ヘッドホン' },
+  { q: 'apple ipod classic nano touch japan',             name: 'iPod 本体' },
+  // オーディオ機器(ハードオフの看板・型番で売れる。重量/電圧はあるが高値)
+  { q: 'technics SL turntable record player japan',       name: 'テクニクス ターンテーブル' },
+  { q: 'pioneer stereo amplifier japan',                  name: 'パイオニア アンプ' },
+  { q: 'marantz amplifier cd player japan',               name: 'マランツ アンプ' },
+  { q: 'denon amplifier cd player japan',                 name: 'デノン アンプ' },
+  { q: 'onkyo amplifier receiver japan',                  name: 'オンキヨー アンプ' },
+  { q: 'sansui vintage amplifier japan',                  name: 'サンスイ アンプ' },
+  { q: 'yamaha integrated amplifier japan',               name: 'ヤマハ アンプ' },
+  // カメラ・レンズ(軽量・eBay高需要・型番がタイトルに出る。中古は古物商前提)
+  { q: 'canon AE-1 A-1 film camera slr japan',            name: 'キヤノン フィルムカメラ' },
+  { q: 'nikon FM FE film camera slr japan',               name: 'ニコン フィルムカメラ' },
+  { q: 'olympus OM film camera slr japan',                name: 'オリンパス フィルムカメラ' },
+  { q: 'pentax film camera slr japan',                    name: 'ペンタックス フィルムカメラ' },
+  { q: 'canon EF lens japan',                             name: 'キヤノン レンズ' },
+  { q: 'nikon nikkor lens japan',                         name: 'ニコン レンズ' },
+  { q: 'sony alpha E mount lens japan',                   name: 'ソニー レンズ' },
+  { q: 'sigma lens japan',                                name: 'シグマ レンズ' },
+  { q: 'tamron lens japan',                               name: 'タムロン レンズ' },
+  { q: 'minolta rokkor lens vintage japan',              name: 'ミノルタ レンズ' },
+  // レトロゲーム機(ハードオフ強い・eBay高需要・名前/型番で出る)
+  { q: 'nintendo 64 console japan',                       name: 'ニンテンドー64 本体' },
+  { q: 'nintendo gamecube console japan',                 name: 'ゲームキューブ 本体' },
+  { q: 'super famicom snes console japan',                name: 'スーパーファミコン 本体' },
+  { q: 'nintendo game boy advance console japan',         name: 'ゲームボーイ 本体' },
+  { q: 'sega saturn console japan',                       name: 'セガサターン 本体' },
+  { q: 'sega dreamcast console japan',                    name: 'ドリームキャスト 本体' },
+  { q: 'sega mega drive genesis console japan',           name: 'メガドライブ 本体' },
+  { q: 'sony playstation 2 console japan',                name: 'プレイステーション2 本体' },
+  { q: 'sony psp console japan',                          name: 'PSP 本体' },
+  { q: 'sony ps vita console japan',                      name: 'PS Vita 本体' },
+  // エフェクター/小型楽器(軽量・型番で売れる。9V電源は世界共通アダプタ)
+  { q: 'boss guitar effects pedal japan',                 name: 'BOSS エフェクター' },
+  { q: 'korg effects pedal tuner japan',                  name: 'KORG エフェクター' },
+  { q: 'zoom multi effects processor japan',              name: 'ZOOM マルチエフェクター' },
 ];
+
+// 【SSOT】ハードオフ中古カタログ対象ジャンル（発掘フィルタ＝ebaySoldWorker と build＝buildUsedSampleFromCache の双方が使う）。
+//   「型番がeBayタイトルに出る×ハードオフが中古で扱う×輸出できる」ジャンルだけを通す。
+//   新品sealed系(TCG/フィギュア/ゲームソフト/コスメ/プラモ/ぬいぐるみ等)は中古×型番照合と相性が悪いので含めない。
+export const USED_GENRE_KW =
+  /腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch|ウォークマン|ヘッドホン|iPod|ターンテーブル|アンプ|レンズ|フィルムカメラ|一眼|カメラ|本体|エフェクター/i;

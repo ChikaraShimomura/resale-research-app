@@ -22,7 +22,7 @@
 //   EBAY_SOLD_DRY=0 node scripts/ebaySoldWorker.mjs                    # 本書込
 
 import fs from "node:fs";
-import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE } from "./ebayQueries.mjs";
+import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE, USED_GENRE_KW } from "./ebayQueries.mjs";
 import { decodeHtmlEntities } from "../app/lib/htmlEntities.mjs";
 try {
   const envPath = new URL("../.env.local", import.meta.url);
@@ -152,12 +152,19 @@ async function discoverSeeds() {
   console.log(`★発掘モード(discover): ${(DISCOVER_KW_MAX>0?DISCOVER_KW_MAX:EBAY_JP_QUERIES.length)}キーワード × 最大${SEED_PER_KW}件/語 × ${DISCOVER_PAGES}ページ → ebay_sold_seed (窓${WINDOW_DAYS}日)`);
   try { const w = await get("https://www.ebay.com", null); if (isBlocked(w.html)) console.log("  ⚠️ トップで検問。住宅IPでない可能性"); await sleep(Math.round(rnd(1200, 2500))); } catch {}
 
-  // 時計だけに絞った運用では、発掘も時計キーワードのみにして eBay 負荷を1/10に下げる（IP枯渇→refineが検問になるのを防ぐ）。
+  // 発掘の対象ジャンルを絞って eBay 負荷を下げる（IP枯渇→refineが検問になるのを防ぐ）。
+  //   EBAY_USED_GENRES=1 ＝ ハードオフ中古の本領ジャンル(時計/オーディオ/カメラ・レンズ/レトロゲーム機/エフェクター)。SSOT=USED_GENRE_KW。
+  //   EBAY_WATCH_ONLY=1 ＝ 旧・時計のみ（後方互換）。
   const WATCH_KW = /セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|腕時計|ウォッチ|watch/i;
   let queries = EBAY_JP_QUERIES;
-  if (process.env.EBAY_WATCH_ONLY === "1") queries = queries.filter((x) => WATCH_KW.test(x.name) || WATCH_KW.test(x.q));
+  let mode = "";
+  if (process.env.EBAY_USED_GENRES === "1") { queries = queries.filter((x) => USED_GENRE_KW.test(x.name) || USED_GENRE_KW.test(x.q)); mode = "（中古ジャンルのみ）"; }
+  else if (process.env.EBAY_WATCH_ONLY === "1") { queries = queries.filter((x) => WATCH_KW.test(x.name) || WATCH_KW.test(x.q)); mode = "（時計のみ）"; }
+  // 毎回シャッフル：検問(captcha)で途中停止しても、複数回の実行で全キーワード(末尾の新ジャンル含む)に取得機会が回る＝飢餓防止。
+  queries = [...queries];
+  for (let i = queries.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [queries[i], queries[j]] = [queries[j], queries[i]]; }
   if (DISCOVER_KW_MAX > 0) queries = queries.slice(0, DISCOVER_KW_MAX);
-  console.log(`  実行キーワード数: ${queries.length}${process.env.EBAY_WATCH_ONLY === "1" ? "（時計のみ）" : ""}`);
+  console.log(`  実行キーワード数: ${queries.length}${mode}`);
   const seeds = [];
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {

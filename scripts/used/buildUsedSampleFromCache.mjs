@@ -6,6 +6,7 @@
 // 住宅IP・低頻度（ハードオフのみ・逐次+待ち）。サンプル件数とカタログをKV used_catalog に書き、Resendでメール送信する。
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
+import { USED_GENRE_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const USD_JPY = 155;
@@ -37,10 +38,21 @@ function netProfitJPY(buyJpy, sellJpy) {
 //  ・コスメ/食品/消耗ペン＝中古で売らない
 //  ・カード/TCG＝eBay(封入/鑑定品)とハードオフ(バラ/まとめ)がカテゴリ単位照合だと誤マッチ→型番照合できるまで除外
 const EXCLUDE = /資生堂|キャンメイク|DHC|ルルルン|セザンヌ|KATE|ファンデ|チーク|アイシャドウ|クレンジング|フェイスマスク|眉ペンシル|コスメ|リップ|エナージェル|ジェットストリーム|ぺんてる|ボールペン|シャーペン|ノック式|食品|お菓子|レトルト|カード|ポケカ|MTG|ヴァンガード|遊戯王|テラスタル|デュエ|バトスピ|ユニオンアリーナ|ヴァイス|ビルディバイド|シャドウバース/i;
-// 【時計だけに絞る】2026-06-26 ユーザー指示（コスト抑制）。時計系カテゴリのみカタログ対象にする。
-const WATCH = /セイコー|シチズン|カシオ|Gショック|G-SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|腕時計|ウォッチ|ダイバー|クロノグラフ|watch/i;
-// 商品レベルの除外：時計カテゴリ検索でも「カマス(魚)」等で釣具が混じる→釣具/楽器/非時計の明確な語を弾く。
+// 【対象ジャンル＝ハードオフ中古の本領】2026-06-26 時計のみ→拡張。型番で売れる中古(時計/オーディオ/カメラ・レンズ/
+//   レトロゲーム機/エフェクター)を対象に。SSOT=USED_GENRE_KW(ebayQueries)。発掘フィルタと同じ正規表現で揃える。
+// 商品レベルの除外：「カマス(魚)」等で釣具が混じる→釣具の明確な語を弾く（時計検索の混入対策・他ジャンルでは無害）。
 const NONWATCH = /ダイワ|DAIWA|シマノ|SHIMANO|メジャークラフト|MAJOR\s?CRAFT|がまかつ|アブガルシア|ロッド|リール|釣|竿|紅牙|朱紋峰|ルアー|フィッシング/i;
+
+// カテゴリ名(シードのname)→表示カテゴリ。商品カードの「ジャンル」バッジに出す。
+function genreOf(category) {
+  const c = category || "";
+  if (/腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch/i.test(c)) return "腕時計";
+  if (/ウォークマン|ヘッドホン|iPod|ターンテーブル|アンプ|カートリッジ|交換針/i.test(c)) return "オーディオ";
+  if (/レンズ|フィルムカメラ|一眼|カメラ/i.test(c)) return "カメラ";
+  if (/本体|ニンテンドー|ファミコン|セガ|サターン|ドリームキャスト|メガドライブ|プレイステーション|PSP|Vita|ゲームボーイ|ゲームキューブ/i.test(c)) return "ゲーム機";
+  if (/エフェクター|アンプ\b|ギター|ベース/i.test(c)) return "楽器";
+  return "中古";
+}
 
 async function loadCategories() {
   const r = await fetch(`${KV_URL}/get/ebay_sold_seed`, { headers: { Authorization: `Bearer ${KV_TOK}` } });
@@ -56,17 +68,17 @@ async function loadCategories() {
     const soldCount = arr.reduce((s, x) => s + (x.soldCount || 0), 0);
     return { category, ebayMedian, soldCount, n: arr.length, query: category };
   });
-  // 中古向き＋値ごろ（中央¥4000以上）＋非除外。需要(soldCount)順。
+  // ハードオフ中古の本領ジャンル＋値ごろ（中央¥6000以上）＋非除外。需要(soldCount)順。
   return cats
-    .filter((c) => c.ebayMedian >= 6000 && WATCH.test(c.category) && !EXCLUDE.test(c.category))
+    .filter((c) => c.ebayMedian >= 6000 && USED_GENRE_KW.test(c.category) && !EXCLUDE.test(c.category))
     .sort((a, b) => b.soldCount - a.soldCount);
 }
 
 (async () => {
-  const all = await loadCategories(); // 時計カテゴリのみ（コスト抑制・ユーザー指示）
+  const all = await loadCategories(); // ハードオフ中古ジャンル（時計/オーディオ/カメラ/ゲーム機/エフェクター）
 
   const catalog = [];
-  const TARGET = Number(process.env.TARGET) || 150; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
+  const TARGET = Number(process.env.TARGET) || 200; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
   const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 10; // 1カテゴリあたりの上限（env CAP_PER_CAT で調整可）
   let scanned = 0;
   for (const c of all) {
@@ -79,6 +91,7 @@ async function loadCategories() {
     for (const it of items) {
       if (!it.price) continue;
       if (NONWATCH.test(`${it.brand} ${it.name}`)) continue; // 釣具等の非時計を除外
+      if (PROHIBITED_EXCLUDE.test(`${it.brand} ${it.name}`)) continue; // 【厳命】航空危険物/国際発送不可は絶対に対象外
       if (/JUNK|ジャンク/i.test(it.condition || "")) continue; // ジャンク(動作未確認/部品取り)は除外
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
@@ -90,7 +103,7 @@ async function loadCategories() {
         catalog.push({
           id: `used-hardoff-${idNum}`,
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
-          cat: "腕時計", ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
+          cat: genreOf(c.category), ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
           profitJpy: net, profitRate: Math.round(rate * 100), hardoffUrl: it.url, imageUrl: it.imageUrl,
           site: "hardoff", soldCount: c.soldCount,
         });
@@ -123,7 +136,7 @@ async function loadCategories() {
   const cmds = catalog.map((c) => {
     const snap = {
       id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
-      category: "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
+      category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
       realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
       realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed,
       source: { site: c.site || "hardoff", siteName: c.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },

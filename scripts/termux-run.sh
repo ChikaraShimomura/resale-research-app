@@ -36,12 +36,12 @@ while true; do
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→refreshが楽天マッチ。実売起点の発掘。
   if [ $(( cycle % SOLD_EVERY )) -eq 0 ]; then
     echo "---- $(date) ebay-discover ----" >> "$HOME/ebaysold.log"
-    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_WATCH_ONLY=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1 \
+    EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_USED_GENRES=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1 \
       || echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
   fi
 
-  # ④ 中古カタログ(時計)を週1で更新（ユーザー指示2026-06-26＝時計だけ・週1・コスト抑制）。
-  #    時計サンプル構築(キャッシュ ebay_sold_seed × ハードオフ現在庫) → 型番リファイン(ブランド+型番でeBay落札→実値)。
+  # ④ 中古カタログ(ハードオフ中古ジャンル)を週1で更新（2026-06-26 時計のみ→拡張：オーディオ/カメラ/ゲーム機/エフェクター）。
+  #    候補構築(キャッシュ ebay_sold_seed × ハードオフ現在庫) → 型番リファイン(ブランド+型番でeBay落札→実値・同一型番のみ採用)。
   #    住宅IPのPixelだからHard Off/eBay落札とも取得可。168サイクル≒7日ごと(cycle%168==3でずらす)。
   if [ $(( cycle % 168 )) -eq 3 ]; then
     echo "---- $(date) used-watch-catalog ----" >> "$HOME/usedcatalog.log"
