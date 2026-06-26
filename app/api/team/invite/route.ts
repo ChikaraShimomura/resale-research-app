@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
 import { getCurrentUserEmail } from "../../../lib/auth/plan";
-import { isRegisteredEmail } from "../../../lib/auth/admin";
+import { checkMembership } from "../../../lib/auth/admin";
 import { createInvite } from "../../../lib/team";
 import { sendEmail, emailConfigured } from "../../../lib/email";
 
@@ -32,20 +32,21 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "自分は招待できません。" }, { status: 400 });
   }
 
-  // (1) 会員か確認。非会員なら notMember を返してUIで「会員ではありません」を出す。
-  if (!(await isRegisteredEmail(email))) {
+  // (1) 会員か確認（3段階）。確実に非会員なら notMember を返してUIで「会員ではありません」を出す。
+  //     不明(unknown=確認手段が無い)は弾かず招待を送る＝承認時の本人ログインで会員性を担保（実会員の取りこぼし防止）。
+  const membership = await checkMembership(email);
+  if (membership === "not-member") {
     return Response.json({ ok: true, notMember: true });
   }
+  const unverified = membership === "unknown";
 
-  // 既にチーム名簿に居る（actorは承認時に確定するのでメールでは厳密判定できないが、保留/重複はUI側で吸収）。
-  // ※同一メールへの再招待は新トークンで上書き＝最新リンクのみ有効。
-
+  // 同一メールへの再招待は新トークンで上書き＝最新リンクのみ有効。
   const token = await createInvite(actor, ownerEmail, email);
   const origin = (() => { try { return new URL(req.url).origin; } catch { return "https://www.yushutsu-fukugyo.com"; } })();
   const acceptUrl = `${origin}/team/accept?token=${encodeURIComponent(token)}`;
   // メール送信が未設定（RESEND_API_KEY無）の環境では送らず、承認リンクを返してオーナーが手動共有できるようにする（黙って失敗しない）。
   if (!emailConfigured()) {
-    return Response.json({ ok: true, sent: false, emailOff: true, inviteUrl: acceptUrl });
+    return Response.json({ ok: true, sent: false, emailOff: true, unverified, inviteUrl: acceptUrl });
   }
   try {
     await sendEmail({
@@ -61,5 +62,5 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "メール送信に失敗しました。少し待ってお試しください。" }, { status: 502 });
   }
-  return Response.json({ ok: true, sent: true });
+  return Response.json({ ok: true, sent: true, unverified });
 }

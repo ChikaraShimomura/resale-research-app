@@ -3,6 +3,7 @@
 // master = COMP_EMAILS（envの初期身内・編集不可）∪ KV集合 comp:masters（管理画面で追加/削除）。
 // メールはソースに直書きせず env。公開リポジトリ対策。
 import { kv } from "@vercel/kv";
+import { supabaseAdminConfigured, listAllAuthUsers } from "../supabase/admin";
 
 const MASTERS_KEY = "comp:masters"; // 身内メールのKV集合（管理画面で編集する分）
 const REGISTERED_KEY = "registered_users"; // 登録/ログインしたメールの集合（身内指定の候補リスト用）
@@ -86,4 +87,27 @@ export async function isRegisteredEmail(email: string | null | undefined): Promi
   } catch {
     return false;
   }
+}
+
+// 会員確認（3段階）。registered_users集合は記録経路が限られ不完全なので、それだけだと実会員を弾く。
+//  "member"     = 確実に会員（集合に居る or Supabase auth.usersに居る）
+//  "not-member" = 確実に非会員（Supabase adminで確認でき、auth.usersに居ない）
+//  "unknown"    = 確認手段が無い（集合に無い＋admin未設定）→ブロックせず招待を送り、承認時の本人ログインで担保する
+export type MembershipStatus = "member" | "not-member" | "unknown";
+export async function checkMembership(email: string | null | undefined): Promise<MembershipStatus> {
+  const e = (email ?? "").trim().toLowerCase();
+  if (!e || !e.includes("@")) return "not-member";
+  // ① 記録済み集合（速い・居れば確実に会員）
+  try {
+    if ((await kv.sismember(REGISTERED_KEY, e)) === 1) return "member";
+  } catch { /* noop */ }
+  // ② Supabase admin（権威・service役鍵がVercelに有る時だけ）。auth.usersに居れば会員、居なければ非会員と断定。
+  if (supabaseAdminConfigured()) {
+    try {
+      const users = await listAllAuthUsers();
+      return users.some((u) => u.email === e) ? "member" : "not-member";
+    } catch { /* フォールスルー */ }
+  }
+  // ③ 確認できない＝不明（ブロックしない）
+  return "unknown";
 }

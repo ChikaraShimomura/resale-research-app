@@ -38,7 +38,12 @@ export default function TeamManager({
         body: JSON.stringify({ email: e }),
       }).then((r) => r.json());
       if (res.ok && res.sent) {
-        setMsg({ type: "ok", text: `${e} に招待リンクを送りました。相手が承認すると共有されます。` });
+        setMsg({
+          type: "ok",
+          text: res.unverified
+            ? `${e} に招待リンクを送りました。会員確認は相手の承認時に行われます（会員でなければ承認できません）。`
+            : `${e} に招待リンクを送りました。相手が承認すると共有されます。`,
+        });
         setEmail("");
         router.refresh();
       } else if (res.ok && res.emailOff) {
