@@ -319,9 +319,6 @@ export interface PublishInput {
   fulfillmentPolicyId?: string; // 選んだ送料サイズのポリシー（未指定なら先頭）
   handlingDays?: number; // 発送までの日数（落札後）。未指定ならポリシーの既定値のまま。
   quantity?: number; // 出品個数（在庫数）。1〜30。未指定なら1。
-  bestOffer?: boolean; // Best Offer(値下げ交渉)を有効化するか
-  autoAcceptUsd?: string; // 自動承諾の下限。これ以上のオファーは自動承諾。例 "22.49"
-  autoDeclineUsd?: string; // 自動拒否の上限。これ以下のオファーは自動拒否(損益分岐)。例 "17.00"
   ean?: string; // JAN/EAN(13/8桁)。あれば product.ean に載せ、eBayカタログ一致時に公式ストック画像/必須項目を自動添付(fail-open)
 }
 
@@ -551,22 +548,12 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
   }
 
   // 3) オファー（作成 or 更新）
-  // 配送/支払い/返品ポリシー。Best Offer 有効時は bestOfferTerms で自動承諾/自動拒否の価格を設定する
-  // （Sell Inventory API の正式機能。Trading API 不要）。
+  // 配送/支払い/返品ポリシー（Best Offer は廃止＝値下げ交渉は付けない・ユーザー指示2026-06-27）。
   const listingPolicies: Record<string, unknown> = {
     fulfillmentPolicyId: usedFulfillmentId,
     paymentPolicyId: pol.paymentPolicyId,
     returnPolicyId: pol.returnPolicyId,
   };
-  if (input.bestOffer && input.autoAcceptUsd) {
-    listingPolicies.bestOfferTerms = {
-      bestOfferEnabled: true,
-      autoAcceptPrice: { value: input.autoAcceptUsd, currency: "USD" },
-      ...(input.autoDeclineUsd
-        ? { autoDeclinePrice: { value: input.autoDeclineUsd, currency: "USD" } }
-        : {}),
-    };
-  }
   const offerBody: Record<string, unknown> = {
     sku,
     marketplaceId: MARKETPLACE,
@@ -578,13 +565,7 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
     listingPolicies,
     merchantLocationKey: SHIP_LOCATION_KEY,
   };
-  let offerId = await upsertOffer(token, sku, offerBody, steps);
-  // Best Offer 設定が原因で失敗した可能性に備え、bestOfferTerms を外して1回だけ再試行（出品自体は通す＝フェイルオープン）。
-  if (!offerId && input.bestOffer) {
-    delete listingPolicies.bestOfferTerms;
-    steps.push({ step: "Best Offer無しで再試行", ok: true });
-    offerId = await upsertOffer(token, sku, offerBody, steps);
-  }
+  const offerId = await upsertOffer(token, sku, offerBody, steps);
   if (!offerId) {
     return { ok: false, sku, steps, error: steps[steps.length - 1]?.error || "オファー作成に失敗しました" };
   }
@@ -599,19 +580,6 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
     await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, itemBody);
     pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
     steps.push({ step: `在庫の反映待ちで公開を再試行（${attempt}回目）`, ok: pub.ok, error: pub.ok ? undefined : pub.error });
-  }
-  // Best Offer の自動承諾額(BEST_OFFER_AUTO_ACCEPT_AMOUNT)が「公開時」に拒否されることがある（特に低価格品）。
-  // 作成時フォールバック(上の574)は「オファー作成失敗」しか救わない＝作成は通り公開で落ちると詰む。
-  // ここで bestOfferTerms を外してオファーを更新→Best Offer無しで再公開し、出品自体は必ず通す（Best Offerは任意機能）。
-  if (!pub.ok && input.bestOffer && listingPolicies.bestOfferTerms &&
-      /best.?offer|auto.?accept|BEST_OFFER_AUTO_ACCEPT/i.test(pub.error ?? "")) {
-    delete listingPolicies.bestOfferTerms;
-    const upd = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, offerBody);
-    steps.push({ step: "Best Offerを外して再設定", ok: upd.ok, error: upd.ok ? undefined : upd.error });
-    if (upd.ok) {
-      pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offerId}/publish`);
-      steps.push({ step: "Best Offer無しで公開を再試行", ok: pub.ok, error: pub.ok ? undefined : pub.error });
-    }
   }
   const listingId = (pub.data as { listingId?: string } | null)?.listingId;
   // 公開できない時、下書き(在庫+オファー)は保存済み。状態別にやさしく案内する。
@@ -741,7 +709,8 @@ export async function updateOfferPriceQuantity(
 // 出品中の「価格(+数量)」を更新する。bulk_update_price_quantity と違い Best Offer の自動承諾/拒否額も
 // 新価格に合わせて作り直す。eBayは「自動承諾額 < 出品価格」を厳密に要求するため、価格を下げると
 // 出品時に設定した旧しきい値(≈定価の90%)が新価格を上回り "price must be greater than … auto-accept" で拒否される。
-// フルoffer(GET→価格/Best Offerだけ差し替え→PUT)で更新し、公開中の listing に即反映する。
+// フルoffer(GET→価格差し替え＋Best Offer除去→PUT)で更新し、公開中の listing に即反映する。
+// Best Offer は廃止したので、価格変更のたびに既存出品の bestOfferTerms も外す（移行も兼ねる）。
 export async function updateOfferPriceFull(
   token: string,
   offerId: string,
@@ -749,38 +718,35 @@ export async function updateOfferPriceFull(
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await ebayFetch(token, "GET", `/sell/inventory/v1/offer/${offerId}`);
   if (!g.ok || !g.data || typeof g.data !== "object") return { ok: false, error: g.error || "オファー取得失敗" };
-  const base: Record<string, unknown> = { ...(g.data as Record<string, unknown>) };
-  delete base.offerId; delete base.listing; delete base.status; // 読み取り専用はPUTに含めない
-  const price = Number(opts.priceUsd);
-
-  const buildBody = (keepBestOffer: boolean): Record<string, unknown> => {
-    const o: Record<string, unknown> = { ...base };
-    o.pricingSummary = { ...((o.pricingSummary as Record<string, unknown>) || {}), price: { value: opts.priceUsd, currency: "USD" } };
-    if (opts.quantity != null) o.availableQuantity = opts.quantity;
-    const lp: Record<string, unknown> = { ...((o.listingPolicies as Record<string, unknown>) || {}) };
-    const bo = lp.bestOfferTerms as { bestOfferEnabled?: boolean } | undefined;
-    if (keepBestOffer && bo?.bestOfferEnabled && price > 0) {
-      // 自動承諾=新価格の90%(必ず price 未満にクランプ)・自動拒否=75%(decline<accept)。新価格に追従させる。
-      const accept = Math.min(price * 0.99, price * 0.9);
-      const decline = price * 0.75;
-      lp.bestOfferTerms = {
-        bestOfferEnabled: true,
-        autoAcceptPrice: { value: accept.toFixed(2), currency: "USD" },
-        ...(decline > 0 && decline < accept ? { autoDeclinePrice: { value: decline.toFixed(2), currency: "USD" } } : {}),
-      };
-    } else if (!keepBestOffer) {
-      delete lp.bestOfferTerms; // しきい値が原因の拒否に備え、Best Offer を外して再試行（価格変更自体は通す）
-    }
-    o.listingPolicies = lp;
-    return o;
-  };
-
-  let r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, buildBody(true));
-  if (!r.ok && /best.?offer|auto.?accept|best_offer_auto_accept|price must|value must|minimum/i.test(r.error ?? "")) {
-    r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, buildBody(false)); // フェイルオープン：Best Offer無しで通す
-  }
+  const o: Record<string, unknown> = { ...(g.data as Record<string, unknown>) };
+  delete o.offerId; delete o.listing; delete o.status; // 読み取り専用はPUTに含めない
+  o.pricingSummary = { ...((o.pricingSummary as Record<string, unknown>) || {}), price: { value: opts.priceUsd, currency: "USD" } };
+  if (opts.quantity != null) o.availableQuantity = opts.quantity;
+  const lp: Record<string, unknown> = { ...((o.listingPolicies as Record<string, unknown>) || {}) };
+  delete lp.bestOfferTerms; // 値下げ交渉は付けない（旧しきい値との衝突=「価格の指定に問題」も根治）
+  o.listingPolicies = lp;
+  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, o);
   if (!r.ok) return { ok: false, error: r.error };
   return { ok: true };
+}
+
+// 公開中の出品から Best Offer（値下げ交渉）を外す。既存出品の一括移行に使う。
+// bestOfferTerms が無ければ no-op（changed:false）。フルoffer PUT で公開中 listing にも即反映。
+export async function disableBestOfferForOffer(
+  token: string,
+  offerId: string
+): Promise<{ ok: boolean; changed: boolean; error?: string }> {
+  const g = await ebayFetch(token, "GET", `/sell/inventory/v1/offer/${offerId}`);
+  if (!g.ok || !g.data || typeof g.data !== "object") return { ok: false, changed: false, error: g.error || "オファー取得失敗" };
+  const o: Record<string, unknown> = { ...(g.data as Record<string, unknown>) };
+  const lp = { ...((o.listingPolicies as Record<string, unknown>) || {}) };
+  if (!lp.bestOfferTerms) return { ok: true, changed: false }; // 既にBest Offer無し
+  delete o.offerId; delete o.listing; delete o.status;
+  delete lp.bestOfferTerms;
+  o.listingPolicies = lp;
+  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/offer/${offerId}`, o);
+  if (!r.ok) return { ok: false, changed: false, error: r.error };
+  return { ok: true, changed: true };
 }
 
 // 出品中の「送料の出し方」を切替: 価格と配送ポリシーを同時更新する。

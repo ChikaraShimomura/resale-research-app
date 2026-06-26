@@ -145,14 +145,7 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
     };
 
   // ── ここから「出品内容」起因のエラー。errorId を最優先に分類し、疑わしいフィールド名を文に差し込む ──
-
-  // 値下げ交渉(Best Offer)の自動承諾額(BEST_OFFER_AUTO_ACCEPT_AMOUNT)関連。必須Item Specificと誤認しないよう先に判定。
-  // ※サーバー側で「Best Offer無しで再公開」する自動フォールバックがあるため通常はユーザーまで届かない。
-  if (has("best offer", "best_offer", "auto accept", "auto-accept", "auto_accept", "autoacceptprice", "minimum best offer"))
-    return {
-      message: "値下げ交渉（Best Offer）の自動承諾額の設定がeBayに受け付けられませんでした。Best Offer無しで自動的に再出品されます（出品自体は通ります）。続く場合は価格を少し上げてお試しください。",
-      known: true,
-    };
+  // ※ Best Offer(値下げ交渉)は廃止したので、自動承諾額関連のエラー分類は撤去（自社出品では発生しない）。
 
   // #25002 = 必須Item Specific 不足/不正（amiibo等で頻発：キャラクター・種類・対応機種 など）。
   if (errorId === "25002" || has("required item specific", "item specific", "missing required", "is a required")) {

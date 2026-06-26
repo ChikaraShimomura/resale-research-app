@@ -4,6 +4,7 @@ import AuthButton from "../../components/AuthButton";
 import BottomNav from "../../components/BottomNav";
 import EbayListingSetup from "../../components/EbayListingSetup";
 import ListingDefaultsSettings from "../../components/ListingDefaultsSettings";
+import StripBestOfferButton from "../../components/StripBestOfferButton";
 
 // 「eBayアカウント設定」＝連携先(eBay)のアカウント設定。連携・送料・発送先の国・返品・発送元・出品の既定値。
 // このサービス自体のアカウント設定（プラン/2段階認証/通知）は /settings に分離（混在を避ける）。
@@ -41,9 +42,10 @@ export default function EbaySettingsPage() {
 
         <EbayListingSetup />
 
-        {/* 出品の既定値（Best Offer・発送までの日数を毎回選ばなくて済むように）＝eBay出品の挙動なのでこちらに集約 */}
+        {/* 出品の既定値（発送までの日数を毎回選ばなくて済むように）＝eBay出品の挙動なのでこちらに集約 */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <ListingDefaultsSettings />
+          <StripBestOfferButton />
         </section>
 
         <div className="pt-1 text-center">
