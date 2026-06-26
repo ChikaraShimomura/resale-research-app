@@ -10,6 +10,8 @@ interface MonthPoint { month: string; label: string; profit: number; sales: numb
 interface Stats {
   soldCount: number;
   listedCount: number;
+  boughtOnHandJpy: number;
+  boughtOnHandCount: number;
   listedPurchase: number;
   totalPurchase: number;
   totalSales: number;
@@ -116,6 +118,44 @@ function Legend({ color, label, value, bold }: { color: string; label: string; v
       <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${color}`} />
       <span className="text-[11px] text-gray-500 flex-1 min-w-0 truncate">{label}</span>
       <span className={`text-[12px] tabular-nums ${bold ? "font-black text-emerald-600" : "font-bold text-gray-700"}`}>{value}</span>
+    </div>
+  );
+}
+
+// 収支（仕入れ ↔ 売上）。カタログの「仕入れた」累計と、自動出品で売れた金額を合算した総合管理。
+// 仕入れ累計＝未出品の「仕入れた」在庫 ＋ 出品中の仕入れ ＋ 売却済みの仕入れ（dealsと重複しないよう集計済み）。
+function UsedFinancePanel({ s }: { s: Stats }) {
+  const totalBuy = s.boughtOnHandJpy + s.listedPurchase + s.totalPurchase; // 仕入れ累計（全部）
+  const buyCount = s.boughtOnHandCount + s.listedCount; // 仕入れた件数（未出品＋出品済み）
+  const sales = s.totalSales; // 自動出品で売れた金額
+  const netCash = sales - s.totalFees - totalBuy; // 差引（現金）。未売却在庫があるとマイナスになり得る
+  const outstanding = s.boughtOnHandJpy + s.listedPurchase; // まだ売れていない仕入れ
+  if (totalBuy <= 0 && sales <= 0) return null;
+  return (
+    <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
+      <p className="text-[13px] font-black text-gray-800 mb-1">収支（仕入れ ↔ 売上）</p>
+      <p className="text-[11px] text-gray-400 mb-3">「仕入れた」と、自動出品で売れた金額を合算</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-gray-500">仕入れ累計（{buyCount}件）</span>
+          <span className="text-[13px] font-bold text-gray-700 tabular-nums">− {yen(totalBuy)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-gray-500">売上累計（{s.soldCount}件売れた）</span>
+          <span className="text-[13px] font-bold text-[#0064D2] tabular-nums">+ {yen(sales)}</span>
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between gap-2">
+        <span className="text-[12px] font-bold text-gray-700">差引（現金）</span>
+        <span className={`text-lg font-black tabular-nums ${netCash < 0 ? "text-[#2D323B]" : "text-emerald-600"}`}>
+          {signedYen(netCash)}
+        </span>
+      </div>
+      {outstanding > 0 && (
+        <p className="mt-1 text-[11px] text-gray-400 leading-relaxed">
+          うち<b className="text-gray-500">まだ売れていない仕入れ {yen(outstanding)}</b>。これが売れれば差引は改善します。
+        </p>
+      )}
     </div>
   );
 }
@@ -272,8 +312,8 @@ export default function MyDashboard() {
       />
     ) : null;
 
-  // まだ1件も出品していない（新規）
-  if (!s || s.listedCount === 0) {
+  // 仕入れも出品も売上も無い＝完全に新規（「仕入れた」を押した人は下の収支へ進む）
+  if (!s || (s.listedCount === 0 && s.boughtOnHandCount === 0 && s.totalSales === 0)) {
     return (
       <div className="space-y-3">
         {nudge}
@@ -281,10 +321,10 @@ export default function MyDashboard() {
           <Package size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-black text-gray-800 mb-1">まだ成績なし</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-            最初の1品を出品すると、ここに<b>仕入れ・売上・利益</b>が図で出ます。
+            カタログで<b>「仕入れた」</b>を押す → <b>eBayへ出品</b> → 売れると、ここに<b>仕入れ・売上・差引</b>が出ます。
           </p>
-          <Link href="/search" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
-            利益商品を見る <ArrowRight size={16} />
+          <Link href="/catalog" className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
+            利益カタログを見る <ArrowRight size={16} />
           </Link>
           <Link href="/guide" className="block mt-3 text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             画像つき始め方ガイド →
@@ -295,26 +335,29 @@ export default function MyDashboard() {
     );
   }
 
-  // 出品済みだがまだ売れていない
+  // まだ売れていない（「仕入れた」在庫 or 出品中はあり得る）＝収支パネル＋状況メッセージ
   if (s.soldCount === 0) {
     return (
       <div className="space-y-3">
         {nudge}
-        <RankBlock s={s} />
+        <UsedFinancePanel s={s} />
+        {s.listedCount > 0 && <RankBlock s={s} />}
         <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm flex items-start gap-3">
           <Package size={22} className="text-gray-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-gray-800">出品中です（{s.listedCount}件）</p>
-            {s.listedPurchase > 0 && (
-              <p className="text-[12px] text-gray-600 mt-0.5">
-                仕入れ合計（支払った額）<b className="text-gray-800">{yen(s.listedPurchase)}</b>
-              </p>
-            )}
+            <p className="text-sm font-black text-gray-800">
+              {s.listedCount > 0 ? `出品中です（${s.listedCount}件）` : "出品はまだありません"}
+            </p>
             <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-              売れると<b>仕入れ・売上・利益</b>が図で出ます。出品しただけで成績は下がりません。
+              {s.listedCount > 0
+                ? "売れると売上・差引が上の収支に反映されます。出品しただけで成績は下がりません。"
+                : "「仕入れた」在庫をeBayへ出品すると、売れた時に売上が自動で乗ります。"}
             </p>
           </div>
         </div>
+        <Link href="/catalog" className="flex items-center justify-center gap-1.5 min-h-[48px] px-5 py-2.5 rounded-2xl bg-[#2D323B] text-white font-bold text-sm shadow-sm active:bg-[#1A1D23]">
+          利益カタログを見る <ArrowRight size={16} className="shrink-0" />
+        </Link>
         <HubLinks />
       </div>
     );
@@ -324,6 +367,9 @@ export default function MyDashboard() {
   return (
     <div className="space-y-3">
       {nudge}
+
+      {/* 収支（仕入れ↔売上）の総合管理を最上段に。下のヒーロー/お金の流れは「売れた分」の内訳。 */}
+      <UsedFinancePanel s={s} />
 
       {/* 累計利益のヒーロー。赤字は符号だけに頼らず色＋「赤字」ラベル＋下向き矢印で黒字と明確に区別。 */}
       {(() => {
@@ -399,12 +445,12 @@ export default function MyDashboard() {
 
       {/* 継続動機の主CTA：次の利益商品へ。平均利益が黒字の時だけ「1件あたり平均◯◯」を文言に織り込む。 */}
       <Link
-        href="/search"
-        aria-label="次の利益商品を出品する"
+        href="/catalog"
+        aria-label="次の利益商品を見る"
         className="flex items-center justify-center gap-1.5 min-h-[48px] px-5 py-2.5 rounded-2xl bg-[#2D323B] text-white font-bold text-sm shadow-sm active:bg-[#1A1D23]"
       >
         <span>
-          次の利益商品を出品
+          次の利益商品を見る
           {s.avgProfit > 0 && (
             <span className="block text-[11px] font-medium text-white/70">
               1件あたり平均 {yen(s.avgProfit)} の利益

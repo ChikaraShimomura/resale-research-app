@@ -116,15 +116,15 @@ export function catalogItemKey(p: { id?: string; hardoffUrl: string }): string {
 }
 
 // このアクターが「仕入れた」or「これは無理」で外した商品キーの集合。カタログ/ランキングの表示から差し引く。
-// 書き込みは /api/catalog/action（used_bought:{actor} / used_skip:{actor}）。読みは read-only トークン。
+// 書き込みは /api/catalog/action（used_bought:{actor}=id→仕入れ値ハッシュ / used_skip:{actor}=id集合）。読みは read-only。
 export async function getHiddenCatalogKeys(actor: string | undefined | null): Promise<Set<string>> {
   if (!actor) return new Set();
   try {
-    const [bought, skip] = await Promise.all([
-      kvReadOnly.smembers(`used_bought:${actor}`),
+    const [boughtIds, skip] = await Promise.all([
+      kvReadOnly.hkeys(`used_bought:${actor}`),
       kvReadOnly.smembers(`used_skip:${actor}`),
     ]);
-    return new Set<string>([...(bought ?? []), ...(skip ?? [])] as string[]);
+    return new Set<string>([...(boughtIds ?? []), ...(skip ?? [])] as string[]);
   } catch {
     return new Set();
   }

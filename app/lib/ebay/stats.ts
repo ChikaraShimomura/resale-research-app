@@ -459,6 +459,8 @@ export interface MonthPoint {
 export interface Stats {
   soldCount: number;
   listedCount: number;
+  boughtOnHandJpy: number; // カタログで「仕入れた」が、まだ出品(deals)に入っていない在庫の仕入れ値合計(JPY)。二重計上回避でdeals分は除く
+  boughtOnHandCount: number; // 同・件数
   listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・楽天価格+国内送料)
   totalPurchase: number; // 仕入れ合計(JPY・売れたもの)
   totalSales: number; // 売上合計(JPY換算)
@@ -482,6 +484,22 @@ export async function getStats(actor: string): Promise<Stats> {
   }
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
+
+  // カタログ「仕入れた」のうち、まだ出品(deals)に入っていない在庫の仕入れ累計。
+  // deals に入った時点で listedPurchase/totalPurchase で数えるので、ここでは deals に無いものだけ＝二重計上しない。
+  let boughtOnHandJpy = 0;
+  let boughtOnHandCount = 0;
+  try {
+    const bought = (await kv.hgetall<Record<string, number>>(`used_bought:${actor}`)) ?? {};
+    for (const [id, amt] of Object.entries(bought)) {
+      if (deals[id]) continue; // 既に出品/売却の台帳にある＝そちらで計上済み
+      boughtOnHandJpy += Number(amt) || 0;
+      boughtOnHandCount += 1;
+    }
+  } catch {
+    /* noop */
+  }
+
   const sold = entries.filter(([, d]) => d.soldUsd != null).map(([, d]) => d); // 売却済み（実取引なので全部有効）
   // 出品中＝未売却 かつ 停止していない かつ 実際に出品できた（SKU対応表にある）ものだけ。
   const live = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id)).map(([, d]) => d);
@@ -522,6 +540,8 @@ export async function getStats(actor: string): Promise<Stats> {
   return {
     soldCount: sold.length,
     listedCount: sold.length + live.length, // 実際に出品できたもの（出品中＋売却済み）。下書き等は含めない
+    boughtOnHandJpy,
+    boughtOnHandCount,
     listedPurchase,
     totalPurchase,
     totalSales,

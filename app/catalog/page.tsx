@@ -170,8 +170,8 @@ export default async function CatalogPage() {
                         </div>
                         {/* 自分でeBayへ自動出品（仕入れて実物写真に差し替えてから出すのが前提）。実データは psnap:{id} を prepare が読む。 */}
                         <ListingHelper product={toListingProduct(p)} />
-                        {/* triage：仕入れたら / 無理なら 印を付けて一覧から外す（per-actor）。1点物なので「仕入れた」は実質売り切れ印。 */}
-                        <CatalogActionButtons productId={catalogItemKey(p)} />
+                        {/* triage：仕入れたら / 無理なら 印を付けて一覧から外す（per-actor）。1点物なので「仕入れた」は実質売り切れ印。仕入れ値は収支の累計に乗る。 */}
+                        <CatalogActionButtons productId={catalogItemKey(p)} buyJpy={p.buyJpy} />
                       </div>
                     ) : (
                       <Link

@@ -16,7 +16,8 @@ const SKIP_TTL = 180 * 24 * 60 * 60; // スキップ判断は半年で自然解�
 // 濫用防止: 書き込みは1アクター60回/10分。大量IDをaddして集合を肥大化させるのを防ぐ。
 const rl = new Ratelimit({ redis: kv, limiter: Ratelimit.slidingWindow(60, "10 m"), prefix: "rl:catalogact:actor", analytics: false });
 
-// POST: { action: "bought"|"skip"|"undo", productId }
+// POST: { action: "bought"|"skip"|"undo", productId, buyJpy? }
+// used_bought は「id→仕入れ値(JPY)」のハッシュ＝収支の仕入れ累計に使う。used_skip は id の集合（金額不要）。
 export async function POST(req: Request) {
   const actor = await getActorId();
   if (!actor) return Response.json({ ok: false }, { status: 401 });
@@ -25,27 +26,29 @@ export async function POST(req: Request) {
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });
   } catch { /* フェイルオープン */ }
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; productId?: string; buyJpy?: number };
   const productId = (body.productId || "").trim();
   if (!productId || productId.length > 256) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
+  // 仕入れ値は0〜1億円に丸めて保存（異常値で集計を壊さない）。未指定/不正は0（印は付くが金額なし）。
+  const buyJpy = Math.min(Math.max(0, Math.round(Number(body.buyJpy) || 0)), 100_000_000);
 
   try {
     if (body.action === "bought") {
-      // 仕入れた＝スキップとは排他。仕入れ集合へ入れ、スキップからは外す。
-      await kv.sadd(BOUGHT_KEY(actor), productId);
+      // 仕入れた＝スキップとは排他。仕入れハッシュへ金額付きで入れ、スキップ集合からは外す。
+      await kv.hset(BOUGHT_KEY(actor), { [productId]: buyJpy });
       await kv.srem(SKIP_KEY(actor), productId);
       await kv.expire(BOUGHT_KEY(actor), BOUGHT_TTL);
       return Response.json({ ok: true });
     }
     if (body.action === "skip") {
       await kv.sadd(SKIP_KEY(actor), productId);
-      await kv.srem(BOUGHT_KEY(actor), productId);
+      await kv.hdel(BOUGHT_KEY(actor), productId);
       await kv.expire(SKIP_KEY(actor), SKIP_TTL);
       return Response.json({ ok: true });
     }
     if (body.action === "undo") {
       // どちらの印も解除＝カタログに戻す。
-      await kv.srem(BOUGHT_KEY(actor), productId);
+      await kv.hdel(BOUGHT_KEY(actor), productId);
       await kv.srem(SKIP_KEY(actor), productId);
       return Response.json({ ok: true });
     }

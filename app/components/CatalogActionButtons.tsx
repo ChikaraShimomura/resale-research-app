@@ -6,7 +6,7 @@ import { Check, X, Undo2 } from "lucide-react";
 
 // 中古カタログ各カードの小さな triage ボタン。「仕入れた」「これは無理」を per-actor で記録して一覧から外す。
 // 押下後は楽観的に「記録しました＋元に戻す」へ。再読込/次回訪問時はサーバー側フィルタで非表示が確定する。
-export default function CatalogActionButtons({ productId }: { productId: string }) {
+export default function CatalogActionButtons({ productId, buyJpy }: { productId: string; buyJpy: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"bought" | "skip" | "undo" | null>(null);
   const [done, setDone] = useState<"bought" | "skip" | null>(null);
@@ -19,7 +19,8 @@ export default function CatalogActionButtons({ productId }: { productId: string 
       const res = await fetch("/api/catalog/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, productId }),
+        // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（skip/undoでは無視される）。
+        body: JSON.stringify({ action, productId, buyJpy }),
       }).then((r) => r.json());
       if (res.ok) {
         if (action === "undo") {
