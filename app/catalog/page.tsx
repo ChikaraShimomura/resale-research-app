@@ -29,7 +29,8 @@ const toneCls = (tone: "good" | "mid" | "risk") =>
 
 export default async function CatalogPage() {
   const canView = await canViewCatalog();
-  const items = await getUsedCatalog();
+  // ★同一型番のeBay実落札で相場が取れた商品だけ表示する（ebayConfirmed）。系列平均/別型番混入の誤った利益は出さない。
+  const items = (await getUsedCatalog()).filter((p) => p.ebayConfirmed);
 
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
