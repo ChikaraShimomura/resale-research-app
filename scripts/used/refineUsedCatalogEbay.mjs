@@ -13,7 +13,7 @@ const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
 const GAP_MS = Number(process.env.EBAY_GAP_MS) || 8000;
 const LIMIT = Number(process.argv[2]) || Infinity;
-const MIN_SAME = 3; // 同一型番がこの件数以上で相場確定
+const MIN_SAME = 2; // 同一型番(中古)がこの件数以上で相場確定（ユーザー指示2026-06-26：2件で出す）
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = () => sleep(Math.round(GAP_MS * (1 + Math.random())));
 
@@ -43,6 +43,8 @@ function trimmedMedian(prices) {
 }
 const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&_sop=13`;
 const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); // 型番照合用の正規化（記号/大小無視）
+// 新品(retail)を除外＝中古の落札だけで相場を出す。状態(cond)とタイトルの両方を見る。
+const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品|未使用|未開封|dead\s?stock|デッドストック/i.test((s || "").trim());
 
 (async () => {
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
@@ -66,8 +68,8 @@ const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); // 型番
     try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
     if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}（再確認待ち・残す）`); await jitter(); continue; }
     const { cards } = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, false); // 中古=新品縛りしない
-    // ★同一型番だけ：タイトル(正規化)に型番(正規化)を含む落札に限定＝別モデルを混ぜない。
-    const same = cards.filter((c) => norm(c.title).includes(codeN));
+    // ★同一型番だけ：タイトル(正規化)に型番(正規化)を含む落札に限定＝別モデルを混ぜない。さらに新品(retail)を除外＝中古の実勢のみ。
+    const same = cards.filter((c) => norm(c.title).includes(codeN) && !isNew(c.cond) && !isNew(c.title));
     p.ebayChecked = true;
     if (same.length >= MIN_SAME) {
       const med = trimmedMedian(same.map((c) => c.price));
