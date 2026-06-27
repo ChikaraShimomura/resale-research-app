@@ -276,8 +276,21 @@ function ListedTab({ live, sold, tiersById, priceById }: {
   if (live.length + sold.length === 0) {
     return <Empty Icon={Tag} title="出品中の商品はありません" body={<><span className="whitespace-nowrap">「仕入れ商品」から</span><wbr /><span className="whitespace-nowrap">eBay自動出品すると、</span><wbr /><span className="whitespace-nowrap">ここに出品中として表示されます。</span></>} />;
   }
+  // 古い計算で出した出品が、今の損益分岐(SSOT)を下回って赤字になっていないか＝現在価格 vs ±0 で点検。
+  const belowFloorCount = live.filter((d) => {
+    const t = tiersById[d.id];
+    const p = Number(priceById[d.id]) || 0;
+    return t && t.breakeven > 0 && p > 0 && p < t.breakeven;
+  }).length;
   return (
     <div className="space-y-5">
+      {belowFloorCount > 0 && (
+        <div className="rounded-xl bg-red-50 border border-red-200 px-3 py-2.5">
+          <p className="text-[12px] font-bold text-rose-700 leading-snug">
+            <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">{belowFloorCount}件が損益分岐を下回って出品中</span><wbr /><span className="whitespace-nowrap">（赤字の恐れ）。</span><wbr /><span className="whitespace-nowrap">各商品の「±0に引き上げる」で直せます。</span>
+          </p>
+        </div>
+      )}
       {live.length > 0 && (
         <Section title="出品中" count={live.length} dot="bg-[#0064D2]">
           {live.map((d) => <LiveCard key={d.id} d={d} tiers={tiersById[d.id]} priceUsd={priceById[d.id]} />)}
@@ -355,7 +368,7 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
           </div>
         </div>
         <div className="mt-2.5 space-y-2">
-          {tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
+          {tiers && <PriceTierEdit productId={d.id} tiers={tiers} currentPriceUsd={priceNum} />}
           <OptimizeButton productId={d.id} />
           {/* 出品を終了する／eBayの出品を見る を横並び */}
           <div className="flex items-start gap-2">
