@@ -170,13 +170,9 @@ function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          <span className="whitespace-nowrap">※ 純利益＝eBay想定売値</span><wbr />
-          <span className="whitespace-nowrap">（直近の落札価格ベース）</span><wbr />
-          <span className="whitespace-nowrap">− eBay手数料(13.25%)・</span><wbr />
-          <span className="whitespace-nowrap">国際送料・米国関税($100超)・</span><wbr />
-          <span className="whitespace-nowrap">中古の仕入れ値。</span><wbr />
-          <span className="whitespace-nowrap">実際の利益は商品の状態・</span><wbr />
-          <span className="whitespace-nowrap">競合・為替等で変動。</span><wbr />
+          <span className="whitespace-nowrap">※ 表示の想定売値・利益は目安です。</span><wbr />
+          <span className="whitespace-nowrap">手数料・送料などを差し引いた手取りベースで、</span><wbr />
+          <span className="whitespace-nowrap">実際は商品の状態・相場・為替で変動します。</span><wbr />
           <span className="whitespace-nowrap">中古は1点物のため在庫は流動的。</span>
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">

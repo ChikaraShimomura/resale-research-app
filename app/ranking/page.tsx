@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"; // KVの最新在庫＋出品者数で�
 const SITE = "https://www.yushutsu-fukugyo.com";
 const TITLE = "eBay輸出の利益商品ランキング【毎日更新】｜想定売値・利益率";
 const DESC =
-  "eBayで売れている型番を、日本の中古サイトの現在価格と照合。送料・関税・手数料を引いた純利益で、いま仕入れて儲かる中古をランキングで毎日更新（無料公開・各商品の仕入れ先はプランで解放）。";
+  "いま仕入れて利益が見込める中古品を、想定利益つきの毎日更新ランキングで。eBay輸出の副業に（無料公開・各商品の仕入れ先はプランで解放）。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -219,10 +219,8 @@ export default async function RankingPage({
           <span className="whitespace-nowrap">輸出ラボは国内の中古→eBay輸出の</span><wbr />
           <span className="whitespace-nowrap">副業向け<b>リサーチツール</b></span><wbr />
           <span className="whitespace-nowrap">（ランキング無料・本格利用は月¥500〜）。</span><wbr />
-          <span className="whitespace-nowrap">純利益は仕入れ値・</span><wbr />
-          <span className="whitespace-nowrap">eBay手数料(13.25%)・</span><wbr />
-          <span className="whitespace-nowrap">国際送料・米国関税で算出した想定値。</span><wbr />
-          <span className="whitespace-nowrap">商品の状態・競合・為替で変動。</span>
+          <span className="whitespace-nowrap">表示の想定利益は目安で、</span><wbr />
+          <span className="whitespace-nowrap">商品の状態・相場・為替で変動します。</span>
         </p>
       </main>
 
