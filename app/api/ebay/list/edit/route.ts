@@ -25,7 +25,9 @@ const skuFor = async (actor: string, productId: string): Promise<string> =>
 async function breakevenUsdFor(id: string): Promise<number> {
   try {
     const snap = await getProductById(id);
-    const costJpy = Number((snap as { source?: { price?: number } } | null)?.source?.price) || 0;
+    // 原価＝品代＋国内仕入れ送料(SSOTの契約＝prepare/publish/manageと同じ送料込み)。送料を落とすとfloorが低く出て赤字を通す。
+    const src = (snap as { source?: { price?: number; shippingJpy?: number } } | null)?.source;
+    const costJpy = (Number(src?.price) || 0) + (Number(src?.shippingJpy) || 0);
     const wRaw = await kvReadOnly.get<number>(`weight:${id}`);
     const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : estimateWeightG((snap as { category?: string } | null)?.category);
     if (costJpy > 0 && weightG > 0) return Math.round(breakevenUsd(costJpy, weightG) * 100) / 100;
@@ -114,7 +116,9 @@ export async function POST(req: Request) {
       if (curIsFree === false) return Response.json({ ok: true, already: true, mode: "paid" }); // 既に送料別
       const target = paid[0]; // 最安の有料送料に戻す
       if (!target) return Response.json({ ok: false, error: "有料の配送ポリシーがありません。" });
-      newPrice = Math.max(0.01, Math.round((curPrice - Number(target.costUsd)) * 100) / 100).toFixed(2); // 上乗せ分を価格から引く（セント丸め）
+      // 上乗せ分を価格から引く。ただし損益分岐(±0)を下回らないようクランプ＝送料別へ戻しても赤字にしない。
+      const floor = await breakevenUsdFor(body.productId);
+      newPrice = Math.max(floor || 0.01, Math.round((curPrice - Number(target.costUsd)) * 100) / 100).toFixed(2);
       newPolicyId = target.fulfillmentPolicyId;
     }
     const sr = await updateOfferShipping(token, offer.offerId, { priceUsd: newPrice, fulfillmentPolicyId: newPolicyId });

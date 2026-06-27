@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { USD_JPY } from "../lib/ebay/landedCost";
 
 // 出品中の商品の価格を、カタログの出品画面と同じ4段（±0育成 / 最安 / 中央値 / 高値）にワンタップで変更する。
 // 公開中のeBayオファーを /api/ebay/list/edit が即更新（updateOfferPriceQuantity）。値は出品時の相場(psnap)から算出。
@@ -16,8 +17,7 @@ export default function PriceTierEdit({
   const [busy, setBusy] = useState<string | null>(null);
   const [doneUsd, setDoneUsd] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  // 表示は円（eBayは$建てだが、ユーザーには円で見せる）。概算レート155。
-  const USD_JPY = 155;
+  // 表示は円（eBayは$建てだが、ユーザーには円で見せる）。レートは SSOT(landedCost・env駆動/既定155)から。
   const yen = (u: number) => "¥" + Math.round(u * USD_JPY).toLocaleString("ja-JP");
 
   const apply = async (key: string, usd: number) => {

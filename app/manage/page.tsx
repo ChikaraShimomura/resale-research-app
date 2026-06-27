@@ -97,7 +97,10 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         if (s && s.id && s.title) snapById[d.id] = s as ProfitProduct;
         if (d._status === "live") {
           const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
-          const costJpy = d.purchase || Number(s?.source?.price) || 0;
+          // 原価＝品代＋国内仕入れ送料(SSOTの送料込み契約)。d.purchase は publish が送料込みで記録済み。
+          // フォールバック(psnap直読み)時も国内送料を足してモーダル(effBuyJpy)と揃える＝floorが甘くならない。
+          const sp = (s as { source?: { price?: number; shippingJpy?: number } } | null)?.source;
+          const costJpy = d.purchase || ((Number(sp?.price) || 0) + (Number(sp?.shippingJpy) || 0)) || 0;
           const w = typeof weights[i] === "number" && (weights[i] as number) > 0 ? (weights[i] as number) : undefined;
           tiersById[d.id] = priceTiers(medianJpy, costJpy, (s as { category?: string } | null)?.category, w);
         }
@@ -114,7 +117,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
       const token = await getValidAccessToken(ebayActor);
       if (token) {
         const results = await Promise.all(
-          live.slice(0, 60).map(async (d) => {
+          live.slice(0, 120).map(async (d) => { // 赤字バナー判定に必要なので上限を広げる(プロ100件想定をカバー)
             const sku = (await getListingSku(ebayActor, d.id)) ?? skuForProduct(d.id);
             const offer = await getOfferForSku(token, sku).catch(() => null);
             return [d.id, offer?.priceUsd] as const;

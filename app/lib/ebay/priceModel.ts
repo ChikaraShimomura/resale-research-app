@@ -31,20 +31,33 @@ export function floorAtPriceUsd(costJpy: number, weightG: number, priceUsd: numb
 export function breakevenUsd(costJpy: number, weightG: number): number {
   if (!(costJpy > 0) || !(weightG > 0)) return 0;
   let v = costJpy / USD_JPY;
-  for (let i = 0; i < 6; i++) v = floorAtPriceUsd(costJpy, weightG, v);
-  return Math.ceil(v * 100) / 100; // 安全側に切り上げ(1セント未満の丸めで赤字にしない)
+  // 収束判定付き反復。$120(EMS)/$100(関税)のしきい値跨ぎは写像が不連続で固定回数だと未収束→±0が自floorを割る不具合があった。
+  for (let i = 0; i < 40; i++) {
+    const nv = floorAtPriceUsd(costJpy, weightG, v);
+    if (Math.abs(nv - v) < 1e-7) { v = nv; break; }
+    v = nv;
+  }
+  v = Math.max(v, floorAtPriceUsd(costJpy, weightG, v)); // 念のため自floorを割らない(不変条件の保証)
+  let out = Math.ceil(v * 100) / 100; // 安全側に切り上げ
+  const f2 = floorAtPriceUsd(costJpy, weightG, out); // セント切り上げがしきい値を跨いで自floorを再び割らないか確認。
+  if (out < f2 - 1e-9) out = Math.ceil(f2 * 100) / 100;
+  return out;
 }
 
 // 候補価格を「絶対に赤字にならない」最小安全価格へ引き上げる。
 // be(損益分岐)未満は be へ。さらに、その価格自身の floor を割っていれば(しきい値の損失帯)その floor まで押し上げる。
 export function safePriceUsd(candidateUsd: number, costJpy: number, weightG: number, be: number): number {
   let p = Math.max(candidateUsd, be);
-  for (let i = 0; i < 4; i++) {
+  // 収束判定付き(しきい値跨ぎの遅収束対策)。各段が「その価格自身の損益分岐」を絶対に割らない不変条件を厳密に守る。
+  for (let i = 0; i < 24; i++) {
     const f = floorAtPriceUsd(costJpy, weightG, p);
-    if (p < f - 1e-9) p = f;
-    else break;
+    if (p >= f - 1e-9) break;
+    p = f;
   }
-  return Math.ceil(p * 100) / 100;
+  let out = Math.ceil(p * 100) / 100;
+  const f2 = floorAtPriceUsd(costJpy, weightG, out); // セント切り上げ後もしきい値直上でfloorを割るなら再度押し上げ。
+  if (out < f2 - 1e-9) out = Math.ceil(f2 * 100) / 100;
+  return out;
 }
 
 export interface PriceModel {

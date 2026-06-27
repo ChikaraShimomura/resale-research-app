@@ -163,10 +163,11 @@ export default function EbayListingModal({
   useEffect(() => {
     if (!data?.shipping?.length || !data.landed) return;
     const w = Number(weightInput) > 0 ? Number(weightInput) : data.landed.weightG ?? 700;
-    const v = Number(data.priceUsd) || data.product.ebayAvgJpy / USD_JPY;
+    // ★実際に選んでいる価格(priceUsd)でEMS判定する。中央値/高値で$120を跨いだら大サイズ(EMS)へ自動で上げる(送料負け防止)。
+    const v = Number(priceUsd) || Number(data.priceUsd) || data.product.ebayAvgJpy / USD_JPY;
     const id = pickShippingPolicyId(data.shipping, recommendShippingTier(w, v));
     if (id) setShippingId(id);
-  }, [weightInput, data]);
+  }, [weightInput, data, priceUsd]);
   const [showOptional, setShowOptional] = useState(false); // おすすめ(任意)項目を開いて編集するか（既定は閉じる＝自動入力のまま）
   const [showAdv, setShowAdv] = useState(false); // 詳細オプション（説明文/状態/売り方/送料/個数など）を開くか。既定は閉じて最小表示＝写真・タイトル・価格だけ。
   const [result, setResult] = useState<PublishResult | null>(null);
@@ -444,7 +445,13 @@ export default function EbayListingModal({
   // またいで価格を変えた時に floor が実態とズレ、過剰/過少な赤字警告になる（修正前の不具合）。空欄/タイプ途中は推奨価格へフォールバック。
   const estWeightG = data?.landed?.weightG ?? 700;
   const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
-  const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
+  // 送料込み(送料無料)の時は eBay掲載価格＝本体＋送料 が通関申告額＝関税($100)/EMS($120)はこの額で判定する
+  // （本体価格だけで見ると、送料を足すと$100/$120を跨ぐ品の関税・EMSを floor が見落として赤字を通す）。
+  const foldNowUsd =
+    freeShip && data?.shipping?.some((s) => Number(s.costUsd) < 0.01)
+      ? Number(data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId)?.costUsd) || 0
+      : 0;
+  const dutyValueUsd = (Number(priceUsd) + foldNowUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
   // 価格モデル(SSOT)＝商品管理(priceTiers)と【同じ式・同じ入力】。±0/最安/中央/高値を一括算出。
   // 各段は「その価格自身の損益分岐」を絶対に割らないクランプ済み＝赤字にならない。選択を切替えても±0は動かない。

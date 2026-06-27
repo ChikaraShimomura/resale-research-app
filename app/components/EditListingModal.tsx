@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, ImagePlus } from "lucide-react";
 import Spinner from "./Spinner";
 import ReportableError from "./ReportableError";
+import { USD_JPY } from "../lib/ebay/landedCost";
 
 type ErrInfo = { message: string; errorKind?: "known" | "unexpected"; errorDetail?: string };
 
@@ -23,7 +24,6 @@ export default function EditListingModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [priceUsd, setPriceUsd] = useState(""); // 内部はUSD（eBay）。表示/入力は円。
   const [priceYen, setPriceYen] = useState(""); // 価格の円表示（priceUsd と同期）
-  const USD_JPY = 155;
   const [quantity, setQuantity] = useState("1");
   const [floorUsd, setFloorUsd] = useState(0); // 損益分岐(±0・USD)。手入力価格がこれ未満なら赤字＝警告＋承知チェック。
   const [acceptLoss, setAcceptLoss] = useState(false); // 「赤字承知で出す」確認
