@@ -432,6 +432,12 @@ export async function POST(req: Request) {
         if (modelLooksReal) return { ...a, free: true, value: realModel };
         return a;
       }
+      if (/^model$/i.test(a.name)) {
+        // Model：AIが入れたモデル名(例 Dreamcast)を優先。無ければ型番で代替し"Not Applicable"放置を避ける。
+        if (aiVals[a.name]) return { ...a, free: true, value: aiVals[a.name] };
+        if (modelLooksReal) return { ...a, free: true, value: realModel };
+        return a;
+      }
       const ai = aiVals[a.name];
       if (ai) {
         const values = a.free && a.values.length && !a.values.some((v) => v.toLowerCase() === ai.toLowerCase()) ? dedupe([ai, ...a.values]).slice(0, 30) : a.values;

@@ -39,7 +39,8 @@ function hashish(s: string): string {
 export async function aiFillAspects(ctx: AspectContext, slots: AspectSlot[]): Promise<Record<string, string>> {
   if (!ANTHROPIC_API_KEY || !slots.length) return {};
   const id = ctx.id || "";
-  const key = id ? `aspectfill:v1:${id}:${hashish(slots.map((s) => s.name).join("|"))}` : "";
+  // 版(v2)：プロンプト改訂時に上げると旧キャッシュを無効化＝全商品が新ルールで再生成される。
+  const key = id ? `aspectfill:v2:${id}:${hashish(slots.map((s) => s.name).join("|"))}` : "";
   if (key) {
     try {
       const c = await kv.get<Record<string, string>>(key);
@@ -65,9 +66,11 @@ ${lines}
 
 Rules:
 - When a list of choices is given, return EXACTLY one of those strings, copied verbatim. If none truly fit, omit that aspect.
-- For free-text aspects: a short accurate value. Examples: a year like "1998"; a region like "NTSC-J (Japan)"; a measurement with unit; a platform/series name in English.
+- IDENTITY aspects (brand, model, model line / series, platform, type, region, country, year of a well-known product): fill confidently from your knowledge across ANY category — cameras & lenses, audio, watches, instruments/effects, power tools, game gear, etc.
+- "Model": the product's model or line name in English (e.g. a console name like "Dreamcast", a lens model, a watch reference, a pedal name). Fill it when known — do not leave it as "Not Applicable" if a real model name exists.
+- TECHNICAL SPEC aspects (storage / memory capacity, resolution, screen size, megapixels, focal length, dimensions, weight, ports / connectivity, charging / power, battery, frequency): fill ONLY if you are CERTAIN of the published spec of THIS EXACT model. If unsure, OMIT it. A guessed or approximate spec is worse than blank and misleads buyers.
 - Items bought new in Japan are typically region "Japan" / "NTSC-J (Japan)".
-- OMIT any aspect you are not reasonably sure about. Do NOT guess wildly — leaving blank is better than wrong.
+- OMIT any aspect you are not reasonably sure about. Leaving blank is better than wrong.
 - Reply with ONLY a JSON object mapping the aspect name to its value. No prose, no markdown.`;
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -115,8 +118,7 @@ export function splitBrandModel(
   const ck = (coreKeyword || "").trim();
   if (!ck) return { brand: "", model: "" };
   const tokens = ck.split(/\s+/);
-  let modelIdx = -1;
-  for (let i = 0; i < tokens.length; i++) if (/[A-Za-z0-9][A-Za-z0-9-]*\d/.test(tokens[i])) modelIdx = i;
-  if (modelIdx >= 0) return { brand: tokens.slice(0, modelIdx).join(" "), model: tokens.slice(modelIdx).join(" ") };
+  // coreKeyword は build が「BRAND CODE…」で作る＝先頭=ブランド、残り=型番/モデル。
+  // カメラレンズ等の多トークン型番("EF 50mm F1.8")でも崩れない（旧:最後の数字トークン起点はブランドを食い潰す不具合があった）。
   return { brand: tokens[0] || "", model: tokens.slice(1).join(" ") };
 }
