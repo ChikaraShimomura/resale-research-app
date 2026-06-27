@@ -43,8 +43,8 @@ const WINDOW_DAYS = Number(process.env.EBAY_SOLD_WINDOW_DAYS ?? 30); // 直近�
 const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
 const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
 const SEED_PER_KW = Number(process.env.EBAY_SOLD_SEED_PER_KW ?? 20); // 発掘：1キーワードあたり拾う"ユニーク落札商品"上限
-const SEED_TTL_S = Number(process.env.EBAY_SOLD_SEED_TTL_H ?? 72) * 3600; // ebay_sold_seed のTTL（既定72h＝発掘が止まれば自然失効）
-const DISCOVER_KW_MAX = Number(process.env.EBAY_SOLD_DISCOVER_KW_MAX) || 0; // 発掘で回すキーワード数の上限（0=全件。試運転で小さく）
+const SEED_TTL_S = Number(process.env.EBAY_SOLD_SEED_TTL_H ?? 168) * 3600; // ebay_sold_seed のTTL（既定7日。毎回マージ再書込でTTL更新＝ワーカー停止7日で自然失効）
+const DISCOVER_KW_MAX = Number(process.env.EBAY_SOLD_DISCOVER_KW_MAX) || 150; // 1回で回すキーワード数（既定150＝captcha安全圏。毎回シャッフル＋マージ蓄積で数日かけ全クエリを網羅）
 const DISCOVER_PAGES = Math.max(1, Number(process.env.EBAY_SOLD_DISCOVER_PAGES) || 1); // 1キーワードで取得する落札ページ数（_pgn）。種を増やす時に上げる（既定1=Pixel常駐は軽く）
 const SEED_MIN_JPY = Number(process.env.EBAY_SOLD_SEED_MIN_JPY ?? 1000); // 発掘：この落札額未満は種にしない（単パック等の安物が枠を食うのを防ぐ。refresh Phase0の下限と一致）
 const SEED_MAX_JPY = Number(process.env.EBAY_SOLD_SEED_MAX_JPY ?? 130000); // 発掘：この落札額超は種にしない（$800≒¥124k=serveの申告上限。バルクロット/高額別物を除外）
@@ -86,6 +86,13 @@ async function kvSetJson(key, val, ttl) {
     });
     return res.ok;
   } catch { return false; }
+}
+async function kvGetJson(key) {
+  try {
+    const res = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: H });
+    const v = (await res.json()).result;
+    return v ? JSON.parse(v) : null;
+  } catch { return null; }
 }
 
 // 売却済みページ(新SRP)を商品カード単位で解析。eBayは2025年に商品カードを s-item__* → s-card__* へ刷新した。
@@ -166,6 +173,7 @@ async function discoverSeeds() {
   if (DISCOVER_KW_MAX > 0) queries = queries.slice(0, DISCOVER_KW_MAX);
   console.log(`  実行キーワード数: ${queries.length}${mode}`);
   const seeds = [];
+  const processedCats = new Set(); // 今回eBayに到達できた(検問でない)カテゴリ＝seedを差し替える対象。未到達は旧seedを持ち越す＝蓄積。
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {
     done++;
@@ -184,6 +192,7 @@ async function discoverSeeds() {
       if (pg < DISCOVER_PAGES) await jitterGap();
     }
     if (blockedThis) { blocked++; continue; }
+    processedCats.add(name); // 検問でなくeBayに到達できた＝このカテゴリのseedは今回ぶんで差し替える（落札なしでも旧を一掃）。
     if (!anyItems) noCardKw++;
     if (!allCards.length) { emptyKw++; console.log(`  ・落札なし : ${name}`); await jitterGap(); continue; }
 
@@ -232,13 +241,22 @@ async function discoverSeeds() {
   // 系統的失敗ブレーキ：ほとんどのキーワードでカード0/検問＝UI変更 or IPブロックの疑い→何も書かない（旧種を温存）。
   const cardBreak = done >= BRAKE_MIN && okKw === 0 && noCardKw / done > 0.8;
   const healthy = !(cardBreak || (done >= BRAKE_MIN && blocked / done > BRAKE_RATIO));
+  // マージ蓄積：今回到達できたカテゴリ(processedCats)だけ新seedで差し替え、未到達(検問/今回バッチ外)カテゴリは旧seedを持ち越す。
+  //   ＝1回のバッチ(既定150語)では全クエリを回せない/captchaで途中停止しても、毎回シャッフル＋持ち越しで数日かけ全921クエリを網羅し蓄積する。
+  //   毎回マージblob全体をTTL更新で再書込＝ワーカーが回り続ける限り失効しない（停止7日で自然失効＝失敗安全は維持）。
+  const SEED_CAP = Number(process.env.EBAY_SOLD_SEED_CAP) || 5000; // KV値サイズ/処理負荷の保護。超過時は実需(soldCount)の高い順に残す。
   let wrote = 0;
   if (!healthy) {
     console.error(`🚨 発掘異常（OK${okKw}/カード0語${noCardKw}/検問${blocked} of ${done}）＝UI変更 or IPブロック疑い。ebay_sold_seed は更新せず旧種を温存。`);
   } else if (DRY) {
-    console.log(`  [DRY] ${seeds.length}件のseed（書込なし）。先頭3件: ${JSON.stringify(seeds.slice(0, 3))}`);
-  } else if (seeds.length) {
-    if (await kvSetJson("ebay_sold_seed", seeds, SEED_TTL_S)) wrote = seeds.length;
+    console.log(`  [DRY] 今回${seeds.length}件・到達${processedCats.size}カテゴリ（マージ書込なし）。先頭3件: ${JSON.stringify(seeds.slice(0, 3))}`);
+  } else {
+    const prev = await kvGetJson("ebay_sold_seed");
+    const carried = Array.isArray(prev) ? prev.filter((r) => r && r.category && !processedCats.has(r.category)) : [];
+    let merged = [...carried, ...seeds];
+    if (merged.length > SEED_CAP) merged = merged.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)).slice(0, SEED_CAP);
+    if (merged.length && await kvSetJson("ebay_sold_seed", merged, SEED_TTL_S)) wrote = merged.length;
+    console.log(`  🧩マージ: 旧${Array.isArray(prev) ? prev.length : 0} − 再取得${processedCats.size}カテゴリ ＋ 新${seeds.length} ＝ 統合${merged.length}（持越${carried.length}）`);
   }
   await kvSetJson("ebay_sold_seed_status", { at: new Date().toISOString(), healthy, cardBreak, windowDays: WINDOW_DAYS, kw: done, okKw, emptyKw, noCardKw, blocked, seeds: seeds.length, wrote }, 14 * 24 * 3600);
   console.log(`発掘完了: キーワード${done} OK${okKw} 落札なし${emptyKw} カード0語${noCardKw} 検問${blocked} → seed${seeds.length} 書込${wrote}${DRY ? "(DRY)" : ""} healthy=${healthy}`);
