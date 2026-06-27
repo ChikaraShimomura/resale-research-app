@@ -19,10 +19,7 @@ import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
 import { hasPerm } from "../../../../lib/team";
-
-// 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
-const EBAY_FEE_RATE = 0.1325;
-const EBAY_FEE_FIXED_JPY = 47;
+import { breakevenUsd } from "../../../../lib/ebay/priceModel";
 
 // 「eBay出品画面」の確認用データを返す（読み取りのみ・eBayへの書き込みなし）。
 // 楽天画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
@@ -368,12 +365,11 @@ export async function POST(req: Request) {
   // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(楽天価格+国内送料)。
   // ※ ポイントは利益に含めない方針なので原価から引かない＝ポイント頼みで赤字ラインを下げない（安全側）。
   const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
-  // 損益分岐に出品者の実負担を織り込む。送料そのものは購入者負担なので引かない。
-  // subtractJpy = 「送料にかかるeBay手数料」＋「$100超の米国関税(前払い・立替)」。高額品ほど floor が上がり赤字を防ぐ。
-  // ★重量は推定実重量(weightG)で計算（カテゴリ概算より正確）。フォールバック時は weightG=カテゴリ概算なので従来と一致。
+  // 着地コストの内訳表示用（モーダルに渡す）＝推奨価格(priceUsd)時点の送料/関税の目安。
   const landed = landedCostForWeight(weightG, Number(priceUsd));
-  const floorJpy = Math.max(1, (effBuyJpy + EBAY_FEE_FIXED_JPY + landed.subtractJpy) / (1 - EBAY_FEE_RATE));
-  const floorUsd = (Math.round((floorJpy / USD_JPY) * 100) / 100).toFixed(2);
+  // 損益分岐(±0)は SSOT(breakevenUsd)で算出＝モーダル/商品管理と完全一致。自己整合(自分の価格で着地コスト評価)の
+  // 不動点なので、関税$100/EMS$120のしきい値をまたいでも矛盾しない。重量は推定実重量(weightG)。
+  const floorUsd = breakevenUsd(effBuyJpy, weightG).toFixed(2);
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 

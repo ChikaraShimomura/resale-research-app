@@ -9,6 +9,7 @@ import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
+import { computePriceModel, floorAtPriceUsd, FAST_DISCOUNT } from "../lib/ebay/priceModel";
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
@@ -91,23 +92,9 @@ interface PublishResult {
 
 type Phase = "loading" | "setup" | "form" | "publishing" | "done" | "notready" | "error" | "limit";
 
-// 「最安」フォールバック＝eBay現在の最安が取れない時は相場(中央値)より少し安く（8%）。
-const FAST_DISCOUNT = 0.08;
-// USD_JPY は SSOT(landedCostCore・env駆動/既定155)から import に統一（旧:ローカル155）。クライアントでは既定155に解決。
-const HIGH_MARKUP = 0.10; // 「高値」＝eBay相場(中央値)から10%高く
-
-// 自己整合の損益分岐(±0)USD。関税($100)/EMS($120)は「売価」依存で着地コストが跳ねるため、
-// 現在選択中の価格でなく「±0価格そのもの」で着地コストを評価する不動点反復で求める。
-// ＝戦略を切替えても ±0/最安ボタンの表記が動かない（中央値を選ぶと±0が¥13,000に化ける不具合の解消）。
-// ※ 価格依存の「赤字警告」は別途、実際に出す価格で評価する（こちらは固定しない＝しきい値直上の薄利も正しく検知）。
-function computeStableFloorUsd(effBuyJpy: number, weightG: number): number {
-  let v = effBuyJpy / USD_JPY; // 初期値＝原価USD
-  for (let i = 0; i < 5; i++) {
-    const landed = landedCostForWeight(weightG, v);
-    v = (effBuyJpy + 47 + landed.subtractJpy) / (1 - 0.1325) / USD_JPY;
-  }
-  return Math.round(v * 100) / 100;
-}
+// 価格(±0/最安/中央/高値)の算出は SSOT(computePriceModel) に一本化。商品管理(priceTiers)と同じ式・同じ入力＝食い違わない。
+// FAST_DISCOUNT(最安=中央値-8%)/HIGH_MARKUP(高値=+10%) も SSOT から import（旧:ローカル定数）。
+// USD_JPY は SSOT(landedCostCore・env駆動/既定155)から import に統一（クライアントでは既定155に解決）。
 
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
@@ -451,7 +438,6 @@ export default function EbayListingModal({
   // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
   const medianUsd = Number(data?.medianUsd) || Number(data?.priceUsd) || 0;
-  const lowUsd = Number(data?.lowestUsd) || 0;     // eBay同等品の現在の最安
   const competitionCount = typeof data?.competitionCount === "number" ? data.competitionCount : null; // eBay競合数（概算）
   // 着地コスト(国際送料＋米国関税)は「重さ(任意)」入力で動的に再計算。未入力なら概算(data.landed.weightG)。
   // 関税/EMSの元値は「実際にユーザーが出す価格(priceUsd)」を使う。推奨価格固定だと $100(関税)/$120(EMS) の境界を
@@ -460,15 +446,16 @@ export default function EbayListingModal({
   const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
   const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
-  // 損益分岐（これ未満は赤字・国際送料/関税込み）。effBuyJpy があれば重さに応じて再計算、無ければサーバー値。
+  // 価格モデル(SSOT)＝商品管理(priceTiers)と【同じ式・同じ入力】。±0/最安/中央/高値を一括算出。
+  // 各段は「その価格自身の損益分岐」を絶対に割らないクランプ済み＝赤字にならない。選択を切替えても±0は動かない。
+  const priceModel = data?.effBuyJpy != null
+    ? computePriceModel(data.effBuyJpy, effWeightG, medianUsd)
+    : { breakevenUsd: Number(data?.floorUsd) || 0, lowUsd: 0, medianUsd: 0, highUsd: 0 };
+  const floorStableUsd = priceModel.breakevenUsd; // ±0表記/クランプ用（自己整合・固定）
+  // 赤字警告だけは「実際に出す価格(priceUsd)」での損益分岐で判定＝しきい値直上の薄利/赤字も検知。
   const floorUsd =
-    data?.effBuyJpy != null && liveLanded
-      ? Math.round((((data.effBuyJpy + 47 + liveLanded.subtractJpy) / (1 - 0.1325)) / USD_JPY) * 100) / 100
-      : Number(data?.floorUsd) || 0;
-  // ボタン表記/クランプ用の「自己整合の損益分岐」＝選択中の価格に依らず固定（±0の数字が動かない）。
-  const floorStableUsd =
-    data?.effBuyJpy != null && liveLanded
-      ? computeStableFloorUsd(data.effBuyJpy, effWeightG)
+    data?.effBuyJpy != null
+      ? Math.round(floorAtPriceUsd(data.effBuyJpy, effWeightG, dutyValueUsd) * 100) / 100
       : Number(data?.floorUsd) || 0;
   // 損益分岐(floor)未満の価格＝赤字の恐れ。出すには「承知の上で」確認チェックが要る（ハードブロックはせず警告＋確認で続行可）。
   // ※ 警告は「実際に出す価格(priceUsd)」で評価する live floorUsd を使う＝しきい値直上の薄利も正しく検知。
@@ -487,13 +474,11 @@ export default function EbayListingModal({
   const shipFoldUsd = freeShip && canFreeShip ? Number(recoChoice?.costUsd || 0) : 0; // 価格に上乗せする送料
   const listedPriceUsd = Number(priceUsd || 0) + shipFoldUsd; // eBayに実際に出る価格
   const paidShipUsd = Number(recoChoice?.costUsd || 0); // 送料別のとき買い手に別途請求する送料(表示用)
-  const lowestAvailable = lowUsd > 0;
-  const lowestClamped = lowUsd > 0 && floorStableUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
-  // 価格の3段（過去落札ベース）。いずれも損益分岐は割らない。クランプは固定の floorStableUsd で（選択で数字が動かない）。
-  // 最安=eBay現在の最安 or 中央値-8%／中央値＝eBay落札中央値／高値＝中央値+10%。
-  const lowSel = lowUsd > 0 ? Math.max(lowUsd, floorStableUsd) : medianUsd > 0 ? Math.max(medianUsd * (1 - FAST_DISCOUNT), floorStableUsd) : 0;
-  const medianSel = medianUsd > 0 ? Math.max(medianUsd, floorStableUsd) : 0;
-  const highSel = medianUsd > 0 ? Math.max(medianUsd * (1 + HIGH_MARKUP), floorStableUsd) : 0;
+  // 価格の3段は SSOT から（最安=中央値-8%／中央値＝eBay落札中央値／高値＝中央値+10%、各段とも損益分岐を割らない）。
+  const lowSel = priceModel.lowUsd;
+  const medianSel = priceModel.medianUsd;
+  const highSel = priceModel.highUsd;
+  const lowestClamped = medianUsd > 0 && medianUsd * (1 - FAST_DISCOUNT) < floorStableUsd; // 最安(中央値-8%)が損益分岐を割る＝損益分岐で出す
   // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
   // 価格を $ で確定すると同時に、円入力欄(priceYen)も同期する（表示は円・内部はUSD）。
   const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(Math.round(u * USD_JPY)) : ""); };
@@ -844,28 +829,22 @@ export default function EbayListingModal({
                       <span className="whitespace-nowrap">過去落札の中央値どおり。</span><wbr />
                       <span className="whitespace-nowrap">売れるまで少し待ちます</span>
                     </>
-                  ) : !lowestAvailable ? (
-                    <>
-                      <span className="whitespace-nowrap">過去落札ベースで安めに</span><wbr />
-                      <span className="whitespace-nowrap">（eBay現在の最安が取れず、</span><wbr />
-                      <span className="whitespace-nowrap">中央値より少し安く）</span>
-                    </>
                   ) : lowestClamped ? (
                     <>
-                      <span className="whitespace-nowrap">eBay最安は赤字のため、</span><wbr />
+                      <span className="whitespace-nowrap">相場が薄いため、</span><wbr />
                       <span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorStableUsd * USD_JPY))} で出します</span><wbr />
                       <span className="whitespace-nowrap">（赤字回避）</span>
                     </>
                   ) : (
                     <>
-                      <span className="whitespace-nowrap">eBay現在の最安値と同額。</span><wbr />
-                      <span className="whitespace-nowrap">最速で売れやすく（赤字にはしません）</span>
+                      <span className="whitespace-nowrap">中央値より少し安く。</span><wbr />
+                      <span className="whitespace-nowrap">早く売れやすく（赤字にはしません）</span>
                     </>
                   )}
                 </p>
                 <p className="text-[9px] text-gray-300 mt-0.5">
                   <span className="whitespace-nowrap">※ 最安/中央値/高値は</span><wbr />
-                  <span className="whitespace-nowrap">eBayの過去落札の中央値と現在の最安値をもとに算出</span><wbr />
+                  <span className="whitespace-nowrap">eBayの過去落札の中央値をもとに算出</span><wbr />
                   <span className="whitespace-nowrap">（いずれも損益分岐は割りません）</span>
                 </p>
               </div>

@@ -10,7 +10,8 @@ import { getTeamContext } from "../lib/auth/teamActor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
-import { landedCost, landedCostForWeight } from "../lib/ebay/landedCost";
+import { estimateWeightG, USD_JPY } from "../lib/ebay/landedCost";
+import { computePriceModel } from "../lib/ebay/priceModel";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
 import FavoriteHeart from "../components/FavoriteHeart";
@@ -33,28 +34,16 @@ export const metadata: Metadata = {
 };
 
 const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
-const USD_JPY = 155;
 
-// 出品中の価格変更ボタン用の4段（±0育成 / 最安 / 中央値 / 高値）をUSDで算出。損益分岐は割らない。
-// ★損益分岐(floor)＝(仕入れ原価 ＋ eBay固定手数料¥47 ＋ 着地コスト) ÷ (1−eBay料率13.25%)。
-//   着地コスト = landedCost(国際送料へのeBay手数料 ＋ $100超の米国関税前払い ＋ 送料不足)。
-//   つまり ±0 も 最安/中央/高値 も「送料・関税・手数料を全て加味」した上で損益分岐を割らない（出品モーダルの floor と同一ロジック）。
+// 出品中の価格変更ボタン用の4段（±0育成 / 最安 / 中央値 / 高値）をUSDで算出。
+// ★計算は SSOT(computePriceModel) に一本化＝eBay自動出品モーダルと【同じ式・同じ入力】で出す（食い違い防止）。
+//   重量は商品ごとのAI推定(weight:{id} キャッシュ)を最優先、未キャッシュ時のみカテゴリ概算へフォールバック。
+//   各段は「その価格自身の損益分岐」を絶対に割らないようクランプ済み＝赤字にならない。
 function priceTiers(medianJpy: number, costJpy: number, category?: string, weightG?: number) {
-  const median = medianJpy > 0 ? medianJpy / USD_JPY : 0;
-  // 着地コストは「想定売価(中央値USD)」で見積もる。中央値が無ければ原価USDで概算。
-  const valueUsd = median > 0 ? median : costJpy > 0 ? costJpy / USD_JPY : 1;
-  // ★重量は「商品ごとのAI推定重量(weight:{id} キャッシュ)」を最優先＝出品モーダル(prepare)の floor と完全一致させる。
-  //   未キャッシュ(モーダル未オープン)の品だけカテゴリ概算へフォールバック。これが無いと一覧とモーダルの ±0 がズレる。
-  const landed = weightG && weightG > 0 ? landedCostForWeight(weightG, valueUsd) : landedCost(category, valueUsd);
-  const floorJpy = Math.max(1, (costJpy + 47 + landed.subtractJpy) / (1 - 0.1325));
-  const floor = floorJpy / USD_JPY;
-  return {
-    // 原価が分からない(0)時は ±0 もボタン無効化（near-free 価格の誤送信を防ぐ）。
-    breakeven: costJpy > 0 ? Math.max(0.01, floor) : 0,
-    low: median > 0 ? Math.max(floor, median * 0.9) : 0,
-    median: median > 0 ? Math.max(floor, median) : 0,
-    high: median > 0 ? Math.max(floor, median * 1.1) : 0,
-  };
+  const medianUsd = medianJpy > 0 ? medianJpy / USD_JPY : 0;
+  const w = weightG && weightG > 0 ? weightG : estimateWeightG(category);
+  const m = computePriceModel(costJpy, w, medianUsd);
+  return { breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd };
 }
 
 type Tab = "fav" | "bought" | "listed" | "ended";
