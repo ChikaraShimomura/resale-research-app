@@ -66,7 +66,7 @@ export default function ShipPage() {
         {/* $100超を米国へ送るとき：関税前払い(DDP)の手順。全員に常時出すと冗長なので折りたたみに格納（内容は保持） */}
         <details className="group bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
           <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-4 py-3 min-h-11 active:bg-amber-100/60">
-            <span className="text-[13px] font-black text-amber-800">🛃 $100超の米国宛は関税前払い（DDP）</span>
+            <span className="text-[13px] font-black text-amber-800"><span className="whitespace-nowrap">🛃 $100超の米国宛は</span><span className="whitespace-nowrap">関税前払い（DDP）</span></span>
             <span className="text-amber-700 text-[11px] font-bold shrink-0 flex items-center gap-1">
               詳しく見る
               <span className="transition-transform group-open:rotate-180">⌄</span>
@@ -78,7 +78,7 @@ export default function ShipPage() {
             </p>
             <ol className="text-[11px] text-amber-800/90 space-y-1 list-decimal pl-4 leading-relaxed">
               <li>Zonosで関税を前払い → <b>13桁のDeclaration ID</b>を取得</li>
-              <li>宛名ラベルに<b>「DDP」＋Declaration ID</b>を記載</li>
+              <li>宛名ラベルに<b className="whitespace-nowrap">「DDP」＋Declaration ID</b>を記載</li>
               <li><b>指定の郵便局</b>から差し出す（全局では不可）</li>
             </ol>
             <p className="text-[10px] text-amber-700/80 mt-2 leading-relaxed">

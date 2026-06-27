@@ -258,7 +258,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
 
             {/* 楽天仕入れ価格 */}
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[11px] text-gray-400">仕入れ{shippingJpy > 0 ? "(送料込)" : ""}</span>
+              <span className="text-[11px] text-gray-400 whitespace-nowrap">仕入れ{shippingJpy > 0 ? "(送料込)" : ""}</span>
               <span className="text-lg font-black text-[#2D323B]">
                 {formatJpy(source.price + shippingJpy)}
               </span>
@@ -273,7 +273,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 border border-[#A98B5C]/25">
           {/* eBay最安値（早く売れる価格）。中央値は小さく併記して価格帯が見えるように。 */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-400">{product.soldBased ? "eBay直近落札" : "eBay最安値"}<span className="text-[10px] text-gray-300 ml-0.5">（想定売値）</span></span>
+            <span className="text-xs text-gray-400 whitespace-nowrap">{product.soldBased ? "eBay直近落札" : "eBay最安値"}<span className="text-[10px] text-gray-300 ml-0.5">（想定売値）</span></span>
             <span className="text-lg font-bold text-blue-600 whitespace-nowrap">{formatJpy(product.realAvgPrice)}</span>
           </div>
           {product.realMedianPrice != null && product.realMedianPrice > product.realAvgPrice && (
@@ -354,7 +354,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         {showBreakdown && (
           <div className="bg-[#F8F9FB] rounded-xl p-4 mb-3 text-[12px] text-gray-600 space-y-1.5 border border-[#A98B5C]/25">
             <div className="flex justify-between">
-              <span>{product.soldBased ? "eBay直近落札（実売値）" : "eBay最安値（早く売れる価格）"}</span>
+              <span className="whitespace-nowrap">{product.soldBased ? "eBay直近落札（実売値）" : "eBay最安値（早く売れる価格）"}</span>
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#2D323B]">
@@ -362,7 +362,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span>- {formatJpy(source.price)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
-              <span>国内送料（楽天→自分）</span>
+              <span className="whitespace-nowrap">国内送料（楽天→自分）</span>
               {shippingJpy > 0 ? (
                 <span className="text-[#2D323B]">- {formatJpy(shippingJpy)}（概算）</span>
               ) : (
@@ -370,12 +370,12 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
             <div className="flex justify-between text-[#2D323B]">
-              <span>eBay手数料（13.25% + ¥47）</span>
+              <span>eBay手数料<span className="whitespace-nowrap">（13.25% + ¥47）</span></span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
             {intlAndDuty > 0 && (
               <div className="flex justify-between text-[#2D323B]">
-                <span>国際発送の目安（送料手数料＋関税）</span>
+                <span className="whitespace-nowrap">国際発送の目安（送料手数料＋関税）</span>
                 <span>- {formatJpy(intlAndDuty)}</span>
               </div>
             )}
@@ -389,7 +389,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
             </div>
             {pointAmount > 0 && (
               <div className="flex justify-between text-[11px] text-[#FF4466] font-bold">
-                <span>＋ 楽天ポイント（{source.pointRate ?? 1}%・利益とは別）</span>
+                <span>＋ 楽天ポイント<span className="whitespace-nowrap">（{source.pointRate ?? 1}%・利益とは別）</span></span>
                 <span>{pointAmount.toLocaleString()}ポイント</span>
               </div>
             )}

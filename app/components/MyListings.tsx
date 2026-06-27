@@ -349,7 +349,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                             onClick={() => stopListing(d.id)}
                             className="w-full inline-flex items-center justify-center gap-1.5 h-10 rounded-lg bg-red-600 text-white text-[12px] font-bold disabled:opacity-40 active:bg-red-700"
                           >
-                            {busy === d.id ? <Spinner size={13} /> : <Ban size={14} />} この出品を停止する
+                            {busy === d.id ? <Spinner size={13} /> : <Ban size={14} className="shrink-0" />} <span className="whitespace-nowrap">この出品を停止する</span>
                           </button>
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
@@ -373,7 +373,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                             rel="noopener noreferrer"
                             className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold active:bg-gray-50"
                           >
-                            <ShoppingCart size={12} /> 仕入れ先を確認（在庫が戻ったら）
+                            <ShoppingCart size={12} className="shrink-0" /> <span className="whitespace-nowrap">仕入れ先を確認（在庫が戻ったら）</span>
                           </a>
                         </div>
                       ) : (

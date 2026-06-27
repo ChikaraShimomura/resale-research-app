@@ -199,13 +199,13 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           {locked ? (
                             <>仕入れ <span className="text-gray-400">●●●</span> <span className="text-gray-300">→</span> eBay想定 <span className="text-gray-400">●●●</span></>
                           ) : (
-                            <>仕入れ {yen(p.buyJpy)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.ebayMedianJpy)}</span></>
+                            <><span className="whitespace-nowrap">仕入れ {yen(p.buyJpy)}</span> <span className="text-gray-300">→</span> <span className="whitespace-nowrap">eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.ebayMedianJpy)}</span></span></>
                           )}
                         </p>
                         {!locked && (
                           <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
                             {p.ebayConfirmed ? (
-                              <>eBay落札ベース{p.soldCount ? `・直近${p.soldCount}件` : ""}<span className="text-emerald-600 font-bold">（型番一致）</span></>
+                              <>eBay落札ベース{p.soldCount ? <span className="whitespace-nowrap">・直近{p.soldCount}件</span> : ""}<span className="text-emerald-600 font-bold whitespace-nowrap">（型番一致）</span></>
                             ) : (
                               <>eBay落札ベース（系列の目安・<span className="text-[#0064D2]">型番はリンクで確認↓</span>）</>
                             )}
@@ -237,7 +237,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           </span>
                           <p className="text-[9px] text-gray-400">利益率</p>
                           {!locked && (
-                            <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums">+{yen(p.profitJpy)}</p>
+                            <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums whitespace-nowrap">+{yen(p.profitJpy)}</p>
                           )}
                         </div>
                       </div>
@@ -282,7 +282,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                         href="/pricing?from=catalog"
                         className="mt-2.5 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B]/95 text-white font-bold text-[13px] rounded-xl ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
                       >
-                        <Lock size={13} className="text-[#A98B5C]" aria-hidden="true" /> 仕入れ先はプランで解放
+                        <Lock size={13} className="text-[#A98B5C]" aria-hidden="true" /> <span className="whitespace-nowrap">仕入れ先はプランで解放</span>
                       </Link>
                     )}
                   </div>

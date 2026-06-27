@@ -15,8 +15,8 @@ export default function StripBestOfferButton() {
       if (r.connected === false) setMsg("先にeBayと連携してから実行してください。");
       else if (r.ok)
         setMsg(
-          `出品中 ${r.checked} 件を確認し、${r.changed} 件から値下げ交渉を外しました。` +
-            (r.failed ? `（${r.failed} 件は反映待ちの可能性。時間をおいて再実行してください）` : "")
+          `出品中 ${r.checked}件を確認し、${r.changed}件から値下げ交渉を外しました。` +
+            (r.failed ? `（${r.failed}件は反映待ちの可能性。時間をおいて再実行してください）` : "")
         );
       else setMsg("実行できませんでした。時間をおいて再度お試しください。");
     } catch {

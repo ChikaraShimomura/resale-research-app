@@ -135,21 +135,21 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
         {/* 収支（finance権限のあるメンバー＝オーナーには常に表示） */}
         {canFinance && (
           <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm mb-4">
-            <p className="text-[13px] font-black text-gray-800 mb-1">収支（仕入れ ↔ 売上）</p>
+            <p className="text-[13px] font-black text-gray-800 mb-1"><span className="whitespace-nowrap">収支（仕入れ ↔ 売上）</span></p>
             <p className="text-[11px] text-gray-400 mb-3">{ownerEmail} さんの「仕入れた」と自動出品の売上</p>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-gray-500">仕入れ累計</span>
-                <span className="text-[13px] font-bold text-gray-700 tabular-nums">− {yen(totalBuy)}</span>
+                <span className="text-[13px] font-bold text-gray-700 tabular-nums whitespace-nowrap">− {yen(totalBuy)}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-gray-500">売上累計（{s.soldCount}件売れた）</span>
-                <span className="text-[13px] font-bold text-[#0064D2] tabular-nums">+ {yen(s.totalSales)}</span>
+                <span className="text-[13px] font-bold text-[#0064D2] tabular-nums whitespace-nowrap">+ {yen(s.totalSales)}</span>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between gap-2">
               <span className="text-[12px] font-bold text-gray-700">差引（現金）</span>
-              <span className={`text-lg font-black tabular-nums ${netCash < 0 ? "text-[#2D323B]" : "text-emerald-600"}`}>
+              <span className={`text-lg font-black tabular-nums whitespace-nowrap ${netCash < 0 ? "text-[#2D323B]" : "text-emerald-600"}`}>
                 {(netCash < 0 ? "− " : "") + "¥" + Math.abs(Math.round(netCash)).toLocaleString("ja-JP")}
               </span>
             </div>
@@ -177,7 +177,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
                         <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                          仕入れ {yen(p.source?.price ?? 0)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                          <span className="whitespace-nowrap">仕入れ {yen(p.source?.price ?? 0)}</span> <span className="text-gray-300">→</span> <span className="whitespace-nowrap">eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span></span>
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -212,7 +212,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{e.title || "（商品名なし）"}</p>
                         <p className="text-[11px] text-gray-500 mt-1">
                           <span className="font-bold text-gray-700">{emailByActor.get(e.byActor) || "メンバー"}</span> が出品
-                          {e.buyJpy ? <span className="tabular-nums"> ・仕入れ {yen(e.buyJpy)}</span> : null}
+                          {e.buyJpy ? <span className="tabular-nums whitespace-nowrap"> ・仕入れ {yen(e.buyJpy)}</span> : null}
                         </p>
                         {e.listingId && (
                           <a href={`https://www.ebay.com/itm/${e.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#0064D2]">
@@ -253,8 +253,8 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
                         <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                          仕入れ {yen(buyJpy)} <span className="text-gray-300">→</span> eBay想定{" "}
-                          <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                          <span className="whitespace-nowrap">仕入れ {yen(buyJpy)}</span> <span className="text-gray-300">→</span>{" "}
+                          <span className="whitespace-nowrap">eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span></span>
                         </p>
                         {p.source?.url && (
                           <a href={p.source.url} target="_blank" rel="nofollow noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#2D323B]">
@@ -268,7 +268,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                           {p.realProfitRate}%
                         </span>
                         <p className="text-[9px] text-gray-400">利益率</p>
-                        <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums">+{yen(p.realProfit)}</p>
+                        <p className="text-[11px] font-black text-[#A98B5C] mt-0.5 tabular-nums whitespace-nowrap">+{yen(p.realProfit)}</p>
                       </div>
                     </div>
 
@@ -314,7 +314,7 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
                       <div className="flex-1 min-w-0">
                         <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200 mb-1">{label}</span>
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
-                        <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
+                        <p className="text-[11px] text-gray-500 mt-1 tabular-nums"><span className="whitespace-nowrap">仕入れ {yen(d.purchase)}</span></p>
                         {d.listingId && (
                           <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#0064D2]">
                             eBayの出品を見る <ExternalLink size={11} />

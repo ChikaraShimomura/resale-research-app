@@ -270,7 +270,7 @@ export default function EditListingModal({
                       ) : (
                         <>
                           <span>送料別に戻す</span>
-                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums">価格 −約¥{Math.round(ship.unfoldUsd * 155).toLocaleString("ja-JP")}</span>}
+                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums whitespace-nowrap">価格 −約¥{Math.round(ship.unfoldUsd * 155).toLocaleString("ja-JP")}</span>}
                         </>
                       )}
                     </button>
@@ -288,7 +288,7 @@ export default function EditListingModal({
                       ) : (
                         <>
                           <span>送料込み（送料無料）に切替</span>
-                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums">価格 +約¥{Math.round(ship.foldUsd * 155).toLocaleString("ja-JP")}</span>}
+                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums whitespace-nowrap">価格 +約¥{Math.round(ship.foldUsd * 155).toLocaleString("ja-JP")}</span>}
                         </>
                       )}
                     </button>

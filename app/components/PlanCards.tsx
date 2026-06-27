@@ -130,17 +130,17 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               {PLAN_PERSONA[id] && (
                 <p className="text-[11px] text-gray-500 mt-0.5">{PLAN_PERSONA[id]}</p>
               )}
-              <p className="mt-1">
+              <p className="mt-1 whitespace-nowrap">
                 <span className="text-2xl font-black text-[#2D323B]">¥{p.priceJpy.toLocaleString()}</span>
                 <span className="text-[12px] text-gray-400">/月</span>
               </p>
               {trial && !isSubscriber && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-0.5">最初の{TRIAL_DAYS}日間無料</p>
+                <p className="text-[11px] font-bold text-emerald-600 mt-0.5 whitespace-nowrap">最初の{TRIAL_DAYS}日間無料</p>
               )}
               <ul className="mt-3 space-y-1.5 text-[12px] text-gray-600 flex-1">
                 <li className="flex items-center gap-1.5">
                   <Check size={13} className="text-emerald-500 shrink-0" />
-                  同時出品 {p.listingLimit}件まで
+                  <span className="whitespace-nowrap">同時出品 {p.listingLimit}件まで</span>
                 </li>
                 <li className="flex items-center gap-1.5">
                   <Check size={13} className="text-emerald-500 shrink-0" />
@@ -160,7 +160,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               {/* 申込ボタン直下の不安解消（未購読のみ）。ライト=無料期間の安心、上位=トライアルはライトのみ。 */}
               {!isSubscriber && trial && (
                 <p className="text-[10.5px] text-gray-500 mt-2 leading-relaxed text-center">
-                  無料期間中は0円・終了前にメール通知・ワンタップ解約
+                  <span className="whitespace-nowrap">無料期間中は0円</span>・<span className="whitespace-nowrap">終了前にメール通知</span>・<span className="whitespace-nowrap">ワンタップ解約</span>
                 </p>
               )}
               {!isSubscriber && !trial && (

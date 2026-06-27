@@ -107,13 +107,13 @@ export default function EbayListingSetup() {
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-sm font-black text-gray-800">eBay自動出品の準備</h2>
-        <span className="text-[11px] font-bold text-gray-400">{doneCount}/{dones.length} 完了</span>
+        <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">{doneCount}/{dones.length} 完了</span>
       </div>
 
       {allDone && (
         <div ref={ctaRef} className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4 space-y-3">
           <p className="text-[13px] font-bold text-emerald-700 flex items-center gap-2">
-            <BadgeCheck size={16} /> eBay連携・出品の準備が完了！
+            <BadgeCheck size={16} className="shrink-0" /> <span className="whitespace-nowrap">eBay連携・出品の準備が完了！</span>
           </p>
           <p className="text-[11px] text-emerald-800 leading-relaxed">
             あとは商品を選んで「eBay自動出品」を押すだけ。
@@ -143,7 +143,7 @@ export default function EbayListingSetup() {
           onClick={() => setOverride(null)}
           className="w-full h-11 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]"
         >
-          次にやること（STEP {firstIncomplete + 1}）を開く →
+次にやること<span className="whitespace-nowrap">（STEP {firstIncomplete + 1}）</span>を開く →
         </button>
       )}
 

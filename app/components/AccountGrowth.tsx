@@ -83,7 +83,7 @@ export default function AccountGrowth() {
         </div>
         <p className="text-lg font-black leading-tight">{loaded ? stageInfo.label : "読み込み中…"}</p>
         {feedbackScore != null && (
-          <p className="text-[11px] text-white/60 mt-1">eBay評価 {feedbackScore}件{positivePct != null ? `・好評価 ${positivePct}%` : ""}</p>
+          <p className="text-[11px] text-white/60 mt-1"><span className="whitespace-nowrap">eBay評価 {feedbackScore}件</span>{positivePct != null ? <>・<span className="whitespace-nowrap">好評価 {positivePct}%</span></> : ""}</p>
         )}
         <p className="text-[12px] text-white/80 leading-relaxed mt-1.5">{stageInfo.desc}</p>
         {/* ステージバー */}

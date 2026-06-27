@@ -302,7 +302,7 @@ export default function TeamManager({
             className={`rounded-xl border px-3 py-2.5 text-left focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none ${mode === "shared" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">共有</span>
-            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5"><b>あなたの1つのeBay</b>で全員が出品（オーナー名義）</span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5"><b className="whitespace-nowrap">あなたの1つのeBay</b>で全員が出品<span className="whitespace-nowrap">（オーナー名義）</span></span>
           </button>
           <button
             onClick={() => setTeamMode("individual")}

@@ -134,16 +134,16 @@ function UsedFinancePanel({ s }: { s: Stats }) {
       <p className="text-[11px] text-gray-400 mb-3">仕入れた商品（送料込）と、自動出品で売れた金額</p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] text-gray-500">仕入れ累計（{buyCount}件・送料込）</span>
+          <span className="text-[11px] text-gray-500 whitespace-nowrap">仕入れ累計（{buyCount}件・送料込）</span>
           <span className="text-[13px] font-bold text-gray-700 tabular-nums">− {yen(totalBuy)}</span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] text-gray-500">売上累計（{s.soldCount}件売れた）</span>
+          <span className="text-[11px] text-gray-500 whitespace-nowrap">売上累計（{s.soldCount}件売れた）</span>
           <span className="text-[13px] font-bold text-[#0064D2] tabular-nums">+ {yen(sales)}</span>
         </div>
       </div>
       <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between gap-2">
-        <span className="text-[12px] font-bold text-gray-700">差引（現金）</span>
+        <span className="text-[12px] font-bold text-gray-700 whitespace-nowrap">差引（現金）</span>
         <span className={`text-lg font-black tabular-nums ${netCash < 0 ? "text-[#2D323B]" : "text-emerald-600"}`}>
           {signedYen(netCash)}
         </span>
@@ -366,7 +366,7 @@ export default function MyDashboard() {
               {signedYen(s.totalProfit)}
             </p>
             {s.totalPoints > 0 && (
-              <p className="mt-1 text-[13px] font-bold text-[#FF4466]">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
+              <p className="mt-1 text-[13px] font-bold text-[#FF4466] whitespace-nowrap">（ + {s.totalPoints.toLocaleString()}ポイント）</p>
             )}
             <p className={`mt-1 text-[12px] ${loss ? "text-red-500" : "text-gray-500"}`}>
               {s.soldCount}件 売れました{s.totalProfit > 0 ? " 🎉" : ""}
@@ -378,9 +378,9 @@ export default function MyDashboard() {
               const diff = m.last == null ? null : m.thisMonth - m.last;
               return (
                 <p className="mt-2 text-[12px] text-gray-500">
-                  今月の利益 <b className="text-gray-800 tabular-nums">{signedYen(m.thisMonth)}</b>
+                  <span className="whitespace-nowrap">今月の利益 <b className="text-gray-800 tabular-nums">{signedYen(m.thisMonth)}</b></span>
                   {diff != null && (
-                    <span className={`ml-1 tabular-nums ${diff >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    <span className={`ml-1 tabular-nums whitespace-nowrap ${diff >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                       （先月比 {diff >= 0 ? "+" : "− "}
                       {"¥" + Math.round(Math.abs(diff)).toLocaleString("ja-JP")}）
                     </span>
@@ -422,7 +422,7 @@ export default function MyDashboard() {
           次の利益商品を見る
           {s.avgProfit > 0 && (
             <span className="block text-[11px] font-medium text-white/70">
-              1件あたり平均 {yen(s.avgProfit)} の利益
+              <span className="whitespace-nowrap">1件あたり平均 {yen(s.avgProfit)}</span> の利益
             </span>
           )}
         </span>

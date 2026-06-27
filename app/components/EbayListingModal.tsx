@@ -866,13 +866,13 @@ export default function EbayListingModal({
                   {Number(priceUsd) > 0 && (
                     freeShip && canFreeShip ? (
                       <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
-                        → eBay掲載価格 <b>{formatJpy(Math.round(listedPriceUsd * USD_JPY))}</b>（${listedPriceUsd.toFixed(2)}）・<b>送料無料</b>
-                        <span className="block text-[10px] font-normal text-gray-500">本体 {formatJpy(Math.round(Number(priceUsd) * USD_JPY))} ＋ 送料 {formatJpy(Math.round(shipFoldUsd * USD_JPY))} を価格に込み（買い手の総額は送料別と同じ）</span>
+                        → <span className="whitespace-nowrap">eBay掲載価格 <b>{formatJpy(Math.round(listedPriceUsd * USD_JPY))}</b>（${listedPriceUsd.toFixed(2)}）</span>・<b>送料無料</b>
+                        <span className="block text-[10px] font-normal text-gray-500"><span className="whitespace-nowrap">本体 {formatJpy(Math.round(Number(priceUsd) * USD_JPY))}</span> ＋ <span className="whitespace-nowrap">送料 {formatJpy(Math.round(shipFoldUsd * USD_JPY))}</span> を価格に込み（買い手の総額は送料別と同じ）</span>
                       </p>
                     ) : (
                       <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
-                        → eBay掲載価格 <b>{formatJpy(Math.round(Number(priceUsd) * USD_JPY))}</b>（${Number(priceUsd).toFixed(2)}）＋ 送料 {formatJpy(Math.round(paidShipUsd * USD_JPY))} を別途請求
-                        <span className="block text-[10px] font-normal text-gray-500">買い手の総額 ≒ {formatJpy(Math.round((Number(priceUsd) + paidShipUsd) * USD_JPY))}（送料込みと同じ）</span>
+                        → <span className="whitespace-nowrap">eBay掲載価格 <b>{formatJpy(Math.round(Number(priceUsd) * USD_JPY))}</b>（${Number(priceUsd).toFixed(2)}）</span>＋ <span className="whitespace-nowrap">送料 {formatJpy(Math.round(paidShipUsd * USD_JPY))}</span> を別途請求
+                        <span className="block text-[10px] font-normal text-gray-500"><span className="whitespace-nowrap">買い手の総額 ≒ {formatJpy(Math.round((Number(priceUsd) + paidShipUsd) * USD_JPY))}</span>（送料込みと同じ）</span>
                       </p>
                     )
                   )}
@@ -904,12 +904,12 @@ export default function EbayListingModal({
                         <span>梱包込み（未入力は安全側で少し重め）</span>
                       </div>
                     )}
-                    📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}（
+                    <span className="whitespace-nowrap">📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}</span>（
                     {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／
                     {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）＝<b className="text-gray-500">購入者が負担</b>
                     {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
-                        🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}・$100超はZonosで関税を前払い＋指定郵便局から発送
+                        <span className="whitespace-nowrap">🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}</span>・$100超はZonosで関税を前払い＋指定郵便局から発送
                       </span>
                     )}
                     <span className="block mt-0.5">
@@ -920,7 +920,7 @@ export default function EbayListingModal({
                 {belowFloor && (
                   <div className="mt-1.5">
                     <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      <span aria-hidden="true">⚠️ </span>損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))} を下回り、<b>赤字の恐れ</b>があります。
+                      <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))}</span> を下回り、<b>赤字の恐れ</b>があります。
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input
