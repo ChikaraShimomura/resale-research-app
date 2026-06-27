@@ -4,8 +4,8 @@ import { Flame, ExternalLink, Lock, ArrowRight } from "lucide-react";
 import { getActorId } from "../../lib/auth/actor";
 import { getCurrentUserEmail } from "../../lib/auth/plan";
 import { isTeamMember, getMyTeams, getTeamName, getMemberPerms, getTeamMode, getRoster, getPending, getTeamListed } from "../../lib/team";
-import { getBoughtItems, sourceSiteName } from "../../lib/usedCatalog";
-import { getStats } from "../../lib/ebay/stats";
+import { getBoughtItems, getFavoriteItems, sourceSiteName } from "../../lib/usedCatalog";
+import { getStats, listDealsForUser } from "../../lib/ebay/stats";
 import BottomNav from "../../components/BottomNav";
 import ListingHelper from "../../components/ListingHelper";
 import RemoveBoughtButton from "../../components/RemoveBoughtButton";
@@ -48,25 +48,40 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   const teamName = await getTeamName(ownerActor);
   const teamLabel = teamName || `${ownerEmail} のチーム`;
 
-  // 権限とモード。オーナー本人は全権限。共有モードのみアクション可（個別モードは読み取り専用）。
-  const [allItems, s, perms, mode, teamListed, roster] = await Promise.all([
+  // チーム共有＝オーナーの お気に入り／仕入れ商品／出品中／終了商品 ＋ 収益 を全員で共有（権限は操作だけを制御）。
+  const [favItems, allItems, s, perms, mode, teamListed, roster, teamDeals] = await Promise.all([
+    getFavoriteItems(ownerActor),
     getBoughtItems(ownerActor),
     getStats(ownerActor),
     getMemberPerms(ownerActor, viewer || ""),
     getTeamMode(ownerActor),
     getTeamListed(ownerActor),
     getRoster(ownerActor),
+    listDealsForUser(ownerActor),
   ]);
   const isOwner = viewer === ownerActor;
   const shared = mode === "shared";
-  // チームの誰かが出品した商品は「出品中の商品（チーム）」へ。残りが未出品の「仕入れた商品」。
-  // 個別モードでも team_listed に焼かれるので、別メンバーが二重出品しない＆全員で出品中を見られる。
   const emailByActor = new Map(roster.map((m) => [m.actor, m.email]));
   emailByActor.set(ownerActor, ownerEmail);
-  const listedArr = Object.entries(teamListed)
-    .map(([id, e]) => ({ id, ...e }))
-    .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || ""));
-  const items = allItems.filter((p) => !teamListed[p.id]);
+  // 出品中（チーム）＝オーナーのeBay出品(live deal) ＋ 個別モードでメンバーが各自eBayに出した分(team_listed)。重複は id で統合。
+  const listedMap = new Map<string, { id: string; title?: string; imageUrl?: string; listingId?: string; byActor: string; buyJpy?: number; at: string }>();
+  for (const d of teamDeals.live) {
+    const tl = teamListed[d.id];
+    listedMap.set(d.id, { id: d.id, title: d.title, imageUrl: d.imageUrl, listingId: d.listingId, byActor: tl?.byActor || ownerActor, buyJpy: d.purchase, at: tl?.listedAt || d.listedAt || "" });
+  }
+  for (const [id, e] of Object.entries(teamListed)) {
+    if (!listedMap.has(id)) listedMap.set(id, { id, title: e.title, imageUrl: e.imageUrl, listingId: e.listingId, byActor: e.byActor, buyJpy: e.buyJpy, at: e.listedAt || "" });
+  }
+  const listedArr = [...listedMap.values()].sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  // 終了商品（チーム）＝停止中＋過去の出品（オーナーのeBay分）。
+  const endedArr = [...teamDeals.stopped, ...teamDeals.archived];
+  // 仕入れ商品＝「仕入れた」のうち、出品中/終了/team_listed のどれにも入っていない（未出品）もの。
+  const listedExcludeIds = new Set<string>([
+    ...listedMap.keys(),
+    ...teamDeals.stopped.map((d) => d.id),
+    ...teamDeals.archived.map((d) => d.id),
+  ]);
+  const items = allItems.filter((p) => !listedExcludeIds.has(p.id));
   // 操作可否は権限のみで決まる（どちらの方式でもメンバーは権限に応じて操作できる）。方式は出品に使うeBayアカウントの違いだけ。
   const can = (p: string) => isOwner || perms.includes(p as never);
   const canFinance = can("finance");
@@ -141,6 +156,39 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
             {!shared && (
               <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 個別モードでは各メンバーの売上は各自のeBayアカウントに計上され、この収支（オーナー分）には含まれません。</p>
             )}
+          </section>
+        )}
+
+        {/* お気に入り（チーム共有・閲覧）。オーナーのお気に入りを全員で見られる。 */}
+        {favItems.length > 0 && (
+          <section className="mb-5">
+            <h2 className="text-sm font-black text-gray-800 mb-2">お気に入り（{favItems.length}）</h2>
+            <ol className="space-y-2.5">
+              {favItems.map((p, i) => (
+                <li key={`fav-${p.id}-${i}`}>
+                  <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      {p.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
+                        <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
+                          仕入れ {yen(p.source?.price ?? 0)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm"><Flame size={13} />{p.realProfitRate}%</span>
+                        <p className="text-[9px] text-gray-400">利益率</p>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </section>
         )}
 
@@ -244,10 +292,47 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
             })}
           </ol>
         )}
+
+        {/* 終了商品（チーム共有・閲覧）：停止中＋過去の出品（オーナーのeBay分）。 */}
+        {endedArr.length > 0 && (
+          <section className="mt-5">
+            <h2 className="text-sm font-black text-gray-800 mb-2">終了商品（{endedArr.length}）</h2>
+            <ol className="space-y-2.5">
+              {[
+                ...teamDeals.stopped.map((d) => ({ d, label: "停止中" })),
+                ...teamDeals.archived.map((d) => ({ d, label: "過去の出品" })),
+              ].map(({ d, label }, i) => (
+                <li key={`end-${d.id}-${i}`}>
+                  <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      {d.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={d.imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200 mb-1">{label}</span>
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
+                        <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
+                        {d.listingId && (
+                          <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#0064D2]">
+                            eBayの出品を見る <ExternalLink size={11} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         <p className="mt-4 text-[10px] text-gray-400 leading-relaxed">
           {shared
-            ? "※ 共有モード：在庫・収支を共有し、出品はオーナーの1つのeBayアカウント（オーナーのプラン枠）で行います。"
-            : "※ 個別モード：在庫・収支を共有しつつ、出品は各メンバー自身が連携したeBayアカウントで行います。"}
+            ? "※ 共有モード：お気に入り・仕入れ・出品中・終了商品・収益を共有し、出品はオーナーの1つのeBayアカウント（オーナーのプラン枠）で行います。"
+            : "※ 個別モード：お気に入り・仕入れ・出品中・終了商品・収益を共有しつつ、出品は各メンバー自身が連携したeBayアカウントで行います。"}
         </p>
       </main>
 
