@@ -17,6 +17,11 @@ export const dynamic = "force-dynamic";
 const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
 
+// 出品が見つからない時の文言。\n で「見出し＋詳細」を改行（表示側は whitespace-pre-line で1行目を独立表示）。
+// チーム個別モードでは「別メンバーのeBayに出した出品」は本人以外から取得できないため、その可能性も伝える。
+const OFFER_NOT_FOUND =
+  "この出品が見つかりませんでした。\n違うチームメイトが出品したか、eBay側で終了された可能性があります。";
+
 export async function GET(req: Request) {
   const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
   if (!actor) return Response.json({ ok: false, connected: false });
@@ -30,7 +35,7 @@ export async function GET(req: Request) {
   if (!offer) {
     return Response.json({
       ok: false,
-      error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。",
+      error: OFFER_NOT_FOUND,
     });
   }
   // 撮影の参考用：自宅ワーカー(galleryWorker)が取得・保存した楽天ギャラリー(ref_gallery:{id})を返す。
@@ -75,7 +80,7 @@ export async function POST(req: Request) {
   if (body.shipMode === "free" || body.shipMode === "paid") {
     const sku = await skuFor(actor, body.productId);
     const offer = await getOfferForSku(token, sku);
-    if (!offer) return Response.json({ ok: false, error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。" });
+    if (!offer) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
     const policies = await listFulfillmentPolicies(token);
     const cur = policies.find((p) => p.fulfillmentPolicyId === offer.fulfillmentPolicyId) || null;
     const free = policies.find((p) => Number(p.costUsd) < 0.01) || null;
@@ -121,7 +126,7 @@ export async function POST(req: Request) {
 
   const sku = await skuFor(actor, body.productId);
   const offer = await getOfferForSku(token, sku);
-  if (!offer) return Response.json({ ok: false, error: "この出品が見つかりませんでした（eBay側で削除/終了された可能性があります）。" });
+  if (!offer) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
 
   // 価格のみ変更でも、現在の数量(availability)を更新リクエストに同梱する。
   // 在庫(availability)が欠けた状態だと #25604「Availability not found」系で400になることがあるため、

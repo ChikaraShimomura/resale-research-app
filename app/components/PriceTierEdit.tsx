@@ -62,7 +62,7 @@ export default function PriceTierEdit({
         ))}
       </div>
       {doneUsd != null && <p className="mt-1 text-[10px] text-emerald-600 font-bold">✓ {yen(doneUsd)} に変更しました</p>}
-      {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
+      {err && <p className="mt-1 text-[11px] text-rose-600 leading-snug whitespace-pre-line">{err}</p>}
     </div>
   );
 }
