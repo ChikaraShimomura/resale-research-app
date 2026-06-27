@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配�
 
 const TITLE = "中古の利益カタログ｜eBay輸出で儲かる型番";
 const DESC =
-  "eBayで売れている型番を、日本の中古サイト（ハードオフ等）の現在価格と突合。送料・関税・手数料を引いた純利益と状態ランクつきで、いま仕入れて利益が出る中古品を一覧。";
+  "eBay輸出で利益が見込める中古品を、状態ランクと想定利益つきで一覧。いま仕入れて利益が出る型番が見つかります。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -117,17 +117,13 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         )}
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">eBayで儲かる中古の型番</h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          <span className="whitespace-nowrap"><b>eBayで売れている型番</b>を、</span><wbr />
-          <span className="whitespace-nowrap">日本の<b>中古サイト</b>の現在価格と突合。</span><wbr />
-          <span className="whitespace-nowrap"><b>仕入れ値 → eBay想定売値</b></span><wbr />
-          <span className="whitespace-nowrap"><b>（直近落札）→ 純利益</b>を、</span><wbr />
-          <span className="whitespace-nowrap"><b>状態ランク</b>つきで表示。</span>
+          <span className="whitespace-nowrap">いま仕入れて利益が見込める中古品を、</span><wbr />
+          <span className="whitespace-nowrap"><b>状態ランク</b>と<b>想定利益</b>つきで一覧。</span>
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
-          <span className="whitespace-nowrap">※ 純利益＝eBay想定売値</span><wbr />
-          <span className="whitespace-nowrap">−（eBay手数料・国際送料・米国関税・仕入れ値）。</span><wbr />
-          <span className="whitespace-nowrap">中古は1点物のため在庫は流動的。</span><wbr />
-          <span className="whitespace-nowrap">状態・競合・為替で変動。</span>
+          <span className="whitespace-nowrap">※ 想定売値・利益は目安です。</span><wbr />
+          <span className="whitespace-nowrap">中古は1点物のため在庫は流動的で、</span><wbr />
+          <span className="whitespace-nowrap">相場・状態・為替で変動します。</span>
         </p>
 
         {/* ジャンル絞り込み（?genre=）。2ジャンル以上ある時だけ出す。サーバー側でフィルタ＝マスク/漏洩対策を維持。 */}
