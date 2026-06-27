@@ -96,6 +96,19 @@ const FAST_DISCOUNT = 0.08;
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)から import に統一（旧:ローカル155）。クライアントでは既定155に解決。
 const HIGH_MARKUP = 0.10; // 「高値」＝eBay相場(中央値)から10%高く
 
+// 自己整合の損益分岐(±0)USD。関税($100)/EMS($120)は「売価」依存で着地コストが跳ねるため、
+// 現在選択中の価格でなく「±0価格そのもの」で着地コストを評価する不動点反復で求める。
+// ＝戦略を切替えても ±0/最安ボタンの表記が動かない（中央値を選ぶと±0が¥13,000に化ける不具合の解消）。
+// ※ 価格依存の「赤字警告」は別途、実際に出す価格で評価する（こちらは固定しない＝しきい値直上の薄利も正しく検知）。
+function computeStableFloorUsd(effBuyJpy: number, weightG: number): number {
+  let v = effBuyJpy / USD_JPY; // 初期値＝原価USD
+  for (let i = 0; i < 5; i++) {
+    const landed = landedCostForWeight(weightG, v);
+    v = (effBuyJpy + 47 + landed.subtractJpy) / (1 - 0.1325) / USD_JPY;
+  }
+  return Math.round(v * 100) / 100;
+}
+
 // ココナラ(他社)のセラー登録サポート導線。A8.netアフィリエイト(本人のa8mat)。
 // env が優先。未設定でも下のデフォルト(本番リンク)で動く。NEXT_PUBLIC_* はビルド時に埋め込まれる(公開値=a8matは元々公開)。
 const COCONALA_AFFILIATE_URL =
@@ -452,7 +465,13 @@ export default function EbayListingModal({
     data?.effBuyJpy != null && liveLanded
       ? Math.round((((data.effBuyJpy + 47 + liveLanded.subtractJpy) / (1 - 0.1325)) / USD_JPY) * 100) / 100
       : Number(data?.floorUsd) || 0;
+  // ボタン表記/クランプ用の「自己整合の損益分岐」＝選択中の価格に依らず固定（±0の数字が動かない）。
+  const floorStableUsd =
+    data?.effBuyJpy != null && liveLanded
+      ? computeStableFloorUsd(data.effBuyJpy, effWeightG)
+      : Number(data?.floorUsd) || 0;
   // 損益分岐(floor)未満の価格＝赤字の恐れ。出すには「承知の上で」確認チェックが要る（ハードブロックはせず警告＋確認で続行可）。
+  // ※ 警告は「実際に出す価格(priceUsd)」で評価する live floorUsd を使う＝しきい値直上の薄利も正しく検知。
   const belowFloor = floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd;
   // 価格が floor 以上に戻ったら確認をリセット＝再び下回ったら必ず再チェックさせる（確認の使い回し防止）。
   useEffect(() => { if (!belowFloor) setAcceptLoss(false); }, [belowFloor]);
@@ -469,18 +488,19 @@ export default function EbayListingModal({
   const listedPriceUsd = Number(priceUsd || 0) + shipFoldUsd; // eBayに実際に出る価格
   const paidShipUsd = Number(recoChoice?.costUsd || 0); // 送料別のとき買い手に別途請求する送料(表示用)
   const lowestAvailable = lowUsd > 0;
-  const lowestClamped = lowUsd > 0 && floorUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
-  // 価格の3段（過去落札ベース）。いずれも損益分岐(floor)は割らない。最安=eBay現在の最安 or 中央値-8%／中央値＝eBay落札中央値／高値＝中央値+10%。
-  const lowSel = lowUsd > 0 ? Math.max(lowUsd, floorUsd) : medianUsd > 0 ? Math.max(medianUsd * (1 - FAST_DISCOUNT), floorUsd) : 0;
-  const medianSel = medianUsd > 0 ? Math.max(medianUsd, floorUsd) : 0;
-  const highSel = medianUsd > 0 ? Math.max(medianUsd * (1 + HIGH_MARKUP), floorUsd) : 0;
+  const lowestClamped = lowUsd > 0 && floorStableUsd > lowUsd; // eBay最安が赤字→損益分岐で出す
+  // 価格の3段（過去落札ベース）。いずれも損益分岐は割らない。クランプは固定の floorStableUsd で（選択で数字が動かない）。
+  // 最安=eBay現在の最安 or 中央値-8%／中央値＝eBay落札中央値／高値＝中央値+10%。
+  const lowSel = lowUsd > 0 ? Math.max(lowUsd, floorStableUsd) : medianUsd > 0 ? Math.max(medianUsd * (1 - FAST_DISCOUNT), floorStableUsd) : 0;
+  const medianSel = medianUsd > 0 ? Math.max(medianUsd, floorStableUsd) : 0;
+  const highSel = medianUsd > 0 ? Math.max(medianUsd * (1 + HIGH_MARKUP), floorStableUsd) : 0;
   // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
   // 価格を $ で確定すると同時に、円入力欄(priceYen)も同期する（表示は円・内部はUSD）。
   const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(Math.round(u * USD_JPY)) : ""); };
   const chooseStrategy = (s: "breakeven" | "custom" | "low" | "median" | "high") => {
     setStrategy(s);
     if (s === "custom") return; // 自由入力（価格はそのまま）
-    if (s === "breakeven") { if (floorUsd > 0) applyUsd(floorUsd); return; } // ±0＝損益分岐（利益ほぼ0・アカウント育成）
+    if (s === "breakeven") { if (floorStableUsd > 0) applyUsd(floorStableUsd); return; } // ±0＝損益分岐（利益ほぼ0・アカウント育成）。固定値で出す。
     if (s === "median") { if (medianSel > 0) applyUsd(medianSel); return; }
     if (s === "high") { if (highSel > 0) applyUsd(highSel); return; }
     if (lowSel > 0) applyUsd(lowSel); // 最安（既定）
@@ -752,7 +772,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">🌱 ±0出品</span>
-                    <span className="text-[10px]">アカウント育成用{floorUsd > 0 ? `・${formatJpy(Math.round(floorUsd * USD_JPY))}` : ""}</span>
+                    <span className="text-[10px]">アカウント育成用{floorStableUsd > 0 ? `・${formatJpy(Math.round(floorStableUsd * USD_JPY))}` : ""}</span>
                   </button>
                   <button
                     type="button"
@@ -833,7 +853,7 @@ export default function EbayListingModal({
                   ) : lowestClamped ? (
                     <>
                       <span className="whitespace-nowrap">eBay最安は赤字のため、</span><wbr />
-                      <span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))} で出します</span><wbr />
+                      <span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorStableUsd * USD_JPY))} で出します</span><wbr />
                       <span className="whitespace-nowrap">（赤字回避）</span>
                     </>
                   ) : (
