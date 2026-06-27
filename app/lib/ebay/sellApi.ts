@@ -500,7 +500,7 @@ function fulfillmentBody(
 
 // 国際発送オプション（発送先ホワイトリスト）。空（米国のみ）なら null＝INTERNATIONAL を付けない
 // （空 regionIncluded は eBay が弾く）。regions は設定画面(EbayPolicySetup)から変更可（規定 AU/GB）。
-function intlShippingOption(shippingCostUsd: string, regions: string[]): Record<string, unknown> | null {
+function intlShippingOption(shippingCostUsd: string, regions: string[], serviceCode: string): Record<string, unknown> | null {
   if (regions.length === 0) return null;
   return {
     optionType: "INTERNATIONAL",
@@ -508,12 +508,80 @@ function intlShippingOption(shippingCostUsd: string, regions: string[]): Record<
     shippingServices: [
       {
         sortOrder: 1,
-        shippingServiceCode: "USPSPriorityMailInternational",
+        shippingServiceCode: serviceCode,
         shippingCost: { value: shippingCostUsd, currency: "USD" },
         shipToLocations: { regionIncluded: regions.map((r) => ({ regionName: r })) },
       },
     ],
   };
+}
+
+// ── 配送サービスコード（日本発セラー用）──
+// ⚠️ 日本発セラーは米国キャリア(USPS/UPS等)を出品の配送サービスに使えない（実際は日本郵便で送るため）。
+// USPS等だと eBay が送料を計算できず、買い手に「出品者に送料見積もりをリクエスト」と出て事実上売れない。
+// 国内(=米国バイヤー)は "Economy Shipping from outside US"、国際は "Economy International Shipping" 相当を使う。
+// 正規の shippingServiceCode は時期/マーケットで変わり得るため、既存の正しいポリシーから読み戻すのを最優先する
+// （pickGoodServiceCodes）。読み戻せない時だけ下の既定にフォールバックする（USPS再生成を防ぐ）。
+export interface ShippingServiceCodes {
+  domestic: string;
+  intl: string;
+}
+export const DEFAULT_DOMESTIC_SERVICE_CODE = "EconomyShippingFromOutsideUS";
+export const DEFAULT_INTL_SERVICE_CODE = "OtherInternational"; // 常に受理される汎用の国際フォールバック（読み戻しで上書きされる）
+const DEFAULT_SERVICE_CODES: ShippingServiceCodes = { domestic: DEFAULT_DOMESTIC_SERVICE_CODE, intl: DEFAULT_INTL_SERVICE_CODE };
+
+// 米国専用キャリア（日本発で使えない＝最適化で検出・差し替える対象）。USPS / UPS / US_* を弾く。
+const US_CARRIER_RE = /USPS|^UPS|^US_/i;
+export function isUsCarrierCode(code?: string): boolean {
+  return !!code && US_CARRIER_RE.test(code);
+}
+
+// 既存ポリシー(GET fulfillment_policy)の生形のうち最適化で使う分。
+interface RawShippingService {
+  shippingServiceCode?: string;
+  freeShipping?: boolean;
+  shippingCost?: { value?: string };
+}
+interface RawShippingOption {
+  optionType?: string;
+  shippingServices?: RawShippingService[];
+}
+interface RawFulfillmentPolicy {
+  name?: string;
+  fulfillmentPolicyId?: string;
+  handlingTime?: { value?: number };
+  shippingOptions?: RawShippingOption[];
+}
+
+function serviceCodeOf(p: RawFulfillmentPolicy, optionType: string): string | undefined {
+  return p.shippingOptions?.find((o) => o.optionType === optionType)?.shippingServices?.[0]?.shippingServiceCode;
+}
+
+// 配送ポリシー一覧（生形）を取得。最適化が検査・読み戻しに使う。
+export async function getFulfillmentPolicies(token: string, marketplace: string): Promise<RawFulfillmentPolicy[]> {
+  const r = await ebayGet<{ fulfillmentPolicies?: RawFulfillmentPolicy[] }>(
+    token,
+    `/sell/account/v1/fulfillment_policy?marketplace_id=${marketplace}`
+  );
+  return r.data?.fulfillmentPolicies ?? [];
+}
+
+// 既存ポリシー群から「正しい(米国キャリアでない)配送サービスコード」を読み戻す。
+// 手動修正済み or 既に最適化済みのポリシー("Shipping Free"優先)を基準にし、推測を避ける。
+export function pickGoodServiceCodes(policies: RawFulfillmentPolicy[]): ShippingServiceCodes | null {
+  const ranked = [...policies].sort(
+    (a, b) => (b.name === "Shipping Free" ? 1 : 0) - (a.name === "Shipping Free" ? 1 : 0)
+  );
+  for (const p of ranked) {
+    const dom = serviceCodeOf(p, "DOMESTIC");
+    const intl = serviceCodeOf(p, "INTERNATIONAL");
+    if (dom && !isUsCarrierCode(dom) && intl && !isUsCarrierCode(intl)) return { domestic: dom, intl };
+  }
+  for (const p of ranked) {
+    const dom = serviceCodeOf(p, "DOMESTIC");
+    if (dom && !isUsCarrierCode(dom)) return { domestic: dom, intl: DEFAULT_INTL_SERVICE_CODE };
+  }
+  return null;
 }
 
 // 配送ポリシーの作成（重複なら更新）。名前は固定のため再実行で同名衝突する→「重複なら更新(PUT)」する。
@@ -552,7 +620,8 @@ export async function createFlatIntlFulfillmentPolicy(
   name: string,
   shippingCostUsd: string,
   handlingDays: number,
-  regions: string[] = ["AU", "GB"]
+  regions: string[] = ["AU", "GB"],
+  codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
 ): Promise<EbayPostResult> {
   const build = (regs: string[]): Record<string, unknown> => {
     const shippingOptions: Record<string, unknown>[] = [
@@ -561,11 +630,11 @@ export async function createFlatIntlFulfillmentPolicy(
         optionType: "DOMESTIC",
         costType: "FLAT_RATE",
         shippingServices: [
-          { sortOrder: 1, shippingServiceCode: "USPSPriority", shippingCost: { value: shippingCostUsd, currency: "USD" } },
+          { sortOrder: 1, shippingServiceCode: codes.domestic, shippingCost: { value: shippingCostUsd, currency: "USD" } },
         ],
       },
     ];
-    const intl = intlShippingOption(shippingCostUsd, regs);
+    const intl = intlShippingOption(shippingCostUsd, regs, codes.intl);
     if (intl) shippingOptions.push(intl);
     return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
   };
@@ -585,17 +654,18 @@ export async function createFreeIntlFulfillmentPolicy(
   marketplace: string,
   name: string,
   handlingDays: number,
-  regions: string[] = ["AU", "GB"]
+  regions: string[] = ["AU", "GB"],
+  codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
 ): Promise<EbayPostResult> {
   const build = (regs: string[]): Record<string, unknown> => {
     const shippingOptions: Record<string, unknown>[] = [
       {
         optionType: "DOMESTIC",
         costType: "FLAT_RATE",
-        shippingServices: [{ sortOrder: 1, shippingServiceCode: "USPSPriority", freeShipping: true }],
+        shippingServices: [{ sortOrder: 1, shippingServiceCode: codes.domestic, freeShipping: true }],
       },
     ];
-    const intl = intlShippingOption("0.00", regs); // 国際は0.00で無料に
+    const intl = intlShippingOption("0.00", regs, codes.intl); // 国際は0.00で無料に
     if (intl) shippingOptions.push(intl);
     return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
   };
@@ -604,4 +674,73 @@ export async function createFreeIntlFulfillmentPolicy(
   // 非対応の発送先 → 既知の安全圏だけで作り直す（全体失敗を防ぐ）。
   const safe = regions.filter((r) => CORE_SAFE_REGIONS.includes(r));
   return upsertFulfillmentPolicy(token, marketplace, name, build(safe.length ? safe : CORE_SAFE_REGIONS));
+}
+
+// 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を検出して正しいサービスコードへ直し、eBayへ同期する。
+// 正しいコードは既存の正しいポリシー(手動修正済み等)から読み戻す＝推測しない。基準が無ければ既定にフォールバック。
+// "Shipping " で始まるアプリ管理ポリシーのみ対象。各ポリシーの送料(無料/定額)・金額・発送日数は保ったままコードと発送先だけ直す。
+export interface PolicyOptimizeStep {
+  step: string;
+  ok: boolean;
+  error?: string;
+  before?: string;
+  after?: string;
+}
+export interface PolicyOptimizeResult {
+  ok: boolean;
+  steps: PolicyOptimizeStep[];
+  codes: ShippingServiceCodes;
+  fixedCount: number;
+}
+export async function optimizeFulfillmentPolicies(
+  token: string,
+  marketplace: string,
+  regions: string[]
+): Promise<PolicyOptimizeResult> {
+  const policies = await getFulfillmentPolicies(token, marketplace);
+  const codes = pickGoodServiceCodes(policies) ?? DEFAULT_SERVICE_CODES;
+  const targets = policies.filter((p) => (p.name ?? "").startsWith("Shipping "));
+  const steps: PolicyOptimizeStep[] = [];
+  let fixedCount = 0;
+
+  if (targets.length === 0) {
+    steps.push({
+      step: "配送ポリシー",
+      ok: false,
+      error: "アプリの配送ポリシー(Shipping *)が見つかりません。先に出品設定で作成してください。",
+    });
+    return { ok: false, steps, codes, fixedCount };
+  }
+
+  for (const p of targets) {
+    const name = p.name ?? "";
+    const dom = p.shippingOptions?.find((o) => o.optionType === "DOMESTIC")?.shippingServices?.[0];
+    const hasIntl = !!p.shippingOptions?.some((o) => o.optionType === "INTERNATIONAL");
+    const badCarrier = (p.shippingOptions ?? []).some((o) =>
+      (o.shippingServices ?? []).some((s) => isUsCarrierCode(s.shippingServiceCode))
+    );
+    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${serviceCodeOf(p, "INTERNATIONAL") ?? "(国際なし)"}`;
+    // 米国キャリアでなく国際発送もある＝既に正しい → 触らない。
+    if (!badCarrier && hasIntl) {
+      steps.push({ step: name, ok: true, before, after: "変更なし（問題なし）" });
+      continue;
+    }
+    const handlingDays = Number(p.handlingTime?.value) > 0 ? Number(p.handlingTime?.value) : 3;
+    const isFree = !!dom?.freeShipping || Number(dom?.shippingCost?.value ?? "0") < 0.01;
+    const res = isFree
+      ? await createFreeIntlFulfillmentPolicy(token, marketplace, name, handlingDays, regions, codes)
+      : await createFlatIntlFulfillmentPolicy(
+          token,
+          marketplace,
+          name,
+          String(dom?.shippingCost?.value ?? "0.00"),
+          handlingDays,
+          regions,
+          codes
+        );
+    if (res.ok) fixedCount++;
+    steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}` });
+  }
+
+  return { ok: steps.every((s) => s.ok), steps, codes, fixedCount };
 }

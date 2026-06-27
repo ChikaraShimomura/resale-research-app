@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import MyDashboard from "../components/MyDashboard";
+import PolicyOptimizeButton from "../components/PolicyOptimizeButton";
 import { getPlan } from "../lib/auth/plan";
 
 export const metadata: Metadata = {
@@ -37,8 +38,9 @@ export default async function MyPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-3">
+      <main className="max-w-2xl mx-auto p-3 space-y-3">
         <MyDashboard />
+        <PolicyOptimizeButton />
       </main>
 
       <BottomNav />

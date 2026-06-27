@@ -10,7 +10,7 @@ import { getTeamContext } from "../lib/auth/teamActor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
-import { landedCost } from "../lib/ebay/landedCost";
+import { landedCost, landedCostForWeight } from "../lib/ebay/landedCost";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
 import FavoriteHeart from "../components/FavoriteHeart";
@@ -39,11 +39,13 @@ const USD_JPY = 155;
 // ★損益分岐(floor)＝(仕入れ原価 ＋ eBay固定手数料¥47 ＋ 着地コスト) ÷ (1−eBay料率13.25%)。
 //   着地コスト = landedCost(国際送料へのeBay手数料 ＋ $100超の米国関税前払い ＋ 送料不足)。
 //   つまり ±0 も 最安/中央/高値 も「送料・関税・手数料を全て加味」した上で損益分岐を割らない（出品モーダルの floor と同一ロジック）。
-function priceTiers(medianJpy: number, costJpy: number, category?: string) {
+function priceTiers(medianJpy: number, costJpy: number, category?: string, weightG?: number) {
   const median = medianJpy > 0 ? medianJpy / USD_JPY : 0;
   // 着地コストは「想定売価(中央値USD)」で見積もる。中央値が無ければ原価USDで概算。
   const valueUsd = median > 0 ? median : costJpy > 0 ? costJpy / USD_JPY : 1;
-  const landed = landedCost(category, valueUsd);
+  // ★重量は「商品ごとのAI推定重量(weight:{id} キャッシュ)」を最優先＝出品モーダル(prepare)の floor と完全一致させる。
+  //   未キャッシュ(モーダル未オープン)の品だけカテゴリ概算へフォールバック。これが無いと一覧とモーダルの ±0 がズレる。
+  const landed = weightG && weightG > 0 ? landedCostForWeight(weightG, valueUsd) : landedCost(category, valueUsd);
   const floorJpy = Math.max(1, (costJpy + 47 + landed.subtractJpy) / (1 - 0.1325));
   const floor = floorJpy / USD_JPY;
   return {
@@ -93,16 +95,22 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const needSnap = tab === "listed" ? live : tab === "ended" ? endedAll : [];
   if (needSnap.length) {
     try {
-      const snaps = (await kvReadOnly.mget(...needSnap.map((d) => `psnap:${d.id}`))) as (
-        (ProfitProduct & { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } }) | null
-      )[];
+      // psnap(商品)と weight(商品ごとのAI推定梱包重量・prepareがキャッシュ)を同時取得＝±0をモーダルと一致させる材料。
+      const [snaps, weights] = (await Promise.all([
+        kvReadOnly.mget(...needSnap.map((d) => `psnap:${d.id}`)),
+        kvReadOnly.mget(...needSnap.map((d) => `weight:${d.id}`)),
+      ])) as [
+        ((ProfitProduct & { realMedianPrice?: number; realAvgPrice?: number; source?: { price?: number } }) | null)[],
+        (number | null)[],
+      ];
       needSnap.forEach((d, i) => {
         const s = snaps[i];
         if (s && s.id && s.title) snapById[d.id] = s as ProfitProduct;
         if (d._status === "live") {
           const medianJpy = Number(s?.realMedianPrice) || Number(s?.realAvgPrice) || 0;
           const costJpy = d.purchase || Number(s?.source?.price) || 0;
-          tiersById[d.id] = priceTiers(medianJpy, costJpy, (s as { category?: string } | null)?.category);
+          const w = typeof weights[i] === "number" && (weights[i] as number) > 0 ? (weights[i] as number) : undefined;
+          tiersById[d.id] = priceTiers(medianJpy, costJpy, (s as { category?: string } | null)?.category, w);
         }
       });
     } catch {
