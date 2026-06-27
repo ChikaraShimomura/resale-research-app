@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock } from "lucide-react";
 import { getFavoriteItems, getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
-import { listDealsForUser } from "../lib/ebay/stats";
+import { listDealsForUser, getListingSku } from "../lib/ebay/stats";
+import { getValidAccessToken } from "../lib/ebay/tokens";
+import { getOfferForSku } from "../lib/ebay/listing";
+import { skuForProduct } from "../lib/ebay/sellApi";
 import { getActorId } from "../lib/auth/actor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
@@ -106,6 +109,26 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     }
   }
 
+  // 出品中タブ：いま実際にeBayに出している価格を取得して表示（本人が変えた値も反映）。best-effort・並列。
+  const priceById: Record<string, string> = {};
+  if (tab === "listed" && live.length && actor) {
+    try {
+      const token = await getValidAccessToken(actor);
+      if (token) {
+        const results = await Promise.all(
+          live.slice(0, 60).map(async (d) => {
+            const sku = (await getListingSku(actor, d.id)) ?? skuForProduct(d.id);
+            const offer = await getOfferForSku(token, sku).catch(() => null);
+            return [d.id, offer?.priceUsd] as const;
+          })
+        );
+        for (const [id, price] of results) if (price) priceById[id] = price;
+      }
+    } catch {
+      /* 価格が取れなくても出品中一覧は表示する */
+    }
+  }
+
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header
@@ -127,7 +150,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab live={live} sold={deals.sold} tiersById={tiersById} />
+          <ListedTab live={live} sold={deals.sold} tiersById={tiersById} priceById={priceById} />
         )}
         {tab === "ended" && (
           <EndedTab stopped={stopped} archived={archived} snapById={snapById} canList={canList} />
@@ -247,9 +270,10 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
 type ListedItem = Awaited<ReturnType<typeof listDealsForUser>>["live"][number] & { _status: "live" | "stopped" | "archived" };
 type SoldItem = Awaited<ReturnType<typeof listDealsForUser>>["sold"][number];
 
-function ListedTab({ live, sold, tiersById }: {
+function ListedTab({ live, sold, tiersById, priceById }: {
   live: ListedItem[]; sold: SoldItem[];
   tiersById: Record<string, ReturnType<typeof priceTiers>>;
+  priceById: Record<string, string>;
 }) {
   if (live.length + sold.length === 0) {
     return <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />;
@@ -258,7 +282,7 @@ function ListedTab({ live, sold, tiersById }: {
     <div className="space-y-5">
       {live.length > 0 && (
         <Section title="出品中" count={live.length} dot="bg-[#0064D2]">
-          {live.map((d) => <LiveCard key={d.id} d={d} tiers={tiersById[d.id]} />)}
+          {live.map((d) => <LiveCard key={d.id} d={d} tiers={tiersById[d.id]} priceUsd={priceById[d.id]} />)}
         </Section>
       )}
       {sold.length > 0 && (
@@ -308,8 +332,9 @@ function Section({ title, count, dot, note, children }: { title: string; count: 
   );
 }
 
-// 出品中：価格4段変更＋最適化＋出品終了。
-function LiveCard({ d, tiers }: { d: ListedItem; tiers?: ReturnType<typeof priceTiers> }) {
+// 出品中：現在の出品価格＋価格4段変更＋最適化＋出品終了。
+function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<typeof priceTiers>; priceUsd?: string }) {
+  const priceNum = Number(priceUsd) || 0;
   return (
     <li>
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
@@ -318,6 +343,14 @@ function LiveCard({ d, tiers }: { d: ListedItem; tiers?: ReturnType<typeof price
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
             <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
+            {/* いま実際にeBayに出している価格（取得できた時のみ）。¥は概算（×155）。 */}
+            {priceNum > 0 && (
+              <p className="text-[12px] mt-1 tabular-nums">
+                <span className="text-gray-400">現在の出品価格 </span>
+                <span className="font-black text-[#0064D2]">${priceNum.toFixed(2)}</span>
+                <span className="text-gray-400"> （約{yen(Math.round(priceNum * USD_JPY))}）</span>
+              </p>
+            )}
             {d.sourceStatus && (
               <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 仕入れ元が{d.sourceStatus === "soldout" ? "売り切れ" : "掲載終了"}</p>
             )}

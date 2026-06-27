@@ -131,7 +131,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     if (same.length >= MIN_SAME) {
       const med = trimmedMedian(same.map((c) => c.price));
       p.ebayMedianJpy = med; p.soldCount = same.length; p.ebayConfirmed = true;
-      p.profitJpy = netProfitJPY(p.buyJpy, med); p.profitRate = Math.round((p.profitJpy / med) * 100);
+      p.profitJpy = netProfitJPY(p.buyJpy, med); p.profitRate = p.buyJpy > 0 ? Math.round((p.profitJpy / p.buyJpy) * 100) : 0; // 利益率＝純利益÷仕入れ(ROI)
       // 競合数(現在出品の総数)も同じバッチで焼き込む＝カードで「狙い目/多め」を一目表示。鍵が無ければ null のまま(fail-open)。
       const comp = await ebayCompetition(q);
       if (comp != null) p.ebayActiveCount = comp;

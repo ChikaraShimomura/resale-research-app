@@ -132,7 +132,7 @@ export default function EbayListingModal({
   const [showWeight, setShowWeight] = useState(false); // 重さ入力欄は既定で隠し、押したら開く
   const [acceptLoss, setAcceptLoss] = useState(false); // 損益分岐を下回る価格でも「承知の上で」確認した時だけ出品可（警告＋確認で続行）
   // 価格の選び方：breakeven(±0=育成) / custom(自由入力) / low(最安) / median(中央値) / high(高値)。既定=最安（最速・カード表示と一致）。
-  const [strategy, setStrategy] = useState<"breakeven" | "custom" | "low" | "median" | "high">("low");
+  const [strategy, setStrategy] = useState<"breakeven" | "custom" | "low" | "median" | "high">("median");
   const [condition, setCondition] = useState("NEW");
   const [shippingId, setShippingId] = useState("");
   // 送料の出し方: true=送料込み(価格に上乗せして「送料無料」表示) / false=送料別(購入者が送料を払う)。
@@ -210,13 +210,13 @@ export default function EbayListingModal({
       setData(p);
       setTitle(p.title);
       setDescription(p.description);
-      // 既定は「最安」＝eBay最安に合わせる（損益分岐は割らない）。取れなければ相場-8%。
+      // 既定は「中央値」＝過去落札の中央値（損益分岐は割らない）。取れなければ最安→相場（ユーザー指示2026-06-27）。
       {
         const lowU = Number(p.lowestUsd) || 0;
         const floorU = Number(p.floorUsd) || 0;
         const medU = Number(p.medianUsd) || Number(p.priceUsd) || 0;
-        const initLowest = lowU > 0 ? Math.max(lowU, floorU) : medU > 0 ? medU * (1 - FAST_DISCOUNT) : Number(p.priceUsd) || 0;
-        setPriceUsd(initLowest.toFixed(2));
+        const initMedian = medU > 0 ? Math.max(medU, floorU) : lowU > 0 ? Math.max(lowU, floorU) : Number(p.priceUsd) || 0;
+        setPriceUsd(initMedian.toFixed(2));
       }
       setCondition(p.condition);
       // デフォルトはジャンル(サイズ)に最適な送料。無ければ中サイズ→先頭にフォールバック。
@@ -726,10 +726,9 @@ export default function EbayListingModal({
                 </div>
               )}
 
-              {advOpen && (<>
-              {/* 価格の選び方（上段2＝±0育成/カスタム、下段3＝過去落札の最安/中央/高値）。既定は最安＝最速で売れやすい。 */}
+              {/* 価格の選び方（上段2＝±0育成/カスタム、下段3＝過去落札の最安/中央/高値）。既定は中央値。常時表示（写真/タイトル/価格は常に出す）。 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-1">価格の選び方<OptBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-1">価格の選び方</label>
                 {/* 上段（2）：±0出品(育成用) / カスタム(自由入力) */}
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
@@ -808,7 +807,6 @@ export default function EbayListingModal({
                 </p>
                 <p className="text-[9px] text-gray-300 mt-0.5">※ 最安/中央値/高値は eBayの過去落札の中央値と現在の最安値をもとに算出（いずれも損益分岐は割りません）</p>
               </div>
-              </>)}
 
               {/* 価格 */}
               <div>

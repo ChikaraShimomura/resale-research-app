@@ -80,7 +80,7 @@ function netProfitJPY(buyJpy, sellJpy) {
           added.push({
             modelKey: (it.name || "").slice(0, 60), brand: it.brand, name: `${it.name}${it.size ? " " + it.size : ""}`,
             code: "", cat: "古着", ebayMedianJpy: t.ebayMedian, buyJpy: it.price, condition: it.condition,
-            profitJpy: net, profitRate: Math.round((net / t.ebayMedian) * 100), hardoffUrl: it.url, imageUrl: it.imageUrl, site: "2ndstreet",
+            profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl, site: "2ndstreet",
           });
           if (++n >= 4) break;
         }

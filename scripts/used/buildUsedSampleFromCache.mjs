@@ -104,7 +104,7 @@ async function loadCategories() {
           id: `used-hardoff-${idNum}`,
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
           cat: genreOf(c.category), ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
-          profitJpy: net, profitRate: Math.round(rate * 100), hardoffUrl: it.url, imageUrl: it.imageUrl,
+          profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl,
           site: "hardoff", soldCount: c.soldCount,
         });
         added++;
@@ -141,7 +141,7 @@ async function loadCategories() {
       const net = netProfitJPY(c.buyJpy, median); // 仕入れは新規品の値、相場は確定値で利益を再計算
       carried++;
       return {
-        ...c, ebayMedianJpy: median, profitJpy: net, profitRate: Math.round((net / median) * 100),
+        ...c, ebayMedianJpy: median, profitJpy: net, profitRate: c.buyJpy > 0 ? Math.round((net / c.buyJpy) * 100) : 0, // 利益率＝純利益÷仕入れ(ROI)
         soldCount: prev.soldCount ?? c.soldCount, ebayConfirmed: true, ebayChecked: true, ebaySoldUrl: prev.ebaySoldUrl,
       };
     });

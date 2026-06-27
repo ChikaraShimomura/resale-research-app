@@ -157,7 +157,13 @@ export async function getBoughtItems(actor: string | undefined | null): Promise<
       );
       for (const r of recon) if (r) out.push(r);
     }
-    return out.sort((a, b) => String(b.boughtAt || "").localeCompare(String(a.boughtAt || "")));
+    // 利益率＝純利益÷仕入れ(ROI)に統一（保存スナップショットが旧定義=粗利率の場合があるため再計算）。
+    return out
+      .map((p) => {
+        const cost = p.buyJpy ?? p.source?.price ?? 0;
+        return cost > 0 ? { ...p, realProfitRate: Math.round(((p.realProfit ?? 0) / cost) * 100) } : p;
+      })
+      .sort((a, b) => String(b.boughtAt || "").localeCompare(String(a.boughtAt || "")));
   } catch {
     return [];
   }
@@ -199,7 +205,13 @@ export async function getFavoriteItems(actor: string | undefined | null): Promis
       );
       for (const r of recon) if (r) out.push(r);
     }
-    return out.sort((a, b) => String(b.favAt || "").localeCompare(String(a.favAt || "")));
+    // 利益率＝純利益÷仕入れ(ROI)に統一（カタログと同じ定義に揃える）。
+    return out
+      .map((p) => {
+        const cost = p.source?.price ?? 0;
+        return cost > 0 ? { ...p, realProfitRate: Math.round(((p.realProfit ?? 0) / cost) * 100) } : p;
+      })
+      .sort((a, b) => String(b.favAt || "").localeCompare(String(a.favAt || "")));
   } catch {
     return [];
   }
@@ -210,8 +222,13 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
   try {
     const arr = await kvReadOnly.get<UsedCatalogItem[]>("used_catalog");
     if (!Array.isArray(arr)) return [];
-    // 利益額の高い順（書込側でソート済みだが配信時も保証）。
-    return arr.filter((x) => x && typeof x.profitJpy === "number").sort((a, b) => b.profitJpy - a.profitJpy);
+    // 利益率＝純利益 ÷ 仕入れ価格（仕入れに対する投資収益率/ROI）に配信時で統一する。
+    // ⚠️ ビルド/refineスクリプトが過去に「純利益 ÷ eBay想定売値（粗利率）」で書いていたため、
+    //    古いKVデータでも正しい率になるよう配信時に必ず再計算する（buyJpy=0/欠損は0%）。
+    return arr
+      .filter((x) => x && typeof x.profitJpy === "number")
+      .map((x) => ({ ...x, profitRate: x.buyJpy > 0 ? Math.round((x.profitJpy / x.buyJpy) * 100) : 0 }))
+      .sort((a, b) => b.profitJpy - a.profitJpy); // 利益額の高い順（書込側でソート済みだが配信時も保証）
   } catch {
     return [];
   }

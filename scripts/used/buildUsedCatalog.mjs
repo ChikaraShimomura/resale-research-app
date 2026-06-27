@@ -96,7 +96,7 @@ function kvCreds() {
         catalog.push({
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
           cat: q.cat, ebayMedianJpy: er.median, buyJpy: it.price, condition: it.condition,
-          profitJpy: net, profitRate: Math.round(rate * 100), hardoffUrl: it.url, imageUrl: it.imageUrl, site: "hardoff",
+          profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl, site: "hardoff",
         });
       }
     }
