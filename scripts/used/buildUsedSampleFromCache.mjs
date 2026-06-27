@@ -97,8 +97,8 @@ async function loadCategories() {
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
       if (ratio < 0.15 || ratio > 0.8) continue;
       const net = netProfitJPY(it.price, c.ebayMedian);
-      const rate = net / c.ebayMedian;
-      if (net > 1500 && rate > 0.15) {
+      const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
+      if (net > 1500 && roi >= 0.1) {
         const idNum = (it.url.match(/\/(?:product|goodsId)\/(\d+)/) || [])[1] || it.url.replace(/\D+/g, "").slice(-12);
         catalog.push({
           id: `used-hardoff-${idNum}`,
@@ -178,7 +178,7 @@ async function loadCategories() {
   const html = `<div style="font-family:sans-serif;color:#2D323B">
   <h2>中古の利益カタログ サンプル（${catalog.length}件）</h2>
   <p>eBay落札の実データ（Pixel収集）× ハードオフ現在庫で、送料・関税・手数料を引いた純利益で抽出した「儲かる中古」の上位40件です。eBay想定売値はカテゴリ（型番系列）中央値ベースの目安、状態・競合・為替で変動します。</p>
-  <p><b>全${catalog.length}件</b>が利益候補（純益¥1,500超・利益率15%超）。</p>
+  <p><b>全${catalog.length}件</b>が利益候補（純益¥1,500超・利益率(対仕入れ/ROI)10%以上）。</p>
   <table style="border-collapse:collapse;font-size:13px;width:100%">
     <tr style="background:#2D323B;color:#fff"><th style="padding:6px 8px;text-align:left">ジャンル</th><th style="padding:6px 8px;text-align:left">商品</th><th style="padding:6px 8px">状態</th><th style="padding:6px 8px">仕入れ</th><th style="padding:6px 8px">eBay想定</th><th style="padding:6px 8px">純利益</th><th style="padding:6px 8px">率</th><th style="padding:6px 8px">仕入れ先</th></tr>
     ${rows}

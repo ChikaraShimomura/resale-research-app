@@ -228,6 +228,9 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
     return arr
       .filter((x) => x && typeof x.profitJpy === "number")
       .map((x) => ({ ...x, profitRate: x.buyJpy > 0 ? Math.round((x.profitJpy / x.buyJpy) * 100) : 0 }))
+      // 利益率＝純利益÷仕入れ値(ROI)が10%未満の品は配信時に弾く（ビルド/refineの版に依らず最終ゲートで保証）。
+      // ⚠️ 端数で「10%」表示なのに除外…を避けるため生比率(>=0.10)で判定（round前）。
+      .filter((x) => x.buyJpy > 0 && x.profitJpy / x.buyJpy >= 0.1)
       .sort((a, b) => b.profitJpy - a.profitJpy); // 利益額の高い順（書込側でソート済みだが配信時も保証）
   } catch {
     return [];

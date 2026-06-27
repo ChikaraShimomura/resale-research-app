@@ -76,7 +76,8 @@ function netProfitJPY(buyJpy, sellJpy) {
         const ratio = it.price / t.ebayMedian;
         if (ratio < 0.12 || ratio > 0.75) continue; // 極端なミスマッチ除外
         const net = netProfitJPY(it.price, t.ebayMedian);
-        if (net > 1500 && net / t.ebayMedian > 0.15) {
+        const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
+        if (net > 1500 && roi >= 0.1) {
           added.push({
             modelKey: (it.name || "").slice(0, 60), brand: it.brand, name: `${it.name}${it.size ? " " + it.size : ""}`,
             code: "", cat: "古着", ebayMedianJpy: t.ebayMedian, buyJpy: it.price, condition: it.condition,
