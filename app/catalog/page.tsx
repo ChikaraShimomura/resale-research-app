@@ -5,6 +5,7 @@ import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getH
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
+import { getTeamContext } from "../lib/auth/teamActor";
 import { isAdmin } from "../lib/auth/admin";
 import { hasPerm, getTeamName } from "../lib/team";
 import BottomNav from "../components/BottomNav";
@@ -52,6 +53,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const genre = sp.genre || "all";
   const canView = await canViewCatalog();
   const actor = await getActorId();
+  // チーム参加中は共有データ名前空間（オーナー）で triage（仕入れた/非表示/お気に入り）を見る＝全員で同じカタログ状態。
+  const { dataActor } = await getTeamContext();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
   const canList = await canAutoList(); // 自動出品=有料プラン(ライト以上)。在庫ありの無在庫はサーバーで別途プロMAXゲート(canDropship)
   // チーム共有：?team=オーナーactor。仕入れ権限を持つメンバーが押すと「仕入れた」がオーナーの一覧に入る。
@@ -61,7 +64,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const teamName = teamOwner ? (await getTeamName(teamOwner)) || "チーム" : "";
   // このユーザーが「仕入れた」「これは無理」で外した商品は一覧から差し引く（per-actorのtriage）。
   // ♡お気に入りはカードの♡初期状態に使う（カタログからは隠さない）。
-  const [hidden, favKeys] = await Promise.all([getHiddenCatalogKeys(actor), getFavoriteKeys(actor)]);
+  const [hidden, favKeys] = await Promise.all([getHiddenCatalogKeys(dataActor), getFavoriteKeys(dataActor)]);
   // 表示対象：同一型番の実落札で相場確定（ebayConfirmed）＋利益率5%以上＋本人が外した品/発送不可(危険物)は除外。
   //   ※ジャンク品は掲載する（ユーザー指示2026-06-27）。状態はカードにランク表示＋出品時の説明文で明示。
   const base = (await getUsedCatalog()).filter(

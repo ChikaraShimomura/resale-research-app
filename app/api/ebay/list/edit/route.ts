@@ -1,5 +1,5 @@
 import { kvReadOnly } from "../../../../lib/kv";
-import { getActorId } from "../../../../lib/auth/actor";
+import { getEbayActor } from "../../../../lib/auth/teamActor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getOfferForSku, updateOfferPriceQuantity, updateOfferPriceFull, updateOfferShipping, listFulfillmentPolicies } from "../../../../lib/ebay/listing";
 import { getListingSku } from "../../../../lib/ebay/stats";
@@ -18,7 +18,7 @@ const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
 
 export async function GET(req: Request) {
-  const actor = await getActorId();
+  const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
   if (!actor) return Response.json({ ok: false, connected: false });
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const actor = await getActorId();
+  const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
   if (!actor) return Response.json({ ok: false, connected: false });
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });

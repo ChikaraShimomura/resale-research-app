@@ -6,7 +6,7 @@ import { listDealsForUser, getListingSku } from "../lib/ebay/stats";
 import { getValidAccessToken } from "../lib/ebay/tokens";
 import { getOfferForSku } from "../lib/ebay/listing";
 import { skuForProduct } from "../lib/ebay/sellApi";
-import { getActorId } from "../lib/auth/actor";
+import { getTeamContext } from "../lib/auth/teamActor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
@@ -60,7 +60,8 @@ type Tab = "fav" | "bought" | "listed" | "ended";
 export default async function ManagePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
   const tab: Tab = sp.tab === "fav" || sp.tab === "listed" || sp.tab === "ended" ? sp.tab : "bought";
-  const actor = await getActorId();
+  // チーム参加中は「共有データ＝オーナー名前空間」を読む（全員で同じ在庫/お気に入り/出品/収益）。
+  const { dataActor: actor, ebayActor } = await getTeamContext();
 
   const [favItems, boughtItems, deals, canList, isAdminUser] = await Promise.all([
     getFavoriteItems(actor),
@@ -111,13 +112,13 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
 
   // 出品中タブ：いま実際にeBayに出している価格を取得して表示（本人が変えた値も反映）。best-effort・並列。
   const priceById: Record<string, string> = {};
-  if (tab === "listed" && live.length && actor) {
+  if (tab === "listed" && live.length && ebayActor) {
     try {
-      const token = await getValidAccessToken(actor);
+      const token = await getValidAccessToken(ebayActor);
       if (token) {
         const results = await Promise.all(
           live.slice(0, 60).map(async (d) => {
-            const sku = (await getListingSku(actor, d.id)) ?? skuForProduct(d.id);
+            const sku = (await getListingSku(ebayActor, d.id)) ?? skuForProduct(d.id);
             const offer = await getOfferForSku(token, sku).catch(() => null);
             return [d.id, offer?.priceUsd] as const;
           })

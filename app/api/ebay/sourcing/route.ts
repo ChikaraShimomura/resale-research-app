@@ -1,6 +1,6 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
-import { getActorId } from "../../../lib/auth/actor";
+import { getTeamContext } from "../../../lib/auth/teamActor";
 import { listSourcingForUser, recordSourcing, markPurchased, removeSourcing } from "../../../lib/ebay/sourcing";
 import { listListedProductIds } from "../../../lib/ebay/stats";
 
@@ -14,7 +14,7 @@ const rl = new Ratelimit({ redis: kv, limiter: Ratelimit.slidingWindow(60, "10 m
 
 // GET: 仕入れ中（楽天で仕入れる押下・未出品）の一覧。既に出品済み(deals)に入ったものは除外＝出品中一覧へ移る。
 export async function GET() {
-  const actor = await getActorId();
+  const { dataActor: actor } = await getTeamContext(); // チーム共有：仕入れ中も全員で同じ一覧
   if (!actor) return Response.json({ ok: false, items: [] }, { headers: { "Cache-Control": "private, no-store" } });
   const [items, listed] = await Promise.all([listSourcingForUser(actor), listListedProductIds(actor)]);
   const listedSet = new Set(listed);
@@ -26,11 +26,11 @@ export async function GET() {
 
 // POST: { action: "add"|"purchased"|"remove", productId, title?, imageUrl?, purchase?, points? }
 export async function POST(req: Request) {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false }, { status: 401 });
-  // レート制限（KV障害時はフェイルオープン）。
+  const { viewer, dataActor: actor } = await getTeamContext();
+  if (!actor || !viewer) return Response.json({ ok: false }, { status: 401 });
+  // レート制限は本人(viewer)単位で濫用防止。仕入れ中データは共有名前空間(actor)へ。
   try {
-    const { success } = await rl.limit(actor);
+    const { success } = await rl.limit(viewer);
     if (!success) return Response.json({ ok: false, error: "しばらくしてからお試しください。" }, { status: 429 });
   } catch { /* フェイルオープン */ }
 

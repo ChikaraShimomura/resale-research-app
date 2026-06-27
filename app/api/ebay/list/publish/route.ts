@@ -10,7 +10,8 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
-import { hasPerm, getTeamMode, markTeamListed } from "../../../../lib/team";
+import { hasPerm, markTeamListed } from "../../../../lib/team";
+import { getTeamContext } from "../../../../lib/auth/teamActor";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
@@ -40,19 +41,18 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as Payload;
 
-  // チーム：onBehalfOf 指定＋出品権限があれば、チームの共有在庫を出品できる。eBayアカウント(台帳・出品枠)は方式で決まる：
-  //   共有(shared)＝オーナーの1つのeBayで出品（actor=オーナー）／個別(individual)＝メンバー自身のeBayで出品（actor=本人）。
-  let actor = viewer;
-  const onBehalfOf = (body.onBehalfOf || "").trim();
-  const teamListing = !!onBehalfOf && onBehalfOf !== viewer;
-  if (teamListing) {
-    if (!(await hasPerm(onBehalfOf, viewer, "list"))) {
-      return Response.json({ ok: false, error: "このチームでの出品権限がありません。" }, { status: 403 });
-    }
-    actor = (await getTeamMode(onBehalfOf)) === "shared" ? onBehalfOf : viewer;
+  // チーム完全共有：在庫・台帳・満了枠は「共有データ名前空間(dataActor=オーナー)」に統一し、全員で同じ出品中/収益を見る。
+  // eBayトークン/SKU対応表は「出品アカウント(ebayActor)」＝共有モードはオーナー、個別モードは本人（各自のeBayで出品）。
+  // メンバーが出品するには "list" 権限が要る（オーナー本人は全権）。
+  const { dataActor, ebayActor, owner, isMember } = await getTeamContext();
+  const teamListing = isMember && !!owner && owner !== viewer;
+  if (teamListing && owner && !(await hasPerm(owner, viewer, "list"))) {
+    return Response.json({ ok: false, error: "このチームでの出品権限がありません。" }, { status: 403 });
   }
+  const actor = dataActor ?? viewer; // 台帳・在庫・満了枠（チーム共有）
+  const ebayActorId = ebayActor ?? viewer; // eBayトークン・SKU対応表（出品に使うeBayアカウント）
 
-  const token = await getValidAccessToken(actor); // 共有=オーナー / 個別=本人 のeBay。未連携ならここで弾く。
+  const token = await getValidAccessToken(ebayActorId); // 共有=オーナー / 個別=本人 のeBay。未連携ならここで弾く。
   if (!token) return Response.json({ ok: false, connected: false });
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   if (!body.categoryId) return Response.json({ ok: false, error: "カテゴリが未指定です。" }, { status: 400 });
@@ -181,9 +181,9 @@ export async function POST(req: Request) {
   // ・マイページ成績の出品（件数・仕入れ額）。仕入れは楽天価格＋国内送料（＝実際に払った額）。
   if (result.ok) {
     try {
-      // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）で対応表を書く。
-      await kv.hset(SKU_MAP_KEY(actor), { [result.sku]: product.id });
-      await kv.expire(SKU_MAP_KEY(actor), SKU_MAP_TTL);
+      // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）で対応表を書く。SKU対応表は出品アカウント(ebayActor)基準。
+      await kv.hset(SKU_MAP_KEY(ebayActorId), { [result.sku]: product.id });
+      await kv.expire(SKU_MAP_KEY(ebayActorId), SKU_MAP_TTL);
     } catch {
       /* noop */
     }
@@ -203,12 +203,11 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
-    // チーム出品：チーム全員の「出品中」共有台帳に記録する。個別モードは各自のeBay台帳にしか残らず
-    // チームの仕入れ商品から消えない（＝別メンバーが二重出品しうる）ため、ここで team_listed に焼いて
-    // チームの仕入れ商品から外し「出品中の商品」へ移す。誰が出したか(byActor)で表示し、共有モードでも記録する。
-    if (teamListing) {
+    // チーム出品：deal は共有名前空間(オーナー)に記録済みなので全員の「出品中」に出るが、
+    // 「誰が出品したか(byActor)」を残すため team_listed にも焼く（個別モードで各自のeBayに出した分の追跡も兼ねる）。
+    if (teamListing && owner) {
       try {
-        await markTeamListed(onBehalfOf, product.id, {
+        await markTeamListed(owner, product.id, {
           byActor: viewer,
           title: product.title,
           imageUrl: product.imageUrl,

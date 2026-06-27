@@ -1,6 +1,7 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
+import { getTeamContext } from "../../../lib/auth/teamActor";
 import { canDropship } from "../../../lib/auth/plan";
 import { fetchSourceAvailability } from "../../../lib/usedGallery";
 import { hasPerm, type TeamPerm } from "../../../lib/team";
@@ -37,18 +38,19 @@ export async function POST(req: Request) {
   // 仕入れ値は0〜1億円に丸めて保存（異常値で集計を壊さない）。未指定/不正は0（印は付くが金額なし）。
   const buyJpy = Math.min(Math.max(0, Math.round(Number(body.buyJpy) || 0)), 100_000_000);
 
-  // 操作対象のアクター。teamOwner 指定時はチーム共有＝オーナーのデータを操作する（権限チェック後）。既定は自分。
-  // お気に入り(fav/unfav)は個人のブックマーク＝チームへ代理せず常に自分(viewer)。
+  // 操作対象のアクター＝チームの共有データ名前空間（参加中はオーナー、ソロ/オーナー本人は自分）。
+  // チーム完全共有：お気に入り/仕入れ/送料/非表示はすべて共有プールに対して行う。
+  // ※自分のものでないチームデータを"変更"する操作（仕入れ/非表示/送料/取消）は対応する権限が要る。
+  //   お気に入り(fav/unfav)は共有ブックマークとして誰でも可（権限不要）。
   const PERM_FOR: Record<string, TeamPerm> = { bought: "buy", skip: "skip", undo: "delete", shipping: "shipping" };
-  let actor = viewer;
-  const teamOwner = (body.teamOwner || "").trim();
+  const { dataActor, owner, isMember } = await getTeamContext();
+  const actor = dataActor ?? viewer;
   const isFav = body.action === "fav" || body.action === "unfav";
-  if (!isFav && teamOwner && teamOwner !== viewer) {
+  if (isMember && owner && owner !== viewer && !isFav) {
     const need = PERM_FOR[body.action || ""];
-    if (!need || !(await hasPerm(teamOwner, viewer, need))) {
+    if (!need || !(await hasPerm(owner, viewer, need))) {
       return Response.json({ ok: false, error: "この操作の権限がありません。" }, { status: 403 });
     }
-    actor = teamOwner;
   }
 
   try {

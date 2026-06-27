@@ -1,4 +1,4 @@
-import { getActorId } from "../../../../lib/auth/actor";
+import { getTeamContext } from "../../../../lib/auth/teamActor";
 import { kv } from "@vercel/kv";
 import { getProductById } from "../../../../lib/ebay/productStore";
 import { aiRefineDescription, keepsKeyClauses } from "../../../../lib/ebay/refineDescription";
@@ -17,7 +17,7 @@ import { estimateProductWeightG } from "../../../../lib/ebay/productWeight";
 import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
-import { hasPerm, getTeamMode } from "../../../../lib/team";
+import { hasPerm } from "../../../../lib/team";
 
 // 利益計算と同じ係数（refresh.mjs と一致）。損益分岐の値付けに使う。
 const EBAY_FEE_RATE = 0.1325;
@@ -271,20 +271,18 @@ function buildDescription(enTitle: string, condition: string, category?: string,
 }
 
 export async function POST(req: Request) {
-  const viewer = await getActorId();
+  // チーム：出品準備に使うeBay(ポリシー/カテゴリ/トークン)は出品アカウント(ebayActor)＝共有はオーナー、個別は本人。
+  const { viewer, ebayActor, owner, isMember } = await getTeamContext();
   if (!viewer) return Response.json({ ok: false, connected: false });
 
-  const { productId, onBehalfOf } = (await req.json().catch(() => ({}))) as { productId?: string; onBehalfOf?: string };
+  const { productId } = (await req.json().catch(() => ({}))) as { productId?: string };
   if (!productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  // チーム：出品権限があれば共有在庫を準備。eBay(ポリシー/カテゴリ/トークン)は方式で決まる＝共有はオーナー、個別はメンバー本人。
-  let actor = viewer;
-  const owner = (onBehalfOf || "").trim();
-  if (owner && owner !== viewer) {
-    if (!(await hasPerm(owner, viewer, "list"))) return Response.json({ ok: false, error: "出品権限がありません。" }, { status: 403 });
-    actor = (await getTeamMode(owner)) === "shared" ? owner : viewer;
+  // メンバーがチームの共有在庫を準備するには "list" 権限が要る。
+  if (isMember && owner && owner !== viewer && !(await hasPerm(owner, viewer, "list"))) {
+    return Response.json({ ok: false, error: "出品権限がありません。" }, { status: 403 });
   }
-  const token = await getValidAccessToken(actor);
+  const token = await getValidAccessToken(ebayActor ?? viewer);
   if (!token) return Response.json({ ok: false, connected: false });
 
   const product = await getProductById(productId);

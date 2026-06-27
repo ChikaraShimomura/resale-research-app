@@ -1,5 +1,5 @@
 import { kv } from "@vercel/kv";
-import { getActorId } from "../../../lib/auth/actor";
+import { getDataActor } from "../../../lib/auth/teamActor";
 import { listDealsForUser, deleteDealsWithSku, recordSold, USD_JPY } from "../../../lib/ebay/stats";
 import { getPlan, isUnlimited } from "../../../lib/auth/plan";
 import { PLANS, PAYWALL_ENABLED } from "../../../lib/plans";
@@ -14,7 +14,7 @@ const SOLD_TTL = 180 * 24 * 60 * 60; // sold/route.ts と一致（最終更新�
 
 // GET: 出品中（未売却）／出品停止中／輸出した（売却済み）の取引一覧。
 export async function GET() {
-  const actor = await getActorId();
+  const actor = await getDataActor(); // チーム共有：出品中/売却の台帳はオーナー名前空間で全員共通
   if (!actor) return Response.json({ ok: false, live: [], stopped: [], archived: [], sold: [] });
   const { live, stopped, archived, sold } = await listDealsForUser(actor);
   // プラン上限情報（出品管理画面の上限ナッジ用）。PAYWALL有効＆無制限でない時だけ limit を返す。
@@ -31,7 +31,7 @@ export async function GET() {
 
 // POST: { action: "remove" | "sold", productId, soldJpy? }
 export async function POST(req: Request) {
-  const actor = await getActorId();
+  const actor = await getDataActor(); // チーム共有：出品中/売却の台帳はオーナー名前空間で全員共通
   if (!actor) return Response.json({ ok: false }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as {

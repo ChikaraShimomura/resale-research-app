@@ -1,5 +1,5 @@
 import { kv } from "@vercel/kv";
-import { getActorId } from "../../../lib/auth/actor";
+import { getTeamContext } from "../../../lib/auth/teamActor";
 import { getValidAccessToken, loadTokens } from "../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../lib/ebay/sellApi";
 import { SKU_MAP_KEY, SKU_MAP_TTL } from "../../../lib/ebay/listing";
@@ -26,34 +26,36 @@ async function storedIds(actor: string): Promise<string[]> {
 }
 
 // GET: 保存済みの「売れた商品ID」を返す（eBayは叩かない・高速）。表示側が毎回呼ぶ。
+// チーム共有：売れた商品の集合は共有名前空間(dataActor=オーナー)で全員に見せる。
 export async function GET() {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ids: [], connected: false });
+  const { dataActor } = await getTeamContext();
+  if (!dataActor) return Response.json({ ids: [], connected: false });
   return Response.json(
-    { ids: await storedIds(actor), connected: true },
+    { ids: await storedIds(dataActor), connected: true },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
 
 // POST: eBay getOrders で同期 → セットへ追加 → 最新の全IDを返す。
+// eBay同期は出品アカウント(ebayActor)、検知結果(売却記録/売れた集合/注文)は共有名前空間(dataActor)へ。
 export async function POST() {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ids: [], connected: false });
+  const { viewer, dataActor, ebayActor } = await getTeamContext();
+  if (!ebayActor || !dataActor) return Response.json({ ids: [], connected: false });
 
-  const stored = await loadTokens(actor);
-  if (!stored) return Response.json({ ids: [], connected: false });
+  const stored = await loadTokens(ebayActor);
+  if (!stored) return Response.json({ ids: await storedIds(dataActor), connected: false });
 
   // 旧トークンは sell.fulfillment 未付与 → eBayを叩かず再連携を促す
   if (!stored.scopes?.includes("sell.fulfillment")) {
-    return Response.json({ ids: await storedIds(actor), connected: true, needsReconnect: true });
+    return Response.json({ ids: await storedIds(dataActor), connected: true, needsReconnect: true });
   }
 
-  const token = await getValidAccessToken(actor);
-  if (!token) return Response.json({ ids: [], connected: false });
+  const token = await getValidAccessToken(ebayActor);
+  if (!token) return Response.json({ ids: await storedIds(dataActor), connected: false });
 
   const res = await getSoldItems(token);
   if (res.needsReconnect) {
-    return Response.json({ ids: await storedIds(actor), connected: true, needsReconnect: true });
+    return Response.json({ ids: await storedIds(dataActor), connected: true, needsReconnect: true });
   }
 
   // 売れた SKU → 商品ID（出品時に保存した対応表で逆引き）。あわせて売値を記録（ダッシュボード用）。
@@ -61,11 +63,11 @@ export async function POST() {
   const productIds: string[] = [];
   if (res.items.length > 0) {
     try {
-      const map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(actor))) ?? {};
+      const map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(ebayActor))) ?? {};
       // 同期のたびに逆引き表のTTLを再延長（活動があれば実質失効させない）
       if (Object.keys(map).length > 0) {
         try {
-          await kv.expire(SKU_MAP_KEY(actor), SKU_MAP_TTL);
+          await kv.expire(SKU_MAP_KEY(ebayActor), SKU_MAP_TTL);
         } catch {
           /* noop */
         }
@@ -74,7 +76,7 @@ export async function POST() {
         const pid = map[it.sku];
         if (!pid) continue;
         productIds.push(pid);
-        await recordSold(actor, pid, it.soldUsd, it.soldAt);
+        await recordSold(dataActor, pid, it.soldUsd, it.soldAt);
       }
     } catch {
       /* noop */
@@ -82,28 +84,28 @@ export async function POST() {
   }
 
   // 注文(Order)エンティティを保存（買い手住所/発送期限/orderId/lineItem/状態）＝配送管理の土台。
-  // 売却検知(productIds)とは独立に、アプリ出品ラインを含む注文を毎回 upsert する。
+  // 売却検知(productIds)とは独立に、アプリ出品ラインを含む注文を毎回 upsert する。共有名前空間へ。
   if (res.orders.length > 0) {
-    await recordOrders(actor, res.orders);
+    await recordOrders(dataActor, res.orders);
   }
 
   if (productIds.length > 0) {
     try {
       // sadd は member を1つ以上要求するため先頭を別引数で渡す（length>0 を確認済み）。
-      // 戻り値＝新規に追加された件数（＝今回はじめて検知した売却）。
-      const added = await kv.sadd(SOLD_KEY(actor), productIds[0], ...productIds.slice(1));
-      await kv.expire(SOLD_KEY(actor), TTL_SECONDS);
+      // 戻り値＝新規に追加された件数（＝今回はじめて検知した売却）。共有名前空間の「売れた集合」へ。
+      const added = await kv.sadd(SOLD_KEY(dataActor), productIds[0], ...productIds.slice(1));
+      await kv.expire(SOLD_KEY(dataActor), TTL_SECONDS);
       // ファネル計測：新規検知分だけ「売れた」を加算（ポーリングでの二重計上を防ぐ）。
       if (added > 0) {
         const date = jstDate();
         await Promise.all([
           kv.incrby(evcKey(date, "sold"), added),
           kv.expire(evcKey(date, "sold"), FUNNEL_TTL),
-          kv.sadd(evuKey(date, "sold"), actor),
+          kv.sadd(evuKey(date, "sold"), dataActor),
           kv.expire(evuKey(date, "sold"), FUNNEL_TTL),
         ]);
-        // 新規に検知した売却を本人へプッシュ通知（「売れたとき」をONにしている購読のみ）。VAPID未設定なら無視。
-        await sendToActor(actor, "sold", {
+        // 新規に検知した売却を同期した本人へプッシュ通知（「売れたとき」をONにしている購読のみ）。VAPID未設定なら無視。
+        await sendToActor(viewer ?? dataActor, "sold", {
           title: "🎉 売れたかも！",
           body: `${added}件の出品が売れた可能性があります。マイページで確認しましょう。`,
           url: "/mypage",
@@ -117,7 +119,7 @@ export async function POST() {
   // partial の時は全件を読み切れていない＝同期未完了。synced:false を返し、
   // クライアント側の30分ゲートを進めず次回も同期させる（売却の取りこぼし防止）。
   return Response.json({
-    ids: await storedIds(actor),
+    ids: await storedIds(dataActor),
     connected: true,
     needsReconnect: false,
     synced: !res.partial,

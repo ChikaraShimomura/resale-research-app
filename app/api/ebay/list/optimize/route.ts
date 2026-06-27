@@ -1,6 +1,6 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
-import { getActorId } from "../../../../lib/auth/actor";
+import { getEbayActor } from "../../../../lib/auth/teamActor";
 import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getListingSku } from "../../../../lib/ebay/stats";
@@ -31,7 +31,7 @@ const OPT_MAP_TTL = 730 * 24 * 60 * 60; // 取引台帳/SKU対応表と同じ2�
 const rl = new Ratelimit({ redis: kv, limiter: Ratelimit.slidingWindow(30, "1 d"), prefix: "rl:optimize:actor", analytics: false });
 
 export async function GET() {
-  const actor = await getActorId();
+  const actor = await getEbayActor(); // 出品の改訂は出品に使ったeBayアカウント基準
   if (!actor) return Response.json({ ok: false, connected: false, version: OPTIMIZE_VERSION, optimized: [] });
   let optimized: string[] = [];
   try {
@@ -49,7 +49,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const actor = await getActorId();
+  const actor = await getEbayActor(); // 出品の改訂は出品に使ったeBayアカウント基準
   if (!actor) return Response.json({ ok: false, connected: false });
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });

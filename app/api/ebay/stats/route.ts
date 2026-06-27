@@ -1,12 +1,12 @@
-import { getActorId } from "../../../lib/auth/actor";
+import { getDataActor } from "../../../lib/auth/teamActor";
 import { getStats } from "../../../lib/ebay/stats";
 
-// 「育てるダッシュボード」用の集計（端末単位）。KVのみ参照・eBayは叩かない。
+// マイページの収益集計。チーム参加中は共有データ（オーナー名前空間）の収益を全員で見る。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const actor = await getActorId();
+  const actor = await getDataActor();
   if (!actor) return Response.json({ ok: false });
   const stats = await getStats(actor);
   return Response.json({ ok: true, stats }, { headers: { "Cache-Control": "private, no-store" } });
