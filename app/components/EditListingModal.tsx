@@ -25,6 +25,8 @@ export default function EditListingModal({
   const [priceYen, setPriceYen] = useState(""); // 価格の円表示（priceUsd と同期）
   const USD_JPY = 155;
   const [quantity, setQuantity] = useState("1");
+  const [floorUsd, setFloorUsd] = useState(0); // 損益分岐(±0・USD)。手入力価格がこれ未満なら赤字＝警告＋承知チェック。
+  const [acceptLoss, setAcceptLoss] = useState(false); // 「赤字承知で出す」確認
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ErrInfo | null>(null);
   const [done, setDone] = useState(false);
@@ -85,6 +87,7 @@ export default function EditListingModal({
         if (j?.ok) {
           if (j.priceUsd != null) { setPriceUsd(String(j.priceUsd)); setPriceYen(Number(j.priceUsd) > 0 ? String(Math.round(Number(j.priceUsd) * USD_JPY)) : ""); }
           if (j.quantity != null) setQuantity(String(j.quantity));
+          if (typeof j.floorUsd === "number") setFloorUsd(j.floorUsd);
           if (Array.isArray(j.refImages)) setRefImages(j.refImages);
           if (j.ship) setShip(j.ship);
         } else {
@@ -105,7 +108,7 @@ export default function EditListingModal({
       const j = await fetch("/api/ebay/list/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, priceUsd, quantity: Number(quantity) }),
+        body: JSON.stringify({ productId, priceUsd, quantity: Number(quantity), acceptLoss }),
       }).then((r) => r.json());
       if (j?.ok) {
         setDone(true);
@@ -168,6 +171,9 @@ export default function EditListingModal({
 
   const priceOk = Number(priceUsd) >= 0.01;
   const qtyOk = Number(quantity) >= 1 && Number(quantity) <= 30;
+  // 損益分岐(±0)を下回る手入力＝赤字。承知チェックが無ければ保存不可（出品モーダルと同じ作法）。
+  const belowFloor = floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd;
+  useEffect(() => { if (!belowFloor) setAcceptLoss(false); }, [belowFloor]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-3" onClick={onClose}>
@@ -237,11 +243,23 @@ export default function EditListingModal({
               <span className="text-[10px] text-gray-400 mt-1 block"><span className="whitespace-nowrap">確保できる数だけに</span><wbr /><span className="whitespace-nowrap">（足りないと欠品キャンセルの原因）。</span></span>
             </label>
 
+            {belowFloor && (
+              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
+                <p role="alert" className="text-[11px] text-[#2D323B] leading-relaxed">
+                  <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 ¥{Math.round(floorUsd * USD_JPY).toLocaleString("ja-JP")} を下回り、</span><b>赤字の恐れ</b>があります。
+                </p>
+                <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
+                  <input type="checkbox" checked={acceptLoss} onChange={(e) => setAcceptLoss(e.target.checked)} className="accent-[#2D323B] w-4 h-4 mt-0.5 shrink-0" />
+                  <span className="text-[11px] text-[#2D323B] leading-relaxed">赤字の可能性を承知の上で、この価格にする</span>
+                </label>
+              </div>
+            )}
+
             {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
 
             <button
               onClick={save}
-              disabled={saving || !priceOk || !qtyOk}
+              disabled={saving || !priceOk || !qtyOk || (belowFloor && !acceptLoss)}
               className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving ? (

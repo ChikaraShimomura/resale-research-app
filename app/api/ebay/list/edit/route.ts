@@ -6,6 +6,9 @@ import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
+import { getProductById } from "../../../../lib/ebay/productStore";
+import { breakevenUsd } from "../../../../lib/ebay/priceModel";
+import { estimateWeightG, USD_JPY } from "../../../../lib/ebay/landedCost";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
 // GET  ?id=商品ID         → 現在の価格・数量・公開IDを返す（編集モーダルのプリフィル用）
@@ -16,6 +19,19 @@ export const dynamic = "force-dynamic";
 // その商品の出品に使われたSKU（deal.sku）。旧データは決定的SKU rr-{商品ID} にフォールバック。
 const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
+
+// 商品の損益分岐(±0・USD)を SSOT(priceModel) で算出。原価=psnap.source.price、重量=weight:{id}キャッシュ(無ければカテゴリ概算)。
+// 手入力価格がこれ未満なら赤字＝編集モーダルで警告し、承知(acceptLoss)が無ければ更新を弾く。出品モーダル/商品管理と同じ式。
+async function breakevenUsdFor(id: string): Promise<number> {
+  try {
+    const snap = await getProductById(id);
+    const costJpy = Number((snap as { source?: { price?: number } } | null)?.source?.price) || 0;
+    const wRaw = await kvReadOnly.get<number>(`weight:${id}`);
+    const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : estimateWeightG((snap as { category?: string } | null)?.category);
+    if (costJpy > 0 && weightG > 0) return Math.round(breakevenUsd(costJpy, weightG) * 100) / 100;
+  } catch { /* floor不明でも編集自体は使える（警告が出ないだけ） */ }
+  return 0;
+}
 
 // 出品が見つからない時の文言。\n で「見出し＋詳細」を改行（表示側は whitespace-pre-line で1行目を独立表示）。
 // チーム個別モードでは「別メンバーのeBayに出した出品」は本人以外から取得できないため、その可能性も伝える。
@@ -64,7 +80,8 @@ export async function GET(req: Request) {
   } catch {
     /* 送料状態が取れなくても価格/数量編集は使えるようにする */
   }
-  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship });
+  const floorUsd = await breakevenUsdFor(id); // 損益分岐(±0)。手入力価格がこれ未満なら赤字警告に使う。0=不明
+  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship, floorUsd });
 }
 
 export async function POST(req: Request) {
@@ -73,7 +90,7 @@ export async function POST(req: Request) {
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
-  const body = (await req.json().catch(() => ({}))) as { productId?: string; priceUsd?: string | number; quantity?: number; shipMode?: "free" | "paid" };
+  const body = (await req.json().catch(() => ({}))) as { productId?: string; priceUsd?: string | number; quantity?: number; shipMode?: "free" | "paid"; acceptLoss?: boolean };
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
   // ── 送料の出し方（送料込み/別）の切替。価格と配送ポリシーを同時更新する（価格/数量編集とは別操作）。──
@@ -113,6 +130,13 @@ export async function POST(req: Request) {
   if (body.priceUsd != null && body.priceUsd !== "") {
     const p = Number(body.priceUsd);
     if (!Number.isFinite(p) || p < 0.01) return Response.json({ ok: false, error: "価格(USD)が正しくありません。" }, { status: 400 });
+    // 損益分岐(±0)未満＝赤字。承知(acceptLoss)が無ければ弾く＝手入力で気づかず赤字価格を送るのを防ぐ(出品モーダルと同じ作法)。
+    if (!body.acceptLoss) {
+      const floor = await breakevenUsdFor(body.productId);
+      if (floor > 0 && p < floor) {
+        return Response.json({ ok: false, belowFloor: true, floorUsd: floor, error: `この価格は損益分岐（約¥${Math.round(floor * USD_JPY).toLocaleString("ja-JP")}）を下回り、赤字になります。` });
+      }
+    }
     opts.priceUsd = p.toFixed(2);
   }
   if (body.quantity != null) {

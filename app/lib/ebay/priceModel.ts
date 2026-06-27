@@ -15,10 +15,14 @@ export const FEE_RATE = 0.1325; // eBay最終手数料率
 export const FEE_FIXED_JPY = 47; // eBay固定手数料
 export const FAST_DISCOUNT = 0.08; // 「最安」＝中央値から8%安く
 export const HIGH_MARKUP = 0.1; // 「高値」＝中央値から10%高く
+// 損益分岐の重量に乗せる安全係数。重量はAI推定で誤差があり、実物が重いと実EMS送料が想定を超え赤字化する。
+// 損益分岐(floor)側だけ重めに見積もって必ず黒字側に倒す（買い手への送料表示は実費の現実値のまま＝過大請求しない）。
+export const WEIGHT_SAFETY_FLOOR = Number(process.env.LANDED_WEIGHT_SAFETY_FLOOR) || 1.1;
 
 // 価格 priceUsd で売るときの損益分岐(USD)＝その価格の着地コスト(関税/EMSは価格依存)で評価。
+// ⚠️重量は安全係数(WEIGHT_SAFETY_FLOOR)で重めに見積もる＝AI重量の過小評価による送料負けを防ぐ。
 export function floorAtPriceUsd(costJpy: number, weightG: number, priceUsd: number): number {
-  const landed = landedCostForWeight(weightG, Math.max(0, priceUsd));
+  const landed = landedCostForWeight(Math.round(weightG * WEIGHT_SAFETY_FLOOR), Math.max(0, priceUsd));
   return (costJpy + FEE_FIXED_JPY + landed.subtractJpy) / (1 - FEE_RATE) / USD_JPY;
 }
 
