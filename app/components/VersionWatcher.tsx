@@ -43,7 +43,7 @@ export default function VersionWatcher() {
         onClick={() => window.location.reload()}
         className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-[#2D323B] text-white text-[13px] font-bold shadow-lg active:scale-[0.98]"
       >
-        ⟳ 新しいバージョンがあります・タップで更新
+        ⟳ 最新化
       </button>
     </div>
   );
