@@ -36,14 +36,22 @@ export default async function TeamPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-5">
         <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-          会員のメンバーを招待して、あなたの<b>「仕入れた商品」一覧</b>と<b>収支（仕入れ額・売上額）</b>を共有できます。共有は読み取り専用で、相手が承認したときだけ有効です。
+          <span className="whitespace-nowrap">会員のメンバーを招待して、</span><wbr />
+          <span className="whitespace-nowrap">あなたの<b>「仕入れた商品」一覧</b>と</span><wbr />
+          <span className="whitespace-nowrap"><b>収支（仕入れ額・売上額）</b>を共有できます。</span><wbr />
+          <span className="whitespace-nowrap">共有は読み取り専用で、</span><wbr />
+          <span className="whitespace-nowrap">相手が承認したときだけ有効です。</span>
         </p>
         {actor && email ? (
           <TeamManager roster={roster} pending={pending} myTeams={myTeams} teamName={teamName} mode={mode} />
         ) : (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">ログインが必要です</p>
-            <p className="text-[12px] text-gray-500 mb-4">チーム共有はログイン中のアカウントごとに管理します。</p>
+            <p className="text-[12px] text-gray-500 mb-4">
+              <span className="whitespace-nowrap">チーム共有は、</span><wbr />
+              <span className="whitespace-nowrap">ログイン中のアカウントごとに</span><wbr />
+              <span className="whitespace-nowrap">管理します。</span>
+            </p>
             <Link href="/login" className="inline-flex items-center h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               ログイン
             </Link>

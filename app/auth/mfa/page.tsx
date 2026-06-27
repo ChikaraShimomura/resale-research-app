@@ -70,7 +70,8 @@ function MfaVerify() {
         ) : phase === "none" ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-3">
-              2段階認証が未設定。<Link href="/settings" className="text-[#2D323B] underline">設定</Link>から先に登録を。
+              <span className="whitespace-nowrap">2段階認証が未設定。</span><wbr />
+              <span className="whitespace-nowrap"><Link href="/settings" className="text-[#2D323B] underline">設定</Link>から先に登録を。</span>
             </p>
             <Link href="/settings" className="inline-flex items-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-sm font-bold active:bg-[#1A1D23]">
               設定へ

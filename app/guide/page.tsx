@@ -157,7 +157,10 @@ export default function GuidePage() {
         <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] rounded-2xl p-5 mb-6 text-white shadow-sm">
           <p className="font-black text-xl mb-1.5">中古 × eBay 輸出</p>
           <p className="text-white/85 text-[13px] leading-relaxed mb-5">
-            日本の中古を安く仕入れ、eBayで海外に高く売る副業の始め方を、初めての方向けに解説。
+            <span className="whitespace-nowrap">日本の中古を安く仕入れ、</span><wbr />
+            <span className="whitespace-nowrap">eBayで海外に高く売る</span><wbr />
+            <span className="whitespace-nowrap">副業の始め方を、</span><wbr />
+            <span className="whitespace-nowrap">初めての方向けに解説。</span>
           </p>
           <div className="flex items-stretch gap-2">
             {FLOW.map((f, i) => (
@@ -278,7 +281,14 @@ export default function GuidePage() {
                 <span>純利益</span><span>= ¥X,XXX</span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 text-center mt-2.5">純利益（円）で算出。eBay手数料・国際送料・$100超の米国関税・中古の仕入れ値を差し引いた手取り。実際の利益は商品の状態・競合・為替で変動。</p>
+            <p className="text-[11px] text-gray-400 text-center mt-2.5">
+              <span className="whitespace-nowrap">純利益（円）で算出。</span><wbr />
+              <span className="whitespace-nowrap">eBay手数料・国際送料・</span><wbr />
+              <span className="whitespace-nowrap">$100超の米国関税・</span><wbr />
+              <span className="whitespace-nowrap">中古の仕入れ値を差し引いた手取り。</span><wbr />
+              <span className="whitespace-nowrap">実際の利益は</span><wbr />
+              <span className="whitespace-nowrap">商品の状態・競合・為替で変動。</span>
+            </p>
           </div>
         </div>
 
@@ -308,11 +318,14 @@ export default function GuidePage() {
 
         {/* 個別サポート（任意・非楽天）。eBayセラー登録(最初の1回が最大の難所)で詰まった時だけ他社に相談。 */}
         <p className="text-center text-[12px] text-gray-500 leading-relaxed mt-4">
-          海外輸出いちばんの難所が<b className="text-gray-700">eBayのセラー登録（最初の1回だけ）</b>。詰まったら{" "}
-          <a href={COCONALA_URL} target="_blank" rel="nofollow sponsored noopener noreferrer" className="font-bold text-[#2D323B] underline underline-offset-2">
+          <span className="whitespace-nowrap">海外輸出いちばんの難所が</span><wbr />
+          <b className="text-gray-700 whitespace-nowrap">eBayのセラー登録</b><wbr />
+          <span className="whitespace-nowrap">（最初の1回だけ）。詰まったら</span><wbr />
+          <a href={COCONALA_URL} target="_blank" rel="nofollow sponsored noopener noreferrer" className="font-bold text-[#2D323B] underline underline-offset-2 whitespace-nowrap">
             ココナラで個別サポート{COCONALA_IS_AD ? "（広告）" : ""}
-          </a>
-          {" "}で数千円からベテランに手伝ってもらえます。
+          </a><wbr />
+          <span className="whitespace-nowrap">で数千円から、</span><wbr />
+          <span className="whitespace-nowrap">ベテランに手伝ってもらえます。</span>
         </p>
       </main>
 

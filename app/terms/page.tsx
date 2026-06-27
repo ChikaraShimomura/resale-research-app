@@ -54,12 +54,33 @@ export default function TermsPage() {
       <main className="max-w-2xl mx-auto p-3">
         <article className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
           <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-            本利用規約（以下「本規約」）は、輸出ラボ（以下「本サービス」）の利用条件を定めます。利用者が本サービスを登録・利用した時点で、本規約に同意したものとみなします。
+            <span className="whitespace-nowrap">本利用規約（以下「本規約」）は、</span><wbr />
+            <span className="whitespace-nowrap">輸出ラボ（以下「本サービス」）の</span><wbr />
+            <span className="whitespace-nowrap">利用条件を定めます。</span><wbr />
+            <span className="whitespace-nowrap">利用者が本サービスを登録・利用した時点で、</span><wbr />
+            <span className="whitespace-nowrap">本規約に同意したものとみなします。</span>
           </p>
 
           <Section title="第1条（本サービスの内容）">
-            <p>本サービスは、eBayで売れている型番を日本の中古サイト（ハードオフ等）の販売価格・相場と照合し、送料・関税・手数料を引いた想定純利益を参考表示するとともに、eBayへの出品作業を補助するリサーチ支援ツールです。</p>
-            <p>表示する相場・利益率・価格はいずれも<strong className="font-bold text-gray-900">想定・目安</strong>です。正確性・最新性・実現性、および利用者の利益・売上・成果は一切保証しません。</p>
+            <p>
+              <span className="whitespace-nowrap">本サービスは、</span><wbr />
+              <span className="whitespace-nowrap">eBayで売れている型番を</span><wbr />
+              <span className="whitespace-nowrap">日本の中古サイト（ハードオフ等）の</span><wbr />
+              <span className="whitespace-nowrap">販売価格・相場と照合し、</span><wbr />
+              <span className="whitespace-nowrap">送料・関税・手数料を引いた</span><wbr />
+              <span className="whitespace-nowrap">想定純利益を参考表示するとともに、</span><wbr />
+              <span className="whitespace-nowrap">eBayへの出品作業を補助する</span><wbr />
+              <span className="whitespace-nowrap">リサーチ支援ツールです。</span>
+            </p>
+            <p>
+              <span className="whitespace-nowrap">表示する相場・利益率・価格は</span><wbr />
+              <span className="whitespace-nowrap">いずれも</span>
+              <strong className="font-bold text-gray-900 whitespace-nowrap">想定・目安</strong>
+              <span className="whitespace-nowrap">です。</span><wbr />
+              <span className="whitespace-nowrap">正確性・最新性・実現性、</span><wbr />
+              <span className="whitespace-nowrap">および利用者の利益・売上・成果は</span><wbr />
+              <span className="whitespace-nowrap">一切保証しません。</span>
+            </p>
           </Section>
 
           <Section title="第2条（アカウント登録）">
@@ -71,12 +92,31 @@ export default function TermsPage() {
           </Section>
 
           <Section title="第3条（料金）">
-            <p>本サービスには無料の範囲と有料プランがあります。現時点では一部機能を無料提供していますが、将来、有料プランへの移行・課金を行う場合があります。</p>
-            <p>有料プラン提供時は、料金・支払方法・提供時期・解約方法・返金の可否等を、別途「特定商取引法に基づく表記」および申込画面で明示します。</p>
+            <p>
+              <span className="whitespace-nowrap">本サービスには</span><wbr />
+              <span className="whitespace-nowrap">無料の範囲と有料プランがあります。</span><wbr />
+              <span className="whitespace-nowrap">現時点では一部機能を無料提供していますが、</span><wbr />
+              <span className="whitespace-nowrap">将来、有料プランへの移行・課金を</span><wbr />
+              <span className="whitespace-nowrap">行う場合があります。</span>
+            </p>
+            <p>
+              <span className="whitespace-nowrap">有料プラン提供時は、</span><wbr />
+              <span className="whitespace-nowrap">料金・支払方法・提供時期・</span><wbr />
+              <span className="whitespace-nowrap">解約方法・返金の可否等を、</span><wbr />
+              <span className="whitespace-nowrap">別途「特定商取引法に基づく表記」</span><wbr />
+              <span className="whitespace-nowrap">および申込画面で明示します。</span>
+            </p>
           </Section>
 
           <Section title="第4条（利用者の責任）">
-            <p>本サービスは情報提供・作業補助のツールです。実際の仕入れ・出品・販売・発送・輸出は、利用者自身の責任と判断で行うもの。利用者は、自らの取引について以下を確認・遵守します。</p>
+            <p>
+              <span className="whitespace-nowrap">本サービスは</span><wbr />
+              <span className="whitespace-nowrap">情報提供・作業補助のツールです。</span><wbr />
+              <span className="whitespace-nowrap">実際の仕入れ・出品・販売・発送・輸出は、</span><wbr />
+              <span className="whitespace-nowrap">利用者自身の責任と判断で行うもの。</span><wbr />
+              <span className="whitespace-nowrap">利用者は、自らの取引について</span><wbr />
+              <span className="whitespace-nowrap">以下を確認・遵守します。</span>
+            </p>
             <Bullets items={[
               "eBay・仕入れ元の中古サイト・Payoneer等、利用する各サービスの利用規約・ポリシーを遵守すること。違反による利用停止・アカウント閉鎖等の責任は利用者が負う。",
               "出品・販売・輸出する商品が、各プラットフォーム規約および関係法令（関税法・外為法・輸出規制、薬機法、その他の各種規制）に適合していること。危険物・輸出禁制品・各国の規制品等の発送可否は利用者が確認すること。",
@@ -102,26 +142,64 @@ export default function TermsPage() {
               "本サービスの利用または利用できなかったことにより利用者に生じた損害について、責任を負いません。ただし本サービスの故意または重大な過失による場合を除きます。",
               "外部サービス（eBay・仕入れ元サイト・決済事業者等）の仕様変更・停止・障害により生じた不利益について、責任を負いません。",
             ]} />
-            <p className="text-[12px] text-gray-400">※ 消費者契約法その他の強行法規に反する範囲では、上記免責は適用されません。</p>
+            <p className="text-[12px] text-gray-400">
+              <span className="whitespace-nowrap">※ 消費者契約法その他の</span><wbr />
+              <span className="whitespace-nowrap">強行法規に反する範囲では、</span><wbr />
+              <span className="whitespace-nowrap">上記免責は適用されません。</span>
+            </p>
           </Section>
 
           <Section title="第7条（サービスの変更・中断・終了）">
-            <p>本サービスは、事前の通知なく内容の変更・追加・中断・終了を行うことがあります。これにより利用者に生じた損害について、前条の範囲で責任を負いません。</p>
+            <p>
+              <span className="whitespace-nowrap">本サービスは、</span><wbr />
+              <span className="whitespace-nowrap">事前の通知なく</span><wbr />
+              <span className="whitespace-nowrap">内容の変更・追加・中断・終了を</span><wbr />
+              <span className="whitespace-nowrap">行うことがあります。</span><wbr />
+              <span className="whitespace-nowrap">これにより利用者に生じた損害について、</span><wbr />
+              <span className="whitespace-nowrap">前条の範囲で責任を負いません。</span>
+            </p>
           </Section>
 
           <Section title="第8条（個人情報の取り扱い）">
-            <p>個人情報の取り扱いについては、別途定める<Link href="/privacy" className="text-[#2D323B] underline">プライバシーポリシー</Link>によります。</p>
+            <p>
+              <span className="whitespace-nowrap">個人情報の取り扱いについては、</span><wbr />
+              <span className="whitespace-nowrap">別途定める</span>
+              <Link href="/privacy" className="text-[#2D323B] underline whitespace-nowrap">プライバシーポリシー</Link>
+              <span className="whitespace-nowrap">によります。</span>
+            </p>
           </Section>
 
           <Section title="第9条（規約の変更）">
-            <p>本サービスは、必要に応じて本規約を変更することがあります。変更後の規約は本ページへの掲示時点から効力を生じます。重要な変更は本サービス上で告知します。</p>
+            <p>
+              <span className="whitespace-nowrap">本サービスは、</span><wbr />
+              <span className="whitespace-nowrap">必要に応じて本規約を</span><wbr />
+              <span className="whitespace-nowrap">変更することがあります。</span><wbr />
+              <span className="whitespace-nowrap">変更後の規約は</span><wbr />
+              <span className="whitespace-nowrap">本ページへの掲示時点から</span><wbr />
+              <span className="whitespace-nowrap">効力を生じます。</span><wbr />
+              <span className="whitespace-nowrap">重要な変更は</span><wbr />
+              <span className="whitespace-nowrap">本サービス上で告知します。</span>
+            </p>
           </Section>
 
           <Section title="第10条（準拠法・管轄）">
-            <p>本規約は日本法に準拠します。本サービスに関して紛争が生じた場合は、東京地方裁判所を第一審の専属的合意管轄裁判所とします。</p>
+            <p>
+              <span className="whitespace-nowrap">本規約は日本法に準拠します。</span><wbr />
+              <span className="whitespace-nowrap">本サービスに関して</span><wbr />
+              <span className="whitespace-nowrap">紛争が生じた場合は、</span><wbr />
+              <span className="whitespace-nowrap">東京地方裁判所を</span><wbr />
+              <span className="whitespace-nowrap">第一審の専属的合意管轄裁判所とします。</span>
+            </p>
           </Section>
 
-          <p className="mt-7 text-[12px] text-gray-400">制定日：2026年6月18日 ／ お問い合わせ：support@yushutsu-fukugyo.com ／ 事業者情報・価格・解約等は<Link href="/legal" className="text-[#2D323B] underline">特定商取引法に基づく表記</Link>をご覧ください。</p>
+          <p className="mt-7 text-[12px] text-gray-400">
+            <span className="whitespace-nowrap">制定日：2026年6月18日</span><wbr />
+            <span className="whitespace-nowrap"> ／ お問い合わせ：</span><wbr />
+            <span className="whitespace-nowrap">support@yushutsu-fukugyo.com</span><wbr />
+            <span className="whitespace-nowrap"> ／ 事業者情報・価格・解約等は</span><wbr />
+            <Link href="/legal" className="text-[#2D323B] underline whitespace-nowrap">特定商取引法に基づく表記</Link>
+            <span className="whitespace-nowrap">をご覧ください。</span>
+          </p>
         </article>
       </main>
 

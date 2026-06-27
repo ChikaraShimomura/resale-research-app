@@ -53,7 +53,14 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
           <div className="flex items-start gap-2 bg-[#2D323B]/[0.05] border border-[#2D323B]/20 rounded-xl px-3 py-2.5 mb-3">
             <AlertTriangle size={15} className="text-[#2D323B] shrink-0 mt-0.5" />
             <p className="text-[11.5px] text-[#2D323B] leading-relaxed">
-              <b>送れない物</b>：モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライター等の航空危険物。<b>申告価格は実際の販売額を正直に</b>（過少申告・ギフト偽装は違法）。
+              <b className="whitespace-nowrap">送れない物</b>
+              <span className="whitespace-nowrap">：モバイルバッテリー・</span><wbr />
+              <span className="whitespace-nowrap">リチウム電池単体・香水・</span><wbr />
+              <span className="whitespace-nowrap">アルコール・スプレー・</span><wbr />
+              <span className="whitespace-nowrap">ライター等の航空危険物。</span><wbr />
+              <b className="whitespace-nowrap">申告価格は実際の販売額を正直に</b><wbr />
+              <span className="whitespace-nowrap">（過少申告・</span><wbr />
+              <span className="whitespace-nowrap">ギフト偽装は違法）。</span>
             </p>
           </div>
 
@@ -85,7 +92,14 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
           </a>
 
           <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-            ※ HSコード・品名は目安（「該当なし」は一律おもちゃ扱い→品名は具体的に）。海外宛ては国際郵便マイページで内容品を英語で電子申告（全世界で必須）。高額品は追跡・補償付きで。発送前に規制を必ず確認を。
+            <span className="whitespace-nowrap">※ HSコード・品名は目安</span><wbr />
+            <span className="whitespace-nowrap">（「該当なし」は一律おもちゃ扱い→</span><wbr />
+            <span className="whitespace-nowrap">品名は具体的に）。</span><wbr />
+            <span className="whitespace-nowrap">海外宛ては国際郵便マイページで</span><wbr />
+            <span className="whitespace-nowrap">内容品を英語で電子申告</span><wbr />
+            <span className="whitespace-nowrap">（全世界で必須）。</span><wbr />
+            <span className="whitespace-nowrap">高額品は追跡・補償付きで。</span><wbr />
+            <span className="whitespace-nowrap">発送前に規制を必ず確認を。</span>
           </p>
         </div>
       )}

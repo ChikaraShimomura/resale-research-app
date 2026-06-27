@@ -92,7 +92,12 @@ export function TeamRosterAdmin({
         <h2 className="text-sm font-black text-gray-800">チーム管理（代理）</h2>
       </div>
       <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
-        あなたは<b>チーム管理</b>権限を持っています。このチームのメンバーを招待・除名できます（権限変更・方式・名前はオーナーのみ）。
+        <span className="whitespace-nowrap">あなたは<b>チーム管理</b>権限を</span><wbr />
+        <span className="whitespace-nowrap">持っています。</span><wbr />
+        <span className="whitespace-nowrap">このチームのメンバーを</span><wbr />
+        <span className="whitespace-nowrap">招待・除名できます</span><wbr />
+        <span className="whitespace-nowrap">（権限変更・方式・名前は</span><wbr />
+        <span className="whitespace-nowrap">オーナーのみ）。</span>
       </p>
       <div className="flex gap-2">
         <input
@@ -295,7 +300,10 @@ export default function TeamManager({
       {/* チームの方式＝出品に使うeBayアカウントの違い（どちらも在庫・収支・カタログは共有）。 */}
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
         <h2 className="text-sm font-black text-gray-800 mb-1">チームの方式</h2>
-        <p className="text-[10px] text-gray-400 mb-2 leading-snug">どちらも在庫・収支・カタログは共有。違いは<b>出品に使うeBayアカウント</b>です。</p>
+        <p className="text-[10px] text-gray-400 mb-2 leading-snug">
+          <span className="whitespace-nowrap">どちらも在庫・収支・カタログは共有。</span><wbr />
+          <span className="whitespace-nowrap">違いは<b>出品に使うeBayアカウント</b>です。</span>
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setTeamMode("shared")}
@@ -309,7 +317,7 @@ export default function TeamManager({
             className={`rounded-xl border px-3 py-2.5 text-left focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus-visible:outline-none ${mode === "individual" ? "border-[#2D323B] bg-[#2D323B]/[0.04] ring-1 ring-[#2D323B]" : "border-[#A98B5C]/30 bg-white"}`}
           >
             <span className="block text-[12px] font-black text-gray-800">個別</span>
-            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5">メンバーが<b>各自のeBay</b>を連携して出品</span>
+            <span className="block text-[10px] text-gray-500 leading-snug mt-0.5"><span className="whitespace-nowrap">メンバーが<b>各自のeBay</b>を</span><wbr /><span className="whitespace-nowrap">連携して出品</span></span>
           </button>
         </div>
       </section>
@@ -338,7 +346,12 @@ export default function TeamManager({
           <h2 className="text-sm font-black text-gray-800">メンバーを招待</h2>
         </div>
         <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
-          会員のメールを指定すると承認リンクを送ります。承認した相手は、あなたの<b>「仕入れた商品」と収支（仕入れ額・売上額）</b>を見られます。
+          <span className="whitespace-nowrap">会員のメールを指定すると、</span><wbr />
+          <span className="whitespace-nowrap">承認リンクを送ります。</span><wbr />
+          <span className="whitespace-nowrap">承認した相手は、あなたの</span><wbr />
+          <span className="whitespace-nowrap"><b>「仕入れた商品」と</b></span><wbr />
+          <span className="whitespace-nowrap"><b>収支（仕入れ額・売上額）</b>を</span><wbr />
+          <span className="whitespace-nowrap">見られます。</span>
         </p>
         <div className="flex gap-2">
           <input
@@ -404,7 +417,11 @@ export default function TeamManager({
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
         <h2 className="text-[13px] font-black text-gray-800 mb-2">あなたが共有しているメンバー（{roster.length}）</h2>
         {roster.length === 0 ? (
-          <p className="text-[12px] text-gray-400 leading-relaxed">まだいません。上の招待からメンバーを追加できます。</p>
+          <p className="text-[12px] text-gray-400 leading-relaxed">
+            <span className="whitespace-nowrap">まだいません。</span><wbr />
+            <span className="whitespace-nowrap">上の招待から</span><wbr />
+            <span className="whitespace-nowrap">メンバーを追加できます。</span>
+          </p>
         ) : (
           <ul className="space-y-2.5">
             {roster.map((m) => (
@@ -446,7 +463,13 @@ export default function TeamManager({
           </ul>
         )}
         {roster.length > 0 && (
-          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 権限はどちらの方式でも有効です。方式は出品に使うeBayアカウント（共有＝あなたの1つ／個別＝各自）の違いだけです。</p>
+          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
+            <span className="whitespace-nowrap">※ 権限はどちらの方式でも有効です。</span><wbr />
+            <span className="whitespace-nowrap">方式は出品に使う</span><wbr />
+            <span className="whitespace-nowrap">eBayアカウント</span><wbr />
+            <span className="whitespace-nowrap">（共有＝あなたの1つ／</span><wbr />
+            <span className="whitespace-nowrap">個別＝各自）の違いだけです。</span>
+          </p>
         )}
       </section>
 
@@ -454,7 +477,11 @@ export default function TeamManager({
       <section className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
         <h2 className="text-[13px] font-black text-gray-800 mb-2">参加中のチーム（{myTeams.length}）</h2>
         {myTeams.length === 0 ? (
-          <p className="text-[12px] text-gray-400 leading-relaxed">招待されたチームはまだありません。承認するとここに出ます。</p>
+          <p className="text-[12px] text-gray-400 leading-relaxed">
+            <span className="whitespace-nowrap">招待されたチームは</span><wbr />
+            <span className="whitespace-nowrap">まだありません。</span><wbr />
+            <span className="whitespace-nowrap">承認すると、ここに出ます。</span>
+          </p>
         ) : (
           <ul className="space-y-2">
             {myTeams.map((t) => (

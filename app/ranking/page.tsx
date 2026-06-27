@@ -86,8 +86,10 @@ export default async function RankingPage({
             role="status">
             <span className="mt-0.5 shrink-0 text-[#2D323B]" aria-hidden="true"><Flame size={16} /></span>
             <p className="text-[12px] leading-relaxed text-gray-700">
-              <b className="text-[#2D323B]">ランキングは無料で見られます。</b>
-              各商品の詳細（仕入れ先・想定売値・利益の内訳）は、プランで解放されます。
+              <b className="text-[#2D323B]">ランキングは無料で見られます。</b><wbr />
+              <span className="whitespace-nowrap">各商品の詳細</span><wbr />
+              <span className="whitespace-nowrap">（仕入れ先・想定売値・利益の内訳）は、</span><wbr />
+              <span className="whitespace-nowrap">プランで解放されます。</span>
             </p>
           </div>
         )}
@@ -96,17 +98,32 @@ export default async function RankingPage({
           eBay輸出で儲かる中古 ランキング
         </h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          日本の<b>中古</b>を仕入れ<b>eBay（海外）</b>で売って、いま<b>純利益が出る型番</b>を毎日更新。
-          <b>仕入れ値 → eBay想定売値（直近の落札ベース）→ 純利益</b>の目安付き（ランキング無料・仕入れ先はプランで解放）。
+          <span className="whitespace-nowrap">日本の<b>中古</b>を仕入れ</span><wbr />
+          <span className="whitespace-nowrap"><b>eBay（海外）</b>で売って、</span><wbr />
+          <span className="whitespace-nowrap">いま<b>純利益が出る型番</b>を毎日更新。</span><wbr />
+          <span className="whitespace-nowrap"><b>仕入れ値</b></span><wbr />
+          <span className="whitespace-nowrap">→ <b>eBay想定売値</b></span><wbr />
+          <span className="whitespace-nowrap"><b>（直近の落札ベース）</b></span><wbr />
+          <span className="whitespace-nowrap">→ <b>純利益</b>の目安付き</span><wbr />
+          <span className="whitespace-nowrap">（ランキング無料・仕入れ先はプランで解放）。</span>
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
-          ※ 定番ジャンル＝カメラ・オーディオ・楽器・フィギュア・腕時計など。相場はeBayの<b>直近落札（実売値）ベース</b>の目安で、中古は1点物のため在庫は流動的・状態・競合・為替で変動。
+          <span className="whitespace-nowrap">※ 定番ジャンル＝</span><wbr />
+          <span className="whitespace-nowrap">カメラ・オーディオ・楽器・</span><wbr />
+          <span className="whitespace-nowrap">フィギュア・腕時計など。</span><wbr />
+          <span className="whitespace-nowrap">相場はeBayの</span><wbr />
+          <span className="whitespace-nowrap"><b>直近落札（実売値）ベース</b>の目安で、</span><wbr />
+          <span className="whitespace-nowrap">中古は1点物のため在庫は流動的・</span><wbr />
+          <span className="whitespace-nowrap">状態・競合・為替で変動。</span>
         </p>
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
             <p className="text-sm font-bold text-gray-700 mb-1">集計中</p>
-            <p className="text-[12px] text-gray-500 mb-4">商品は随時入れ替わります。少し時間をおいて再度どうぞ。</p>
+            <p className="text-[12px] text-gray-500 mb-4">
+              <span className="whitespace-nowrap">商品は随時入れ替わります。</span><wbr />
+              <span className="whitespace-nowrap">少し時間をおいて再度どうぞ。</span>
+            </p>
             <Link href={canView ? "/catalog" : "/pricing?from=ranking"}
               className="inline-flex items-center gap-1.5 h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               {canView ? (
@@ -187,7 +204,9 @@ export default async function RankingPage({
                 <Lock size={16} className="text-[#A98B5C]" aria-hidden="true" /> プランで全部見る
               </Link>
               <p className="mt-1.5 text-center text-[11px] text-gray-400 leading-relaxed">
-                ランキングは無料。<b className="text-gray-500">各商品の詳細・仕入れ先はプラン（月¥500〜・30日無料）で解放</b>されます。
+                <span className="whitespace-nowrap">ランキングは無料。</span><wbr />
+                <span className="whitespace-nowrap"><b className="text-gray-500">各商品の詳細・仕入れ先は</b></span><wbr />
+                <span className="whitespace-nowrap"><b className="text-gray-500">プラン（月¥500〜・30日無料）で解放</b>されます。</span>
               </p>
             </div>
           )}
@@ -197,7 +216,13 @@ export default async function RankingPage({
         </div>
 
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
-          輸出ラボは国内の中古→eBay輸出の副業向け<b>リサーチツール</b>（ランキング無料・本格利用は月¥500〜）。純利益は仕入れ値・eBay手数料(13.25%)・国際送料・米国関税で算出した想定値。商品の状態・競合・為替で変動。
+          <span className="whitespace-nowrap">輸出ラボは国内の中古→eBay輸出の</span><wbr />
+          <span className="whitespace-nowrap">副業向け<b>リサーチツール</b></span><wbr />
+          <span className="whitespace-nowrap">（ランキング無料・本格利用は月¥500〜）。</span><wbr />
+          <span className="whitespace-nowrap">純利益は仕入れ値・</span><wbr />
+          <span className="whitespace-nowrap">eBay手数料(13.25%)・</span><wbr />
+          <span className="whitespace-nowrap">国際送料・米国関税で算出した想定値。</span><wbr />
+          <span className="whitespace-nowrap">商品の状態・競合・為替で変動。</span>
         </p>
       </main>
 

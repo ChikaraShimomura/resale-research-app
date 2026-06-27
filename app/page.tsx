@@ -127,10 +127,10 @@ function LandingPage() {
         <p className="text-[12px] text-gray-500 mb-4 pl-3">日本にいながら、いつもの通販と同じ感覚で。</p>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { Icon: Languages, t: "英語はいらない", d: "出品タイトルは自動作成。やり取りも定型文でOK。" },
-            { Icon: MapPin, t: "日本にいながら完結", d: "仕入れも発送も国内。海外発送は近くの郵便局・国際郵便マイページから。" },
-            { Icon: TrendingUp, t: "海外だから高く売れる", d: "日本にしかない商品は、海外で価値が上がり高値に。" },
-            { Icon: ShieldCheck, t: "守られて取引できる", d: "eBayの取引保護＋追跡付き発送。正直な説明でトラブル回避。" },
+            { Icon: Languages, t: "英語はいらない", d: <><span className="whitespace-nowrap">出品タイトルは自動作成。</span><wbr /><span className="whitespace-nowrap">やり取りも定型文でOK。</span></> },
+            { Icon: MapPin, t: "日本にいながら完結", d: <><span className="whitespace-nowrap">仕入れも発送も国内。</span><wbr /><span className="whitespace-nowrap">海外発送は近くの郵便局・</span><wbr /><span className="whitespace-nowrap">国際郵便マイページから。</span></> },
+            { Icon: TrendingUp, t: "海外だから高く売れる", d: <><span className="whitespace-nowrap">日本にしかない商品は、</span><wbr /><span className="whitespace-nowrap">海外で価値が上がり高値に。</span></> },
+            { Icon: ShieldCheck, t: "守られて取引できる", d: <><span className="whitespace-nowrap">eBayの取引保護＋</span><wbr /><span className="whitespace-nowrap">追跡付き発送。</span><wbr /><span className="whitespace-nowrap">正直な説明でトラブル回避。</span></> },
           ].map(({ Icon, t, d }, i) => (
             <div key={i} className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3.5 shadow-sm">
               <div className="w-9 h-9 rounded-full bg-[#A98B5C]/10 ring-1 ring-[#A98B5C]/30 flex items-center justify-center mb-2.5">
@@ -170,7 +170,14 @@ function LandingPage() {
       {/* フッター */}
       <footer className="bg-white border-t border-[#A98B5C]/25 px-6 py-8 text-center">
         <p className="text-xs leading-relaxed text-gray-400">
-          ※ 純利益＝eBay想定売値（直近の落札価格ベース）− eBay手数料(13.25%)・国際送料・米国関税($100超)・中古の仕入れ値。実際の利益は商品の状態・競合・為替等で変動。中古は1点物のため在庫は流動的。
+          <span className="whitespace-nowrap">※ 純利益＝eBay想定売値</span><wbr />
+          <span className="whitespace-nowrap">（直近の落札価格ベース）</span><wbr />
+          <span className="whitespace-nowrap">− eBay手数料(13.25%)・</span><wbr />
+          <span className="whitespace-nowrap">国際送料・米国関税($100超)・</span><wbr />
+          <span className="whitespace-nowrap">中古の仕入れ値。</span><wbr />
+          <span className="whitespace-nowrap">実際の利益は商品の状態・</span><wbr />
+          <span className="whitespace-nowrap">競合・為替等で変動。</span><wbr />
+          <span className="whitespace-nowrap">中古は1点物のため在庫は流動的。</span>
         </p>
         <div className="mt-5 flex items-center justify-center gap-4 text-xs">
           <Link href="/ranking" className="text-gray-500 hover:text-[#2D323B]">ランキング</Link>
@@ -181,7 +188,11 @@ function LandingPage() {
           <span aria-hidden="true" className="text-gray-300">·</span>
           <Link href="/privacy" className="text-gray-500 hover:text-[#2D323B]">プライバシーポリシー</Link>
         </div>
-        <p className="mt-4 text-[10px] text-gray-400">輸出ラボは eBay・各仕入れ元サイトとは独立した非公式サービスです。</p>
+        <p className="mt-4 text-[10px] text-gray-400">
+          <span className="whitespace-nowrap">輸出ラボは eBay・</span><wbr />
+          <span className="whitespace-nowrap">各仕入れ元サイトとは独立した</span><wbr />
+          <span className="whitespace-nowrap">非公式サービスです。</span>
+        </p>
       </footer>
 
       <BottomNav />

@@ -103,7 +103,11 @@ function MoneyFlow({ s }: { s: Stats }) {
       </div>
       {loss && (
         <p className="mt-1 text-[11px] text-[#2D323B] leading-relaxed">
-          いまは赤字。仕入れ値より安く売れた商品があるかも。相場より高すぎない商品を選ぶと改善。
+          <span className="whitespace-nowrap">いまは赤字。</span><wbr />
+          <span className="whitespace-nowrap">仕入れ値より安く売れた</span><wbr />
+          <span className="whitespace-nowrap">商品があるかも。</span><wbr />
+          <span className="whitespace-nowrap">相場より高すぎない商品を</span><wbr />
+          <span className="whitespace-nowrap">選ぶと改善。</span>
         </p>
       )}
     </div>
@@ -148,7 +152,11 @@ function UsedFinancePanel({ s }: { s: Stats }) {
           {signedYen(netCash)}
         </span>
       </div>
-      <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">※ 送料は各商品の設定値（未設定は一律¥1,000）。在庫が売れると差引が改善します。</p>
+      <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
+        <span className="whitespace-nowrap">※ 送料は各商品の設定値</span><wbr />
+        <span className="whitespace-nowrap">（未設定は一律¥1,000）。</span><wbr />
+        <span className="whitespace-nowrap">在庫が売れると差引が改善します。</span>
+      </p>
     </div>
   );
 }
@@ -315,7 +323,10 @@ export default function MyDashboard() {
           <Package size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-black text-gray-800 mb-1">まだ成績なし</p>
           <p className="text-[12px] text-gray-500 leading-relaxed">
-            カタログで<b>「仕入れた」</b>を押す → <b>eBayへ出品</b> → 売れると、ここに<b>仕入れ・売上・差引</b>が出ます。
+            <span className="whitespace-nowrap">カタログで<b>「仕入れた」</b>を押す</span><wbr />
+            <span className="whitespace-nowrap">→ <b>eBayへ出品</b></span><wbr />
+            <span className="whitespace-nowrap">→ 売れると、ここに</span><wbr />
+            <span className="whitespace-nowrap"><b>仕入れ・売上・差引</b>が出ます。</span>
           </p>
         </div>
         <HubLinks />
@@ -409,7 +420,12 @@ export default function MyDashboard() {
       </div>
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
-        ※ 利益（現金）＝ 売上 − eBay手数料(13.25%+¥47) − 仕入れ値（為替 $1=¥155）。ポイントは利益に含めず「( + ○○ポイント )」で別表示（おまけ扱い）。
+        <span className="whitespace-nowrap">※ 利益（現金）＝ 売上</span><wbr />
+        <span className="whitespace-nowrap">− eBay手数料(13.25%+¥47)</span><wbr />
+        <span className="whitespace-nowrap">− 仕入れ値（為替 $1=¥155）。</span><wbr />
+        <span className="whitespace-nowrap">ポイントは利益に含めず</span><wbr />
+        <span className="whitespace-nowrap">「( + ○○ポイント )」で別表示</span><wbr />
+        <span className="whitespace-nowrap">（おまけ扱い）。</span>
       </p>
 
       {/* 継続動機の主CTA：次の利益商品へ。平均利益が黒字の時だけ「1件あたり平均◯◯」を文言に織り込む。 */}

@@ -105,9 +105,20 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
             {withRakuten ? "使うのは、信頼できる3つだけ" : "使うのは、世界が信頼する2つだけ"}
           </p>
           <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">
-            {withRakuten
-              ? "仕入れは楽天、出品はeBay、入金はPayoneer。日本最大級と世界基準のサービスだけ。"
-              : "出品はeBay、入金はPayoneer。どちらも世界中で使われ、強固なセキュリティで安心。"}
+            {withRakuten ? (
+              <>
+                <span className="whitespace-nowrap">仕入れは楽天、出品はeBay、</span><wbr />
+                <span className="whitespace-nowrap">入金はPayoneer。</span><wbr />
+                <span className="whitespace-nowrap">日本最大級と世界基準の</span><wbr />
+                <span className="whitespace-nowrap">サービスだけ。</span>
+              </>
+            ) : (
+              <>
+                <span className="whitespace-nowrap">出品はeBay、入金はPayoneer。</span><wbr />
+                <span className="whitespace-nowrap">どちらも世界中で使われ、</span><wbr />
+                <span className="whitespace-nowrap">強固なセキュリティで安心。</span>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -122,7 +133,10 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
 
       <p className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-700">
         <CircleCheck size={15} className="text-emerald-600 shrink-0" aria-hidden="true" />
-        だから、日本にいながら安心して海外に売れる。
+        <span>
+          <span className="whitespace-nowrap">だから、日本にいながら</span><wbr />
+          <span className="whitespace-nowrap">安心して海外に売れる。</span>
+        </span>
       </p>
     </div>
   );

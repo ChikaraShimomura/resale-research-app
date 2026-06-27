@@ -116,8 +116,11 @@ export default function EbayListingSetup() {
             <BadgeCheck size={16} className="shrink-0" /> <span className="whitespace-nowrap">eBay連携・出品の準備が完了！</span>
           </p>
           <p className="text-[11px] text-emerald-800 leading-relaxed">
-            あとは商品を選んで「eBay自動出品」を押すだけ。
-            ※ eBayの<b>セラー登録（売上の受け取り）</b>が未済なら、出品時にお知らせします（<b>初回だけ</b>・eBay側で）。
+            <span className="whitespace-nowrap">あとは商品を選んで</span><wbr />
+            <span className="whitespace-nowrap">「eBay自動出品」を押すだけ。</span><wbr />
+            <span className="whitespace-nowrap">※ eBayの<b>セラー登録（売上の受け取り）</b>が未済なら、</span><wbr />
+            <span className="whitespace-nowrap">出品時にお知らせします</span><wbr />
+            <span className="whitespace-nowrap">（<b>初回だけ</b>・eBay側で）。</span>
           </p>
           <button
             type="button"
@@ -132,7 +135,9 @@ export default function EbayListingSetup() {
       {/* セラー登録は3STEPと別物。完了できても出品で弾かれるため事前に予告する */}
       {!allDone && (
         <p className="text-[11px] text-gray-600 leading-relaxed bg-[#F5F7FA] rounded-xl px-3 py-2.5">
-          下の3つに加え、出品前に一度だけ <b>eBayのセラー登録（売上の受け取り設定）</b> も必要（初回のみ・eBay側で）。
+          <span className="whitespace-nowrap">下の3つに加え、出品前に一度だけ</span><wbr />
+          <span className="whitespace-nowrap"><b>eBayのセラー登録（売上の受け取り設定）</b> も必要</span><wbr />
+          <span className="whitespace-nowrap">（初回のみ・eBay側で）。</span>
         </p>
       )}
 

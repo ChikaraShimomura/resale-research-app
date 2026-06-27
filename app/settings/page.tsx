@@ -132,7 +132,9 @@ export default async function SettingsPage({
             <span aria-hidden="true" className="text-gray-300 text-base shrink-0">›</span>
           </div>
           <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">
-            連携・送料・発送先の国・返品・発送元・出品の既定値。<b className="text-gray-700">出品の準備や設定変更はこちら。</b>
+            <span className="whitespace-nowrap">連携・送料・発送先の国・</span><wbr />
+            <span className="whitespace-nowrap">返品・発送元・出品の既定値。</span><wbr />
+            <b className="text-gray-700 whitespace-nowrap">出品の準備や設定変更はこちら。</b>
           </p>
         </Link>
 

@@ -93,7 +93,14 @@ export default function CatalogActionButtons({
       <div className="mt-2 space-y-1.5">
         <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
           <span className="text-[11px] font-bold text-gray-600">
-            {done === "bought" ? "✓「仕入れ商品」に追加しました" : "非表示にしました（次回から表示されません）"}
+            {done === "bought" ? (
+              <span className="whitespace-nowrap">✓「仕入れ商品」に追加しました</span>
+            ) : (
+              <>
+                <span className="whitespace-nowrap">非表示にしました</span><wbr />
+                <span className="whitespace-nowrap">（次回から表示されません）</span>
+              </>
+            )}
           </span>
           <button
             onClick={() => post("undo")}
@@ -106,9 +113,16 @@ export default function CatalogActionButtons({
         {/* 無在庫プランの人が在庫ありを登録＝無在庫転売。カタログ自体は消さず、本人/チームの画面からのみ非表示。 */}
         {done === "bought" && inStock && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
-            <p className="text-[11px] font-bold text-amber-800 leading-relaxed">⚠️ 在庫ありのまま登録（無在庫転売）</p>
+            <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
+              <span className="whitespace-nowrap">⚠️ 在庫ありのまま登録</span><wbr />
+              <span className="whitespace-nowrap">（無在庫転売）</span>
+            </p>
             <p className="text-[10px] text-amber-700 leading-relaxed mt-0.5">
-              仕入れ元にまだ在庫がある商品です。<b>あなた（チーム）の画面からのみ非表示</b>になり、カタログ自体には残ります。欠品・価格変動・eBay規約違反のリスクにご注意ください。
+              <span className="whitespace-nowrap">仕入れ元にまだ在庫がある商品です。</span><wbr />
+              <span className="whitespace-nowrap"><b>あなた（チーム）の画面からのみ非表示</b>になり、</span><wbr />
+              <span className="whitespace-nowrap">カタログ自体には残ります。</span><wbr />
+              <span className="whitespace-nowrap">欠品・価格変動・eBay規約違反の</span><wbr />
+              <span className="whitespace-nowrap">リスクにご注意ください。</span>
             </p>
           </div>
         )}
@@ -121,13 +135,26 @@ export default function CatalogActionButtons({
       {/* 在庫ありを「仕入れた」＝無在庫転売で蹴られた時の案内＋無在庫転売プラン誘導。 */}
       {blocked && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
-          <p className="text-[11px] font-bold text-amber-800 leading-relaxed">⚠️ まだ仕入れ元に在庫があります</p>
+          <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
+            <span className="whitespace-nowrap">⚠️ まだ仕入れ元に</span><wbr />
+            <span className="whitespace-nowrap">在庫があります</span>
+          </p>
           <p className="text-[10px] text-amber-700 leading-relaxed mt-0.5">
-            在庫が残っている＝<b>まだ実際に仕入れていない</b>状態です。在庫がある商品をeBayに出すのは<b>無在庫転売</b>で、欠品・価格変動・eBay規約違反（出品取消で評価低下）のリスクがあります。
-            本当に仕入れ済みなら、<b>仕入れ元が売り切れになってから</b>押してください。
+            <span className="whitespace-nowrap">在庫が残っている＝</span><wbr />
+            <span className="whitespace-nowrap"><b>まだ実際に仕入れていない</b>状態です。</span><wbr />
+            <span className="whitespace-nowrap">在庫がある商品をeBayに出すのは</span><wbr />
+            <span className="whitespace-nowrap"><b>無在庫転売</b>で、</span><wbr />
+            <span className="whitespace-nowrap">欠品・価格変動・eBay規約違反</span><wbr />
+            <span className="whitespace-nowrap">（出品取消で評価低下）の</span><wbr />
+            <span className="whitespace-nowrap">リスクがあります。</span><wbr />
+            <span className="whitespace-nowrap">本当に仕入れ済みなら、</span><wbr />
+            <span className="whitespace-nowrap"><b>仕入れ元が売り切れになってから</b></span><wbr />
+            <span className="whitespace-nowrap">押してください。</span>
           </p>
           <Link href="/pricing?from=catalog" className="mt-1.5 inline-block text-[11px] font-bold text-[#2D323B] underline underline-offset-2">
-            ※ どうしても無在庫で出すなら<b>無在庫転売プラン（プロMAX）</b> → プランを見る
+            <span className="whitespace-nowrap">※ どうしても無在庫で出すなら</span><wbr />
+            <span className="whitespace-nowrap"><b>無在庫転売プラン（プロMAX）</b></span><wbr />
+            <span className="whitespace-nowrap">→ プランを見る</span>
           </Link>
           {/* 正直な買い手の救済（控えめな副導線）：実際にもう買った人だけが押す。在庫表示が古いだけのケースを自己申告で通す。 */}
           <button
@@ -135,7 +162,8 @@ export default function CatalogActionButtons({
             disabled={busy !== null}
             className="mt-1.5 block text-[10px] text-amber-700 underline underline-offset-2 disabled:opacity-40"
           >
-            はい、もう仕入れ済みです（在庫表示が古い）
+            <span className="whitespace-nowrap">はい、もう仕入れ済みです</span><wbr />
+            <span className="whitespace-nowrap">（在庫表示が古い）</span>
           </button>
         </div>
       )}

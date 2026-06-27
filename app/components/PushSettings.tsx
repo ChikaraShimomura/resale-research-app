@@ -122,16 +122,22 @@ export default function PushSettings() {
 
       {!supported ? (
         <p className="text-[12px] text-gray-400 leading-relaxed">
-          この端末/ブラウザはプッシュ通知に非対応。iPhoneは「ホーム画面に追加」後に対応。
+          <span className="whitespace-nowrap">この端末/ブラウザは</span><wbr />
+          <span className="whitespace-nowrap">プッシュ通知に非対応。</span><wbr />
+          <span className="whitespace-nowrap">iPhoneは「ホーム画面に追加」後に対応。</span>
         </p>
       ) : !enabled ? (
         <>
           <p className="text-[12px] text-gray-500 mb-3 leading-relaxed">
-            出品の売却・新着の高利益商品などをお知らせ。いつでもオフ可。
+            <span className="whitespace-nowrap">出品の売却・新着の高利益商品</span><wbr />
+            <span className="whitespace-nowrap">などをお知らせ。</span><wbr />
+            <span className="whitespace-nowrap">いつでもオフ可。</span>
           </p>
           {denied && (
             <p className="text-[11px] text-[#2D323B] mb-2 leading-relaxed">
-              通知がブロック中。端末の設定でこのサイトの通知を許可してください。
+              <span className="whitespace-nowrap">通知がブロック中。</span><wbr />
+              <span className="whitespace-nowrap">端末の設定でこのサイトの</span><wbr />
+              <span className="whitespace-nowrap">通知を許可してください。</span>
             </p>
           )}
           <button

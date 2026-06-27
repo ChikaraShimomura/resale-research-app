@@ -73,16 +73,24 @@ export default async function StudioPage() {
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4 mb-3">
           <h1 className="text-[15px] font-black text-gray-900 mb-1">今日の利益商品で動画素材をつくる</h1>
           <p className="text-[12px] text-gray-500 leading-relaxed">
-            各商品に<b>縦型カード（9:16）</b>・<b>台本</b>・<b>キャプション</b>を用意。カードを動画に重ね、台本を読み（または合成音声で）、キャプションを貼るだけ。Shorts／TikTok／Reelsに横展開可。
+            <span className="whitespace-nowrap">各商品に<b>縦型カード（9:16）</b>・</span><wbr />
+            <span className="whitespace-nowrap"><b>台本</b>・<b>キャプション</b>を用意。</span><wbr />
+            <span className="whitespace-nowrap">カードを動画に重ね、</span><wbr />
+            <span className="whitespace-nowrap">台本を読み（または合成音声で）、</span><wbr />
+            <span className="whitespace-nowrap">キャプションを貼るだけ。</span><wbr />
+            <span className="whitespace-nowrap">Shorts／TikTok／Reelsに横展開可。</span>
           </p>
           <p className="text-[10px] text-gray-400 leading-relaxed mt-1.5">
-            ※ 数字はすべて想定・目安。収入の断定や誇大表現はNG（媒体の信頼に関わります）。
+            <span className="whitespace-nowrap">※ 数字はすべて想定・目安。</span><wbr />
+            <span className="whitespace-nowrap">収入の断定や誇大表現はNG</span><wbr />
+            <span className="whitespace-nowrap">（媒体の信頼に関わります）。</span>
           </p>
         </div>
 
         {items.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm text-sm text-gray-500">
-            集計中です。少し時間をおいて再度ご覧ください。
+            <span className="whitespace-nowrap">集計中です。</span><wbr />
+            <span className="whitespace-nowrap">少し時間をおいて再度ご覧ください。</span>
           </div>
         ) : (
           <div className="space-y-3">

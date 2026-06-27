@@ -30,17 +30,34 @@ export default function ShipPage() {
         <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
           <p className="text-[13px] font-black text-gray-800 mb-2">発送と受け取りの手順</p>
           <ol className="text-[12px] text-gray-600 space-y-2 list-decimal pl-4 leading-relaxed">
-            <li>梱包して<b className="text-gray-800">郵便局／国際郵便マイページ</b>から海外発送（追跡あり）</li>
-            <li>追跡番号を<b className="text-gray-800">eBayに登録</b>（未登録は売上保留・未着クレームの原因）</li>
-            <li>売上を<b className="text-gray-800">Payoneer</b>で受け取り → 日本の銀行へ出金</li>
+            <li>
+              <span className="whitespace-nowrap">梱包して</span><wbr />
+              <b className="text-gray-800 whitespace-nowrap">郵便局／国際郵便マイページ</b><wbr />
+              <span className="whitespace-nowrap">から海外発送（追跡あり）</span>
+            </li>
+            <li>
+              <span className="whitespace-nowrap">追跡番号を</span>
+              <b className="text-gray-800 whitespace-nowrap">eBayに登録</b><wbr />
+              <span className="whitespace-nowrap">（未登録は売上保留・</span><wbr />
+              <span className="whitespace-nowrap">未着クレームの原因）</span>
+            </li>
+            <li>
+              <span className="whitespace-nowrap">売上を</span>
+              <b className="text-gray-800 whitespace-nowrap">Payoneer</b>
+              <span className="whitespace-nowrap">で受け取り →</span><wbr />
+              <span className="whitespace-nowrap">日本の銀行へ出金</span>
+            </li>
           </ol>
           {/* 新規セラーの売上保留は正常挙動である旨を明示し、受け取り方ガイドへ誘導 */}
           <p className="text-[11px] text-gray-500 mt-3 pt-3 border-t border-gray-100 leading-relaxed">
-            新規セラーは<b className="text-gray-700">配達確認まで売上が保留</b>されます（正常な仕様）。詳しくは
-            <Link href="/guide/payoneer-withdraw" className="text-[#2D323B] font-bold underline underline-offset-2">
+            <span className="whitespace-nowrap">新規セラーは</span><wbr />
+            <b className="text-gray-700 whitespace-nowrap">配達確認まで売上が保留</b><wbr />
+            <span className="whitespace-nowrap">されます（正常な仕様）。</span><wbr />
+            <span className="whitespace-nowrap">詳しくは</span>
+            <Link href="/guide/payoneer-withdraw" className="text-[#2D323B] font-bold underline underline-offset-2 whitespace-nowrap">
               売上の受け取り方
             </Link>
-            をご覧ください。
+            <span className="whitespace-nowrap">をご覧ください。</span>
           </p>
         </div>
 
@@ -74,15 +91,33 @@ export default function ShipPage() {
           </summary>
           <div className="px-4 pb-4">
             <p className="text-[11px] text-amber-800/90 leading-relaxed mb-2">
-              米国の少額免税が撤廃（2025年）。<b>商品代$100超の米国宛は、関税を前払い（DDP）しないと郵便局で出せません</b>。手順：
+              <span className="whitespace-nowrap">米国の少額免税が撤廃</span><wbr />
+              <span className="whitespace-nowrap">（2025年）。</span><wbr />
+              <b className="whitespace-nowrap">商品代$100超の米国宛は、</b><wbr />
+              <b className="whitespace-nowrap">関税を前払い（DDP）</b><wbr />
+              <b className="whitespace-nowrap">しないと郵便局で出せません</b><wbr />
+              <span className="whitespace-nowrap">。手順：</span>
             </p>
             <ol className="text-[11px] text-amber-800/90 space-y-1 list-decimal pl-4 leading-relaxed">
-              <li>Zonosで関税を前払い → <b>13桁のDeclaration ID</b>を取得</li>
-              <li>宛名ラベルに<b className="whitespace-nowrap">「DDP」＋Declaration ID</b>を記載</li>
-              <li><b>指定の郵便局</b>から差し出す（全局では不可）</li>
+              <li>
+                <span className="whitespace-nowrap">Zonosで関税を前払い →</span><wbr />
+                <b className="whitespace-nowrap">13桁のDeclaration ID</b>
+                <span className="whitespace-nowrap">を取得</span>
+              </li>
+              <li>
+                <span className="whitespace-nowrap">宛名ラベルに</span><wbr />
+                <b className="whitespace-nowrap">「DDP」＋Declaration ID</b>
+                <span className="whitespace-nowrap">を記載</span>
+              </li>
+              <li>
+                <b className="whitespace-nowrap">指定の郵便局</b>
+                <span className="whitespace-nowrap">から差し出す（全局では不可）</span>
+              </li>
             </ol>
             <p className="text-[10px] text-amber-700/80 mt-2 leading-relaxed">
-              ※ $100以下は前払い不要・全局OK。$800超はDDP対象外（要相談）。制度は変わるので発送前に窓口で確認を。
+              <span className="whitespace-nowrap">※ $100以下は前払い不要・全局OK。</span><wbr />
+              <span className="whitespace-nowrap">$800超はDDP対象外（要相談）。</span><wbr />
+              <span className="whitespace-nowrap">制度は変わるので発送前に窓口で確認を。</span>
             </p>
           </div>
         </details>

@@ -117,11 +117,17 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         )}
         <h1 className="text-xl font-black text-gray-900 leading-snug mb-2">eBayで儲かる中古の型番</h1>
         <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-          <b>eBayで売れている型番</b>を、日本の<b>中古サイト</b>の現在価格と突合。
-          <b>仕入れ値 → eBay想定売値（直近落札）→ 純利益</b>を、<b>状態ランク</b>つきで表示。
+          <span className="whitespace-nowrap"><b>eBayで売れている型番</b>を、</span><wbr />
+          <span className="whitespace-nowrap">日本の<b>中古サイト</b>の現在価格と突合。</span><wbr />
+          <span className="whitespace-nowrap"><b>仕入れ値 → eBay想定売値</b></span><wbr />
+          <span className="whitespace-nowrap"><b>（直近落札）→ 純利益</b>を、</span><wbr />
+          <span className="whitespace-nowrap"><b>状態ランク</b>つきで表示。</span>
         </p>
         <p className="text-[11px] text-gray-400 leading-relaxed mb-4">
-          ※ 純利益＝eBay想定売値 −（eBay手数料・国際送料・米国関税・仕入れ値）。中古は1点物のため在庫は流動的。状態・競合・為替で変動。
+          <span className="whitespace-nowrap">※ 純利益＝eBay想定売値</span><wbr />
+          <span className="whitespace-nowrap">−（eBay手数料・国際送料・米国関税・仕入れ値）。</span><wbr />
+          <span className="whitespace-nowrap">中古は1点物のため在庫は流動的。</span><wbr />
+          <span className="whitespace-nowrap">状態・競合・為替で変動。</span>
         </p>
 
         {/* ジャンル絞り込み（?genre=）。2ジャンル以上ある時だけ出す。サーバー側でフィルタ＝マスク/漏洩対策を維持。 */}

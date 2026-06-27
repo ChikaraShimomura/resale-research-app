@@ -165,7 +165,8 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               )}
               {!isSubscriber && !trial && (
                 <p className="text-[10.5px] text-gray-400 mt-2 leading-relaxed text-center">
-                  無料はライトのみ・後からアップグレード可
+                  <span className="whitespace-nowrap">無料はライトのみ・</span><wbr />
+                  <span className="whitespace-nowrap">後からアップグレード可</span>
                 </p>
               )}
             </div>
@@ -174,9 +175,21 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
       </div>
       {err && <p className="text-[12px] text-red-600 mt-3 text-center">{err}</p>}
       <p className="text-[11px] text-gray-400 mt-3 leading-relaxed text-center">
-        {isSubscriber
-          ? "プラン変更・解約はボタンから（Stripe管理画面）。別途、中古品の仕入れ費用とeBay手数料がかかります。"
-          : "いつでも解約OK。決済はStripe（カード）。別途、中古品の仕入れ費用とeBay手数料がかかります。"}
+        {isSubscriber ? (
+          <>
+            <span className="whitespace-nowrap">プラン変更・解約はボタンから</span><wbr />
+            <span className="whitespace-nowrap">（Stripe管理画面）。</span><wbr />
+            <span className="whitespace-nowrap">別途、中古品の仕入れ費用と</span><wbr />
+            <span className="whitespace-nowrap">eBay手数料がかかります。</span>
+          </>
+        ) : (
+          <>
+            <span className="whitespace-nowrap">いつでも解約OK。</span><wbr />
+            <span className="whitespace-nowrap">決済はStripe（カード）。</span><wbr />
+            <span className="whitespace-nowrap">別途、中古品の仕入れ費用と</span><wbr />
+            <span className="whitespace-nowrap">eBay手数料がかかります。</span>
+          </>
+        )}
       </p>
     </div>
   );

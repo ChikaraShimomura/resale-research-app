@@ -113,7 +113,8 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
   return (
     <div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        郵便番号で住所を自動入力。日本語のままでOK（eBay登録時に英字変換）。
+        <span className="whitespace-nowrap">郵便番号で住所を自動入力。</span><wbr />
+        <span className="whitespace-nowrap">日本語のままでOK（eBay登録時に英字変換）。</span>
       </p>
 
       <div>
@@ -130,7 +131,9 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         {lookupFailed && (
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mt-1.5 space-y-2">
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              自動で見つかりません。<b>都道府県・市区町村を英字（ローマ字）で手入力</b>すれば続行できます。
+              <span className="whitespace-nowrap">自動で見つかりません。</span><wbr />
+              <span className="whitespace-nowrap"><b>都道府県・市区町村を英字（ローマ字）で手入力</b>すれば</span><wbr />
+              <span className="whitespace-nowrap">続行できます。</span>
             </p>
             <input
               type="text"
@@ -176,7 +179,8 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
           className="w-full h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus:outline-none focus:border-[#2D323B]"
         />
         <p className="text-[10px] text-gray-400 mt-1 leading-snug">
-          番地は数字でOK。建物名は英字推奨（日本語はそのまま登録）。
+          <span className="whitespace-nowrap">番地は数字でOK。</span><wbr />
+          <span className="whitespace-nowrap">建物名は英字推奨（日本語はそのまま登録）。</span>
         </p>
       </div>
 

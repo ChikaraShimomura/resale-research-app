@@ -133,19 +133,36 @@ export default function PayoneerWithdrawGuide() {
             <h2 className="text-[14px] font-black text-gray-800">eBayの売上 → あなたの銀行口座へ</h2>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
-            eBayの売上はまず<b>Payoneer</b>に入金。そこから<b>日本の銀行口座へ出金（引き出し）</b>して手元のお金に。やり方を一歩ずつ（初回の口座登録だけ少し待ちます）。
+            <span className="whitespace-nowrap">eBayの売上はまず</span>
+            <b className="whitespace-nowrap">Payoneer</b>
+            <span className="whitespace-nowrap">に入金。そこから</span><wbr />
+            <b className="whitespace-nowrap">日本の銀行口座へ出金（引き出し）</b><wbr />
+            <span className="whitespace-nowrap">して手元のお金に。</span><wbr />
+            <span className="whitespace-nowrap">やり方を一歩ずつ</span><wbr />
+            <span className="whitespace-nowrap">（初回の口座登録だけ少し待ちます）。</span>
           </p>
           <div className="mt-2.5 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-amber-800 leading-relaxed">
-              <b>すでにPayoneer口座がある人向け</b>。口座は<b>eBayのセラー登録（売上の受け取り設定）</b>で作られます。まだの人は先にセラー登録を。
+              <b className="whitespace-nowrap">すでにPayoneer口座がある人向け</b><wbr />
+              <span className="whitespace-nowrap">。口座は</span><wbr />
+              <b className="whitespace-nowrap">eBayのセラー登録</b><wbr />
+              <b className="whitespace-nowrap">（売上の受け取り設定）</b><wbr />
+              <span className="whitespace-nowrap">で作られます。</span><wbr />
+              <span className="whitespace-nowrap">まだの人は先にセラー登録を。</span>
             </p>
           </div>
           <div className="mt-2.5 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
             <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />
             <p className="text-[12px] text-blue-800 leading-relaxed">
-              <b>お金の流れ</b>：落札 → 入金 → 発送 → 配達確認 → Payoneer反映 → 銀行へ出金。
-              <b>新規セラーは最初のうち売上が保留</b>され（追跡ありは配達確認の数日後／追跡なしは支払いから約1か月）、すぐ出金できないのは正常。実績がつくと早まります。
+              <b className="whitespace-nowrap">お金の流れ</b>
+              <span className="whitespace-nowrap">：落札 → 入金 → 発送 →</span><wbr />
+              <span className="whitespace-nowrap">配達確認 → Payoneer反映 → 銀行へ出金。</span><wbr />
+              <b className="whitespace-nowrap">新規セラーは最初のうち売上が保留</b><wbr />
+              <span className="whitespace-nowrap">され（追跡ありは配達確認の数日後／</span><wbr />
+              <span className="whitespace-nowrap">追跡なしは支払いから約1か月）、</span><wbr />
+              <span className="whitespace-nowrap">すぐ出金できないのは正常。</span><wbr />
+              <span className="whitespace-nowrap">実績がつくと早まります。</span>
             </p>
           </div>
         </div>
@@ -157,7 +174,9 @@ export default function PayoneerWithdrawGuide() {
             <li className="flex items-center gap-2"><Landmark size={16} className="text-[#2D323B]" /> 出金先の<b>銀行口座</b>（あなた本人名義）</li>
           </ul>
           <p className="mt-2.5 text-[11px] text-[#2D323B] font-bold">
-            ⚠️ <b>口座名義はPayoneer登録名と完全一致</b>（ローマ字）。違うと出金できません。
+            <b className="whitespace-nowrap">⚠️ 口座名義はPayoneer登録名と完全一致</b><wbr />
+            <span className="whitespace-nowrap">（ローマ字）。</span><wbr />
+            <span className="whitespace-nowrap">違うと出金できません。</span>
           </p>
         </div>
 
@@ -200,10 +219,28 @@ export default function PayoneerWithdrawGuide() {
             <p className="text-[11px] text-gray-500">USD残高を円で受け取ると両替（為替）も同時に</p>
           </Screen>
           <Warn>
-            <b>手数料の目安</b>：出金手数料<b>取引額の約1〜2%</b>＋（USD→円のとき）<b>為替手数料 最大2%</b>。少額（$100未満）は最低$1。<b>まとめて出金</b>すると手数料率は下がります。
+            <b className="whitespace-nowrap">手数料の目安</b>
+            <span className="whitespace-nowrap">：出金手数料</span>
+            <b className="whitespace-nowrap">取引額の約1〜2%</b><wbr />
+            <span className="whitespace-nowrap">＋（USD→円のとき）</span>
+            <b className="whitespace-nowrap">為替手数料 最大2%</b><wbr />
+            <span className="whitespace-nowrap">。少額（$100未満）は最低$1。</span><wbr />
+            <b className="whitespace-nowrap">まとめて出金</b>
+            <span className="whitespace-nowrap">すると手数料率は下がります。</span>
           </Warn>
           <p className="text-[12px] text-gray-600 leading-relaxed">
-            受け取り方は2つ：①<b>USDで貯めて</b>円安時にまとめて円転、②<b>都度、円で受け取る</b>。両替のたびに為替手数料が乗るので、急がないなら<b>まとめて円転</b>が有利。最低出金額は出金画面に表示され、少額すぎると進めないことがあります。
+            <span className="whitespace-nowrap">受け取り方は2つ：①</span>
+            <b className="whitespace-nowrap">USDで貯めて</b><wbr />
+            <span className="whitespace-nowrap">円安時にまとめて円転、②</span>
+            <b className="whitespace-nowrap">都度、円で受け取る</b>
+            <span className="whitespace-nowrap">。両替のたびに</span><wbr />
+            <span className="whitespace-nowrap">為替手数料が乗るので、</span><wbr />
+            <span className="whitespace-nowrap">急がないなら</span>
+            <b className="whitespace-nowrap">まとめて円転</b>
+            <span className="whitespace-nowrap">が有利。</span><wbr />
+            <span className="whitespace-nowrap">最低出金額は出金画面に表示され、</span><wbr />
+            <span className="whitespace-nowrap">少額すぎると</span><wbr />
+            <span className="whitespace-nowrap">進めないことがあります。</span>
           </p>
         </StepCard>
 

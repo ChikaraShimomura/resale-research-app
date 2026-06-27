@@ -75,7 +75,10 @@ export default function MastersAdmin() {
         <ShieldCheck size={15} className="text-[#A98B5C]" /> 身内（無料・無制限）の指定
       </h2>
       <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
-        ここに入れたメールはサブスク無しで全機能を無制限に。<b className="text-gray-700">本人がそのメールで登録/ログイン</b>済みが条件。
+        <span className="whitespace-nowrap">ここに入れたメールは</span><wbr />
+        <span className="whitespace-nowrap">サブスク無しで全機能を無制限に。</span><wbr />
+        <span className="whitespace-nowrap"><b className="text-gray-700">本人がそのメールで登録/ログイン</b></span><wbr />
+        <span className="whitespace-nowrap">済みが条件。</span>
       </p>
 
       {/* 手入力で追加 */}
@@ -139,7 +142,11 @@ export default function MastersAdmin() {
 
         {source === "kv" && (
           <p className="text-[11px] text-amber-600 mb-2 leading-relaxed">
-            ※ <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> 未設定のため、ログイン済みのみ表示中。全登録を出すにはこの環境変数を設定。
+            <span className="whitespace-nowrap">※ <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code></span><wbr />
+            <span className="whitespace-nowrap">未設定のため、</span><wbr />
+            <span className="whitespace-nowrap">ログイン済みのみ表示中。</span><wbr />
+            <span className="whitespace-nowrap">全登録を出すには</span><wbr />
+            <span className="whitespace-nowrap">この環境変数を設定。</span>
           </p>
         )}
 

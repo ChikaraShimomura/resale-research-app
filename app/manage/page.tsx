@@ -167,7 +167,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
 function FavoritesTab({ items, canList, isAdminUser }: { items: Awaited<ReturnType<typeof getFavoriteItems>>; canList: boolean; isAdminUser: boolean }) {
   if (items.length === 0) {
     return (
-      <Empty Icon={Heart} title="まだお気に入りはありません" body="利益カタログでカード右上の♡を押すと、ここに入ります。" />
+      <Empty Icon={Heart} title="まだお気に入りはありません" body={<><span className="whitespace-nowrap">利益カタログでカード右上の</span><wbr /><span className="whitespace-nowrap">♡を押すと、</span><wbr /><span className="whitespace-nowrap">ここに入ります。</span></>} />
     );
   }
   return (
@@ -211,7 +211,7 @@ function FavoritesTab({ items, canList, isAdminUser }: { items: Awaited<ReturnTy
 function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBoughtItems>>; canList: boolean }) {
   if (items.length === 0) {
     return (
-      <Empty Icon={ShoppingBag} title="まだ仕入れた商品はありません" body="利益カタログで「仕入れた」を押すと、ここに入って出品できます。" />
+      <Empty Icon={ShoppingBag} title="まだ仕入れた商品はありません" body={<><span className="whitespace-nowrap">利益カタログで</span><wbr /><span className="whitespace-nowrap">「仕入れた」を押すと、</span><wbr /><span className="whitespace-nowrap">ここに入って出品できます。</span></>} />
     );
   }
   return (
@@ -277,7 +277,7 @@ function ListedTab({ live, sold, tiersById, priceById }: {
   priceById: Record<string, string>;
 }) {
   if (live.length + sold.length === 0) {
-    return <Empty Icon={Tag} title="出品中の商品はありません" body="「仕入れ商品」からeBay自動出品すると、ここに出品中として表示されます。" />;
+    return <Empty Icon={Tag} title="出品中の商品はありません" body={<><span className="whitespace-nowrap">「仕入れ商品」から</span><wbr /><span className="whitespace-nowrap">eBay自動出品すると、</span><wbr /><span className="whitespace-nowrap">ここに出品中として表示されます。</span></>} />;
   }
   return (
     <div className="space-y-5">
@@ -301,17 +301,17 @@ function EndedTab({ stopped, archived, snapById, canList }: {
   snapById: Record<string, ProfitProduct>; canList: boolean;
 }) {
   if (stopped.length + archived.length === 0) {
-    return <Empty Icon={Archive} title="終了した商品はありません" body="出品を終了・停止すると、ここに移ります。再出品もできます。" />;
+    return <Empty Icon={Archive} title="終了した商品はありません" body={<><span className="whitespace-nowrap">出品を終了・停止すると、</span><wbr /><span className="whitespace-nowrap">ここに移ります。</span><wbr /><span className="whitespace-nowrap">再出品もできます。</span></>} />;
   }
   return (
     <div className="space-y-5">
       {stopped.length > 0 && (
-        <Section title="停止中" count={stopped.length} dot="bg-amber-500" note="24時間後に「過去の出品」へ移ります。">
+        <Section title="停止中" count={stopped.length} dot="bg-amber-500" note={<><span className="whitespace-nowrap">24時間後に</span><wbr /><span className="whitespace-nowrap">「過去の出品」へ移ります。</span></>}>
           {stopped.map((d) => <RelistCard key={d.id} d={d} snap={snapById[d.id]} canList={canList} />)}
         </Section>
       )}
       {archived.length > 0 && (
-        <Section title="過去の出品" count={archived.length} dot="bg-gray-400" note="24時間後に自動で削除されます。">
+        <Section title="過去の出品" count={archived.length} dot="bg-gray-400" note={<><span className="whitespace-nowrap">24時間後に</span><wbr /><span className="whitespace-nowrap">自動で削除されます。</span></>}>
           {archived.map((d) => <RelistCard key={d.id} d={d} snap={snapById[d.id]} canList={canList} />)}
         </Section>
       )}
@@ -319,7 +319,7 @@ function EndedTab({ stopped, archived, snapById, canList }: {
   );
 }
 
-function Section({ title, count, dot, note, children }: { title: string; count: number; dot: string; note?: string; children: ReactNode }) {
+function Section({ title, count, dot, note, children }: { title: string; count: number; dot: string; note?: ReactNode; children: ReactNode }) {
   return (
     <section>
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -429,7 +429,7 @@ function Thumb({ src }: { src?: string }) {
   return <RemoteThumb src={src} className="w-16 h-16 rounded-lg border border-[#A98B5C]/25 shrink-0" />;
 }
 
-function Empty({ Icon, title, body }: { Icon: typeof Heart; title: string; body: string }) {
+function Empty({ Icon, title, body }: { Icon: typeof Heart; title: string; body: ReactNode }) {
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
       <Icon size={40} className="mx-auto mb-3 text-gray-300" />

@@ -64,30 +64,52 @@ export default function LegalPage() {
                 プロ：{yen(PLANS.pro.priceJpy)}（同時出品 {PLANS.pro.listingLimit}件まで）
               </Row>
               <Row label="商品代金以外に必要な料金">
-                サービス利用料以外に当方が請求する費用はありません。<br />
-                ※ 中古品の仕入れ費用（中古サイト等）、eBay等の販売手数料・送料・関税などは利用者負担（本サービス料金には含まれません）。
+                <span className="whitespace-nowrap">サービス利用料以外に</span><wbr />
+                <span className="whitespace-nowrap">当方が請求する費用はありません。</span><br />
+                <span className="whitespace-nowrap">※ 中古品の仕入れ費用（中古サイト等）、</span><wbr />
+                <span className="whitespace-nowrap">eBay等の販売手数料・送料・関税などは</span><wbr />
+                <span className="whitespace-nowrap">利用者負担</span><wbr />
+                <span className="whitespace-nowrap">（本サービス料金には含まれません）。</span>
               </Row>
               <Row label="無料トライアル">
-                ライトプランは初回 {TRIAL_DAYS} 日間無料。期間内の解約なら料金は一切発生しません。
+                <span className="whitespace-nowrap">ライトプランは初回 {TRIAL_DAYS} 日間無料。</span><wbr />
+                <span className="whitespace-nowrap">期間内の解約なら</span><wbr />
+                <span className="whitespace-nowrap">料金は一切発生しません。</span>
               </Row>
               <Row label="お支払い方法">クレジットカード（決済代行：Stripe）</Row>
               <Row label="お支払い時期">
-                お申し込み時に課金、以降は毎月同日に自動更新（ライトは無料期間の終了後に初回課金）。
+                <span className="whitespace-nowrap">お申し込み時に課金、</span><wbr />
+                <span className="whitespace-nowrap">以降は毎月同日に自動更新</span><wbr />
+                <span className="whitespace-nowrap">（ライトは無料期間の終了後に初回課金）。</span>
               </Row>
               <Row label="サービスの提供時期">決済完了後、ただちにご利用いただけます。</Row>
               <Row label="解約・自動更新の停止">
-                いつでも解約可。<Link href="/faq" className="text-[#2D323B] underline">よくある質問の「解約・プラン変更の方法」</Link>（または設定）から、Stripeの管理画面でお手続きください。解約後は次回更新日以降の課金は行われません。
+                <span className="whitespace-nowrap">いつでも解約可。</span><wbr />
+                <Link href="/faq" className="text-[#2D323B] underline whitespace-nowrap">よくある質問の「解約・プラン変更の方法」</Link>
+                <span className="whitespace-nowrap">（または設定）から、</span><wbr />
+                <span className="whitespace-nowrap">Stripeの管理画面で</span><wbr />
+                <span className="whitespace-nowrap">お手続きください。</span><wbr />
+                <span className="whitespace-nowrap">解約後は次回更新日以降の</span><wbr />
+                <span className="whitespace-nowrap">課金は行われません。</span>
               </Row>
               <Row label="返品・返金について">
-                サービスの性質上（デジタルサービス）、決済済みの月額料金は日割り返金・返金を原則行っておりません。無料トライアル期間中の解約なら課金されません。
+                <span className="whitespace-nowrap">サービスの性質上（デジタルサービス）、</span><wbr />
+                <span className="whitespace-nowrap">決済済みの月額料金は</span><wbr />
+                <span className="whitespace-nowrap">日割り返金・返金を</span><wbr />
+                <span className="whitespace-nowrap">原則行っておりません。</span><wbr />
+                <span className="whitespace-nowrap">無料トライアル期間中の解約なら</span><wbr />
+                <span className="whitespace-nowrap">課金されません。</span>
               </Row>
               <Row label="動作環境">一般的なWebブラウザ（最新版のChrome / Safari 等）。</Row>
             </tbody>
           </table>
 
           <p className="mt-6 text-[12px] text-gray-400 leading-relaxed">
-            ※ 本表記は叩き台です。本番運用前に行政書士・弁護士のご確認を推奨。<br />
-            制定日：2026年6月21日 ／ お問い合わせ：{CONTACT}
+            <span className="whitespace-nowrap">※ 本表記は叩き台です。</span><wbr />
+            <span className="whitespace-nowrap">本番運用前に</span><wbr />
+            <span className="whitespace-nowrap">行政書士・弁護士のご確認を推奨。</span><br />
+            <span className="whitespace-nowrap">制定日：2026年6月21日</span><wbr />
+            <span className="whitespace-nowrap"> ／ お問い合わせ：{CONTACT}</span>
           </p>
           <div className="mt-3 flex gap-3">
             <Link href="/terms" className="text-[12px] text-gray-500 underline">利用規約</Link>

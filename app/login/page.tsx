@@ -44,9 +44,14 @@ export default function LoginPage() {
   // クエリ由来の値は遅延初期化で一度だけ評価（effect 内 setState のカスケード描画を避ける）。
   const [{ from, next, fromCheckout, registerHref, confirmExpired }] = useState(deriveFromQuery);
   // メール確認リンクの期限切れ等で /login?e=confirm に飛ばされた場合に説明を出す（沈黙させない）。
-  const notice = confirmExpired
-    ? "確認リンクが期限切れか使用済みです。ログインし直すか、新規登録をやり直してください。"
-    : null;
+  const notice = confirmExpired ? (
+    <>
+      <span className="whitespace-nowrap">確認リンクが期限切れか</span><wbr />
+      <span className="whitespace-nowrap">使用済みです。</span><wbr />
+      <span className="whitespace-nowrap">ログインし直すか、</span><wbr />
+      <span className="whitespace-nowrap">新規登録をやり直してください。</span>
+    </>
+  ) : null;
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
       <BrandHome className="mb-5" />
@@ -55,7 +60,11 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mb-5">サインインで利益ダッシュボードを端末を跨いで保存。</p>
         {fromCheckout && (
           <p className="mb-4 text-[13px] text-[#2D323B] bg-[#A98B5C]/10 border border-[#A98B5C]/30 rounded-lg px-3 py-2.5 leading-relaxed">
-            お申し込みにはログインが必要です。ログインすると、そのまま選んだプランの申し込みに戻ります。
+            <span className="whitespace-nowrap">お申し込みには</span><wbr />
+            <span className="whitespace-nowrap">ログインが必要です。</span><wbr />
+            <span className="whitespace-nowrap">ログインすると、</span><wbr />
+            <span className="whitespace-nowrap">そのまま選んだプランの</span><wbr />
+            <span className="whitespace-nowrap">申し込みに戻ります。</span>
           </p>
         )}
         {notice && (

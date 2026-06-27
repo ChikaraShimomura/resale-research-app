@@ -234,7 +234,7 @@ export default function EditListingModal({
                 onChange={(e) => setQuantity(e.target.value)}
                 className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
-              <span className="text-[10px] text-gray-400 mt-1 block">確保できる数だけに（足りないと欠品キャンセルの原因）。</span>
+              <span className="text-[10px] text-gray-400 mt-1 block"><span className="whitespace-nowrap">確保できる数だけに</span><wbr /><span className="whitespace-nowrap">（足りないと欠品キャンセルの原因）。</span></span>
             </label>
 
             {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
@@ -277,7 +277,7 @@ export default function EditListingModal({
                   </>
                 ) : (
                   <>
-                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2">現在：送料別（購入者負担）。送料無料の方が検索・転換に強い。</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2"><span className="whitespace-nowrap">現在：送料別（購入者負担）。</span><wbr /><span className="whitespace-nowrap">送料無料の方が検索・転換に強い。</span></p>
                     <button
                       onClick={() => toggleShip("free")}
                       disabled={shipBusy || !ship.canFree}
@@ -292,7 +292,7 @@ export default function EditListingModal({
                         </>
                       )}
                     </button>
-                    {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed">※eBayに「送料無料」の配送ポリシーが必要（eBayで一度作れば切替可）。</p>}
+                    {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed"><span className="whitespace-nowrap">※eBayに「送料無料」の配送ポリシーが必要</span><wbr /><span className="whitespace-nowrap">（eBayで一度作れば切替可）。</span></p>}
                   </>
                 )}
                 {shipErr && <ReportableError message={shipErr.message} errorKind={shipErr.errorKind} errorDetail={shipErr.errorDetail} where="ebay_ship_mode" context={{ productId }} className="mt-1" />}
@@ -303,12 +303,16 @@ export default function EditListingModal({
             <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
               <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
-                実物写真を足すと売れやすい。楽天画像は残したまま追加（最大6枚・1枚12MBまで・JPG/PNG等）。eBay側で触ると管理が外れるので、写真変更はここから。
+                <span className="whitespace-nowrap">実物写真を足すと売れやすい。</span><wbr />
+                <span className="whitespace-nowrap">楽天画像は残したまま追加</span><wbr />
+                <span className="whitespace-nowrap">（最大6枚・1枚12MBまで・JPG/PNG等）。</span><wbr />
+                <span className="whitespace-nowrap">eBay側で触ると管理が外れるので、</span><wbr />
+                <span className="whitespace-nowrap">写真変更はここから。</span>
               </p>
               {refImages.length > 0 && (
                 <div className="mb-2">
                   <span className="text-[11px] font-bold text-gray-600">📷 撮影の参考（楽天の商品写真 {refImages.length}枚）</span>
-                  <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed">このアングルを参考に実物を撮ると伝わりやすい（※参考用・eBayには載せません）。</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed"><span className="whitespace-nowrap">このアングルを参考に実物を撮ると伝わりやすい</span><wbr /><span className="whitespace-nowrap">（※参考用・eBayには載せません）。</span></p>
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     {refImages.map((u, i) => (
                       <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="shrink-0">

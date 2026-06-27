@@ -40,8 +40,8 @@ function Section({ title, count, open, onToggle, children }: { title: string; co
   );
 }
 
-function EmptyNote({ text }: { text: string }) {
-  return <p className="text-[11px] text-gray-400 py-1.5 leading-relaxed">{text}</p>;
+function EmptyNote({ text, children }: { text?: string; children?: React.ReactNode }) {
+  return <p className="text-[11px] text-gray-400 py-1.5 leading-relaxed">{children ?? text}</p>;
 }
 
 // マイページの一覧は「出品中／出品停止中／輸出した（売れた）」の3つだけ。0件でも常に表示する。
@@ -209,7 +209,9 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                 )}
               </p>
               <p className="text-[11px] text-emerald-700/90 mt-0.5 leading-relaxed">
-                この調子で次の1品も。詳しい利益は「輸出した商品」に記録されます。
+                <span className="whitespace-nowrap">この調子で次の1品も。</span><wbr />
+                <span className="whitespace-nowrap">詳しい利益は</span><wbr />
+                <span className="whitespace-nowrap">「輸出した商品」に記録されます。</span>
               </p>
             </div>
             <button
@@ -234,8 +236,13 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
           <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
-            ⚠️ 在庫の自動チェックが一時停止中。売り切れ検知が遅れる場合あり。
-            <span className="font-normal text-amber-700/80">出品中は念のため仕入れ先の在庫もご確認を。</span>
+            <span className="whitespace-nowrap">⚠️ 在庫の自動チェックが</span><wbr />
+            <span className="whitespace-nowrap">一時停止中。</span><wbr />
+            <span className="whitespace-nowrap">売り切れ検知が遅れる場合あり。</span><wbr />
+            <span className="font-normal text-amber-700/80">
+              <span className="whitespace-nowrap">出品中は念のため</span><wbr />
+              <span className="whitespace-nowrap">仕入れ先の在庫もご確認を。</span>
+            </span>
           </p>
         </div>
       )}
@@ -249,9 +256,15 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                 同時出品 {planInfo.liveCount} / {planInfo.limit}件（{planInfo.planName}）
               </p>
               <p className="text-[11px] text-gray-600 mt-0.5">
-                {planInfo.liveCount >= planInfo.limit
-                  ? "上限に到達。もっと出すならアップグレードを。"
-                  : "上限が近づいています。"}
+                {planInfo.liveCount >= planInfo.limit ? (
+                  <>
+                    <span className="whitespace-nowrap">上限に到達。</span><wbr />
+                    <span className="whitespace-nowrap">もっと出すなら</span><wbr />
+                    <span className="whitespace-nowrap">アップグレードを。</span>
+                  </>
+                ) : (
+                  "上限が近づいています。"
+                )}
               </p>
             </div>
             <a href="/pricing" className="shrink-0 inline-flex items-center h-9 px-3 rounded-lg bg-[#2D323B] text-white text-[12px] font-bold active:bg-[#1A1D23]">
@@ -266,7 +279,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       <Section title="出品中の商品" count={live.length} open={openLive} onToggle={() => setOpenLive((v) => !v)}>
         {live.length === 0 ? (
           <div className="py-1.5">
-            <EmptyNote text="出品中の商品はまだありません。商品を選んで「eBayに出品」するとここに並びます。" />
+            <EmptyNote>
+              <span className="whitespace-nowrap">出品中の商品はまだありません。</span><wbr />
+              <span className="whitespace-nowrap">商品を選んで「eBayに出品」すると</span><wbr />
+              <span className="whitespace-nowrap">ここに並びます。</span>
+            </EmptyNote>
             {/* 行き止まりにしない：初出品=最重要ファネル起点へワンタップで戻す。 */}
             <a href="/catalog" className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold active:bg-[#1A1D23]">
               利益商品を見る →
@@ -275,7 +292,12 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              📸 自動の写真は最大3枚。<b className="text-gray-600">実物の写真を足すと売れやすい</b>（「編集」から追加）。価格・数量や、やめた・売れたの調整もここから。
+              <span className="whitespace-nowrap">📸 自動の写真は最大3枚。</span><wbr />
+              <b className="text-gray-600"><span className="whitespace-nowrap">実物の写真を足すと</span><wbr /><span className="whitespace-nowrap">売れやすい</span></b>
+              <span className="whitespace-nowrap">（「編集」から追加）。</span><wbr />
+              <span className="whitespace-nowrap">価格・数量や、</span><wbr />
+              <span className="whitespace-nowrap">やめた・売れたの調整も</span><wbr />
+              <span className="whitespace-nowrap">ここから。</span>
             </p>
             <ul className="divide-y divide-gray-100">
               {live.map((d) => (
@@ -318,23 +340,30 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           </p>
                           {d.sourceStatus && (
                             <p className="text-[10px] font-bold leading-tight mt-0.5 text-red-600">
-                              ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ（仕入れできません）" : "売り切れ（仕入れできません）"}。出品を停止しましょう。
+                              <span className="whitespace-nowrap">⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}</span><wbr />
+                              <span className="whitespace-nowrap">（仕入れできません）。</span><wbr />
+                              <span className="whitespace-nowrap">出品を停止しましょう。</span>
                             </p>
                           )}
                           {!d.sourceStatus && d.priceDrift && (
                             <p className="text-[10px] font-bold leading-tight mt-0.5 text-amber-600">
-                              ⚠️ 仕入れ値が高騰（出品時+{Math.round(d.priceDrift.pct * 100)}%）赤字注意
+                              <span className="whitespace-nowrap">⚠️ 仕入れ値が高騰</span><wbr />
+                              <span className="whitespace-nowrap">（出品時+{Math.round(d.priceDrift.pct * 100)}%）</span><wbr />
+                              <span className="whitespace-nowrap">赤字注意</span>
                             </p>
                           )}
                           {(d.stopFailedCount ?? 0) >= 3 && (
                             <p className="text-[10px] font-bold leading-tight mt-0.5 text-red-600">
-                              ⚠️ 自動の出品停止に失敗。欠品販売を防ぐため
-                              {d.listingId ? (
-                                <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="noopener noreferrer" className="underline">eBayで手動取り下げ</a>
-                              ) : (
-                                "eBayで手動取り下げ"
-                              )}
-                              を。
+                              <span className="whitespace-nowrap">⚠️ 自動の出品停止に失敗。</span><wbr />
+                              <span className="whitespace-nowrap">欠品販売を防ぐため</span><wbr />
+                              <span className="whitespace-nowrap">
+                                {d.listingId ? (
+                                  <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="noopener noreferrer" className="underline">eBayで手動取り下げ</a>
+                                ) : (
+                                  "eBayで手動取り下げ"
+                                )}
+                                を。
+                              </span>
                             </p>
                           )}
                         </div>
@@ -444,11 +473,21 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("stopped") && (
       <Section title="出品停止中の商品" count={stopped.length} open={openStopped} onToggle={() => setOpenStopped((v) => !v)}>
         {stopped.length === 0 ? (
-          <EmptyNote text="出品停止中の商品はありません。「出品停止」した商品がここに入ります。" />
+          <EmptyNote>
+            <span className="whitespace-nowrap">出品停止中の商品はありません。</span><wbr />
+            <span className="whitespace-nowrap">「出品停止」した商品が</span><wbr />
+            <span className="whitespace-nowrap">ここに入ります。</span>
+          </EmptyNote>
         ) : (
           <>
             <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-              「出品停止」したeBay出品。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。停止のまま少し経つと「過去の出品」へ静かに移動します（<b className="text-gray-600">記録は残ります</b>・いつでも再出品OK）。
+              <span className="whitespace-nowrap">「出品停止」したeBay出品。</span><wbr />
+              <span className="whitespace-nowrap"><b className="text-gray-600">再出品</b>でまた</span><wbr />
+              <span className="whitespace-nowrap">eBayに公開できます。</span><wbr />
+              <span className="whitespace-nowrap">停止のまま少し経つと</span><wbr />
+              <span className="whitespace-nowrap">「過去の出品」へ静かに移動します</span><wbr />
+              <span className="whitespace-nowrap">（<b className="text-gray-600">記録は残ります</b>・</span><wbr />
+              <span className="whitespace-nowrap">いつでも再出品OK）。</span>
             </p>
             <ul className="divide-y divide-gray-100">
               {stopped.map((d) => (
@@ -463,7 +502,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                         </p>
                         {d.sourceStatus && (
                           <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
-                            ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
+                            <span className="whitespace-nowrap">⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}</span><wbr /><span className="whitespace-nowrap">→自動停止</span>
                           </p>
                         )}
                       </div>
@@ -504,7 +543,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("stopped") && archived.length > 0 && (
       <Section title="過去の出品" count={archived.length} open={openArchived} onToggle={() => setOpenArchived((v) => !v)}>
         <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
-          少し前に停止した出品をここに保管しています（記録は残ったまま）。<b className="text-gray-600">再出品</b>でまたeBayに公開できます。
+          <span className="whitespace-nowrap">少し前に停止した出品を</span><wbr />
+          <span className="whitespace-nowrap">ここに保管しています</span><wbr />
+          <span className="whitespace-nowrap">（記録は残ったまま）。</span><wbr />
+          <span className="whitespace-nowrap"><b className="text-gray-600">再出品</b>でまた</span><wbr />
+          <span className="whitespace-nowrap">eBayに公開できます。</span>
         </p>
         <ul className="divide-y divide-gray-100">
           {archived.map((d) => (
@@ -519,7 +562,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                     </p>
                     {d.sourceStatus && (
                       <p className={`text-[10px] font-bold leading-tight mt-0.5 ${d.sourceStatus === "dead" ? "text-[#2D323B]" : "text-amber-600"}`}>
-                        ⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}→自動停止
+                        <span className="whitespace-nowrap">⚠️ 仕入れ先で{d.sourceStatus === "dead" ? "リンク切れ" : "売り切れ"}</span><wbr /><span className="whitespace-nowrap">→自動停止</span>
                       </p>
                     )}
                   </div>
@@ -552,10 +595,17 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       {show.includes("sold") && (
       <Section title="輸出した商品" count={sold.length} open={openSold} onToggle={() => setOpenSold((v) => !v)}>
         {sold.length === 0 ? (
-          <EmptyNote text="売れた商品はまだありません。売れると利益とともにここに記録されます。" />
+          <EmptyNote>
+            <span className="whitespace-nowrap">売れた商品はまだありません。</span><wbr />
+            <span className="whitespace-nowrap">売れると利益とともに</span><wbr />
+            <span className="whitespace-nowrap">ここに記録されます。</span>
+          </EmptyNote>
         ) : (
           <>
-            <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">売れた（輸出できた）商品の履歴（過去2年分）。</p>
+            <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+              <span className="whitespace-nowrap">売れた（輸出できた）商品の履歴</span><wbr />
+              <span className="whitespace-nowrap">（過去2年分）。</span>
+            </p>
             <ul className="divide-y divide-gray-100">
               {sold.map((d) => (
                 <li key={d.id} className="py-1.5 flex items-center gap-2">

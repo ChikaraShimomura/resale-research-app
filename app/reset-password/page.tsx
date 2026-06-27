@@ -21,7 +21,8 @@ export default function ResetPasswordPage() {
           <>
             <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">{state.message}</div>
             <p className="mt-3 text-[12px] text-gray-500 leading-relaxed">
-              メールが届かないときは<b>迷惑メールフォルダ</b>も確認を。
+              <span className="whitespace-nowrap">メールが届かないときは</span><wbr />
+              <span className="whitespace-nowrap"><b>迷惑メールフォルダ</b>も確認を。</span>
             </p>
           </>
         ) : (

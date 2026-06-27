@@ -22,7 +22,9 @@ export default function HomeHub() {
           <span className="flex-1 min-w-0">
             <span className="block text-[15px] font-black leading-tight">中古の利益カタログを見る</span>
             <span className="block text-[12px] text-white/75 leading-snug mt-0.5">
-              eBayで売れてる型番 × 中古の今の値段。純利益が出る品を狙いましょう
+              <span className="whitespace-nowrap">eBayで売れてる型番</span><wbr />
+              <span className="whitespace-nowrap"> × 中古の今の値段。</span><wbr />
+              <span className="whitespace-nowrap">純利益が出る品を狙いましょう</span>
             </span>
           </span>
           <ArrowRight size={18} className="shrink-0 text-white/80" aria-hidden="true" />

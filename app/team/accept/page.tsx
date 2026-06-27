@@ -29,7 +29,12 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
 
         {!invite ? (
           <>
-            <p className="text-[13px] text-gray-600 leading-relaxed mb-5">この招待リンクは無効か、期限切れ（7日）です。招待した方にもう一度送ってもらってください。</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed mb-5">
+              <span className="whitespace-nowrap">この招待リンクは無効か、</span><wbr />
+              <span className="whitespace-nowrap">期限切れ（7日）です。</span><wbr />
+              <span className="whitespace-nowrap">招待した方に、</span><wbr />
+              <span className="whitespace-nowrap">もう一度送ってもらってください。</span>
+            </p>
             <Link href="/" className="inline-flex items-center h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
               トップへ
             </Link>
@@ -37,10 +42,13 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
         ) : !email ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-              <b>{maskEmail(invite.ownerEmail)}</b> さんのチームに招待されています。
+              <span className="whitespace-nowrap"><b>{maskEmail(invite.ownerEmail)}</b> さんの</span><wbr />
+              <span className="whitespace-nowrap">チームに招待されています。</span>
             </p>
             <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-              承認には招待先のアカウント（<b>{maskEmail(invite.inviteeEmail)}</b>）でのログインが必要です。
+              <span className="whitespace-nowrap">承認には招待先のアカウント</span><wbr />
+              <span className="whitespace-nowrap">（<b>{maskEmail(invite.inviteeEmail)}</b>）での</span><wbr />
+              <span className="whitespace-nowrap">ログインが必要です。</span>
             </p>
             <Link
               href={`/login?next=${encodeURIComponent(back)}`}
@@ -48,15 +56,24 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
             >
               ログインして承認
             </Link>
-            <p className="mt-3 text-[11px] text-gray-400 leading-relaxed">うまく進まない時は、ログイン後にメールのリンクをもう一度開いてください。</p>
+            <p className="mt-3 text-[11px] text-gray-400 leading-relaxed">
+              <span className="whitespace-nowrap">うまく進まない時は、</span><wbr />
+              <span className="whitespace-nowrap">ログイン後に、</span><wbr />
+              <span className="whitespace-nowrap">メールのリンクを</span><wbr />
+              <span className="whitespace-nowrap">もう一度開いてください。</span>
+            </p>
           </>
         ) : !matched ? (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-              この招待は <b>{maskEmail(invite.inviteeEmail)}</b> 宛です。
+              <span className="whitespace-nowrap">この招待は</span><wbr />
+              <span className="whitespace-nowrap"><b>{maskEmail(invite.inviteeEmail)}</b> 宛です。</span>
             </p>
             <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-              いまは <b>{email}</b> でログイン中です。招待されたアカウントでログインし直してください。
+              <span className="whitespace-nowrap">いまは <b>{email}</b> で</span><wbr />
+              <span className="whitespace-nowrap">ログイン中です。</span><wbr />
+              <span className="whitespace-nowrap">招待されたアカウントで</span><wbr />
+              <span className="whitespace-nowrap">ログインし直してください。</span>
             </p>
             <Link href="/mypage" className="inline-flex items-center h-11 px-6 bg-white border border-[#2D323B]/30 text-[#2D323B] font-bold text-sm rounded-xl active:bg-gray-50">
               マイページ
@@ -65,10 +82,14 @@ export default async function AcceptPage({ searchParams }: { searchParams: Promi
         ) : (
           <>
             <p className="text-[13px] text-gray-600 leading-relaxed mb-1">
-              <b>{invite.ownerEmail}</b> さんのチームに参加します。
+              <span className="whitespace-nowrap"><b>{invite.ownerEmail}</b> さんの</span><wbr />
+              <span className="whitespace-nowrap">チームに参加します。</span>
             </p>
             <p className="text-[12px] text-gray-500 leading-relaxed mb-5">
-              承認すると、相手の「仕入れた商品」と収支（仕入れ額・売上額）を見られます。
+              <span className="whitespace-nowrap">承認すると、</span><wbr />
+              <span className="whitespace-nowrap">相手の「仕入れた商品」と</span><wbr />
+              <span className="whitespace-nowrap">収支（仕入れ額・売上額）を</span><wbr />
+              <span className="whitespace-nowrap">見られます。</span>
             </p>
             <AcceptInviteButton token={token || ""} />
           </>

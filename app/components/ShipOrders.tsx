@@ -146,7 +146,10 @@ export default function ShipOrders() {
 
       {pending.length === 0 && shipped.length === 0 && (
         <p className="text-[12px] text-gray-500 leading-relaxed">
-          発送待ちの注文はありません。タブを開くと自動で最新を取り込みます（売れると自動でここに出ます）。
+          <span className="whitespace-nowrap">発送待ちの注文はありません。</span><wbr />
+          <span className="whitespace-nowrap">タブを開くと自動で</span><wbr />
+          <span className="whitespace-nowrap">最新を取り込みます</span><wbr />
+          <span className="whitespace-nowrap">（売れると自動でここに出ます）。</span>
         </p>
       )}
 
@@ -155,13 +158,15 @@ export default function ShipOrders() {
         <div className="flex items-start gap-1.5 rounded-lg bg-[#F5F7FA] border border-[#A98B5C]/25 px-2.5 py-2">
           <span className="text-[12px] shrink-0" aria-hidden="true">💡</span>
           <p className="text-[11px] text-gray-600 leading-relaxed">
-            新規セラーは<span className="font-bold text-gray-700">配達確認まで売上が保留</span>になりますが、これは正常です。
-            実績がつくと入金は早まります。
+            <span className="whitespace-nowrap">新規セラーは</span><wbr />
+            <span className="font-bold text-gray-700 whitespace-nowrap">配達確認まで売上が保留</span><wbr />
+            <span className="whitespace-nowrap">になりますが、これは正常です。</span><wbr />
+            <span className="whitespace-nowrap">実績がつくと入金は早まります。</span>
             <a
               href="https://www.ebay.com/sellercenter/payments-and-fees/getting-paid"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-0.5 ml-0.5 font-bold text-[#2D323B] underline"
+              className="inline-flex items-center gap-0.5 ml-0.5 font-bold text-[#2D323B] underline whitespace-nowrap"
             >
               受け取り方 <ExternalLink size={10} className="shrink-0" />
             </a>
@@ -346,7 +351,10 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
             <Ban size={12} /> 欠品対応中（仕入れ不可）
           </p>
           <p className="text-[10px] text-red-700/90 leading-relaxed">
-            買い手に連絡→eBayで注文をキャンセル（理由：在庫切れ）。買い手へ全額返金されます。
+            <span className="whitespace-nowrap">買い手に連絡→</span><wbr />
+            <span className="whitespace-nowrap">eBayで注文をキャンセル</span><wbr />
+            <span className="whitespace-nowrap">（理由：在庫切れ）。</span><wbr />
+            <span className="whitespace-nowrap">買い手へ全額返金されます。</span>
           </p>
           {recoverLinks}
         </div>
@@ -367,9 +375,15 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
 
           {/* やること（適応表示）：①仕入れ→②梱包発送→③追跡登録。米国$100超は②.5でZonos前払いを挟む。 */}
           <p className="text-[10px] text-gray-400 leading-tight">
-            {ddp.needed
-              ? "やること：① 楽天で仕入れる → ② 梱包・発送 → ②.5 関税前払い（Zonos）→ ③ 追跡番号を登録"
-              : "やること：① 楽天で仕入れる → ② 梱包・発送 → ③ 追跡番号を登録"}
+            <span className="whitespace-nowrap">やること：</span><wbr />
+            <span className="whitespace-nowrap">① 楽天で仕入れる →</span><wbr />
+            <span className="whitespace-nowrap">② 梱包・発送 →</span><wbr />
+            {ddp.needed && (
+              <>
+                <span className="whitespace-nowrap">②.5 関税前払い（Zonos）→</span><wbr />
+              </>
+            )}
+            <span className="whitespace-nowrap">③ 追跡番号を登録</span>
           </p>
           {ddp.needed && (
             <a
@@ -380,8 +394,12 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
             >
               <span className="text-[13px] shrink-0">🛃</span>
               <span className="text-[11px] font-bold text-amber-800 leading-tight">
-                Zonosで関税を前払い（米国・申告額 ${Math.round(ddp.valueUsd)}）
-                <span className="block font-normal text-amber-700/80">前払い→13桁の番号を伝票に記載して発送</span>
+                <span className="whitespace-nowrap">Zonosで関税を前払い</span><wbr />
+                <span className="whitespace-nowrap">（米国・申告額 ${Math.round(ddp.valueUsd)}）</span>
+                <span className="block font-normal text-amber-700/80">
+                  <span className="whitespace-nowrap">前払い→13桁の番号を</span><wbr />
+                  <span className="whitespace-nowrap">伝票に記載して発送</span>
+                </span>
               </span>
               <ExternalLink size={12} className="ml-auto text-amber-700 shrink-0" />
             </a>
@@ -391,7 +409,9 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
               宛先(addressText)が取れる時だけコピー導線も出す（無ければ送り状作成リンクのみ）。 */}
           <div className="rounded-lg bg-[#F5F7FA] border border-[#A98B5C]/25 p-2 space-y-1.5">
             <p className="text-[10px] text-gray-500 leading-tight">
-              送り状をオンライン作成すると追跡番号がもらえます。それを下の欄に入力してください。
+              <span className="whitespace-nowrap">送り状をオンライン作成すると</span><wbr />
+              <span className="whitespace-nowrap">追跡番号がもらえます。</span><wbr />
+              <span className="whitespace-nowrap">それを下の欄に入力してください。</span>
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               <a
@@ -452,7 +472,11 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
           ) : (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 space-y-1.5">
               <p className="text-[10px] text-amber-800 leading-relaxed">
-                楽天で仕入れできない時は買い手に連絡→eBayの注文をキャンセル（理由：在庫切れ）。下記の導線を利用。
+                <span className="whitespace-nowrap">楽天で仕入れできない時は</span><wbr />
+                <span className="whitespace-nowrap">買い手に連絡→</span><wbr />
+                <span className="whitespace-nowrap">eBayの注文をキャンセル</span><wbr />
+                <span className="whitespace-nowrap">（理由：在庫切れ）。</span><wbr />
+                <span className="whitespace-nowrap">下記の導線を利用。</span>
               </p>
               {recoverLinks}
               <button

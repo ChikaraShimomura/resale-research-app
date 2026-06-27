@@ -41,7 +41,10 @@ export default function FaqPage() {
 
       <main className="max-w-2xl mx-auto p-3 space-y-2.5">
         <QA q="料金プランは？">
-          <p>使う量に合わせて3プラン（いずれも月額・税込）。</p>
+          <p>
+            <span className="whitespace-nowrap">使う量に合わせて3プラン</span><wbr />
+            <span className="whitespace-nowrap">（いずれも月額・税込）。</span>
+          </p>
           <ul className="list-disc pl-4 space-y-0.5">
             <li>ライト：{yen(PLANS.amateur.priceJpy)}（同時出品 {PLANS.amateur.listingLimit}件まで）</li>
             <li>スタンダード：{yen(PLANS.veteran.priceJpy)}（同時出品 {PLANS.veteran.listingLimit}件まで）</li>
@@ -51,24 +54,53 @@ export default function FaqPage() {
         </QA>
 
         <QA q="無料で試せますか？">
-          <p>ライトプランは最初の {TRIAL_DAYS} 日間無料。期間内に解約すれば料金は一切発生しません。</p>
+          <p>
+            <span className="whitespace-nowrap">ライトプランは最初の {TRIAL_DAYS} 日間無料。</span><wbr />
+            <span className="whitespace-nowrap">期間内に解約すれば</span><wbr />
+            <span className="whitespace-nowrap">料金は一切発生しません。</span>
+          </p>
         </QA>
 
         <QA q="支払い方法は？">
-          <p>クレジットカードのみ（決済代行：Stripe）。申し込み時に登録、以降は毎月自動更新。</p>
+          <p>
+            <span className="whitespace-nowrap">クレジットカードのみ</span><wbr />
+            <span className="whitespace-nowrap">（決済代行：Stripe）。</span><wbr />
+            <span className="whitespace-nowrap">申し込み時に登録、</span><wbr />
+            <span className="whitespace-nowrap">以降は毎月自動更新。</span>
+          </p>
         </QA>
 
         <QA q="解約・プラン変更の方法は？">
-          <p>いつでも解約・プラン変更OK。下のボタンから管理画面（Stripe）で手続き。</p>
-          <p>解約しても<b className="text-gray-700">請求期間の終了まで利用可</b>、それ以降は課金されません。無料トライアル中の解約なら料金は発生しません。</p>
+          <p>
+            <span className="whitespace-nowrap">いつでも解約・プラン変更OK。</span><wbr />
+            <span className="whitespace-nowrap">下のボタンから</span><wbr />
+            <span className="whitespace-nowrap">管理画面（Stripe）で手続き。</span>
+          </p>
+          <p>
+            <span className="whitespace-nowrap">解約しても</span><wbr />
+            <b className="text-gray-700 whitespace-nowrap">請求期間の終了まで利用可</b><wbr />
+            <span className="whitespace-nowrap">、それ以降は課金されません。</span><wbr />
+            <span className="whitespace-nowrap">無料トライアル中の解約なら</span><wbr />
+            <span className="whitespace-nowrap">料金は発生しません。</span>
+          </p>
           <div className="pt-1">
             <PortalButton />
           </div>
-          <p className="text-[12px] text-gray-400">※ 設定ページの「ご契約の管理・解約について」からも同じ手続き可。</p>
+          <p className="text-[12px] text-gray-400">
+            <span className="whitespace-nowrap">※ 設定ページの</span><wbr />
+            <span className="whitespace-nowrap">「ご契約の管理・解約について」</span><wbr />
+            <span className="whitespace-nowrap">からも同じ手続き可。</span>
+          </p>
         </QA>
 
         <QA q="仕入れやeBayの費用も料金に含まれますか？">
-          <p>いいえ。利用料に含まれるのはツールの利用権のみ。中古品の仕入れ費用（中古サイト等）、eBayの販売手数料・送料・関税などは利用者のご負担です。</p>
+          <p>
+            <span className="whitespace-nowrap">いいえ。利用料に含まれるのは</span><wbr />
+            <span className="whitespace-nowrap">ツールの利用権のみ。</span><wbr />
+            <span className="whitespace-nowrap">中古品の仕入れ費用（中古サイト等）、</span><wbr />
+            <span className="whitespace-nowrap">eBayの販売手数料・送料・関税などは</span><wbr />
+            <span className="whitespace-nowrap">利用者のご負担です。</span>
+          </p>
         </QA>
 
         <div className="pt-3 flex items-center justify-center gap-3 flex-wrap">

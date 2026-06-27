@@ -51,11 +51,15 @@ export default async function ProfitSampleStrip() {
         ))}
       </ol>
       <p className="text-[11px] text-gray-500 mt-3 text-center leading-relaxed">
-        これは今日の一例。登録すると<b className="text-gray-700">毎日更新の利益商品すべて</b>が見られます。
+        <span className="whitespace-nowrap">これは今日の一例。</span><wbr />
+        <span className="whitespace-nowrap">登録すると<b className="text-gray-700">毎日更新の</b></span><wbr />
+        <span className="whitespace-nowrap"><b className="text-gray-700">利益商品すべて</b>が見られます。</span>
       </p>
       {/* 打消し表示（景表法）：/ranking・/guide・ホームfooterと同じく、数値は確定利益でなく想定（目安）である旨を明示 */}
       <p className="text-[10px] text-gray-400 mt-1.5 text-center leading-relaxed">
-        ※ eBay想定売値・利益率は直近落札（実売値）ベースの<b>想定（目安）</b>。状態・競合・為替などで変動します。
+        <span className="whitespace-nowrap">※ eBay想定売値・利益率は</span><wbr />
+        <span className="whitespace-nowrap">直近落札（実売値）ベースの<b>想定（目安）</b>。</span><wbr />
+        <span className="whitespace-nowrap">状態・競合・為替などで変動します。</span>
       </p>
     </div>
   );

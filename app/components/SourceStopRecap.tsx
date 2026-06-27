@@ -81,7 +81,14 @@ export default function SourceStopRecap() {
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
           <h2 id="src-recap-title" className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            仕入れ元（楽天）に問題が出た下記を、<b>評価を守るため</b>自動で出品停止（売り切れ・リンク切れ・箱単位で不採算など）。<b>再開はワンタップ</b>（「出品停止中の商品一覧」から）。
+            <span className="whitespace-nowrap">仕入れ元（楽天）に</span><wbr />
+            <span className="whitespace-nowrap">問題が出た下記を、</span><wbr />
+            <b className="whitespace-nowrap">評価を守るため</b><wbr />
+            <span className="whitespace-nowrap">自動で出品停止</span><wbr />
+            <span className="whitespace-nowrap">（売り切れ・リンク切れ・</span><wbr />
+            <span className="whitespace-nowrap">箱単位で不採算など）。</span><wbr />
+            <b className="whitespace-nowrap">再開はワンタップ</b><wbr />
+            <span className="whitespace-nowrap">（「出品停止中の商品一覧」から）。</span>
           </p>
         </div>
         <ul className="max-h-[46vh] overflow-y-auto divide-y divide-gray-50">
@@ -93,7 +100,10 @@ export default function SourceStopRecap() {
                 <div className="w-11 h-11 rounded-md bg-gray-100 shrink-0" />
               )}
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-[#2D323B] leading-tight">出品停止：{REASON[e.reason]}</p>
+                <p className="text-[11px] font-bold text-[#2D323B] leading-tight">
+                  <span className="whitespace-nowrap">出品停止：</span><wbr />
+                  <span className="whitespace-nowrap">{REASON[e.reason]}</span>
+                </p>
                 <p className="text-[12px] text-gray-700 truncate mt-0.5">{e.title || e.id}</p>
               </div>
             </li>

@@ -43,7 +43,10 @@ export default async function ReferralsAdminPage({
 
         {stats.length === 0 ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center text-sm text-gray-500">
-            紹介データはまだありません。インフルエンサーに <code className="bg-gray-100 px-1 rounded">/r/コード</code> のリンクを渡してください。
+            <span className="whitespace-nowrap">紹介データはまだありません。</span><wbr />
+            <span className="whitespace-nowrap">インフルエンサーに</span><wbr />
+            <span className="whitespace-nowrap"><code className="bg-gray-100 px-1 rounded">/r/コード</code> のリンクを</span><wbr />
+            <span className="whitespace-nowrap">渡してください。</span>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm overflow-hidden">
@@ -73,7 +76,11 @@ export default async function ReferralsAdminPage({
         )}
 
         <p className="mt-4 text-[11px] text-gray-400 leading-relaxed">
-          成果報酬は<b>「登録(成果)」</b>の件数で計算（例：登録1件×単価）。インフルエンサーごとに固有コードを決めて <code className="bg-gray-100 px-1 rounded">/r/コード</code> のリンクを渡す（例：<code className="bg-gray-100 px-1 rounded">/r/yuko-yt</code>）。
+          <span className="whitespace-nowrap">成果報酬は<b>「登録(成果)」</b>の件数で計算</span><wbr />
+          <span className="whitespace-nowrap">（例：登録1件×単価）。</span><wbr />
+          <span className="whitespace-nowrap">インフルエンサーごとに固有コードを決めて</span><wbr />
+          <span className="whitespace-nowrap"><code className="bg-gray-100 px-1 rounded">/r/コード</code> のリンクを渡す</span><wbr />
+          <span className="whitespace-nowrap">（例：<code className="bg-gray-100 px-1 rounded">/r/yuko-yt</code>）。</span>
         </p>
       </main>
     </div>

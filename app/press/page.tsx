@@ -53,13 +53,21 @@ export default function PressPage() {
         <div>
           <h1 className="text-xl font-black text-gray-900 leading-snug">輸出ラボ プレスキット</h1>
           <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
-            紹介・レビュー・メディア掲載用の素材。下の紹介文はそのままコピーして使えます。
+            <span className="whitespace-nowrap">紹介・レビュー・メディア掲載用の素材。</span><wbr />
+            <span className="whitespace-nowrap">下の紹介文はそのまま</span><wbr />
+            <span className="whitespace-nowrap">コピーして使えます。</span>
           </p>
         </div>
 
         <Card title="サービス概要">
           <ul className="space-y-1.5 text-[13px] text-gray-700 leading-relaxed">
-            <li>・<b>一言</b>：eBayで売れる型番を日本の中古サイト価格と照合し「儲かる中古」を探すリサーチツール</li>
+            <li>
+              <span className="whitespace-nowrap">・<b>一言</b>：</span><wbr />
+              <span className="whitespace-nowrap">eBayで売れる型番を</span><wbr />
+              <span className="whitespace-nowrap">日本の中古サイト価格と照合し</span><wbr />
+              <span className="whitespace-nowrap">「儲かる中古」を探す</span><wbr />
+              <span className="whitespace-nowrap">リサーチツール</span>
+            </li>
             <li>・<b>誰向け</b>：eBay輸出の初心者〜中級／中古せどり層</li>
             <li>・<b>料金</b>：30日無料 → その後 月¥500〜（要会員登録）</li>
             <li>・<b>URL</b>：<a href="https://www.yushutsu-fukugyo.com" className="text-[#2D323B] underline underline-offset-2">yushutsu-fukugyo.com</a></li>
@@ -68,10 +76,22 @@ export default function PressPage() {
 
         <Card title="特長">
           <ul className="space-y-1.5 text-[13px] text-gray-700 leading-relaxed">
-            <li>・中古仕入れ値→eBay想定売値→<b>手取り（純利益）ベースの利益率</b>（eBay手数料・国際送料・米国関税を反映）を状態ランクつきで自動表示</li>
+            <li>
+              <span className="whitespace-nowrap">・中古仕入れ値→eBay想定売値→</span><wbr />
+              <b className="whitespace-nowrap">手取り（純利益）ベースの利益率</b><wbr />
+              <span className="whitespace-nowrap">（eBay手数料・国際送料・米国関税を反映）</span><wbr />
+              <span className="whitespace-nowrap">を状態ランクつきで自動表示</span>
+            </li>
             <li>・<b>毎日更新の利益カタログ</b>／儲かる中古の型番DB（ジャンル別・利益順）</li>
             <li>・<b>画像つき始め方ガイド</b>（英語・貿易知識ほぼ不要）</li>
-            <li>・航空危険物など国際郵便で送れない商品は<b>除外</b>／数字は<b>すべて想定・目安</b>（収入の断定なし）</li>
+            <li>
+              <span className="whitespace-nowrap">・航空危険物など</span><wbr />
+              <span className="whitespace-nowrap">国際郵便で送れない商品は</span>
+              <b className="whitespace-nowrap">除外</b>
+              <span className="whitespace-nowrap">／数字は</span>
+              <b className="whitespace-nowrap">すべて想定・目安</b><wbr />
+              <span className="whitespace-nowrap">（収入の断定なし）</span>
+            </li>
           </ul>
         </Card>
 
@@ -93,7 +113,12 @@ export default function PressPage() {
         </Card>
 
         <p className="text-[11px] text-gray-400 leading-relaxed px-1">
-          ※ 紹介時は利益・収入を断定する表現（「必ず」「誰でも◯円」等）はお控えを。利益はすべて想定・目安です。PR・タイアップ時は「PR／広告」表記を。
+          <span className="whitespace-nowrap">※ 紹介時は</span><wbr />
+          <span className="whitespace-nowrap">利益・収入を断定する表現</span><wbr />
+          <span className="whitespace-nowrap">（「必ず」「誰でも◯円」等）はお控えを。</span><wbr />
+          <span className="whitespace-nowrap">利益はすべて想定・目安です。</span><wbr />
+          <span className="whitespace-nowrap">PR・タイアップ時は</span><wbr />
+          <span className="whitespace-nowrap">「PR／広告」表記を。</span>
         </p>
       </main>
 

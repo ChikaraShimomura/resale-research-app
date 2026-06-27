@@ -13,7 +13,10 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div className="w-full max-w-md bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
         <p className="text-3xl mb-2" aria-hidden="true">⚠️</p>
         <h1 className="text-sm font-black text-gray-800 mb-1">一時的なエラーが発生しました</h1>
-        <p className="text-[12px] text-gray-500 mb-5 leading-relaxed">少し時間をおいて、もう一度お試しください。</p>
+        <p className="text-[12px] text-gray-500 mb-5 leading-relaxed">
+          <span className="whitespace-nowrap">少し時間をおいて、</span><wbr />
+          <span className="whitespace-nowrap">もう一度お試しください。</span>
+        </p>
         <div className="flex gap-2">
           <button
             onClick={() => reset()}

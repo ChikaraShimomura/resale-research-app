@@ -91,8 +91,13 @@ export default function MfaSetup() {
 
       {enrolled ? (
         <>
-          <p className="text-[12px] text-emerald-600 font-bold flex items-center gap-1.5 mb-2">
-            <Check size={14} /> 設定済み。ログイン後、認証アプリの6桁で本人確認。
+          <p className="text-[12px] text-emerald-600 font-bold flex items-start gap-1.5 mb-2">
+            <Check size={14} className="shrink-0 mt-0.5" />
+            <span>
+              <span className="whitespace-nowrap">設定済み。</span><wbr />
+              <span className="whitespace-nowrap">ログイン後、</span><wbr />
+              <span className="whitespace-nowrap">認証アプリの6桁で本人確認。</span>
+            </span>
           </p>
           <button onClick={remove} disabled={busy}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-300 text-gray-600 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50">
@@ -102,7 +107,11 @@ export default function MfaSetup() {
       ) : enroll ? (
         <>
           <p className="text-[12px] text-gray-600 leading-relaxed mb-2">
-            ① 認証アプリ（Google / Microsoft Authenticator 等）でQRを読み取る → ② 表示の6桁を入力。
+            <span className="whitespace-nowrap">① 認証アプリ</span><wbr />
+            <span className="whitespace-nowrap">（Google / Microsoft</span><wbr />
+            <span className="whitespace-nowrap">Authenticator 等）で</span><wbr />
+            <span className="whitespace-nowrap">QRを読み取る</span><wbr />
+            <span className="whitespace-nowrap">→ ② 表示の6桁を入力。</span>
           </p>
           <div className="bg-white border border-[#A98B5C]/25 rounded-xl p-3 w-fit mx-auto mb-2 [&_svg]:w-40 [&_svg]:h-40"
             dangerouslySetInnerHTML={{ __html: enroll.qr }} />
@@ -126,7 +135,9 @@ export default function MfaSetup() {
       ) : (
         <>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-2">
-            認証アプリ（無料）で、ログイン時に6桁確認を追加。<b className="text-gray-700">管理画面（/admin）は必須</b>。
+            <span className="whitespace-nowrap">認証アプリ（無料）で、</span><wbr />
+            <span className="whitespace-nowrap">ログイン時に6桁確認を追加。</span><wbr />
+            <b className="text-gray-700 whitespace-nowrap">管理画面（/admin）は必須</b>。
           </p>
           <button onClick={start} disabled={busy}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 active:bg-[#1A1D23]">

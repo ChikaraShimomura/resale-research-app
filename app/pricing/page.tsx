@@ -63,11 +63,15 @@ export default async function PricingPage({
                 <div className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 mb-4 text-center shadow-md">
                   <p className="text-base font-black mb-1.5">{gateHeading}</p>
                   <p className="text-[12px] text-white/85 leading-relaxed">
-                    毎日更新の中古利益リサーチ（儲かる型番＋仕入れ先）。<b className="text-yellow-300">最初の30日無料</b>で全部試せる。合わなければ解約するだけ。
+                    <span className="whitespace-nowrap">毎日更新の中古利益リサーチ</span><wbr />
+                    <span className="whitespace-nowrap">（儲かる型番＋仕入れ先）。</span><wbr />
+                    <span className="whitespace-nowrap"><b className="text-yellow-300">最初の30日無料</b>で全部試せる。</span><wbr />
+                    <span className="whitespace-nowrap">合わなければ解約するだけ。</span>
                   </p>
                   {/* 不安解消：純利益が出る型番だけを狙える／固定費は最安プランの月¥500だけ。 */}
                   <p className="mt-2 text-[12px] font-bold text-white/95 leading-relaxed">
-                    純利益が出る型番だけを狙えて、固定費は<b className="text-yellow-300">月¥500だけ</b>。
+                    <span className="whitespace-nowrap">純利益が出る型番だけを狙えて、</span><wbr />
+                    <span className="whitespace-nowrap">固定費は<b className="text-yellow-300">月¥500だけ</b>。</span>
                   </p>
                   {/* 回遊維持：壁に当たっても無料で見られる場所（ランキング）へ戻れることを明示。 */}
                   {(from === "ranking" || from === "product") && (
@@ -81,7 +85,8 @@ export default async function PricingPage({
               </>
             )}
             <p className="text-center text-sm text-gray-500 leading-relaxed mb-5">
-              使う量で選べる。まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。
+              <span className="whitespace-nowrap">使う量で選べる。</span><wbr />
+              <span className="whitespace-nowrap">まずは<b className="text-gray-700">ライト（約1ヶ月無料）</b>から。</span>
             </p>
             <PlanCards currentPlan={currentPlan} resumePlan={resumePlan} />
           </div>
@@ -90,10 +95,13 @@ export default async function PricingPage({
             <BadgeCheck size={44} className="mx-auto text-emerald-500 mb-3" aria-hidden="true" />
             <p className="text-2xl font-black text-gray-800 mb-2">現在、すべて無料</p>
             <p className="text-sm text-gray-500 leading-relaxed mb-2">
-              中古の利益リサーチも、儲かる型番カタログも、無料。
+              <span className="whitespace-nowrap">中古の利益リサーチも、</span><wbr />
+              <span className="whitespace-nowrap">儲かる型番カタログも、無料。</span>
             </p>
             <p className="text-[12px] text-gray-400 leading-relaxed mb-7">
-              ※ かかるのは中古の仕入れ費用と、売れたときのeBay手数料（落札価格の13.25%＋¥47）だけ。
+              <span className="whitespace-nowrap">※ かかるのは中古の仕入れ費用と、</span><wbr />
+              <span className="whitespace-nowrap">売れたときのeBay手数料</span><wbr />
+              <span className="whitespace-nowrap">（落札価格の13.25%＋¥47）だけ。</span>
             </p>
             <Link
               href="/catalog"
@@ -108,7 +116,14 @@ export default async function PricingPage({
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
           <p className="text-sm font-black text-gray-800 mb-1.5">eBayのセラー登録でつまずいたら（任意）</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-            輸出副業<b className="text-gray-700">最大の難所がeBayのセラー登録</b>。でも<b className="text-gray-700">最初の1回だけ</b>なので、分かる人に手伝ってもらうのが結局いちばん早い。<b className="text-gray-700">ココナラ（他社）なら数千円</b>でベテランに登録・出品をサポートしてもらえます。
+            <span className="whitespace-nowrap">輸出副業<b className="text-gray-700">最大の難所が</b></span><wbr />
+            <span className="whitespace-nowrap"><b className="text-gray-700">eBayのセラー登録</b>。</span><wbr />
+            <span className="whitespace-nowrap">でも<b className="text-gray-700">最初の1回だけ</b>なので、</span><wbr />
+            <span className="whitespace-nowrap">分かる人に手伝ってもらうのが</span><wbr />
+            <span className="whitespace-nowrap">結局いちばん早い。</span><wbr />
+            <span className="whitespace-nowrap"><b className="text-gray-700">ココナラ（他社）なら数千円</b>で</span><wbr />
+            <span className="whitespace-nowrap">ベテランに登録・出品を</span><wbr />
+            <span className="whitespace-nowrap">サポートしてもらえます。</span>
           </p>
           <a
             href={COCONALA_URL}

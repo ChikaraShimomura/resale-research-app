@@ -521,7 +521,9 @@ export default function EbayListingModal({
               <AlertTriangle size={36} aria-hidden="true" className="mx-auto mb-4 text-amber-400" />
               <h2 className="text-base font-black text-gray-800 mb-2">出品の準備がもう少しです</h2>
               <p className="text-sm text-gray-500 mb-3 leading-relaxed">
-                出品の準備が残っています。設定画面で順に進めれば数分で完了。
+                <span className="whitespace-nowrap">出品の準備が残っています。</span><wbr />
+                <span className="whitespace-nowrap">設定画面で順に進めれば</span><wbr />
+                <span className="whitespace-nowrap">数分で完了。</span>
               </p>
               {/* 全体像（何をやるか）を先に提示して心構えを作る。①連携 ②送料/返品 ③発送元。途中で英語ログインが一度開く。 */}
               <ol className="text-left text-[12px] text-gray-600 leading-relaxed bg-[#F5F7FA] border border-[#A98B5C]/25 rounded-xl px-4 py-3 mb-6 list-decimal pl-7 space-y-1">
@@ -559,7 +561,9 @@ export default function EbayListingModal({
                     <div className="w-20 h-20 rounded-xl bg-gray-100" />
                   )}
                   <p className="text-[10px] text-gray-400 leading-relaxed flex-1">
-                    この画像で出品します。権利が気になる商品は、後でeBay側で自分の写真に差し替えを。
+                    <span className="whitespace-nowrap">この画像で出品します。</span><wbr />
+                    <span className="whitespace-nowrap">権利が気になる商品は、</span><wbr />
+                    <span className="whitespace-nowrap">後でeBay側で自分の写真に差し替えを。</span>
                   </p>
                 </div>
               </div>
@@ -677,7 +681,11 @@ export default function EbayListingModal({
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-                    <b>タップした順に並びます</b>（先頭=メイン・再タップで解除）。各画像は<b>実際にeBayに出る加工後</b>。🔍で拡大確認（最大{MAX_LISTING_PHOTOS}枚）。実物が届いたら自分の写真に差し替えを。
+                    <span className="whitespace-nowrap"><b>タップした順に並びます</b></span><wbr />
+                    <span className="whitespace-nowrap">（先頭=メイン・再タップで解除）。</span><wbr />
+                    <span className="whitespace-nowrap">各画像は<b>実際にeBayに出る加工後</b>。</span><wbr />
+                    <span className="whitespace-nowrap">🔍で拡大確認（最大{MAX_LISTING_PHOTOS}枚）。</span><wbr />
+                    <span className="whitespace-nowrap">実物が届いたら自分の写真に差し替えを。</span>
                   </p>
                   {!photoOk && (
                     <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mt-1.5">
@@ -795,21 +803,51 @@ export default function EbayListingModal({
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
-                  {strategy === "breakeven"
-                    ? "利益ほぼ±0で出す。eBayアカウントの評価を早く貯める育成向け（損益分岐ぎりぎり・赤字にはしません）"
-                    : strategy === "custom"
-                    ? "下の「本体価格」に好きな金額を入力できます"
-                    : strategy === "high"
-                    ? "過去落札の中央値より10%高く。利益重視（売れるまで時間がかかります）"
-                    : strategy === "median"
-                    ? "過去落札の中央値どおり。売れるまで少し待ちます"
-                    : !lowestAvailable
-                    ? "過去落札ベースで安めに（eBay現在の最安が取れず、中央値より少し安く）"
-                    : lowestClamped
-                    ? `eBay最安は赤字のため、損益分岐 ${formatJpy(Math.round(floorUsd * USD_JPY))} で出します（赤字回避）`
-                    : "eBay現在の最安値と同額。最速で売れやすく（赤字にはしません）"}
+                  {strategy === "breakeven" ? (
+                    <>
+                      <span className="whitespace-nowrap">利益ほぼ±0で出す。</span><wbr />
+                      <span className="whitespace-nowrap">eBayアカウントの評価を早く貯める育成向け</span><wbr />
+                      <span className="whitespace-nowrap">（損益分岐ぎりぎり・赤字にはしません）</span>
+                    </>
+                  ) : strategy === "custom" ? (
+                    <>
+                      <span className="whitespace-nowrap">下の「本体価格」に</span><wbr />
+                      <span className="whitespace-nowrap">好きな金額を入力できます</span>
+                    </>
+                  ) : strategy === "high" ? (
+                    <>
+                      <span className="whitespace-nowrap">過去落札の中央値より10%高く。</span><wbr />
+                      <span className="whitespace-nowrap">利益重視（売れるまで時間がかかります）</span>
+                    </>
+                  ) : strategy === "median" ? (
+                    <>
+                      <span className="whitespace-nowrap">過去落札の中央値どおり。</span><wbr />
+                      <span className="whitespace-nowrap">売れるまで少し待ちます</span>
+                    </>
+                  ) : !lowestAvailable ? (
+                    <>
+                      <span className="whitespace-nowrap">過去落札ベースで安めに</span><wbr />
+                      <span className="whitespace-nowrap">（eBay現在の最安が取れず、</span><wbr />
+                      <span className="whitespace-nowrap">中央値より少し安く）</span>
+                    </>
+                  ) : lowestClamped ? (
+                    <>
+                      <span className="whitespace-nowrap">eBay最安は赤字のため、</span><wbr />
+                      <span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))} で出します</span><wbr />
+                      <span className="whitespace-nowrap">（赤字回避）</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="whitespace-nowrap">eBay現在の最安値と同額。</span><wbr />
+                      <span className="whitespace-nowrap">最速で売れやすく（赤字にはしません）</span>
+                    </>
+                  )}
                 </p>
-                <p className="text-[9px] text-gray-300 mt-0.5">※ 最安/中央値/高値は eBayの過去落札の中央値と現在の最安値をもとに算出（いずれも損益分岐は割りません）</p>
+                <p className="text-[9px] text-gray-300 mt-0.5">
+                  <span className="whitespace-nowrap">※ 最安/中央値/高値は</span><wbr />
+                  <span className="whitespace-nowrap">eBayの過去落札の中央値と現在の最安値をもとに算出</span><wbr />
+                  <span className="whitespace-nowrap">（いずれも損益分岐は割りません）</span>
+                </p>
               </div>
 
               {/* 価格 */}
@@ -841,7 +879,7 @@ export default function EbayListingModal({
                     ) : competitionCount <= 30 ? (
                       <span className="text-gray-400">eBay競合：現在 約{competitionCount}件</span>
                     ) : (
-                      <span className="text-amber-600 font-bold">🟠 eBay競合：現在 約{competitionCount}件・多め（最安〜送料無料で差別化を）</span>
+                      <span className="text-amber-600 font-bold"><span className="whitespace-nowrap">🟠 eBay競合：現在 約{competitionCount}件・多め</span><wbr /><span className="whitespace-nowrap">（最安〜送料無料で差別化を）</span></span>
                     )}
                   </p>
                 )}
@@ -853,14 +891,14 @@ export default function EbayListingModal({
                   <label className={`flex items-start gap-2 mb-1.5 ${canFreeShip ? "" : "opacity-60"}`}>
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={freeShip && canFreeShip} disabled={!canFreeShip} onChange={() => setFreeShip(true)} />
                     <span className="text-[12px] leading-snug">
-                      <b>送料込み（送料無料で出す）</b>
-                      <span className="text-gray-500"> — 価格に送料を上乗せして「送料無料」表示。総額が同じでも検索・転換に強い（推奨）</span>
-                      {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5">※eBayに「送料無料」の配送ポリシーを1つ作ると使えます（一度だけ）。今は送料別。</span>}
+                      <b className="whitespace-nowrap">送料込み（送料無料で出す）</b>
+                      <span className="text-gray-500"> — <span className="whitespace-nowrap">価格に送料を上乗せして</span><wbr /><span className="whitespace-nowrap">「送料無料」表示。</span><wbr /><span className="whitespace-nowrap">総額が同じでも検索・転換に強い</span><wbr /><span className="whitespace-nowrap">（推奨）</span></span>
+                      {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5"><span className="whitespace-nowrap">※eBayに「送料無料」の配送ポリシーを</span><wbr /><span className="whitespace-nowrap">1つ作ると使えます（一度だけ）。</span><wbr /><span className="whitespace-nowrap">今は送料別。</span></span>}
                     </span>
                   </label>
                   <label className="flex items-start gap-2">
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={!freeShip || !canFreeShip} onChange={() => setFreeShip(false)} />
-                    <span className="text-[12px] leading-snug"><b>送料別（購入者が送料を払う）</b><span className="text-gray-500"> — 本体価格＋送料を別に請求</span></span>
+                    <span className="text-[12px] leading-snug"><b className="whitespace-nowrap">送料別（購入者が送料を払う）</b><span className="text-gray-500"> — <span className="whitespace-nowrap">本体価格＋送料を別に請求</span></span></span>
                   </label>
                   {/* どちらのモードでも「eBay掲載価格」を常に表示＝切替で数字が動く。買い手の総額は両モード同じ。 */}
                   {Number(priceUsd) > 0 && (
@@ -904,23 +942,27 @@ export default function EbayListingModal({
                         <span>梱包込み（未入力は安全側で少し重め）</span>
                       </div>
                     )}
-                    <span className="whitespace-nowrap">📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}</span>（
-                    {liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／
-                    {Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）＝<b className="text-gray-500">購入者が負担</b>
+                    <span className="whitespace-nowrap">📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}</span><wbr />
+                    <span className="whitespace-nowrap">（{liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／{Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）</span><wbr />
+                    <span className="whitespace-nowrap">＝<b className="text-gray-500">購入者が負担</b></span>
                     {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
-                        <span className="whitespace-nowrap">🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}</span>・$100超はZonosで関税を前払い＋指定郵便局から発送
+                        <span className="whitespace-nowrap">🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}</span><wbr />
+                        <span className="whitespace-nowrap">・$100超はZonosで関税を前払い＋</span><wbr />
+                        <span className="whitespace-nowrap">指定郵便局から発送</span>
                       </span>
                     )}
                     <span className="block mt-0.5">
-                      ※ 損益分岐に入れるのは<b className="text-gray-500">関税{liveLanded.needsDutyPrepay ? "" : "(この価格は不要)"}＋送料にかかるeBay手数料</b>のみ。送料そのものは購入者負担です。
+                      <span className="whitespace-nowrap">※ 損益分岐に入れるのは</span><wbr />
+                      <span className="whitespace-nowrap"><b className="text-gray-500">関税{liveLanded.needsDutyPrepay ? "" : "(この価格は不要)"}＋送料にかかるeBay手数料</b>のみ。</span><wbr />
+                      <span className="whitespace-nowrap">送料そのものは購入者負担です。</span>
                     </span>
                   </div>
                 )}
                 {belowFloor && (
                   <div className="mt-1.5">
                     <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))}</span> を下回り、<b>赤字の恐れ</b>があります。
+                      <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))}</span><wbr /><span className="whitespace-nowrap">を下回り、<b>赤字の恐れ</b>があります。</span>
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input
@@ -958,13 +1000,13 @@ export default function EbayListingModal({
                   <>
                     {recoChoice && (
                       <div className={`rounded-xl px-3 py-2 mb-1.5 text-[11px] leading-relaxed border ${recoCovers ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
-                        <div>📦 この商品の最適サイズ：<b className="text-gray-800">{shippingLabel(recoChoice.name)}</b>（{liveLanded?.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット"}・約{effWeightG}g）</div>
+                        <div><span className="whitespace-nowrap">📦 この商品の最適サイズ：<b className="text-gray-800">{shippingLabel(recoChoice.name)}</b></span><wbr /><span className="whitespace-nowrap">（{liveLanded?.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット"}・約{effWeightG}g）</span></div>
                         <div className="mt-0.5">
-                          設定送料 <b className="whitespace-nowrap">${recoChoice.costUsd}</b> ／ 実費の目安 <span className="whitespace-nowrap">{formatJpy(recoRealJpy)}</span>
+                          <span className="whitespace-nowrap">設定送料 <b>${recoChoice.costUsd}</b></span><wbr /><span className="whitespace-nowrap">／ 実費の目安 {formatJpy(recoRealJpy)}</span>
                           {recoCovers ? (
-                            <b className="text-emerald-700"> → ✅ カバーできています（赤字になりません）</b>
+                            <b className="text-emerald-700"> → <span className="whitespace-nowrap">✅ カバーできています</span><wbr /><span className="whitespace-nowrap">（赤字になりません）</span></b>
                           ) : (
-                            <b className="text-amber-700"> → ⚠️ 約{formatJpy(recoGapJpy)}不足（利益計算には反映済み。「大」の送料を上げると安心）</b>
+                            <b className="text-amber-700"> → <span className="whitespace-nowrap">⚠️ 約{formatJpy(recoGapJpy)}不足</span><wbr /><span className="whitespace-nowrap">（利益計算には反映済み。</span><wbr /><span className="whitespace-nowrap">「大」の送料を上げると安心）</span></b>
                           )}
                         </div>
                       </div>
@@ -983,10 +1025,17 @@ export default function EbayListingModal({
                   </>
                 ) : (
                   <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
-                    配送ポリシーが見つかりません。設定で「発送設定」を完了してください。
+                    <span className="whitespace-nowrap">配送ポリシーが</span><wbr />
+                    <span className="whitespace-nowrap">見つかりません。</span><wbr />
+                    <span className="whitespace-nowrap">設定で「発送設定」を</span><wbr />
+                    <span className="whitespace-nowrap">完了してください。</span>
                   </p>
                 )}
-                <p className="text-[10px] text-gray-400 mt-0.5">送料は購入者負担。重さ・価格から最適サイズを自動選択（変更可）。</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  <span className="whitespace-nowrap">送料は購入者負担。</span><wbr />
+                  <span className="whitespace-nowrap">重さ・価格から最適サイズを自動選択</span><wbr />
+                  <span className="whitespace-nowrap">（変更可）。</span>
+                </p>
               </div>
 
               {/* 発送までの日数（handling time） */}
@@ -1005,7 +1054,10 @@ export default function EbayListingModal({
                     </option>
                   ))}
                 </select>
-                <p className="text-[10px] text-gray-400 mt-0.5">買い手に表示される発送の目安。初めは余裕をもって7日がおすすめ。</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  <span className="whitespace-nowrap">買い手に表示される発送の目安。</span><wbr />
+                  <span className="whitespace-nowrap">初めは余裕をもって7日がおすすめ。</span>
+                </p>
               </div>
 
               {/* カテゴリ */}
@@ -1017,7 +1069,9 @@ export default function EbayListingModal({
                   </p>
                 ) : (
                   <p className="text-[12px] text-[#2D323B] bg-red-50 rounded-xl px-3 py-2">
-                    カテゴリを自動判定できませんでした。タイトルを具体的にして開き直すか、時間をおいて再度お試しを。
+                    <span className="whitespace-nowrap">カテゴリを自動判定できませんでした。</span><wbr />
+                    <span className="whitespace-nowrap">タイトルを具体的にして開き直すか、</span><wbr />
+                    <span className="whitespace-nowrap">時間をおいて再度お試しを。</span>
                   </p>
                 )}
               </div>
@@ -1058,7 +1112,11 @@ export default function EbayListingModal({
                 return (
                   <div className="space-y-2.5">
                     <label className="block text-[11px] text-gray-500">商品の詳細</label>
-                    <p className="text-[10px] text-gray-400 leading-relaxed">※必須だけ確認すればOK。他は検索に出やすい値を自動入力ずみ（必要なら下で編集）。</p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">
+                      <span className="whitespace-nowrap">※必須だけ確認すればOK。</span><wbr />
+                      <span className="whitespace-nowrap">他は検索に出やすい値を自動入力ずみ</span><wbr />
+                      <span className="whitespace-nowrap">（必要なら下で編集）。</span>
+                    </p>
                     {required.map(renderField)}
                     {optional.length > 0 && (
                       <div className="border-t border-[#A98B5C]/25 pt-2.5">
@@ -1080,13 +1138,15 @@ export default function EbayListingModal({
 
               {/* 海外出品の不安をやわらげる一言 */}
               <p className="text-[11px] text-gray-600 bg-[#F5F7FA] border border-[#A98B5C]/25 rounded-lg px-3 py-2 leading-relaxed">
-                🌏 英語の説明は自動入力ずみ。購入者とのやり取りも定型文でOK。売れたら<b>日本の郵便局から送るだけ</b>。
+                <span className="whitespace-nowrap">🌏 英語の説明は自動入力ずみ。</span><wbr />
+                <span className="whitespace-nowrap">購入者とのやり取りも定型文でOK。</span><wbr />
+                <span className="whitespace-nowrap">売れたら<b>日本の郵便局から送るだけ</b>。</span>
               </p>
 
               {/* 必須項目が未入力の時の案内（公開エラー#25002の予防） */}
               {!aspectsFilled && (
                 <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                  <span aria-hidden="true">⚠️ </span>上の「商品の詳細（必須）」に未入力あり。候補から選ぶと出品できます。
+                  <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">上の「商品の詳細（必須）」に未入力あり。</span><wbr /><span className="whitespace-nowrap">候補から選ぶと出品できます。</span>
                 </p>
               )}
             </div>
@@ -1165,10 +1225,16 @@ export default function EbayListingModal({
             <div className="py-8 text-center">
               <BadgeCheck size={44} aria-hidden="true" className="mx-auto mb-3 text-emerald-500" />
               <h2 className="text-base font-black text-gray-800 mb-1.5">出品が完了しました！</h2>
-              <p className="text-xs text-gray-500 mb-4 leading-relaxed">売れたら自動で検知して、この一覧の下の方に移動します。</p>
+              <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                <span className="whitespace-nowrap">売れたら自動で検知して、</span><wbr />
+                <span className="whitespace-nowrap">この一覧の下の方に移動します。</span>
+              </p>
               <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-emerald-800 leading-relaxed">
-                  <b>売れたら</b>：① 日本郵便で発送 → ② 売上はPayoneerに入る → 銀行へ出金
+                  <b>売れたら</b>：<wbr />
+                  <span className="whitespace-nowrap">① 日本郵便で発送</span> → <wbr />
+                  <span className="whitespace-nowrap">② 売上はPayoneerに入る</span> → <wbr />
+                  <span className="whitespace-nowrap">銀行へ出金</span>
                 </p>
                 <a
                   href="/guide/payoneer-withdraw"
@@ -1182,7 +1248,11 @@ export default function EbayListingModal({
               {/* 実物写真の追加を促す。楽天の画像だけより、実物写真があると信頼され売れやすい。 */}
               <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left">
                 <p className="text-[12px] text-amber-800 leading-relaxed">
-                  <b>📸 商品が届いたら</b>、実物の写真を撮って <b>eBayの出品に追加</b>を。実物写真があると<b>信頼されて売れやすく</b>なります（下の「eBayで確認」→ 写真の編集から）。
+                  <span className="whitespace-nowrap"><b>📸 商品が届いたら</b>、</span><wbr />
+                  <span className="whitespace-nowrap">実物の写真を撮って</span><wbr />
+                  <span className="whitespace-nowrap"><b>eBayの出品に追加</b>を。</span><wbr />
+                  <span className="whitespace-nowrap">実物写真があると<b>信頼されて売れやすく</b>なります</span><wbr />
+                  <span className="whitespace-nowrap">（下の「eBayで確認」→ 写真の編集から）。</span>
                 </p>
               </div>
               {/* 前進CTA：出品の勢いを次の行動へ。連続出品(=売上の主因)とアプリ内回遊を切らさない。 */}
@@ -1229,7 +1299,8 @@ export default function EbayListingModal({
                 <AlertTriangle size={40} aria-hidden="true" className="mx-auto mb-3 text-amber-500" />
                 <h2 className="text-lg font-black text-amber-700 mb-2">セラー登録が完了していません</h2>
                 <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
-                  あと<b className="text-gray-700">セラー登録（初回の1回だけ）</b>が済めば、ここから出品できます。
+                  <span className="whitespace-nowrap">あと<b className="text-gray-700">セラー登録（初回の1回だけ）</b>が済めば、</span><wbr />
+                  <span className="whitespace-nowrap">ここから出品できます。</span>
                 </p>
               </div>
 
@@ -1237,9 +1308,9 @@ export default function EbayListingModal({
               <div className="bg-[#FFF7ED] border border-amber-200 rounded-xl px-3.5 py-3 mb-4 text-left">
                 <h3 className="text-[13px] font-black text-amber-900 mb-1.5">セラー登録について（初回だけ）</h3>
                 <ul className="text-[12px] text-amber-900 leading-relaxed list-disc pl-4 space-y-1">
-                  <li><b>なぜ必要？</b> 売上を受け取るための本人確認で、eBay側の必須手続きです。</li>
-                  <li><b>1回だけ</b>：一度登録すれば、次からはアプリのワンタップ出品でOK。</li>
-                  <li><b>できたら即再開</b>：登録後、下の「登録できた・もう一度試す」を押せばそのまま出品に進めます。</li>
+                  <li><span className="whitespace-nowrap"><b>なぜ必要？</b> 売上を受け取るための本人確認で、</span><wbr /><span className="whitespace-nowrap">eBay側の必須手続きです。</span></li>
+                  <li><span className="whitespace-nowrap"><b>1回だけ</b>：一度登録すれば、</span><wbr /><span className="whitespace-nowrap">次からはアプリのワンタップ出品でOK。</span></li>
+                  <li><span className="whitespace-nowrap"><b>できたら即再開</b>：登録後、</span><wbr /><span className="whitespace-nowrap">下の「登録できた・もう一度試す」を押せば</span><wbr /><span className="whitespace-nowrap">そのまま出品に進めます。</span></li>
                 </ul>
               </div>
 
@@ -1254,16 +1325,21 @@ export default function EbayListingModal({
                 </button>
                 {cooldown > 0 && !confirmErr ? (
                   <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
-                    確認は数十秒おき。少し待ってからもう一度押してください。
+                    <span className="whitespace-nowrap">確認は数十秒おき。</span><wbr />
+                    <span className="whitespace-nowrap">少し待ってからもう一度押してください。</span>
                   </p>
                 ) : !confirmErr ? (
                   <p className="mb-2 text-[11px] text-gray-400 leading-relaxed">
-                    eBayから〈アカウントの準備ができました〉のメールが届いたら押してください。準備済みならそのまま出品に進めます。
+                    <span className="whitespace-nowrap">eBayから〈アカウントの準備ができました〉の</span><wbr />
+                    <span className="whitespace-nowrap">メールが届いたら押してください。</span><wbr />
+                    <span className="whitespace-nowrap">準備済みならそのまま出品に進めます。</span>
                   </p>
                 ) : null}
                 {confirmErr && (
                   <p role="alert" className="mb-2 text-[11px] text-[#2D323B] leading-relaxed">
-                    まだ登録が完了していません。eBayの〈アカウントの準備ができました〉メールが届いてから押してください。
+                    <span className="whitespace-nowrap">まだ登録が完了していません。</span><wbr />
+                    <span className="whitespace-nowrap">eBayの〈アカウントの準備ができました〉メールが</span><wbr />
+                    <span className="whitespace-nowrap">届いてから押してください。</span>
                   </p>
                 )}
                 <button onClick={onClose} className="w-full h-10 mb-3 text-sm font-bold text-gray-500">あとで</button>
@@ -1271,7 +1347,9 @@ export default function EbayListingModal({
                 {/* 二次導線（控えめ）：自力が難しければ他社サポートに頼める、という補助的な選択肢。 */}
                 <div className="border-t border-[#A98B5C]/20 pt-3 text-left">
                   <p className="text-[11px] text-gray-400 leading-relaxed mb-1.5">
-                    登録でつまずいたら、他社サービスのベテランに代行を頼むこともできます。
+                    <span className="whitespace-nowrap">登録でつまずいたら、</span><wbr />
+                    <span className="whitespace-nowrap">他社サービスのベテランに</span><wbr />
+                    <span className="whitespace-nowrap">代行を頼むこともできます。</span>
                   </p>
                   <a
                     href={COCONALA_HREF}
@@ -1290,7 +1368,9 @@ export default function EbayListingModal({
                   {!COCONALA_PRESEARCHED && (
                     <div className="mt-2">
                       <p className="text-[11px] text-gray-400 leading-relaxed mb-1.5">
-                        開いたら検索まどに下のワードを貼り付けて検索（このボタンで自動コピー）
+                        <span className="whitespace-nowrap">開いたら検索まどに</span><wbr />
+                        <span className="whitespace-nowrap">下のワードを貼り付けて検索</span><wbr />
+                        <span className="whitespace-nowrap">（このボタンで自動コピー）</span>
                       </p>
                       <CopyKeyword value={COCONALA_KEYWORD} />
                     </div>
@@ -1318,10 +1398,13 @@ export default function EbayListingModal({
                 <>
                   <h2 className="text-sm font-bold text-gray-800 mb-2">eBay自動出品はプロMAX限定です</h2>
                   <p className="text-[12px] text-gray-600 leading-relaxed mb-1 px-2">
-                    写真だけで自動出品する機能は<b className="text-[#2D323B]">プロMAXプラン</b>でご利用いただけます。
+                    <span className="whitespace-nowrap">写真だけで自動出品する機能は</span><wbr />
+                    <span className="whitespace-nowrap"><b className="text-[#2D323B]">プロMAXプラン</b>でご利用いただけます。</span>
                   </p>
                   <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-                    在庫を確保してから出す通常の出品はそのまま。無在庫での自動出品を使う場合にプロMAXが必要です。
+                    <span className="whitespace-nowrap">在庫を確保してから出す通常の出品はそのまま。</span><wbr />
+                    <span className="whitespace-nowrap">無在庫での自動出品を使う場合に</span><wbr />
+                    <span className="whitespace-nowrap">プロMAXが必要です。</span>
                   </p>
                   <a
                     href="/pricing?from=listing"
@@ -1338,7 +1421,8 @@ export default function EbayListingModal({
                     eBayへの出品はプランへのご加入が必要です。
                   </p>
                   <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-                    <b className="text-[#2D323B]">ライトは30日無料</b>ではじめられます（月10件まで出品可）。
+                    <span className="whitespace-nowrap"><b className="text-[#2D323B]">ライトは30日無料</b>ではじめられます</span><wbr />
+                    <span className="whitespace-nowrap">（月10件まで出品可）。</span>
                   </p>
                   <a
                     href="/pricing"
@@ -1355,7 +1439,8 @@ export default function EbayListingModal({
                     {result?.error || "現在のプランの同時出品上限に達しました。"}
                   </p>
                   <p className="text-[12px] text-gray-500 leading-relaxed mb-4">
-                    上のプランで同時出品をもっと増やせます（スタンダード50件／プロ100件）。
+                    <span className="whitespace-nowrap">上のプランで同時出品をもっと増やせます</span><wbr />
+                    <span className="whitespace-nowrap">（スタンダード50件／プロ100件）。</span>
                   </p>
                   <a
                     href="/pricing"
@@ -1390,8 +1475,8 @@ export default function EbayListingModal({
               <div className="mb-3 bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-2.5 text-left">
                 <p className="text-[11px] font-bold text-amber-800 mb-1">まず試してみてください</p>
                 <ul className="text-[11px] text-amber-900/80 leading-relaxed list-disc pl-4 space-y-0.5">
-                  <li>少し時間をおいて<b>もう一度出品</b>（一時的な通信エラーの場合あり）</li>
-                  <li>写真が暗い・小さいときは<b>別の写真</b>に差し替える</li>
+                  <li><span className="whitespace-nowrap">少し時間をおいて<b>もう一度出品</b></span><wbr /><span className="whitespace-nowrap">（一時的な通信エラーの場合あり）</span></li>
+                  <li><span className="whitespace-nowrap">写真が暗い・小さいときは</span><wbr /><span className="whitespace-nowrap"><b>別の写真</b>に差し替える</span></li>
                   {result?.errorKind !== "known" && <li>直らなければ下のボタンで報告を</li>}
                 </ul>
               </div>
@@ -1407,7 +1492,7 @@ export default function EbayListingModal({
                     {reportState === "idle" ? "🛠 このエラーを開発者に報告" : reportState === "sending" ? "送信中..." : "✓ 報告しました。ありがとうございます！"}
                   </button>
                   {reportState === "done" && (
-                    <p className="text-[11px] text-gray-500 text-center mb-2">内容を確認して修正します。直ったら再度お試しを。</p>
+                    <p className="text-[11px] text-gray-500 text-center mb-2"><span className="whitespace-nowrap">内容を確認して修正します。</span><wbr /><span className="whitespace-nowrap">直ったら再度お試しを。</span></p>
                   )}
                 </>
               )}

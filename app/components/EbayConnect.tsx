@@ -86,8 +86,13 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
         </p>
       )}
       {disconnectFailed && (
-        <p className="mb-3 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
-          <AlertTriangle size={16} /> 解除に失敗しました。連携はまだ有効です。もう一度お試しください
+        <p className="mb-3 text-sm font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span>
+            <span className="whitespace-nowrap">解除に失敗しました。</span><wbr />
+            <span className="whitespace-nowrap">連携はまだ有効です。</span><wbr />
+            <span className="whitespace-nowrap">もう一度お試しください</span>
+          </span>
         </p>
       )}
 
@@ -107,7 +112,8 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
         </div>
       ) : !status?.configured ? (
         <p className="text-sm text-gray-500">
-          eBay連携は準備中（サーバー設定の反映待ち）。
+          <span className="whitespace-nowrap">eBay連携は準備中</span><wbr />
+          <span className="whitespace-nowrap">（サーバー設定の反映待ち）。</span>
         </p>
       ) : status.connected ? (
         <div className="flex items-center gap-2 flex-wrap">
@@ -140,20 +146,26 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
             eBayアカウントと連携する
           </a>
           <p className="text-[11px] text-gray-500 leading-relaxed px-1">
-            押すと <b>eBay公式のログイン画面（英語）</b> が開きます。<b>Agree（同意）</b>でこの画面に戻ります。
+            <span className="whitespace-nowrap">押すと<b>eBay公式のログイン画面（英語）</b></span><wbr />
+            <span className="whitespace-nowrap">が開きます。</span><wbr />
+            <span className="whitespace-nowrap"><b>Agree（同意）</b>でこの画面に戻ります。</span>
           </p>
           <div className="bg-[#F5F7FA] rounded-xl px-3 py-2.5">
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              eBayアカウント未取得なら、先に
-              <a
-                href="https://signup.ebay.com/pa/crte"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#0064D2] font-bold underline mx-0.5"
-              >
-                eBayアカウントを作成
-              </a>
-              してから「連携する」を（作成はeBayのページで）。
+              <span className="whitespace-nowrap">eBayアカウント未取得なら、</span><wbr />
+              <span className="whitespace-nowrap">
+                先に
+                <a
+                  href="https://signup.ebay.com/pa/crte"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#0064D2] font-bold underline mx-0.5"
+                >
+                  eBayアカウントを作成
+                </a>
+              </span><wbr />
+              <span className="whitespace-nowrap">してから「連携する」を</span><wbr />
+              <span className="whitespace-nowrap">（作成はeBayのページで）。</span>
             </p>
           </div>
         </div>

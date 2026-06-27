@@ -52,10 +52,54 @@ export default function AccountGrowth() {
   // 育成ステージ。0=未連携 / 1=評価0 / 2=1〜9 / 3=10以上(卒業)。
   const stage = connected === false ? 0 : evidence === 0 ? 1 : evidence < 10 ? 2 : 3;
   const stageInfo = [
-    { label: "まず連携", desc: "出品の前に、eBayと連携を済ませましょう。", cta: { href: "/settings/ebay", text: "eBayを連携する", Icon: Plug, ebay: true } },
-    { label: "最初の評価をとる", desc: "安い・低リスクの商品から出品し、最初の数件の評価を積みましょう。これが出品制限の解放と信用の土台です。", cta: { href: "/search", text: "スターター品を出品する", Icon: Search, ebay: false } },
-    { label: "評価を伸ばす", desc: `${metricLabel} ${evidence} 件。この調子で評価を貯め、30日ごとに増枠リクエストを。販売率50〜70％・好評価を保てば枠が自動で増えます。`, cta: { href: "/search", text: "次の商品を出品する", Icon: Search, ebay: false } },
-    { label: "卒業：伸ばす段階へ", desc: `${metricLabel} ${evidence} 件。土台はできました。高単価や、ストア名・ニッチでのブランディングで“複利”を効かせる段階です。`, cta: { href: "/search", text: "高単価にも挑戦する", Icon: Store, ebay: false } },
+    {
+      label: "まず連携",
+      desc: (
+        <>
+          <span className="whitespace-nowrap">出品の前に、</span><wbr />
+          <span className="whitespace-nowrap">eBayと連携を済ませましょう。</span>
+        </>
+      ),
+      cta: { href: "/settings/ebay", text: "eBayを連携する", Icon: Plug, ebay: true },
+    },
+    {
+      label: "最初の評価をとる",
+      desc: (
+        <>
+          <span className="whitespace-nowrap">安い・低リスクの商品から出品し、</span><wbr />
+          <span className="whitespace-nowrap">最初の数件の評価を積みましょう。</span><wbr />
+          <span className="whitespace-nowrap">これが出品制限の解放と</span><wbr />
+          <span className="whitespace-nowrap">信用の土台です。</span>
+        </>
+      ),
+      cta: { href: "/search", text: "スターター品を出品する", Icon: Search, ebay: false },
+    },
+    {
+      label: "評価を伸ばす",
+      desc: (
+        <>
+          <span className="whitespace-nowrap">{metricLabel} {evidence} 件。</span><wbr />
+          <span className="whitespace-nowrap">この調子で評価を貯め、</span><wbr />
+          <span className="whitespace-nowrap">30日ごとに増枠リクエストを。</span><wbr />
+          <span className="whitespace-nowrap">販売率50〜70％・好評価を保てば</span><wbr />
+          <span className="whitespace-nowrap">枠が自動で増えます。</span>
+        </>
+      ),
+      cta: { href: "/search", text: "次の商品を出品する", Icon: Search, ebay: false },
+    },
+    {
+      label: "卒業：伸ばす段階へ",
+      desc: (
+        <>
+          <span className="whitespace-nowrap">{metricLabel} {evidence} 件。</span><wbr />
+          <span className="whitespace-nowrap">土台はできました。</span><wbr />
+          <span className="whitespace-nowrap">高単価や、ストア名・ニッチでの</span><wbr />
+          <span className="whitespace-nowrap">ブランディングで“複利”を</span><wbr />
+          <span className="whitespace-nowrap">効かせる段階です。</span>
+        </>
+      ),
+      cta: { href: "/search", text: "高単価にも挑戦する", Icon: Store, ebay: false },
+    },
   ][stage];
 
   // スターター品＝利益が出る中で「いちばん安い＝1件あたりの失敗リスクが小さい」順。在庫切れ/赤字は配信側で除外済み。
@@ -66,11 +110,69 @@ export default function AccountGrowth() {
     .slice(0, 12);
 
   const tips = [
-    { Icon: Coins, t: "安い品で評価を早く貯める", d: "買い手は新規セラーでも“安い物”は買いやすい。安い・軽い品で最初の評価を一気に積むのが最短。" },
-    { Icon: Truck, t: "即発送・在庫確実だけ", d: "⚠️ 売れてから楽天が売切→キャンセルは、育ち始めの新規アカに致命的（増枠が止まる）。最初は確実に送れる品だけ。" },
-    { Icon: RefreshCw, t: "30日ごとに増枠リクエスト", d: "販売率50〜70％・好評価95〜100％・追跡付き定時発送を保てば、eBayが月次で出品枠を自動で増やします。" },
-    { Icon: ShieldCheck, t: "不良率ゼロを守る", d: "追跡付き発送＋30日返品（既定）で、キャンセル・遅延・未着クレームを出さない。指標が命。" },
-    { Icon: Store, t: "ブランディングは“後”で", d: "評価が貯まってからストア名・ニッチ・Aboutで複利を効かせる。土台（評価・実績）が先、看板は後。" },
+    {
+      Icon: Coins,
+      t: "安い品で評価を早く貯める",
+      d: (
+        <>
+          <span className="whitespace-nowrap">買い手は新規セラーでも</span><wbr />
+          <span className="whitespace-nowrap">“安い物”は買いやすい。</span><wbr />
+          <span className="whitespace-nowrap">安い・軽い品で最初の評価を</span><wbr />
+          <span className="whitespace-nowrap">一気に積むのが最短。</span>
+        </>
+      ),
+    },
+    {
+      Icon: Truck,
+      t: "即発送・在庫確実だけ",
+      d: (
+        <>
+          <span className="whitespace-nowrap">⚠️ 売れてから楽天が売切→</span><wbr />
+          <span className="whitespace-nowrap">キャンセルは、</span><wbr />
+          <span className="whitespace-nowrap">育ち始めの新規アカに致命的</span><wbr />
+          <span className="whitespace-nowrap">（増枠が止まる）。</span><wbr />
+          <span className="whitespace-nowrap">最初は確実に送れる品だけ。</span>
+        </>
+      ),
+    },
+    {
+      Icon: RefreshCw,
+      t: "30日ごとに増枠リクエスト",
+      d: (
+        <>
+          <span className="whitespace-nowrap">販売率50〜70％・</span><wbr />
+          <span className="whitespace-nowrap">好評価95〜100％・</span><wbr />
+          <span className="whitespace-nowrap">追跡付き定時発送を保てば、</span><wbr />
+          <span className="whitespace-nowrap">eBayが月次で出品枠を</span><wbr />
+          <span className="whitespace-nowrap">自動で増やします。</span>
+        </>
+      ),
+    },
+    {
+      Icon: ShieldCheck,
+      t: "不良率ゼロを守る",
+      d: (
+        <>
+          <span className="whitespace-nowrap">追跡付き発送＋30日返品（既定）で、</span><wbr />
+          <span className="whitespace-nowrap">キャンセル・遅延・</span><wbr />
+          <span className="whitespace-nowrap">未着クレームを出さない。</span><wbr />
+          <span className="whitespace-nowrap">指標が命。</span>
+        </>
+      ),
+    },
+    {
+      Icon: Store,
+      t: "ブランディングは“後”で",
+      d: (
+        <>
+          <span className="whitespace-nowrap">評価が貯まってから</span><wbr />
+          <span className="whitespace-nowrap">ストア名・ニッチ・Aboutで</span><wbr />
+          <span className="whitespace-nowrap">複利を効かせる。</span><wbr />
+          <span className="whitespace-nowrap">土台（評価・実績）が先、</span><wbr />
+          <span className="whitespace-nowrap">看板は後。</span>
+        </>
+      ),
+    },
   ];
 
   return (
@@ -109,12 +211,21 @@ export default function AccountGrowth() {
           <h2 className="text-sm font-black text-gray-800">育成モード：まず出すならコレ</h2>
         </div>
         <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
-          利益が出る中でも<b className="text-gray-700">価格が低い＝1件あたりの失敗リスクが小さい</b>順。最初の評価づくりに向いた品です（在庫切れは自動で除外）。
+          <span className="whitespace-nowrap">利益が出る中でも</span><wbr />
+          <b className="text-gray-700 whitespace-nowrap">価格が低い＝</b><wbr />
+          <b className="text-gray-700 whitespace-nowrap">1件あたりの失敗リスクが小さい</b><wbr />
+          <span className="whitespace-nowrap">順。最初の評価づくりに</span><wbr />
+          <span className="whitespace-nowrap">向いた品です</span><wbr />
+          <span className="whitespace-nowrap">（在庫切れは自動で除外）。</span>
         </p>
         {masked ? (
           <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-5 text-center shadow-sm">
             <p className="text-[13px] font-black text-gray-800 mb-1">育成モードの商品はプランで表示</p>
-            <p className="text-[11px] text-gray-500 leading-relaxed mb-3">スターター品（安い・低リスク）を選んで出品できます。ライトは30日無料。</p>
+            <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
+              <span className="whitespace-nowrap">スターター品（安い・低リスク）を</span><wbr />
+              <span className="whitespace-nowrap">選んで出品できます。</span><wbr />
+              <span className="whitespace-nowrap">ライトは30日無料。</span>
+            </p>
             <Link href="/pricing?from=grow" className="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-[#2D323B] text-white text-[12px] font-black active:bg-[#1A1D23]">
               🔒 プランで全部見る
             </Link>
@@ -122,7 +233,12 @@ export default function AccountGrowth() {
         ) : !loaded ? (
           <div className="rounded-2xl border border-[#A98B5C]/20 bg-white px-4 py-8 text-center text-gray-400 text-[12px]">読み込み中…</div>
         ) : starters.length === 0 ? (
-          <p className="text-[12px] text-gray-400 py-2">いま在庫のあるスターター品が見つかりませんでした。時間をおいて再度お試しください。</p>
+          <p className="text-[12px] text-gray-400 py-2">
+            <span className="whitespace-nowrap">いま在庫のある</span><wbr />
+            <span className="whitespace-nowrap">スターター品が</span><wbr />
+            <span className="whitespace-nowrap">見つかりませんでした。</span><wbr />
+            <span className="whitespace-nowrap">時間をおいて再度お試しください。</span>
+          </p>
         ) : (
           <div className="space-y-3">
             {starters.map((p) => (

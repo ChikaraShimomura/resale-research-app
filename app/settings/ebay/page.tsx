@@ -33,10 +33,18 @@ export default function EbaySettingsPage() {
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <h2 className="text-sm font-black text-gray-800 mb-1">eBayの設定（準備・いつでも更新）</h2>
           <p className="text-xs text-gray-500 leading-relaxed">
-            連携・送料・発送先の国・返品・発送元をここで設定。<b className="text-gray-700">完了後も各STEPからいつでも更新可</b>（送料・発送先の変更もここ）。eBayのパスワードは渡しません。
+            <span className="whitespace-nowrap">連携・送料・発送先の国・</span><wbr />
+            <span className="whitespace-nowrap">返品・発送元をここで設定。</span><wbr />
+            <b className="text-gray-700 whitespace-nowrap">完了後も各STEPから</b><wbr />
+            <b className="text-gray-700 whitespace-nowrap">いつでも更新可</b><wbr />
+            <span className="whitespace-nowrap">（送料・発送先の変更もここ）。</span><wbr />
+            <span className="whitespace-nowrap">eBayのパスワードは渡しません。</span>
           </p>
           <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
-            ※ 連携情報はこの端末（ブラウザ）に暗号化保存。共有端末では使用後にSTEP1で「連携を解除」を。
+            <span className="whitespace-nowrap">※ 連携情報はこの端末（ブラウザ）に</span><wbr />
+            <span className="whitespace-nowrap">暗号化保存。</span><wbr />
+            <span className="whitespace-nowrap">共有端末では使用後に</span><wbr />
+            <span className="whitespace-nowrap">STEP1で「連携を解除」を。</span>
           </p>
         </section>
 

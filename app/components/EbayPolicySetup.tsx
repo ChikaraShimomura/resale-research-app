@@ -128,8 +128,10 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-[12px] text-gray-500 leading-relaxed">
-        送料・支払い・返品は<b className="text-gray-700">おすすめ設定で自動登録</b>。
-        基本はこのままボタンを押すだけ。変えたい人は「詳細オプション」へ。
+        <span className="whitespace-nowrap">送料・支払い・返品は</span><wbr />
+        <span className="whitespace-nowrap"><b className="text-gray-700">おすすめ設定で自動登録</b>。</span><wbr />
+        <span className="whitespace-nowrap">基本はこのままボタンを押すだけ。</span><wbr />
+        <span className="whitespace-nowrap">変えたい人は「詳細オプション」へ。</span>
       </p>
 
       {/* おすすめ設定サマリー（読むだけ・変更は詳細オプションで） */}
@@ -166,7 +168,11 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             {/* 送料・発送日数 */}
             <div className="space-y-2.5">
               <p className="text-[12px] font-bold text-gray-700">送料（サイズ別・USD）</p>
-              <p className="text-[11px] text-gray-400 leading-relaxed">購入者負担。出品時に重さ・価格から小/中/大を自動選択（目安は日本郵便・米国宛の実費）。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                <span className="whitespace-nowrap">購入者負担。出品時に重さ・価格から</span><wbr />
+                <span className="whitespace-nowrap">小/中/大を自動選択</span><wbr />
+                <span className="whitespace-nowrap">（目安は日本郵便・米国宛の実費）。</span>
+              </p>
               <div>
                 <label className="block text-[12px] text-gray-500 mb-1">発送までの日数（注文から発送まで）</label>
                 <input
@@ -196,7 +202,13 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
             {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
             <div className="space-y-1.5">
               <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
-              <p className="text-[11px] text-gray-400 leading-relaxed">アメリカは常に対象。推奨は主要英語/EU圏＋低リスクなアジア（香港・シンガポール・台湾・韓国・日本）。送料は米国宛ベースで同額請求。詐欺/通関リスクの高い国は外しています。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                <span className="whitespace-nowrap">アメリカは常に対象。</span><wbr />
+                <span className="whitespace-nowrap">推奨は主要英語/EU圏＋低リスクなアジア</span><wbr />
+                <span className="whitespace-nowrap">（香港・シンガポール・台湾・韓国・日本）。</span><wbr />
+                <span className="whitespace-nowrap">送料は米国宛ベースで同額請求。</span><wbr />
+                <span className="whitespace-nowrap">詐欺/通関リスクの高い国は外しています。</span>
+              </p>
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white whitespace-nowrap">アメリカ（必須）</span>
                 {COUNTRIES.map((c) => {
@@ -229,7 +241,11 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                 />
                 <span className="text-[12px] text-gray-700">送料無料（送料込み）のポリシーも作る</span>
               </label>
-              <p className="text-[11px] text-gray-400 leading-relaxed">出品/編集で「送料込み」に切替可（送料を価格に含め買い手の送料は$0）。eBayの「送料無料」表示で売れやすい。</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                <span className="whitespace-nowrap">出品/編集で「送料込み」に切替可</span><wbr />
+                <span className="whitespace-nowrap">（送料を価格に含め買い手の送料は$0）。</span><wbr />
+                <span className="whitespace-nowrap">eBayの「送料無料」表示で売れやすい。</span>
+              </p>
             </div>
 
             {/* 返品ポリシー */}
@@ -245,9 +261,15 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
                 <span className="text-[12px] text-gray-700">返品を受け付ける（30日・返送料は買い手負担）</span>
               </label>
               <p className="text-[11px] text-gray-400 leading-relaxed">
-                {returnsAccepted
-                  ? "30日以内の返品OK（返送料は買い手負担）。安心感で売れやすい反面、対応の手間は増えます。"
-                  : "返品不可で登録。"}
+                {returnsAccepted ? (
+                  <>
+                    <span className="whitespace-nowrap">30日以内の返品OK（返送料は買い手負担）。</span><wbr />
+                    <span className="whitespace-nowrap">安心感で売れやすい反面、</span><wbr />
+                    <span className="whitespace-nowrap">対応の手間は増えます。</span>
+                  </>
+                ) : (
+                  "返品不可で登録。"
+                )}
               </p>
             </div>
           </div>

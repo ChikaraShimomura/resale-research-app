@@ -176,7 +176,10 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
                 利益率 {product.realProfitRate}%
               </span>
             )}
-            <p className="text-[11px] text-gray-400 mb-2">利益額・仕入れ先・eBay相場は<b className="text-gray-500">プラン</b>で表示</p>
+            <p className="text-[11px] text-gray-400 mb-2">
+              <span className="whitespace-nowrap">利益額・仕入れ先・eBay相場は</span><wbr />
+              <span className="whitespace-nowrap"><b className="text-gray-500">プラン</b>で表示</span>
+            </p>
             <a
               href="/pricing?from=catalog"
               className="inline-flex items-center justify-center gap-1 h-9 px-3 rounded-xl bg-[#2D323B] text-white text-[12px] font-bold active:bg-[#1A1D23]"

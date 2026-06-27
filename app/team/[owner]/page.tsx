@@ -31,7 +31,10 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
         <div className="w-full max-w-md bg-white border border-[#A98B5C]/25 rounded-2xl p-6 text-center shadow-sm">
           <Lock size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-bold text-gray-700 mb-1">閲覧権限がありません</p>
-          <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">このチームのメンバーとして承認されている必要があります。</p>
+          <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
+            <span className="whitespace-nowrap">このチームのメンバーとして</span><wbr />
+            <span className="whitespace-nowrap">承認されている必要があります。</span>
+          </p>
           <Link href="/team" className="inline-flex items-center h-11 px-6 bg-[#2D323B] text-white font-bold text-sm rounded-xl active:bg-[#1A1D23]">
             チームへ
           </Link>
@@ -154,7 +157,13 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
               </span>
             </div>
             {!shared && (
-              <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 個別モードでは各メンバーの売上は各自のeBayアカウントに計上され、この収支（オーナー分）には含まれません。</p>
+              <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
+                <span className="whitespace-nowrap">※ 個別モードでは、</span><wbr />
+                <span className="whitespace-nowrap">各メンバーの売上は</span><wbr />
+                <span className="whitespace-nowrap">各自のeBayアカウントに計上され、</span><wbr />
+                <span className="whitespace-nowrap">この収支（オーナー分）には</span><wbr />
+                <span className="whitespace-nowrap">含まれません。</span>
+              </p>
             )}
           </section>
         )}
@@ -226,16 +235,30 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
               ))}
             </ol>
             <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-              {shared
-                ? "※ チームの誰かがオーナーのeBayで出品した商品です。"
-                : "※ チームの誰かが各自のeBayで出品した商品です（個別モード）。二重出品を防ぐため仕入れ商品からは外しています。"}
+              {shared ? (
+                <>
+                  <span className="whitespace-nowrap">※ チームの誰かが、</span><wbr />
+                  <span className="whitespace-nowrap">オーナーのeBayで出品した商品です。</span>
+                </>
+              ) : (
+                <>
+                  <span className="whitespace-nowrap">※ チームの誰かが、</span><wbr />
+                  <span className="whitespace-nowrap">各自のeBayで出品した商品です</span><wbr />
+                  <span className="whitespace-nowrap">（個別モード）。</span><wbr />
+                  <span className="whitespace-nowrap">二重出品を防ぐため、</span><wbr />
+                  <span className="whitespace-nowrap">仕入れ商品からは外しています。</span>
+                </>
+              )}
             </p>
           </section>
         )}
 
         <h2 className="text-sm font-black text-gray-800 mb-2">仕入れた商品（{items.length}）</h2>
         {items.length === 0 ? (
-          <p className="text-[12px] text-gray-400">まだ仕入れた商品はありません。</p>
+          <p className="text-[12px] text-gray-400">
+            <span className="whitespace-nowrap">まだ仕入れた商品は</span><wbr />
+            <span className="whitespace-nowrap">ありません。</span>
+          </p>
         ) : (
           <ol className="space-y-2.5">
             {items.map((p, i) => {
@@ -330,9 +353,24 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
         )}
 
         <p className="mt-4 text-[10px] text-gray-400 leading-relaxed">
-          {shared
-            ? "※ 共有モード：お気に入り・仕入れ・出品中・終了商品・収益を共有し、出品はオーナーの1つのeBayアカウント（オーナーのプラン枠）で行います。"
-            : "※ 個別モード：お気に入り・仕入れ・出品中・終了商品・収益を共有しつつ、出品は各メンバー自身が連携したeBayアカウントで行います。"}
+          {shared ? (
+            <>
+              <span className="whitespace-nowrap">※ 共有モード：</span><wbr />
+              <span className="whitespace-nowrap">お気に入り・仕入れ・出品中・</span><wbr />
+              <span className="whitespace-nowrap">終了商品・収益を共有し、</span><wbr />
+              <span className="whitespace-nowrap">出品はオーナーの</span><wbr />
+              <span className="whitespace-nowrap">1つのeBayアカウント</span><wbr />
+              <span className="whitespace-nowrap">（オーナーのプラン枠）で行います。</span>
+            </>
+          ) : (
+            <>
+              <span className="whitespace-nowrap">※ 個別モード：</span><wbr />
+              <span className="whitespace-nowrap">お気に入り・仕入れ・出品中・</span><wbr />
+              <span className="whitespace-nowrap">終了商品・収益を共有しつつ、</span><wbr />
+              <span className="whitespace-nowrap">出品は各メンバー自身が連携した</span><wbr />
+              <span className="whitespace-nowrap">eBayアカウントで行います。</span>
+            </>
+          )}
         </p>
       </main>
 

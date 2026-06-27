@@ -47,7 +47,9 @@ export default function CatalogHealth() {
         </button>
       </div>
       <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-        中古カタログ(<code className="bg-gray-100 px-1 rounded">used_catalog</code>)の配信ゲートが何件落としているか。<b>掲載数が急減したら</b>原因をここで特定。
+        <span className="whitespace-nowrap">中古カタログ(<code className="bg-gray-100 px-1 rounded">used_catalog</code>)の</span><wbr />
+        <span className="whitespace-nowrap">配信ゲートが何件落としているか。</span><wbr />
+        <span className="whitespace-nowrap"><b>掲載数が急減したら</b>原因をここで特定。</span>
       </p>
 
       {loading && !h ? (

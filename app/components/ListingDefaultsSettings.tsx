@@ -26,8 +26,11 @@ export default function ListingDefaultsSettings() {
       <div>
         <h2 className="text-sm font-black text-gray-800">出品の既定値</h2>
         <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-          出品画面を開いたときの初期値（この端末に保存）。商品ごとに変更可。
-          状態（新品/中古）は仕入れ元から自動判定するので含めません。中古は手元に在庫があるので発送は早め（既定3日）。
+          <span className="whitespace-nowrap">出品画面を開いたときの初期値</span><wbr />
+          <span className="whitespace-nowrap">（この端末に保存）。商品ごとに変更可。</span><wbr />
+          <span className="whitespace-nowrap">状態（新品/中古）は仕入れ元から自動判定するので</span><wbr />
+          <span className="whitespace-nowrap">含めません。</span><wbr />
+          <span className="whitespace-nowrap">中古は手元に在庫があるので発送は早め（既定3日）。</span>
         </p>
       </div>
 

@@ -28,7 +28,8 @@ export default function StripBestOfferButton() {
   return (
     <div className="mt-3 pt-3 border-t border-[#A98B5C]/20">
       <p className="text-[11px] text-gray-500 mb-1.5 leading-relaxed">
-        値下げ交渉（Best Offer）は廃止しました。すでに出品中の商品からも外せます。
+        <span className="whitespace-nowrap">値下げ交渉（Best Offer）は廃止しました。</span><wbr />
+        <span className="whitespace-nowrap">すでに出品中の商品からも外せます。</span>
       </p>
       <button
         onClick={run}

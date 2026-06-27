@@ -27,9 +27,11 @@ export default function UpdatePasswordPage() {
         </form>
         {/* 行き止まり防止: リンク期限切れ等で更新できない時の出口を用意 */}
         <p className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
-          うまくいかないときは、メールの「再設定リンク」から開き直すか、
-          <Link href="/reset-password" className="text-[#2D323B] underline underline-offset-2">パスワードを忘れた</Link>
-          からやり直しを。
+          <span className="whitespace-nowrap">うまくいかないときは、</span><wbr />
+          <span className="whitespace-nowrap">メールの「再設定リンク」から</span><wbr />
+          <span className="whitespace-nowrap">開き直すか、</span><wbr />
+          <span className="whitespace-nowrap"><Link href="/reset-password" className="text-[#2D323B] underline underline-offset-2">パスワードを忘れた</Link>から</span><wbr />
+          <span className="whitespace-nowrap">やり直しを。</span>
         </p>
         <Link href="/login" className="block text-center mt-3 text-sm text-gray-500">ログインに戻る</Link>
       </div>
