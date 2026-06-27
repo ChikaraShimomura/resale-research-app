@@ -360,12 +360,15 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
         <div className="mt-2.5 space-y-2">
           {tiers && <PriceTierEdit productId={d.id} tiers={tiers} />}
           <OptimizeButton productId={d.id} />
-          <StopListingButton productId={d.id} />
-          {d.listingId && (
-            <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
-              eBayの出品を見る <ExternalLink size={13} />
-            </a>
-          )}
+          {/* 出品を終了する／eBayの出品を見る を横並び */}
+          <div className="flex items-start gap-2">
+            <div className="flex-1"><StopListingButton productId={d.id} /></div>
+            {d.listingId && (
+              <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
+                eBayの出品を見る <ExternalLink size={13} />
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </li>
