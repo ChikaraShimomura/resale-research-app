@@ -14,6 +14,7 @@ import {
 } from "../../../../lib/ebay/listing";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId } from "../../../../lib/ebay/landedCost";
 import { estimateProductWeightG } from "../../../../lib/ebay/productWeight";
+import { aiFillAspects, splitBrandModel } from "../../../../lib/ebay/aspectFill";
 import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
@@ -399,6 +400,44 @@ export async function POST(req: Request) {
       free: true,
       required: false,
       value: "Japan",
+    });
+  }
+
+  // ★Item Specifics の自動補完。①確実な値(Brand/型番=MPN)は商品データで決定論的に埋める、
+  //   ②残り(Platform/Region Code/Year/寸法/Type等)は Haiku が「その型番の正しい値」を候補制約つきで埋める
+  //   ＝eBay.ai と同等の Item Specifics を出品前に揃え、検索可視性を上げる。fail-open＝失敗しても従来の既定に戻るだけ。
+  if (requiredAspects.length) {
+    const prod = product as { brand?: string; code?: string; mpn?: string };
+    const { brand: realBrand, model: realModel } = splitBrandModel(product.coreKeyword || "", prod.brand, prod.code || prod.mpn);
+    const modelLooksReal = !!realModel && /[0-9]/.test(realModel); // 数字を含む＝型番らしい（"Does Not Apply"を避ける）
+    const aiSlots = requiredAspects
+      .filter((a) => !/brand|^mpn$|manufacturer part|country.*manufacture|country of origin/i.test(a.name))
+      .map((a) => ({ name: a.name, values: a.values, free: a.free }));
+    let aiVals: Record<string, string> = {};
+    try {
+      aiVals = await aiFillAspects(
+        { id: productId, brand: realBrand, model: modelLooksReal ? realModel : "", title: decodeHtmlEntities(product.title || product.coreKeyword || ""), category: product.category, condition },
+        aiSlots
+      );
+    } catch { /* fail-open＝既定のまま */ }
+    const dedupe = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
+    requiredAspects = requiredAspects.map((a) => {
+      if (/brand/i.test(a.name)) {
+        // 実ブランドが分かれば必ず既定に（旧"Unbranded"/ジャンル3択固定を上書き）。
+        if (realBrand) return { ...a, values: dedupe([realBrand, ...a.values, "Unbranded"]).slice(0, 8), free: true, value: realBrand };
+        return a;
+      }
+      if (/^mpn$|manufacturer part/i.test(a.name)) {
+        // 型番が分かれば"Does Not Apply"でなく実型番を入れる。
+        if (modelLooksReal) return { ...a, free: true, value: realModel };
+        return a;
+      }
+      const ai = aiVals[a.name];
+      if (ai) {
+        const values = a.free && a.values.length && !a.values.some((v) => v.toLowerCase() === ai.toLowerCase()) ? dedupe([ai, ...a.values]).slice(0, 30) : a.values;
+        return { ...a, values, value: ai };
+      }
+      return a;
     });
   }
 

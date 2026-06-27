@@ -154,7 +154,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   // 出品フロー用 psnap も同一型番相場で更新。TTL35日。
   const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
     id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: p.imageUrl, images: p.imageUrl ? [p.imageUrl] : [],
-    category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(),
+    category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(), brand: p.brand, code: p.code,
     realAvgPrice: p.ebayMedianJpy, realMedianPrice: p.ebayMedianJpy, realProfit: p.profitJpy, realProfitRate: p.profitRate,
     realCount: p.soldCount || 1, soldBased: !!p.ebayConfirmed, soldCount30d: p.soldCount, usedCondition: p.condition,
     ebayActiveCount: p.ebayActiveCount, // 競合数(現在出品総数)＝STR/競合バッジ用。未取得は undefined(中立)。

@@ -172,7 +172,7 @@ async function loadCategories() {
   const cmds = enriched.map((c) => {
     const snap = {
       id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
-      category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(),
+      category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(), brand: c.brand, code: c.code,
       realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
       realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed, usedCondition: c.condition,
       source: { site: c.site || "hardoff", siteName: c.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
