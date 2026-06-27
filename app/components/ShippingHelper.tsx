@@ -20,7 +20,7 @@ export default function ShippingHelper({ help }: { help: ShippingHelp }) {
   const rows: { key: string; label: string; value: string }[] = [
     { key: "item", label: "品名（英語）", value: help.itemDescriptionEn },
     { key: "type", label: "内容種別", value: help.contentType },
-    { key: "value", label: "申告価格（USD）", value: `$${help.declaredValueUsd}` },
+    { key: "value", label: "申告価格", value: `約¥${Math.round(Number(help.declaredValueUsd) * 155).toLocaleString("ja-JP")}（$${help.declaredValueUsd}）` },
     { key: "qty", label: "数量", value: String(help.quantity) },
     { key: "hs", label: "HSコード（目安）", value: help.hsCode },
   ];

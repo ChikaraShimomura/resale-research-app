@@ -135,7 +135,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       {/* おすすめ設定サマリー（読むだけ・変更は詳細オプションで） */}
       <div className="bg-[#F5F7FA] rounded-xl border border-[#A98B5C]/25 p-4 text-[12px] text-gray-600 space-y-2">
         <p className="text-[11px] font-black text-[#2D323B]">おすすめ設定（このまま登録でOK）</p>
-        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料</span><span className="font-bold text-gray-800 text-right">{`サイズで自動（小$${vals.small}・中$${vals.medium}・大$${vals.large}／購入者負担）`}</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料</span><span className="font-bold text-gray-800 text-right tabular-nums">{`サイズで自動（小約¥${Math.round(Number(vals.small) * 155).toLocaleString("ja-JP")}・中約¥${Math.round(Number(vals.medium) * 155).toLocaleString("ja-JP")}・大約¥${Math.round(Number(vals.large) * 155).toLocaleString("ja-JP")}／購入者負担）`}</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料無料（送料込み）</span><span className="font-bold text-gray-800">{freeShipping ? "使える（おすすめ）" : "作らない"}</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right">アメリカ＋{regions.length}の国・地域</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">返品</span><span className="font-bold text-gray-800">{returnsAccepted ? "30日OK（売れやすい）" : "なし"}</span></div>

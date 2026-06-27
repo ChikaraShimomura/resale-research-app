@@ -127,7 +127,8 @@ export default function EbayListingModal({
   const [data, setData] = useState<PrepareData | null>(null);
   const [title, setTitle] = useState(product.coreKeyword || product.title);
   const [description, setDescription] = useState("");
-  const [priceUsd, setPriceUsd] = useState("");
+  const [priceUsd, setPriceUsd] = useState(""); // 内部はUSD（eBayは$建て）。表示/入力は円。
+  const [priceYen, setPriceYen] = useState(""); // 本体価格の円入力（表示用。priceUsd と同期）
   const [weightInput, setWeightInput] = useState(""); // 重さ(任意・g・梱包込み)。入力すると送料/損益分岐を再計算
   const [showWeight, setShowWeight] = useState(false); // 重さ入力欄は既定で隠し、押したら開く
   const [acceptLoss, setAcceptLoss] = useState(false); // 損益分岐を下回る価格でも「承知の上で」確認した時だけ出品可（警告＋確認で続行）
@@ -217,6 +218,7 @@ export default function EbayListingModal({
         const medU = Number(p.medianUsd) || Number(p.priceUsd) || 0;
         const initMedian = medU > 0 ? Math.max(medU, floorU) : lowU > 0 ? Math.max(lowU, floorU) : Number(p.priceUsd) || 0;
         setPriceUsd(initMedian.toFixed(2));
+        setPriceYen(initMedian > 0 ? String(Math.round(initMedian * USD_JPY)) : "");
       }
       setCondition(p.condition);
       // デフォルトはジャンル(サイズ)に最適な送料。無ければ中サイズ→先頭にフォールバック。
@@ -473,13 +475,15 @@ export default function EbayListingModal({
   const medianSel = medianUsd > 0 ? Math.max(medianUsd, floorUsd) : 0;
   const highSel = medianUsd > 0 ? Math.max(medianUsd * (1 + HIGH_MARKUP), floorUsd) : 0;
   // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
+  // 価格を $ で確定すると同時に、円入力欄(priceYen)も同期する（表示は円・内部はUSD）。
+  const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(Math.round(u * USD_JPY)) : ""); };
   const chooseStrategy = (s: "breakeven" | "custom" | "low" | "median" | "high") => {
     setStrategy(s);
     if (s === "custom") return; // 自由入力（価格はそのまま）
-    if (s === "breakeven") { if (floorUsd > 0) setPriceUsd(floorUsd.toFixed(2)); return; } // ±0＝損益分岐（利益ほぼ0・アカウント育成）
-    if (s === "median") { if (medianSel > 0) setPriceUsd(medianSel.toFixed(2)); return; }
-    if (s === "high") { if (highSel > 0) setPriceUsd(highSel.toFixed(2)); return; }
-    if (lowSel > 0) setPriceUsd(lowSel.toFixed(2)); // 最安（既定）
+    if (s === "breakeven") { if (floorUsd > 0) applyUsd(floorUsd); return; } // ±0＝損益分岐（利益ほぼ0・アカウント育成）
+    if (s === "median") { if (medianSel > 0) applyUsd(medianSel); return; }
+    if (s === "high") { if (highSel > 0) applyUsd(highSel); return; }
+    if (lowSel > 0) applyUsd(lowSel); // 最安（既定）
   };
   const overlay = (
     <div
@@ -740,7 +744,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">🌱 ±0出品</span>
-                    <span className="text-[10px]">アカウント育成用{floorUsd > 0 ? `・$${Math.round(floorUsd)}` : ""}</span>
+                    <span className="text-[10px]">アカウント育成用{floorUsd > 0 ? `・${formatJpy(Math.round(floorUsd * USD_JPY))}` : ""}</span>
                   </button>
                   <button
                     type="button"
@@ -765,7 +769,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">最安</span>
-                    <span className="text-[10px]">{lowSel > 0 ? `$${Math.round(lowSel)}` : "—"}</span>
+                    <span className="text-[10px]">{lowSel > 0 ? formatJpy(Math.round(lowSel * USD_JPY)) : "—"}</span>
                   </button>
                   <button
                     type="button"
@@ -776,7 +780,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">中央値</span>
-                    <span className="text-[10px]">{medianSel > 0 ? `$${Math.round(medianSel)}` : "—"}</span>
+                    <span className="text-[10px]">{medianSel > 0 ? formatJpy(Math.round(medianSel * USD_JPY)) : "—"}</span>
                   </button>
                   <button
                     type="button"
@@ -787,7 +791,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">高値</span>
-                    <span className="text-[10px]">{highSel > 0 ? `$${Math.round(highSel)}` : "—"}</span>
+                    <span className="text-[10px]">{highSel > 0 ? formatJpy(Math.round(highSel * USD_JPY)) : "—"}</span>
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
@@ -802,7 +806,7 @@ export default function EbayListingModal({
                     : !lowestAvailable
                     ? "過去落札ベースで安めに（eBay現在の最安が取れず、中央値より少し安く）"
                     : lowestClamped
-                    ? `eBay最安は赤字のため、損益分岐 $${floorUsd.toFixed(2)} で出します（赤字回避）`
+                    ? `eBay最安は赤字のため、損益分岐 ${formatJpy(Math.round(floorUsd * USD_JPY))} で出します（赤字回避）`
                     : "eBay現在の最安値と同額。最速で売れやすく（赤字にはしません）"}
                 </p>
                 <p className="text-[9px] text-gray-300 mt-0.5">※ 最安/中央値/高値は eBayの過去落札の中央値と現在の最安値をもとに算出（いずれも損益分岐は割りません）</p>
@@ -810,18 +814,23 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">本体価格（USD・商品代）<ReqBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">本体価格（円・商品代）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-sm">$</span>
+                  <span className="text-gray-400 text-sm">¥</span>
                   <input
                     type="text"
-                    inputMode="decimal"
-                    value={priceUsd}
-                    onChange={(e) => setPriceUsd(e.target.value)}
+                    inputMode="numeric"
+                    value={priceYen}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, "");
+                      setPriceYen(raw);
+                      const yen = Number(raw);
+                      setPriceUsd(yen > 0 ? (yen / USD_JPY).toFixed(2) : ""); // 内部はUSD（eBayは$建て）に換算
+                    }}
                     className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                   />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}{Number(priceUsd) > 0 ? `（eBay掲載 $${Number(priceUsd).toFixed(2)}）` : ""}</p>
                 {/* 競合数＝同等品のeBay現在出品総数(概算)。価格表示と同一クエリなので信頼度も同等。出品判断の参考。 */}
                 {competitionCount != null && (
                   <p className="text-[10px] mt-0.5 leading-relaxed">
@@ -857,13 +866,13 @@ export default function EbayListingModal({
                   {Number(priceUsd) > 0 && (
                     freeShip && canFreeShip ? (
                       <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
-                        → eBay掲載価格 <b>${listedPriceUsd.toFixed(2)}</b>（≒{formatJpy(Math.round(listedPriceUsd * USD_JPY))}）・<b>送料無料</b>
-                        <span className="block text-[10px] font-normal text-gray-500">本体 ${Number(priceUsd).toFixed(2)} ＋ 送料 ${shipFoldUsd.toFixed(2)} を価格に込み（買い手の総額は送料別と同じ）</span>
+                        → eBay掲載価格 <b>{formatJpy(Math.round(listedPriceUsd * USD_JPY))}</b>（${listedPriceUsd.toFixed(2)}）・<b>送料無料</b>
+                        <span className="block text-[10px] font-normal text-gray-500">本体 {formatJpy(Math.round(Number(priceUsd) * USD_JPY))} ＋ 送料 {formatJpy(Math.round(shipFoldUsd * USD_JPY))} を価格に込み（買い手の総額は送料別と同じ）</span>
                       </p>
                     ) : (
                       <p className="text-[12px] text-[#2D323B] font-bold mt-2 leading-relaxed">
-                        → eBay掲載価格 <b>${Number(priceUsd).toFixed(2)}</b>（≒{formatJpy(Math.round(Number(priceUsd) * USD_JPY))}）＋ 送料 ${paidShipUsd.toFixed(2)} を別途請求
-                        <span className="block text-[10px] font-normal text-gray-500">買い手の総額 ≒ ${(Number(priceUsd) + paidShipUsd).toFixed(2)}（送料込みと同じ）</span>
+                        → eBay掲載価格 <b>{formatJpy(Math.round(Number(priceUsd) * USD_JPY))}</b>（${Number(priceUsd).toFixed(2)}）＋ 送料 {formatJpy(Math.round(paidShipUsd * USD_JPY))} を別途請求
+                        <span className="block text-[10px] font-normal text-gray-500">買い手の総額 ≒ {formatJpy(Math.round((Number(priceUsd) + paidShipUsd) * USD_JPY))}（送料込みと同じ）</span>
                       </p>
                     )
                   )}
@@ -911,7 +920,7 @@ export default function EbayListingModal({
                 {belowFloor && (
                   <div className="mt-1.5">
                     <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      <span aria-hidden="true">⚠️ </span>損益分岐 ${floorUsd.toFixed(2)} を下回り、赤字の恐れがあります。
+                      <span aria-hidden="true">⚠️ </span>損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))} を下回り、<b>赤字の恐れ</b>があります。
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input

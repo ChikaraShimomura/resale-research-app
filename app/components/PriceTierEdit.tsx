@@ -14,6 +14,9 @@ export default function PriceTierEdit({
   const [busy, setBusy] = useState<string | null>(null);
   const [doneUsd, setDoneUsd] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // 表示は円（eBayは$建てだが、ユーザーには円で見せる）。概算レート155。
+  const USD_JPY = 155;
+  const yen = (u: number) => "¥" + Math.round(u * USD_JPY).toLocaleString("ja-JP");
 
   const apply = async (key: string, usd: number) => {
     setBusy(key);
@@ -54,11 +57,11 @@ export default function PriceTierEdit({
             className="flex flex-col items-center justify-center h-11 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[11px] font-bold disabled:opacity-40 active:bg-gray-100 leading-tight"
           >
             <span>{o.label}</span>
-            <span className="text-[10px] text-gray-400">{o.usd > 0 ? `$${Math.round(o.usd)}` : "—"}</span>
+            <span className="text-[10px] text-gray-400">{o.usd > 0 ? yen(o.usd) : "—"}</span>
           </button>
         ))}
       </div>
-      {doneUsd != null && <p className="mt-1 text-[10px] text-emerald-600 font-bold">✓ ${doneUsd.toFixed(2)} に変更しました</p>}
+      {doneUsd != null && <p className="mt-1 text-[10px] text-emerald-600 font-bold">✓ {yen(doneUsd)} に変更しました</p>}
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
     </div>
   );

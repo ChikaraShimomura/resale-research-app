@@ -348,8 +348,8 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
             {priceNum > 0 && (
               <p className="text-[12px] mt-1 tabular-nums">
                 <span className="text-gray-400">現在の出品価格 </span>
-                <span className="font-black text-[#0064D2]">${priceNum.toFixed(2)}</span>
-                <span className="text-gray-400"> （約{yen(Math.round(priceNum * USD_JPY))}）</span>
+                <span className="font-black text-[#0064D2]">約{yen(Math.round(priceNum * USD_JPY))}</span>
+                <span className="text-gray-400 text-[10px]"> （${priceNum.toFixed(2)}）</span>
               </p>
             )}
             {d.sourceStatus && (

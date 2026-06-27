@@ -21,7 +21,9 @@ export default function EditListingModal({
 }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [priceUsd, setPriceUsd] = useState("");
+  const [priceUsd, setPriceUsd] = useState(""); // 内部はUSD（eBay）。表示/入力は円。
+  const [priceYen, setPriceYen] = useState(""); // 価格の円表示（priceUsd と同期）
+  const USD_JPY = 155;
   const [quantity, setQuantity] = useState("1");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ErrInfo | null>(null);
@@ -81,7 +83,7 @@ export default function EditListingModal({
       .then((j) => {
         if (!alive) return;
         if (j?.ok) {
-          if (j.priceUsd != null) setPriceUsd(String(j.priceUsd));
+          if (j.priceUsd != null) { setPriceUsd(String(j.priceUsd)); setPriceYen(Number(j.priceUsd) > 0 ? String(Math.round(Number(j.priceUsd) * USD_JPY)) : ""); }
           if (j.quantity != null) setQuantity(String(j.quantity));
           if (Array.isArray(j.refImages)) setRefImages(j.refImages);
           if (j.ship) setShip(j.ship);
@@ -206,16 +208,20 @@ export default function EditListingModal({
         ) : (
           <div className="space-y-3">
             <label className="block">
-              <span className="text-[12px] font-bold text-gray-700">価格（USD）</span>
+              <span className="text-[12px] font-bold text-gray-700">価格（円）</span>
               <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0.01"
-                value={priceUsd}
-                onChange={(e) => setPriceUsd(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={priceYen}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, "");
+                  setPriceYen(raw);
+                  const yen = Number(raw);
+                  setPriceUsd(yen > 0 ? (yen / USD_JPY).toFixed(2) : ""); // 内部はUSDに換算（eBayは$建て）
+                }}
                 className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]"
               />
+              {Number(priceUsd) > 0 && <span className="block text-[10px] text-gray-400 mt-0.5">eBay掲載 ${Number(priceUsd).toFixed(2)}</span>}
             </label>
             <label className="block">
               <span className="text-[12px] font-bold text-gray-700">数量（在庫数・1〜30）</span>
@@ -264,7 +270,7 @@ export default function EditListingModal({
                       ) : (
                         <>
                           <span>送料別に戻す</span>
-                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums">価格 −${ship.unfoldUsd.toFixed(2)}</span>}
+                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums">価格 −約¥{Math.round(ship.unfoldUsd * 155).toLocaleString("ja-JP")}</span>}
                         </>
                       )}
                     </button>
@@ -282,7 +288,7 @@ export default function EditListingModal({
                       ) : (
                         <>
                           <span>送料込み（送料無料）に切替</span>
-                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums">価格 +${ship.foldUsd.toFixed(2)}</span>}
+                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums">価格 +約¥{Math.round(ship.foldUsd * 155).toLocaleString("ja-JP")}</span>}
                         </>
                       )}
                     </button>
