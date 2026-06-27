@@ -37,7 +37,8 @@ function netProfitJPY(buyJpy, sellJpy) {
 // 中古サイト(ハードオフ)で扱えない/相性が悪いカテゴリは除外。
 //  ・コスメ/食品/消耗ペン＝中古で売らない
 //  ・カード/TCG＝eBay(封入/鑑定品)とハードオフ(バラ/まとめ)がカテゴリ単位照合だと誤マッチ→型番照合できるまで除外
-const EXCLUDE = /資生堂|キャンメイク|DHC|ルルルン|セザンヌ|KATE|ファンデ|チーク|アイシャドウ|クレンジング|フェイスマスク|眉ペンシル|コスメ|リップ|エナージェル|ジェットストリーム|ぺんてる|ボールペン|シャーペン|ノック式|食品|お菓子|レトルト|カード|ポケカ|MTG|ヴァンガード|遊戯王|テラスタル|デュエ|バトスピ|ユニオンアリーナ|ヴァイス|ビルディバイド|シャドウバース/i;
+// ※MTGは「マジック:ザ・ギャザリング」除外用だが MTG-B2000(高級Gショック)等の型番と衝突するため、後ろにハイフン/英数が続く型番は除外しない(MTG(?![-\w]))。
+const EXCLUDE = /資生堂|キャンメイク|DHC|ルルルン|セザンヌ|KATE|ファンデ|チーク|アイシャドウ|クレンジング|フェイスマスク|眉ペンシル|コスメ|リップ|エナージェル|ジェットストリーム|ぺんてる|ボールペン|シャーペン|ノック式|食品|お菓子|レトルト|カード|ポケカ|MTG(?![-\w])|ヴァンガード|遊戯王|テラスタル|デュエ|バトスピ|ユニオンアリーナ|ヴァイス|ビルディバイド|シャドウバース/i;
 // 【対象ジャンル＝ハードオフ中古の本領】2026-06-26 時計のみ→拡張。型番で売れる中古(時計/オーディオ/カメラ・レンズ/
 //   レトロゲーム機/エフェクター)を対象に。SSOT=USED_GENRE_KW(ebayQueries)。発掘フィルタと同じ正規表現で揃える。
 // 商品レベルの除外：「カマス(魚)」等で釣具が混じる→釣具の明確な語を弾く（時計検索の混入対策・他ジャンルでは無害）。
@@ -46,11 +47,12 @@ const NONWATCH = /ダイワ|DAIWA|シマノ|SHIMANO|メジャークラフト|MAJ
 // カテゴリ名(シードのname)→表示カテゴリ。商品カードの「ジャンル」バッジに出す。
 function genreOf(category) {
   const c = category || "";
-  if (/腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch/i.test(c)) return "腕時計";
-  if (/ウォークマン|ヘッドホン|iPod|ターンテーブル|アンプ|カートリッジ|交換針/i.test(c)) return "オーディオ";
-  if (/レンズ|フィルムカメラ|一眼|カメラ/i.test(c)) return "カメラ";
-  if (/本体|ニンテンドー|ファミコン|セガ|サターン|ドリームキャスト|メガドライブ|プレイステーション|PSP|Vita|ゲームボーイ|ゲームキューブ/i.test(c)) return "ゲーム機";
-  if (/エフェクター|アンプ\b|ギター|ベース/i.test(c)) return "楽器";
+  if (/腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch|ハミルトン|タイメックス|スウォッチ/i.test(c)) return "腕時計";
+  if (/レンズ|フィルムカメラ|一眼|カメラ|デジカメ|ミラーレス|ボディ|キヤノン|キャノン|ニコン|フジフイルム|富士フイルム|オリンパス|ペンタックス|ライカ|コンタックス|LUMIX|パナソニック|シグマ|タムロン/i.test(c)) return "カメラ";
+  if (/ファミコン|スーパーファミコン|ニンテンドー|任天堂|NINTENDO|ゲームボーイ|ゲームキューブ|セガ|サターン|ドリームキャスト|メガドライブ|プレイステーション|プレステ|PSP|Vita|ゲーム機|コントローラー|本体/i.test(c)) return "ゲーム機";
+  if (/エフェクター|ギター|ベース|シンセ|シンセサイザー|キーボード|インターフェース|ドラムマシン|BOSS|Roland|Korg|Electro-Harmonix|Focusrite|Ibanez|Strymon|MXR/i.test(c)) return "楽器";
+  if (/電動工具|インパクトドライバー|ドリル|マキタ|HiKOKI|ハイコーキ|工具/i.test(c)) return "工具";
+  if (/ウォークマン|ヘッドホン|ヘッドフォン|イヤホン|iPod|ターンテーブル|アンプ|スピーカー|カセットデッキ|デッキ|レコードプレーヤー|MDプレーヤー|カートリッジ|交換針|チューナー|オープンリール|ディスクマン|カセット|Hi-MD|\bMD\b|アイワ|AIWA|オーディオ|テクニクス|パイオニア|マランツ|サンスイ|デノン|オンキヨー|ティアック|ケンウッド|アキュフェーズ|ラックスマン|オーディオテクニカ|ゼンハイザー/i.test(c)) return "オーディオ";
   return "中古";
 }
 
@@ -78,15 +80,25 @@ async function loadCategories() {
   const all = await loadCategories(); // ハードオフ中古ジャンル（時計/オーディオ/カメラ/ゲーム機/エフェクター）
 
   const catalog = [];
-  const TARGET = Number(process.env.TARGET) || 200; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
-  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 10; // 1カテゴリあたりの上限（env CAP_PER_CAT で調整可）
+  const TARGET = Number(process.env.TARGET) || 600; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 20; // 1カテゴリあたりの上限（env CAP_PER_CAT で調整可）
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 3; // 1カテゴリで取るハードオフ検索ページ数（増やすと候補↑＝供給拡大の主レバー）
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
     scanned++;
+    // ページ送りで在庫を深掘り（narrowなクエリは2ページ目以降が空になり次第打ち切る）。URLで重複排除。
     let items = [];
-    try { items = await fetchHardoff(c.query); } catch { /* skip */ }
-    await sleep(1600);
+    const seenUrl = new Set();
+    for (let page = 1; page <= PAGES; page++) {
+      let pageItems = [];
+      try { pageItems = await fetchHardoff(c.query, { page }); } catch { /* skip */ }
+      await sleep(1600);
+      const fresh = pageItems.filter((it) => it.url && !seenUrl.has(it.url));
+      fresh.forEach((it) => seenUrl.add(it.url));
+      items.push(...fresh);
+      if (fresh.length === 0) break; // これ以上ページが無い＝打ち切り（無駄打ち防止）
+    }
     let added = 0;
     for (const it of items) {
       if (!it.price) continue;
@@ -98,7 +110,8 @@ async function loadCategories() {
       if (ratio < 0.15 || ratio > 0.8) continue;
       const net = netProfitJPY(it.price, c.ebayMedian);
       const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
-      if (net > 1500 && roi >= 0.1) {
+      // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
+      if (roi >= 0.1) {
         const idNum = (it.url.match(/\/(?:product|goodsId)\/(\d+)/) || [])[1] || it.url.replace(/\D+/g, "").slice(-12);
         catalog.push({
           id: `used-hardoff-${idNum}`,
@@ -178,7 +191,7 @@ async function loadCategories() {
   const html = `<div style="font-family:sans-serif;color:#2D323B">
   <h2>中古の利益カタログ サンプル（${catalog.length}件）</h2>
   <p>eBay落札の実データ（Pixel収集）× ハードオフ現在庫で、送料・関税・手数料を引いた純利益で抽出した「儲かる中古」の上位40件です。eBay想定売値はカテゴリ（型番系列）中央値ベースの目安、状態・競合・為替で変動します。</p>
-  <p><b>全${catalog.length}件</b>が利益候補（純益¥1,500超・利益率(対仕入れ/ROI)10%以上）。</p>
+  <p><b>全${catalog.length}件</b>が利益候補（利益率(対仕入れ/ROI)10%以上）。</p>
   <table style="border-collapse:collapse;font-size:13px;width:100%">
     <tr style="background:#2D323B;color:#fff"><th style="padding:6px 8px;text-align:left">ジャンル</th><th style="padding:6px 8px;text-align:left">商品</th><th style="padding:6px 8px">状態</th><th style="padding:6px 8px">仕入れ</th><th style="padding:6px 8px">eBay想定</th><th style="padding:6px 8px">純利益</th><th style="padding:6px 8px">率</th><th style="padding:6px 8px">仕入れ先</th></tr>
     ${rows}

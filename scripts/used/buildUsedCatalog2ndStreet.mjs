@@ -77,13 +77,14 @@ function netProfitJPY(buyJpy, sellJpy) {
         if (ratio < 0.12 || ratio > 0.75) continue; // 極端なミスマッチ除外
         const net = netProfitJPY(it.price, t.ebayMedian);
         const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
-        if (net > 1500 && roi >= 0.1) {
+        // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
+        if (roi >= 0.1) {
           added.push({
             modelKey: (it.name || "").slice(0, 60), brand: it.brand, name: `${it.name}${it.size ? " " + it.size : ""}`,
             code: "", cat: "古着", ebayMedianJpy: t.ebayMedian, buyJpy: it.price, condition: it.condition,
             profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl, site: "2ndstreet",
           });
-          if (++n >= 4) break;
+          if (++n >= 10) break;
         }
       }
       console.log(`  +${n} ${t.cat}`);
