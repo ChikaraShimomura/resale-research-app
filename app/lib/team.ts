@@ -5,6 +5,7 @@
 //  team_roster:{owner}   = Hash {memberActor: memberEmail}  オーナーのチーム名簿(承認済み)
 //  team_of:{member}      = Hash {ownerActor: ownerEmail}    そのメンバーが閲覧できるチーム(逆引き)
 //  team_pending:{owner}  = Hash {inviteeEmail: token}       オーナーの保留中招待(表示/重複防止/取消用)
+//  team_listed:{owner}   = Hash {productId: {byActor,byEmail,listingId,listedAt}}  チームの誰かが出品した商品(個別モードでも全員で「出品中」を共有)
 import { kv } from "@vercel/kv";
 import crypto from "node:crypto";
 
@@ -29,6 +30,10 @@ const PENDING_KEY = (owner: string) => `team_pending:${owner}`;
 const NAME_KEY = (owner: string) => `team_name:${owner}`;
 const MODE_KEY = (owner: string) => `team_mode:${owner}`;
 const PERMS_KEY = (owner: string) => `team_perms:${owner}`; // Hash {memberActor: "buy,list,..."}
+const LISTED_KEY = (owner: string) => `team_listed:${owner}`; // Hash {productId: TeamListedEntry}
+
+export type TeamListedEntry = { byActor: string; byEmail?: string; title?: string; imageUrl?: string; buyJpy?: number; listingId?: string; listedAt: string };
+const LISTED_TTL = 365 * 24 * 60 * 60;
 
 // チームの運用方式。既定は individual（各自のeBayで出品）。出品に使うeBayアカウントの違いのみ（機能/在庫/収支はどちらも共有）。
 export async function getTeamMode(owner: string): Promise<TeamMode> {
@@ -51,6 +56,21 @@ export async function hasPerm(owner: string, viewer: string | undefined | null, 
   if (!viewer || !owner) return false;
   if (viewer === owner) return true;
   return (await getMemberPerms(owner, viewer)).includes(perm);
+}
+
+// チームの「出品済み」共有台帳。個別モードでは各自のeBay台帳(ebay_deals:{member})にしか出品が残らないため、
+// チーム全員で「どの商品が出品中か」を見られるようにオーナー単位で別途記録する（二重出品防止＋出品中の可視化）。
+export async function markTeamListed(owner: string, productId: string, entry: TeamListedEntry): Promise<void> {
+  try {
+    await kv.hset(LISTED_KEY(owner), { [productId]: entry });
+    await kv.expire(LISTED_KEY(owner), LISTED_TTL);
+  } catch { /* noop */ }
+}
+export async function unmarkTeamListed(owner: string, productId: string): Promise<void> {
+  try { await kv.hdel(LISTED_KEY(owner), productId); } catch { /* noop */ }
+}
+export async function getTeamListed(owner: string): Promise<Record<string, TeamListedEntry>> {
+  try { return (await kv.hgetall<Record<string, TeamListedEntry>>(LISTED_KEY(owner))) ?? {}; } catch { return {}; }
 }
 
 // チーム名（オーナーが設定・任意）。未設定は空文字。

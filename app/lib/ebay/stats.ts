@@ -205,6 +205,38 @@ async function deleteArchivedExpired(actor: string, deals: Record<string, Deal>,
   }
 }
 
+// 出品に失敗して残った「幽霊deal」を仕入れ商品へ戻す自己修復。
+// listingId も sku も無い deal ＝ 公開が一度も成功していない（sku は公開成功時にしか保存されない）。
+// 出品失敗時にこの deal だけ残ると、仕入れ商品（deal がある＝出品済み扱いで除外）からも
+// 出品中（未公開＝SKU対応表に無い）からも消えて行方不明になる。そこで仕入れ記録へ復元し幽霊dealを削除する。
+async function healOrphanDeals(actor: string, deals: Record<string, Deal>): Promise<void> {
+  const orphans = Object.entries(deals).filter(
+    ([, d]) => d && d.soldUsd == null && !d.stoppedAt && !d.archivedAt && !d.listingId && !d.sku
+  );
+  if (!orphans.length) return;
+  const restore: Record<string, unknown> = {};
+  for (const [id, d] of orphans) {
+    // 仕入れ商品(used_bought)のスナップショット形式で復元（deal が持つ情報だけで再構成）。
+    restore[id] = {
+      id,
+      title: d.title || "",
+      imageUrl: d.imageUrl,
+      buyJpy: d.purchase ?? 0,
+      points: d.points ?? 0,
+      boughtAt: d.listedAt || new Date().toISOString(),
+      source: { url: d.sourceUrl, price: d.purchase ?? 0 },
+    };
+    delete deals[id]; // 以降の分類に出ないようローカルからも除去
+  }
+  try {
+    await kv.hset(`used_bought:${actor}`, restore);
+    await kv.expire(`used_bought:${actor}`, TTL_SECONDS);
+    await kv.hdel(DEALS_KEY(actor), ...orphans.map(([id]) => id));
+  } catch {
+    /* noop（次回読込で再試行） */
+  }
+}
+
 // cron/読み込み用：停止24h→アーカイブ／アーカイブ24h→完全削除 をまとめて適用。削除/アーカイブした件数の合計を返す。
 export async function pruneExpiredArchived(actor: string): Promise<number> {
   let deals: Record<string, Deal> = {};
@@ -277,6 +309,8 @@ export async function listDealsForUser(
   if (expiredArchived.length) {
     await deleteArchivedExpired(actor, deals, expiredArchived); // deals のローカルからも除去される
   }
+  // 出品失敗で残った「幽霊deal」を仕入れ商品へ自己修復（仕入れ商品からも出品中からも消える事故の救済）。
+  await healOrphanDeals(actor, deals);
   const isPublished = await publishedFilter(actor);
   const entries = Object.entries(deals);
   const soldEntries = entries.filter(([, d]) => d.soldUsd != null); // 売却済み（実取引なので全部有効）
@@ -284,8 +318,9 @@ export async function listDealsForUser(
   const stoppedEntries = entries.filter(([, d]) => d.soldUsd == null && d.stoppedAt != null && d.archivedAt == null);
   // アーカイブ＝未売却 かつ archivedAt あり（既定の出品停止中一覧からは外し「過去の出品」へ。再出品で復帰可）。
   const archivedEntries = entries.filter(([, d]) => d.soldUsd == null && d.archivedAt != null);
-  // 出品中＝未売却 かつ 停止していない かつ 公開済み。
-  const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id));
+  // 出品中＝未売却 かつ 停止していない かつ 公開済み。listingId があれば SKU対応表が欠けていても出品中として拾う
+  // （旧データで sku 未保存＝公開IDはあるのに出品中一覧から消える事故を防ぐ）。
+  const liveEntries = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && (isPublished(id) || !!d.listingId));
 
   // 画像/タイトル未保存の古いdealは、現行カタログ(profitable_products)から補完する。
   // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
@@ -527,8 +562,8 @@ export async function getStats(actor: string): Promise<Stats> {
   }
 
   const sold = entries.filter(([, d]) => d.soldUsd != null).map(([, d]) => d); // 売却済み（実取引なので全部有効）
-  // 出品中＝未売却 かつ 停止していない かつ 実際に出品できた（SKU対応表にある）ものだけ。
-  const live = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && isPublished(id)).map(([, d]) => d);
+  // 出品中＝未売却 かつ 停止していない かつ 出品できた（SKU対応表にある or 公開IDあり）ものだけ。
+  const live = entries.filter(([id, d]) => d.soldUsd == null && d.stoppedAt == null && (isPublished(id) || !!d.listingId)).map(([, d]) => d);
   const listedPurchase = live.reduce((a, d) => a + (d.purchase ?? 0), 0);
 
   let totalPurchase = 0;

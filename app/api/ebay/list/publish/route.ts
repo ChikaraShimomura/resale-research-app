@@ -10,7 +10,7 @@ import { removeSourcing } from "../../../../lib/ebay/sourcing";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
-import { hasPerm, getTeamMode } from "../../../../lib/team";
+import { hasPerm, getTeamMode, markTeamListed } from "../../../../lib/team";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 
@@ -166,7 +166,8 @@ export async function POST(req: Request) {
 
   // オファー作成(下書き含む)できたら出品者数を計上（満了=上限判定の元）。SADDで出品者(actor)単位・冪等。
   // コンプ枠は枠を消費しない（あなた＝身内が何度出してもSOLDにしない）。停止/やめた/売却で releaseListingSlot により解放。
-  if (result.offerId && !comp) {
+  // 公開成功(result.ok)時だけ計上＝出品枠超過などで失敗した下書きは満了にカウントしない（幽霊で枠を食わない）。
+  if (result.ok && result.offerId && !comp) {
     try {
       await kv.sadd(`listing_actors:${product.id}`, actor);
       await kv.expire(`listing_actors:${product.id}`, 90 * 24 * 60 * 60);
@@ -201,6 +202,23 @@ export async function POST(req: Request) {
       await removeSourcing(actor, product.id);
     } catch {
       /* noop */
+    }
+    // チーム出品：チーム全員の「出品中」共有台帳に記録する。個別モードは各自のeBay台帳にしか残らず
+    // チームの仕入れ商品から消えない（＝別メンバーが二重出品しうる）ため、ここで team_listed に焼いて
+    // チームの仕入れ商品から外し「出品中の商品」へ移す。誰が出したか(byActor)で表示し、共有モードでも記録する。
+    if (teamListing) {
+      try {
+        await markTeamListed(onBehalfOf, product.id, {
+          byActor: viewer,
+          title: product.title,
+          imageUrl: product.imageUrl,
+          buyJpy: product.source.price + (product.source.shippingJpy ?? 0),
+          listingId: result.listingId,
+          listedAt: new Date().toISOString(),
+        });
+      } catch {
+        /* noop */
+      }
     }
   }
 

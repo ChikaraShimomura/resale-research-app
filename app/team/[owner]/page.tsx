@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Flame, ExternalLink, Lock, ArrowRight } from "lucide-react";
 import { getActorId } from "../../lib/auth/actor";
 import { getCurrentUserEmail } from "../../lib/auth/plan";
-import { isTeamMember, getMyTeams, getTeamName, getMemberPerms, getTeamMode, getRoster, getPending } from "../../lib/team";
+import { isTeamMember, getMyTeams, getTeamName, getMemberPerms, getTeamMode, getRoster, getPending, getTeamListed } from "../../lib/team";
 import { getBoughtItems, sourceSiteName } from "../../lib/usedCatalog";
 import { getStats } from "../../lib/ebay/stats";
 import BottomNav from "../../components/BottomNav";
@@ -49,14 +49,24 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   const teamLabel = teamName || `${ownerEmail} のチーム`;
 
   // 権限とモード。オーナー本人は全権限。共有モードのみアクション可（個別モードは読み取り専用）。
-  const [items, s, perms, mode] = await Promise.all([
+  const [allItems, s, perms, mode, teamListed, roster] = await Promise.all([
     getBoughtItems(ownerActor),
     getStats(ownerActor),
     getMemberPerms(ownerActor, viewer || ""),
     getTeamMode(ownerActor),
+    getTeamListed(ownerActor),
+    getRoster(ownerActor),
   ]);
   const isOwner = viewer === ownerActor;
   const shared = mode === "shared";
+  // チームの誰かが出品した商品は「出品中の商品（チーム）」へ。残りが未出品の「仕入れた商品」。
+  // 個別モードでも team_listed に焼かれるので、別メンバーが二重出品しない＆全員で出品中を見られる。
+  const emailByActor = new Map(roster.map((m) => [m.actor, m.email]));
+  emailByActor.set(ownerActor, ownerEmail);
+  const listedArr = Object.entries(teamListed)
+    .map(([id, e]) => ({ id, ...e }))
+    .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || ""));
+  const items = allItems.filter((p) => !teamListed[p.id]);
   // 操作可否は権限のみで決まる（どちらの方式でもメンバーは権限に応じて操作できる）。方式は出品に使うeBayアカウントの違いだけ。
   const can = (p: string) => isOwner || perms.includes(p as never);
   const canFinance = can("finance");
@@ -131,6 +141,47 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
             {!shared && (
               <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">※ 個別モードでは各メンバーの売上は各自のeBayアカウントに計上され、この収支（オーナー分）には含まれません。</p>
             )}
+          </section>
+        )}
+
+        {/* 出品中の商品（チーム）：誰かが出品した商品を全員で共有。個別モードでも二重出品を防ぐ。 */}
+        {listedArr.length > 0 && (
+          <section className="mb-5">
+            <h2 className="text-sm font-black text-gray-800 mb-2">出品中の商品（チーム）（{listedArr.length}）</h2>
+            <ol className="space-y-2.5">
+              {listedArr.map((e, i) => (
+                <li key={`${e.id}-${i}`}>
+                  <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      {e.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={e.imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg border border-[#A98B5C]/25 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0064D2]/10 text-[#0064D2] border border-[#0064D2]/20 mb-1">出品中</span>
+                        <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{e.title || "（商品名なし）"}</p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          <span className="font-bold text-gray-700">{emailByActor.get(e.byActor) || "メンバー"}</span> が出品
+                          {e.buyJpy ? <span className="tabular-nums"> ・仕入れ {yen(e.buyJpy)}</span> : null}
+                        </p>
+                        {e.listingId && (
+                          <a href={`https://www.ebay.com/itm/${e.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#0064D2]">
+                            eBayの出品を見る <ExternalLink size={11} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
+              {shared
+                ? "※ チームの誰かがオーナーのeBayで出品した商品です。"
+                : "※ チームの誰かが各自のeBayで出品した商品です（個別モード）。二重出品を防ぐため仕入れ商品からは外しています。"}
+            </p>
           </section>
         )}
 
