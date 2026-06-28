@@ -884,8 +884,7 @@ export default function EbayListingModal({
                         <span>梱包込み（未入力は安全側で少し重め）</span>
                       </div>
                     )}
-                    <span className="whitespace-nowrap">📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}</span><wbr />
-                    <span className="whitespace-nowrap">（{liveLanded.shippingMethod === "ems" ? "EMS・補償あり" : "エアパケット・追跡のみ"}／{Number(weightInput) > 0 ? `入力${effWeightG}` : `概算${effWeightG}`}g）</span>
+                    <span className="whitespace-nowrap">📦 国際送料の目安 {formatJpy(liveLanded.shippingJpy)}</span>
                     {liveLanded.needsDutyPrepay && (
                       <span className="block text-amber-600 font-bold mt-0.5">
                         <span className="whitespace-nowrap">🛃 米国関税(前払い) {formatJpy(liveLanded.dutyJpy)}</span><wbr />
