@@ -29,8 +29,7 @@ const DEFAULTS: Record<string, string> = {
   large: String(SHIP_TIER_USD.large),
 };
 
-// 発送先は sellApi 側で Worldwide（全世界）固定。国別ホワイトリストは EBAY_US で 216347 により
-// AU/GB/CA/DE/FR の5カ国に縮退し、対象外の買い手に「見積もり依頼」を出す原因になるため廃止。
+// 発送先は sellApi 側で Worldwide（全世界）固定（理由は sellApi.ts の intlShippingOption コメント参照）。
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
@@ -82,11 +81,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       const j = await res.json();
       if (Array.isArray(j.steps)) setSteps(j.steps);
       setErrKind(j.errorKind);
-      setErrDetail(
-        Array.isArray(j.steps)
-          ? j.steps.filter((s: StepResult) => !s.ok).map((s: StepResult) => `${s.step}: ${s.errorDetail || s.error || ""}`).join(" | ")
-          : undefined
-      );
+      setErrDetail(j.errorDetail); // サーバー(friendlyStepResults)が組み立てた失敗詳細をそのまま使う
       if (j.ok) {
         setState("done");
         setMsg("送料・支払い・返品を登録しました。");

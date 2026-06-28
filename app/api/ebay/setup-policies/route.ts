@@ -4,19 +4,17 @@ import {
   optInSellingPolicyManagement,
   createPaymentPolicy,
   createReturnPolicy,
-  createFlatIntlFulfillmentPolicy,
-  createFreeIntlFulfillmentPolicy,
+  createShippingPolicy,
 } from "../../../lib/ebay/sellApi";
-import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
+import { friendlyStepResults } from "../../../lib/ebay/errorMessages";
 
 // ビジネスポリシー一括作成/更新（オプトイン + 支払い + 返品 + サイズ別配送）。
 // 各ステップの成否を返すので、失敗箇所と eBay のエラー文がそのまま分かる。
+// 発送先は sellApi 側で Worldwide（全世界）固定（理由は sellApi.ts の intlShippingOption コメント参照）。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
-// 発送先は sellApi 側で Worldwide（全世界）固定。国別ホワイトリストは EBAY_US で 216347 により
-// AU/GB/CA/DE/FR の5カ国(=「Australia+4」)に縮退し、対象外の買い手に「見積もり依頼」を出す原因になるため廃止。
 
 export async function POST(req: Request) {
   const conn = await getActorId();
@@ -30,7 +28,6 @@ export async function POST(req: Request) {
     small?: string;
     medium?: string;
     large?: string;
-    regions?: string[];
     returnsAccepted?: boolean;
     returnDays?: number;
     freeShipping?: boolean; // 送料無料(送料込み)ポリシーも作るか。未指定=作る（送料込みトグルの相手になる）。
@@ -78,31 +75,19 @@ export async function POST(req: Request) {
   });
 
   for (const s of sizes) {
-    const f = await createFlatIntlFulfillmentPolicy(
-      token,
-      MARKETPLACE,
-      `Shipping ${s.key}`,
-      String(s.value).trim(),
-      handlingDays
-    );
+    const f = await createShippingPolicy(token, MARKETPLACE, `Shipping ${s.key}`, handlingDays, String(s.value).trim());
     steps.push({ step: `配送ポリシー(${s.key})`, ok: f.ok, error: f.error });
   }
 
   // 送料無料(送料込み)ポリシー。未指定=作る。これがあると出品/編集の「送料込み」トグルが使えるようになる
-  //（買い手の送料は$0・送料は商品価格に内包する運用）。発送日数・発送先はサイズ別と同じ。
+  //（買い手の送料は$0・送料は商品価格に内包する運用）。costUsd省略=無料。発送日数・発送先はサイズ別と同じ。
   if (body.freeShipping !== false) {
-    const free = await createFreeIntlFulfillmentPolicy(token, MARKETPLACE, "Shipping Free", handlingDays);
+    const free = await createShippingPolicy(token, MARKETPLACE, "Shipping Free", handlingDays);
     steps.push({ step: "配送ポリシー(送料無料・送料込み)", ok: free.ok, error: free.error });
   }
 
   const ok = steps.every((s) => s.ok);
-  // 各ステップの生eBayエラーを端的な要因に変換（生は errorDetail に温存・UIには出さない）。
-  // 未知のステップが1つでもあれば errorKind=unexpected ＝UIで報告導線を出せる。
-  const friendlySteps = steps.map((s) => {
-    if (s.ok || !s.error) return s;
-    const f = friendlyEbayError(s.error);
-    return { ...s, error: f.message, known: f.known, errorDetail: s.error };
-  });
-  const errorKind = friendlySteps.some((s) => !s.ok && (s as { known?: boolean }).known === false) ? "unexpected" : "known";
-  return Response.json({ ok, steps: friendlySteps, errorKind });
+  // 各ステップの生eBayエラーを端的な要因に変換し、errorKind/errorDetail をまとめる（最適化APIと共通処理）。
+  const { steps: friendlySteps, errorKind, errorDetail } = friendlyStepResults(steps);
+  return Response.json({ ok, steps: friendlySteps, errorKind, errorDetail });
 }

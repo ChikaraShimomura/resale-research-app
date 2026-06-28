@@ -203,3 +203,29 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
 
   return { message: "予期せぬエラーが発生しました。", known: false };
 }
+
+// 複数ステップ処理（ポリシー一括作成/最適化など）の結果をUI向けに整える共通処理。
+// 各ステップの生eBayエラー(error)を端的な日本語に差し替え、報告/デバッグ用の付帯情報をまとめて返す：
+//   - error: 端的な要因に差し替え（生は errorDetail に温存・UIには出さない）
+//   - known: false=生eBayエラー＝UIで「開発者に報告」導線を出す。1つでも未知があれば errorKind=unexpected。
+//   - errorDetail: 失敗ステップの生エラーを「ステップ名: 生エラー」で連結（ReportableError へ渡す）。
+export function friendlyStepResults<T extends { step: string; ok: boolean; error?: string }>(
+  steps: T[]
+): {
+  steps: (T & { known?: boolean; errorDetail?: string })[];
+  errorKind: "known" | "unexpected";
+  errorDetail?: string;
+} {
+  const friendlySteps = steps.map((s) => {
+    if (s.ok || !s.error) return s as T & { known?: boolean; errorDetail?: string };
+    const f = friendlyEbayError(s.error);
+    return { ...s, error: f.message, known: f.known, errorDetail: s.error };
+  });
+  const errorKind = friendlySteps.some((s) => !s.ok && s.known === false) ? "unexpected" : "known";
+  const errorDetail =
+    friendlySteps
+      .filter((s) => !s.ok)
+      .map((s) => `${s.step}: ${s.errorDetail || s.error || ""}`)
+      .join(" | ") || undefined;
+  return { steps: friendlySteps, errorKind, errorDetail };
+}

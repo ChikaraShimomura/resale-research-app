@@ -1,7 +1,7 @@
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
-import { optimizeFulfillmentPolicies, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
-import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
+import { optimizeFulfillmentPolicies } from "../../../lib/ebay/sellApi";
+import { friendlyStepResults } from "../../../lib/ebay/errorMessages";
 
 // 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を「正しい設定」へ直してeBayへ同期する。
 // 正しい設定＝国内 EconomyShippingFromOutsideUS / 国際 OtherInternational(表示「Economy International Shipping」)。
@@ -20,19 +20,8 @@ export async function POST() {
 
   const result = await optimizeFulfillmentPolicies(token, MARKETPLACE);
 
-  const friendlySteps = result.steps.map((s) => {
-    if (s.ok || !s.error) return s;
-    const f = friendlyEbayError(s.error);
-    return { ...s, error: f.message, known: f.known, errorDetail: s.error };
-  });
-  const errorKind = friendlySteps.some((s) => !s.ok && (s as { known?: boolean }).known === false)
-    ? "unexpected"
-    : "known";
-
-  const errorDetail = friendlySteps
-    .filter((s: PolicyOptimizeStep) => !s.ok)
-    .map((s) => `${s.step}: ${(s as { errorDetail?: string }).errorDetail || s.error || ""}`)
-    .join(" | ");
+  // 生eBayエラーの端的化・errorKind・errorDetail は setup-policies と共通処理に集約。
+  const { steps: friendlySteps, errorKind, errorDetail } = friendlyStepResults(result.steps);
 
   return Response.json({
     ok: result.ok,
@@ -40,6 +29,6 @@ export async function POST() {
     fixedCount: result.fixedCount,
     codes: result.codes,
     errorKind,
-    errorDetail: errorDetail || undefined,
+    errorDetail,
   });
 }

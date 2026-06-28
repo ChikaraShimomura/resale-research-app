@@ -501,7 +501,7 @@ function fulfillmentBody(
 // 国際発送オプション。発送先は Worldwide（全世界）固定。
 // ⚠️ 国別ホワイトリストは EBAY_US で一部の国が216347で弾かれ AU/GB/CA/DE/FR の5カ国(=「Australia+4」)に縮退し、
 //    その5カ国以外の買い手に「送料見積もりをリクエスト」を出す原因になる。Worldwideは常に受理され全世界に値段が出る。
-export const INTL_SHIP_REGION = "Worldwide";
+const INTL_SHIP_REGION = "Worldwide";
 function intlShippingOption(shippingCostUsd: string, serviceCode: string): Record<string, unknown> {
   return {
     optionType: "INTERNATIONAL",
@@ -591,47 +591,26 @@ async function upsertFulfillmentPolicy(
   return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
 }
 
-// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。発送先は Worldwide。
-export async function createFlatIntlFulfillmentPolicy(
-  token: string,
-  marketplace: string,
-  name: string,
-  shippingCostUsd: string,
-  handlingDays: number,
-  codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
-): Promise<EbayPostResult> {
-  const shippingOptions: Record<string, unknown>[] = [
-    {
-      // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
-      optionType: "DOMESTIC",
-      costType: "FLAT_RATE",
-      shippingServices: [
-        { sortOrder: 1, shippingServiceCode: codes.domestic, shippingCost: { value: shippingCostUsd, currency: "USD" } },
-      ],
-    },
-    intlShippingOption(shippingCostUsd, codes.intl),
-  ];
-  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
-}
-
-// 送料無料の配送ポリシー（送料込み出品＝価格に送料を内包し、買い手の送料は$0）。
-// 国内は freeShipping:true（eBayの「送料無料」バッジ＝検索でも有利。先頭の国内サービスにのみ有効・shippingCost不要）。
-// 国際は無料フラグが無いので shippingCost=0.00 で無料にする。
-// listFulfillmentPolicies は costUsd<0.01 を「無料」と判定するので、これが送料込みトグルの相手になる。
-export async function createFreeIntlFulfillmentPolicy(
+// 配送ポリシーの作成（重複なら更新）。発送先は国内=米国・国際=Worldwide固定。1ポリシー＝1サービス。
+// costUsd を渡すと定額送料、省略すると送料無料（送料込み＝価格に送料を内包し買い手の送料は$0）になる：
+//   - 国内: 定額なら shippingCost、無料なら freeShipping:true（eBayの「送料無料」バッジ＝検索で有利・shippingCost不要）。
+//   - 国際: 無料フラグが無いので 0.00 で無料にする。
+// listFulfillmentPolicies は costUsd<0.01 を「無料」と判定するので、無料ポリシーが送料込みトグルの相手になる。
+export async function createShippingPolicy(
   token: string,
   marketplace: string,
   name: string,
   handlingDays: number,
-  codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
+  costUsd?: string
 ): Promise<EbayPostResult> {
+  // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
+  const domestic =
+    costUsd === undefined
+      ? { sortOrder: 1, shippingServiceCode: DEFAULT_DOMESTIC_SERVICE_CODE, freeShipping: true }
+      : { sortOrder: 1, shippingServiceCode: DEFAULT_DOMESTIC_SERVICE_CODE, shippingCost: { value: costUsd, currency: "USD" } };
   const shippingOptions: Record<string, unknown>[] = [
-    {
-      optionType: "DOMESTIC",
-      costType: "FLAT_RATE",
-      shippingServices: [{ sortOrder: 1, shippingServiceCode: codes.domestic, freeShipping: true }],
-    },
-    intlShippingOption("0.00", codes.intl), // 国際は0.00で無料に
+    { optionType: "DOMESTIC", costType: "FLAT_RATE", shippingServices: [domestic] },
+    intlShippingOption(costUsd ?? "0.00", DEFAULT_INTL_SERVICE_CODE),
   ];
   return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
 }
@@ -698,15 +677,8 @@ export async function optimizeFulfillmentPolicies(
     const handlingDays = Number(p.handlingTime?.value) > 0 ? Number(p.handlingTime?.value) : 3;
     const isFree = !!dom?.freeShipping || Number(dom?.shippingCost?.value ?? "0") < 0.01;
     const res = isFree
-      ? await createFreeIntlFulfillmentPolicy(token, marketplace, name, handlingDays, codes)
-      : await createFlatIntlFulfillmentPolicy(
-          token,
-          marketplace,
-          name,
-          String(dom?.shippingCost?.value ?? "0.00"),
-          handlingDays,
-          codes
-        );
+      ? await createShippingPolicy(token, marketplace, name, handlingDays)
+      : await createShippingPolicy(token, marketplace, name, handlingDays, String(dom?.shippingCost?.value ?? "0.00"));
     if (res.ok) fixedCount++;
     steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}・発送先=全世界` });
   }
