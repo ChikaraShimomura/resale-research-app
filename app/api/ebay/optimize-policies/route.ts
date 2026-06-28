@@ -1,7 +1,7 @@
 import { kv } from "@vercel/kv";
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
-import { optimizeFulfillmentPolicies, getPolicyCodesSummary, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
+import { optimizeFulfillmentPolicies, getPolicyCodesSummary, fetchIntlShippingServices, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
 // 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を「正しい設定」へ直してeBayへ同期する。
@@ -46,6 +46,14 @@ export async function POST() {
       accounts.push({ conn: c, policies: tk ? await getPolicyCodesSummary(tk, MARKETPLACE) : null });
     }
     await kv.set("ebay:all_accounts_diag", { ts: new Date().toISOString(), accounts });
+  } catch {
+    /* 診断失敗は無視 */
+  }
+
+  // 一時診断: eBay公式の国際配送サービス一覧(GeteBayDetails)をKVに記録。正規コードをハードコードするため。
+  try {
+    const services = await fetchIntlShippingServices(token);
+    if (services.length) await kv.set("ebay:intl_services", { ts: new Date().toISOString(), services });
   } catch {
     /* 診断失敗は無視 */
   }

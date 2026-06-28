@@ -815,6 +815,45 @@ export async function optimizeFulfillmentPolicies(
   return { ok: steps.every((s) => s.ok), steps, codes, seen, fixedCount };
 }
 
+// 一時診断: eBay公式の配送サービス一覧(Trading API GeteBayDetails)から国際サービスを取得する。
+// 「Economy International Shipping」の正規 shippingServiceCode を確定するため。OAuthトークンをIAFヘッダで渡す。
+export async function fetchIntlShippingServices(
+  token: string
+): Promise<{ code: string; desc: string; cat: string }[]> {
+  const tradingApi = ENV === "sandbox" ? "https://api.sandbox.ebay.com/ws/api.dll" : "https://api.ebay.com/ws/api.dll";
+  const body =
+    '<?xml version="1.0" encoding="utf-8"?>' +
+    '<GeteBayDetailsRequest xmlns="urn:ebay:apis:eBLBaseComponents">' +
+    "<DetailName>ShippingServiceDetails</DetailName></GeteBayDetailsRequest>";
+  try {
+    const res = await fetch(tradingApi, {
+      method: "POST",
+      headers: {
+        "X-EBAY-API-CALL-NAME": "GeteBayDetails",
+        "X-EBAY-API-SITEID": "0",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "1193",
+        "X-EBAY-API-IAF-TOKEN": token,
+        "Content-Type": "text/xml",
+      },
+      body,
+      signal: AbortSignal.timeout(25000),
+    });
+    const xml = await res.text();
+    const out: { code: string; desc: string; cat: string }[] = [];
+    for (const b of xml.split("<ShippingServiceDetails>").slice(1)) {
+      if (!/<InternationalService>true<\/InternationalService>/.test(b)) continue;
+      out.push({
+        code: b.match(/<ShippingService>([^<]+)<\/ShippingService>/)?.[1] ?? "",
+        desc: b.match(/<Description>([^<]+)<\/Description>/)?.[1] ?? "",
+        cat: b.match(/<ShippingCategory>([^<]+)<\/ShippingCategory>/)?.[1] ?? "",
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 // 一時診断: 1アカウントの全ポリシーの国内/国際サービスコードを要約。全垢スキャン診断で使う。
 export async function getPolicyCodesSummary(
   token: string,
