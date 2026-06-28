@@ -8,6 +8,7 @@
 // 使い方: node scripts/used/refineUsedCatalogEbay.mjs [limit]
 import fs from "node:fs";
 import { get, parseSoldWithin } from "../ebaySoldWorker.mjs";
+import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
 
 const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
@@ -71,14 +72,11 @@ async function ebayCompetition(query) {
   } catch { return null; }
 }
 
-function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;          // eBay最終手数料
-  const shipFee = 2040 * 0.1325;               // 国際送料にかかる手数料分
-  const sellUsd = sellJpy / USD_JPY;
-  // 米関税: $500以上は真贋保証(AG)経由で買い手負担→セラーは引かない。$500未満は標準出品でDDP必須=セラーが前払い
-  //   (時計の実効≒15%＋通関手数料¥3000。第122条の上乗せは2026-07-24失効予定で流動的なので保守的に概算)。
-  const dutyJpy = sellUsd >= 500 ? 0 : Math.round(sellJpy * 0.15 + 3000);
-  return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
+// 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログの利益が実態と一致。category=ジャンルで重量概算。
+function netProfitJPY(buyJpy, sellJpy, category) {
+  const fee = sellJpy * EBAY_FEE_RATE + 47;
+  const subtract = landedSubtractJpy(category, sellJpy / USD_JPY);
+  return Math.round(sellJpy - fee - subtract - buyJpy);
 }
 function trimmedMedian(prices) {
   const ps = prices.slice().sort((a, b) => a - b);
@@ -131,7 +129,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     if (same.length >= MIN_SAME) {
       const med = trimmedMedian(same.map((c) => c.price));
       p.ebayMedianJpy = med; p.soldCount = same.length; p.ebayConfirmed = true;
-      p.profitJpy = netProfitJPY(p.buyJpy, med); p.profitRate = p.buyJpy > 0 ? Math.round((p.profitJpy / p.buyJpy) * 100) : 0; // 利益率＝純利益÷仕入れ(ROI)
+      p.profitJpy = netProfitJPY(p.buyJpy, med, p.cat); p.profitRate = p.buyJpy > 0 ? Math.round((p.profitJpy / p.buyJpy) * 100) : 0; // 利益率＝純利益÷仕入れ(ROI)
       // 競合数(現在出品の総数)も同じバッチで焼き込む＝カードで「狙い目/多め」を一目表示。鍵が無ければ null のまま(fail-open)。
       const comp = await ebayCompetition(q);
       if (comp != null) p.ebayActiveCount = comp;

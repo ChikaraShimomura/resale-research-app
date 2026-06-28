@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
 import { USED_GENRE_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
+import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const USD_JPY = 155;
@@ -23,15 +24,12 @@ const KV_URL = env("KV_REST_API_URL") || env("UPSTASH_REDIS_REST_URL");
 const KV_TOK = env("KV_REST_API_TOKEN") || env("UPSTASH_REDIS_REST_TOKEN");
 const RESEND = env("RESEND_API_KEY");
 
-// 純利益(JPY)。買=ハードオフ価格、売=eBay落札中央。重量500g想定・国際送料は買い手負担(手数料分のみ計上)。
-function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;          // eBay最終手数料
-  const shipFee = 2040 * 0.1325;               // 国際送料にかかる手数料分
-  const sellUsd = sellJpy / USD_JPY;
-  // 米関税: $500以上は真贋保証(AG)経由で買い手負担→セラーは引かない。$500未満は標準出品でDDP必須=セラーが前払い
-  //   (時計の実効≒15%＋通関手数料¥3000。第122条の上乗せは2026-07-24失効予定で流動的なので保守的に概算)。
-  const dutyJpy = sellUsd >= 500 ? 0 : Math.round(sellJpy * 0.15 + 3000);
-  return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
+// 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログの利益表示が実態(出品時の損益分岐)と一致する。
+// category=ジャンル(WEIGHT_Gのキー)で重量を概算。出品者負担＝送料へのeBay手数料＋米国関税($100超)＋定額送料の不足。送料自体は買い手負担。
+function netProfitJPY(buyJpy, sellJpy, category) {
+  const fee = sellJpy * EBAY_FEE_RATE + 47;
+  const subtract = landedSubtractJpy(category, sellJpy / USD_JPY);
+  return Math.round(sellJpy - fee - subtract - buyJpy);
 }
 
 // 中古サイト(ハードオフ)で扱えない/相性が悪いカテゴリは除外。
@@ -108,7 +106,7 @@ async function loadCategories() {
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
       if (ratio < 0.15 || ratio > 0.8) continue;
-      const net = netProfitJPY(it.price, c.ebayMedian);
+      const net = netProfitJPY(it.price, c.ebayMedian, genreOf(c.category));
       const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
       // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
       if (roi >= 0.1) {
@@ -151,7 +149,7 @@ async function loadCategories() {
       const prev = refinedByCode.get(normCode(c.code));
       if (!prev) return c;
       const median = Number(prev.ebayMedianJpy); // 型番一致の確定相場
-      const net = netProfitJPY(c.buyJpy, median); // 仕入れは新規品の値、相場は確定値で利益を再計算
+      const net = netProfitJPY(c.buyJpy, median, c.cat); // 仕入れは新規品の値、相場は確定値で利益を再計算
       carried++;
       return {
         ...c, ebayMedianJpy: median, profitJpy: net, profitRate: c.buyJpy > 0 ? Math.round((net / c.buyJpy) * 100) : 0, // 利益率＝純利益÷仕入れ(ROI)

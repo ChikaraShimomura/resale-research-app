@@ -6,6 +6,7 @@
 // （キャッシュに該当カテゴリが無ければスキップ＝Pixelの落札発掘が回るまでは0件。回れば自動で古着が乗る）。
 import fs from "node:fs";
 import { fetch2ndStreetMany } from "./fetch2ndStreet.mjs";
+import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
 
 const USD_JPY = 155;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,11 +35,11 @@ const KOFUKU = [
   { cat: "ラルフローレンヴィンテージ", q: "ラルフローレン" },
 ];
 
-function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;
-  const shipFee = 2040 * 0.1325;
-  const dutyJpy = sellJpy / USD_JPY > 100 ? sellJpy * 0.1 + 230 : 0;
-  return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
+// 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログ表示が実態と一致。2nd STは古着のみ。
+function netProfitJPY(buyJpy, sellJpy, category) {
+  const fee = sellJpy * EBAY_FEE_RATE + 47;
+  const subtract = landedSubtractJpy(category, sellJpy / USD_JPY);
+  return Math.round(sellJpy - fee - subtract - buyJpy);
 }
 
 (async () => {
@@ -75,7 +76,7 @@ function netProfitJPY(buyJpy, sellJpy) {
         if (!it.price) continue;
         const ratio = it.price / t.ebayMedian;
         if (ratio < 0.12 || ratio > 0.75) continue; // 極端なミスマッチ除外
-        const net = netProfitJPY(it.price, t.ebayMedian);
+        const net = netProfitJPY(it.price, t.ebayMedian, "古着");
         const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
         // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
         if (roi >= 0.1) {
