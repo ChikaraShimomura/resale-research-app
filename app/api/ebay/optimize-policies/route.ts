@@ -1,7 +1,7 @@
 import { kv } from "@vercel/kv";
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
-import { optimizeFulfillmentPolicies, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
+import { optimizeFulfillmentPolicies, getPolicyCodesSummary, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
 // 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を「正しい設定」へ直してeBayへ同期する。
@@ -31,6 +31,21 @@ export async function POST() {
     );
     await kv.ltrim("ebay:optimize_diag", 0, 19);
     await kv.expire("ebay:optimize_diag", 7 * 24 * 60 * 60);
+  } catch {
+    /* 診断失敗は無視 */
+  }
+
+  // 一時診断: 全連携アカウントの国内/国際コードをまとめてKVに記録（復号鍵はサーバーにあるので全垢読める）。
+  // 「Economy International Shipping」の正規コードを持つ垢を特定し、既定にハードコードするため。原因特定後に撤去。
+  try {
+    const keys = (await kv.keys("ebay_token:*")) ?? [];
+    const accounts: { conn: string; policies: { name: string; dom: string | null; intl: string | null }[] | null }[] = [];
+    for (const k of keys) {
+      const c = k.replace(/^ebay_token:/, "");
+      const tk = await getValidAccessToken(c);
+      accounts.push({ conn: c, policies: tk ? await getPolicyCodesSummary(tk, MARKETPLACE) : null });
+    }
+    await kv.set("ebay:all_accounts_diag", { ts: new Date().toISOString(), accounts });
   } catch {
     /* 診断失敗は無視 */
   }

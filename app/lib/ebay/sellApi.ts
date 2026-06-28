@@ -814,3 +814,16 @@ export async function optimizeFulfillmentPolicies(
 
   return { ok: steps.every((s) => s.ok), steps, codes, seen, fixedCount };
 }
+
+// 一時診断: 1アカウントの全ポリシーの国内/国際サービスコードを要約。全垢スキャン診断で使う。
+export async function getPolicyCodesSummary(
+  token: string,
+  marketplace: string
+): Promise<{ name: string; dom: string | null; intl: string | null }[]> {
+  const policies = await getFulfillmentPolicies(token, marketplace);
+  return policies.map((p) => ({
+    name: p.name ?? "",
+    dom: serviceCodeOf(p, "DOMESTIC") ?? null,
+    intl: serviceCodeOf(p, "INTERNATIONAL") ?? null,
+  }));
+}
