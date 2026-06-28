@@ -1,7 +1,6 @@
 // eBay Sell API クライアント（サーバー専用・読み取り中心）。
 // アクセストークンは getValidAccessToken() で取得したものを渡す。
 // まずは「出品準備チェック」用の参照系のみ。下書き作成(write)は別途・要確認のうえ追加する。
-import { kv } from "@vercel/kv";
 
 const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
 const API = ENV === "sandbox" ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
@@ -517,18 +516,19 @@ function intlShippingOption(shippingCostUsd: string, regions: string[], serviceC
   };
 }
 
-// ── 配送サービスコード（日本発セラー用）──
-// ⚠️ 日本発セラーは米国キャリア(USPS/UPS等)を出品の配送サービスに使えない（実際は日本郵便で送るため）。
-// USPS等だと eBay が送料を計算できず、買い手に「出品者に送料見積もりをリクエスト」と出て事実上売れない。
-// 国内(=米国バイヤー)は "Economy Shipping from outside US"、国際は "Economy International Shipping" 相当を使う。
-// 正規の shippingServiceCode は時期/マーケットで変わり得るため、既存の正しいポリシーから読み戻すのを最優先する
-// （pickGoodServiceCodes）。読み戻せない時だけ下の既定にフォールバックする（USPS再生成を防ぐ）。
+// ── 配送サービスコード（日本発セラー用・EBAY_US）──
+// 日本発セラーは米国キャリア(USPS/UPS)を使えない（実際は日本郵便で送る）。USPSだと eBay が送料を計算できず
+// 買い手に「送料見積もりをリクエスト」と出て売れない。日本発で使える汎用コードは下の2つ：
+//   国内(=米国バイヤー向け) = "EconomyShippingFromOutsideUS"（表示「Economy Shipping from outside US」）
+//   国際(=その他)          = "OtherInternational"（表示「Economy International Shipping」/ category ECONOMY）
+// ※ "OtherInternational" は旧称「Other: see description」だが、現行 EBAY_US では正規のエコノミー国際サービス
+//    「Economy International Shipping」で定額送料がちゃんと表示される（GeteBayDetailsで確認済・見積もり依頼にならない）。
 export interface ShippingServiceCodes {
   domestic: string;
   intl: string;
 }
 export const DEFAULT_DOMESTIC_SERVICE_CODE = "EconomyShippingFromOutsideUS";
-export const DEFAULT_INTL_SERVICE_CODE = "OtherInternational"; // 常に受理される汎用の国際フォールバック（読み戻しで上書きされる）
+export const DEFAULT_INTL_SERVICE_CODE = "OtherInternational";
 const DEFAULT_SERVICE_CODES: ShippingServiceCodes = { domestic: DEFAULT_DOMESTIC_SERVICE_CODE, intl: DEFAULT_INTL_SERVICE_CODE };
 
 // 米国専用キャリア（日本発で使えない＝最適化で検出・差し替える対象）。USPS / UPS / US_* を弾く。
@@ -565,64 +565,6 @@ export async function getFulfillmentPolicies(token: string, marketplace: string)
     `/sell/account/v1/fulfillment_policy?marketplace_id=${marketplace}`
   );
   return r.data?.fulfillmentPolicies ?? [];
-}
-
-// 既存ポリシー群から「正しい(米国キャリアでない)配送サービスコード」を読み戻す。
-// 手動修正済み or 既に最適化済みのポリシー("Shipping Free"優先)を基準にし、推測を避ける。
-export function pickGoodServiceCodes(policies: RawFulfillmentPolicy[]): ShippingServiceCodes | null {
-  const ranked = [...policies].sort(
-    (a, b) => (b.name === "Shipping Free" ? 1 : 0) - (a.name === "Shipping Free" ? 1 : 0)
-  );
-  for (const p of ranked) {
-    const dom = serviceCodeOf(p, "DOMESTIC");
-    const intl = serviceCodeOf(p, "INTERNATIONAL");
-    if (dom && !isUsCarrierCode(dom) && intl && !isUsCarrierCode(intl)) return { domestic: dom, intl };
-  }
-  for (const p of ranked) {
-    const dom = serviceCodeOf(p, "DOMESTIC");
-    if (dom && !isUsCarrierCode(dom)) return { domestic: dom, intl: DEFAULT_INTL_SERVICE_CODE };
-  }
-  return null;
-}
-
-// ── 学習した配送サービスコード（全アカウント共通）──
-// eBay の shippingServiceCode はマーケット(EBAY_US)共通なので、1つでも正しいポリシーを持つアカウントから
-// 読み戻せれば、基準ポリシーが無い別アカウント(チーム等)もそのコードを使える。
-// ⚠️ OtherInternational(=既定フォールバック)は買い手に「送料見積もりをリクエスト」を出すので学習・採用しない。
-const LEARNED_CODES_KEY = "ebay:learned_service_codes:EBAY_US";
-
-async function loadLearnedServiceCodes(): Promise<ShippingServiceCodes | null> {
-  try {
-    const v = await kv.get<ShippingServiceCodes>(LEARNED_CODES_KEY);
-    if (!v?.domestic || !v?.intl) return null;
-    if (isUsCarrierCode(v.domestic) || isUsCarrierCode(v.intl) || v.intl === DEFAULT_INTL_SERVICE_CODE) return null;
-    return v;
-  } catch {
-    return null;
-  }
-}
-
-async function saveLearnedServiceCodes(codes: ShippingServiceCodes): Promise<void> {
-  // 既定フォールバック(OtherInternational等)や米国キャリアは「正しいコード」ではないので学習しない。
-  if (isUsCarrierCode(codes.domestic) || isUsCarrierCode(codes.intl) || codes.intl === DEFAULT_INTL_SERVICE_CODE) return;
-  try {
-    await kv.set(LEARNED_CODES_KEY, codes);
-  } catch {
-    /* noop */
-  }
-}
-
-// 有効な配送サービスコードを解決：このアカウントの正しいポリシー → 全アカ学習値 → 既定。
-// 正しいコードを読み戻せたら全アカ共通として学習する（他アカウントの基準になる）。
-export async function resolveServiceCodes(policies: RawFulfillmentPolicy[]): Promise<ShippingServiceCodes> {
-  const own = pickGoodServiceCodes(policies);
-  if (own && own.intl !== DEFAULT_INTL_SERVICE_CODE) {
-    await saveLearnedServiceCodes(own);
-    return own;
-  }
-  const learned = await loadLearnedServiceCodes();
-  if (learned) return learned;
-  return own ?? DEFAULT_SERVICE_CODES;
 }
 
 // 配送ポリシーの作成（重複なら更新）。名前は固定のため再実行で同名衝突する→「重複なら更新(PUT)」する。
@@ -733,40 +675,17 @@ export interface PolicyOptimizeResult {
   steps: PolicyOptimizeStep[];
   codes: ShippingServiceCodes;
   fixedCount: number;
-  seen?: { name: string; dom: string | null; intl: string | null }[]; // 診断: 各ポリシーが実際に持つサービスコード
 }
+// 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を「正しい設定」へ直してeBayへ同期する。
+// 正しい設定＝国内 EconomyShippingFromOutsideUS / 国際 OtherInternational(表示「Economy International Shipping」)。
+// "Shipping " で始まるアプリ管理ポリシーのみ対象。送料(無料/定額)・金額・発送日数は保ったままコード/発送先を直す。
 export async function optimizeFulfillmentPolicies(
   token: string,
   marketplace: string,
   regions: string[]
 ): Promise<PolicyOptimizeResult> {
   const policies = await getFulfillmentPolicies(token, marketplace);
-  const codes = await resolveServiceCodes(policies);
-  // 診断: 各ポリシーが実際に持つ国内/国際サービスコード（検出ロジックの当たり外れを確認するため）。
-  const seen = policies.map((p) => ({
-    name: p.name ?? "",
-    dom: serviceCodeOf(p, "DOMESTIC") ?? null,
-    intl: serviceCodeOf(p, "INTERNATIONAL") ?? null,
-  }));
-  // 正しい国際コードを学習できていない場合は OtherInternational を適用しない（買い手に「見積もり依頼」が出る原因）。
-  // 先に正しい配送ポリシーを持つアカウントで最適化すれば、全アカウント共通で学習される。
-  if (codes.intl === DEFAULT_INTL_SERVICE_CODE) {
-    return {
-      ok: false,
-      steps: [
-        {
-          step: "先に基準アカウントで最適化が必要",
-          ok: false,
-          known: true,
-          error:
-            "まず「Shipping Free」を正しく設定済みのアカウント（例: japanselecttrading）でこのボタンを押してください。その内容を全アカウント共通の基準として学習し、このアカウントも直せるようになります。",
-        },
-      ],
-      codes,
-      seen,
-      fixedCount: 0,
-    };
-  }
+  const codes = DEFAULT_SERVICE_CODES;
   const targets = policies.filter((p) => (p.name ?? "").startsWith("Shipping "));
   const steps: PolicyOptimizeStep[] = [];
   let fixedCount = 0;
@@ -777,21 +696,19 @@ export async function optimizeFulfillmentPolicies(
       ok: false,
       error: "アプリの配送ポリシー(Shipping *)が見つかりません。先に出品設定で作成してください。",
     });
-    return { ok: false, steps, codes, seen, fixedCount };
+    return { ok: false, steps, codes, fixedCount };
   }
 
   for (const p of targets) {
     const name = p.name ?? "";
     const dom = p.shippingOptions?.find((o) => o.optionType === "DOMESTIC")?.shippingServices?.[0];
     const hasIntl = !!p.shippingOptions?.some((o) => o.optionType === "INTERNATIONAL");
-    const intlCode = serviceCodeOf(p, "INTERNATIONAL");
-    const badIntl = intlCode === DEFAULT_INTL_SERVICE_CODE; // OtherInternational=買い手に「送料見積もりをリクエスト」を出す
     const badCarrier = (p.shippingOptions ?? []).some((o) =>
       (o.shippingServices ?? []).some((s) => isUsCarrierCode(s.shippingServiceCode))
     );
-    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${intlCode ?? "(国際なし)"}`;
-    // 米国キャリア/OtherInternationalでなく国際発送もある＝既に正しい → 触らない。
-    if (!badCarrier && hasIntl && !badIntl) {
+    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${serviceCodeOf(p, "INTERNATIONAL") ?? "(国際なし)"}`;
+    // 米国キャリアでなく国際発送もある＝既に正しい → 触らない。
+    if (!badCarrier && hasIntl) {
       steps.push({ step: name, ok: true, before, after: "変更なし（問題なし）" });
       continue;
     }
@@ -812,57 +729,5 @@ export async function optimizeFulfillmentPolicies(
     steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}` });
   }
 
-  return { ok: steps.every((s) => s.ok), steps, codes, seen, fixedCount };
-}
-
-// 一時診断: eBay公式の配送サービス一覧(Trading API GeteBayDetails)から国際サービスを取得する。
-// 「Economy International Shipping」の正規 shippingServiceCode を確定するため。OAuthトークンをIAFヘッダで渡す。
-export async function fetchIntlShippingServices(
-  token: string
-): Promise<{ code: string; desc: string; cat: string }[]> {
-  const tradingApi = ENV === "sandbox" ? "https://api.sandbox.ebay.com/ws/api.dll" : "https://api.ebay.com/ws/api.dll";
-  const body =
-    '<?xml version="1.0" encoding="utf-8"?>' +
-    '<GeteBayDetailsRequest xmlns="urn:ebay:apis:eBLBaseComponents">' +
-    "<DetailName>ShippingServiceDetails</DetailName></GeteBayDetailsRequest>";
-  try {
-    const res = await fetch(tradingApi, {
-      method: "POST",
-      headers: {
-        "X-EBAY-API-CALL-NAME": "GeteBayDetails",
-        "X-EBAY-API-SITEID": "0",
-        "X-EBAY-API-COMPATIBILITY-LEVEL": "1193",
-        "X-EBAY-API-IAF-TOKEN": token,
-        "Content-Type": "text/xml",
-      },
-      body,
-      signal: AbortSignal.timeout(25000),
-    });
-    const xml = await res.text();
-    const out: { code: string; desc: string; cat: string }[] = [];
-    for (const b of xml.split("<ShippingServiceDetails>").slice(1)) {
-      if (!/<InternationalService>true<\/InternationalService>/.test(b)) continue;
-      out.push({
-        code: b.match(/<ShippingService>([^<]+)<\/ShippingService>/)?.[1] ?? "",
-        desc: b.match(/<Description>([^<]+)<\/Description>/)?.[1] ?? "",
-        cat: b.match(/<ShippingCategory>([^<]+)<\/ShippingCategory>/)?.[1] ?? "",
-      });
-    }
-    return out;
-  } catch {
-    return [];
-  }
-}
-
-// 一時診断: 1アカウントの全ポリシーの国内/国際サービスコードを要約。全垢スキャン診断で使う。
-export async function getPolicyCodesSummary(
-  token: string,
-  marketplace: string
-): Promise<{ name: string; dom: string | null; intl: string | null }[]> {
-  const policies = await getFulfillmentPolicies(token, marketplace);
-  return policies.map((p) => ({
-    name: p.name ?? "",
-    dom: serviceCodeOf(p, "DOMESTIC") ?? null,
-    intl: serviceCodeOf(p, "INTERNATIONAL") ?? null,
-  }));
+  return { ok: steps.every((s) => s.ok), steps, codes, fixedCount };
 }
