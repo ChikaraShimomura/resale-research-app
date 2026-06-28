@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock } from "lucide-react";
+import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock, CircleDollarSign } from "lucide-react";
 import { getFavoriteItems, getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
 import { listDealsForUser, getListingSku } from "../lib/ebay/stats";
 import { getValidAccessToken } from "../lib/ebay/tokens";
@@ -46,11 +46,11 @@ function priceTiers(medianJpy: number, costJpy: number, category?: string, weigh
   return { breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd };
 }
 
-type Tab = "fav" | "bought" | "listed" | "ended";
+type Tab = "fav" | "bought" | "listed" | "sold" | "ended";
 
 export default async function ManagePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
-  const tab: Tab = sp.tab === "fav" || sp.tab === "listed" || sp.tab === "ended" ? sp.tab : "bought";
+  const tab: Tab = sp.tab === "fav" || sp.tab === "listed" || sp.tab === "sold" || sp.tab === "ended" ? sp.tab : "bought";
   // チーム参加中は「共有データ＝オーナー名前空間」を読む（全員で同じ在庫/お気に入り/出品/収益）。
   const { dataActor: actor, ebayActor } = await getTeamContext();
 
@@ -73,7 +73,8 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const counts = {
     fav: favItems.length,
     bought: boughtNotListed.length,
-    listed: live.length + deals.sold.length, // 出品中＋売れた商品
+    listed: live.length, // 出品中
+    sold: deals.sold.length, // eBayで売却済み
     ended: endedAll.length, // 停止中＋過去の出品
   };
 
@@ -160,7 +161,10 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <BoughtTab items={boughtNotListed} canList={canList} />
         )}
         {tab === "listed" && (
-          <ListedTab live={live} sold={deals.sold} tiersById={tiersById} priceById={priceById} />
+          <ListedTab live={live} tiersById={tiersById} priceById={priceById} />
+        )}
+        {tab === "sold" && (
+          <SoldTab sold={deals.sold} />
         )}
         {tab === "ended" && (
           <EndedTab stopped={stopped} archived={archived} snapById={snapById} canList={canList} />
@@ -280,12 +284,12 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
 type ListedItem = Awaited<ReturnType<typeof listDealsForUser>>["live"][number] & { _status: "live" | "stopped" | "archived" };
 type SoldItem = Awaited<ReturnType<typeof listDealsForUser>>["sold"][number];
 
-function ListedTab({ live, sold, tiersById, priceById }: {
-  live: ListedItem[]; sold: SoldItem[];
+function ListedTab({ live, tiersById, priceById }: {
+  live: ListedItem[];
   tiersById: Record<string, ReturnType<typeof priceTiers>>;
   priceById: Record<string, string>;
 }) {
-  if (live.length + sold.length === 0) {
+  if (live.length === 0) {
     return <Empty Icon={Tag} title="出品中の商品はありません" body={<><span className="whitespace-nowrap">「仕入れ商品」から</span><wbr /><span className="whitespace-nowrap">eBay自動出品すると、</span><wbr /><span className="whitespace-nowrap">ここに出品中として表示されます。</span></>} />;
   }
   // 古い計算で出した出品が、今の損益分岐(SSOT)を下回って赤字になっていないか＝現在価格 vs ±0 で点検。
@@ -308,13 +312,16 @@ function ListedTab({ live, sold, tiersById, priceById }: {
           {live.map((d) => <LiveCard key={d.id} d={d} tiers={tiersById[d.id]} priceUsd={priceById[d.id]} />)}
         </Section>
       )}
-      {sold.length > 0 && (
-        <Section title="売れた商品" count={sold.length} dot="bg-emerald-500">
-          {sold.map((d) => <SoldCard key={d.id} d={d} />)}
-        </Section>
-      )}
     </div>
   );
+}
+
+// ── 売れた商品タブ：eBayで売却済み（読み取り専用・売値と利益） ──────────────────────
+function SoldTab({ sold }: { sold: SoldItem[] }) {
+  if (sold.length === 0) {
+    return <Empty Icon={CircleDollarSign} title="売れた商品はまだありません" body={<><span className="whitespace-nowrap">eBayで売れると、</span><wbr /><span className="whitespace-nowrap">ここに自動で移動します。</span></>} />;
+  }
+  return <ol className="space-y-2.5">{sold.map((d) => <SoldCard key={d.id} d={d} />)}</ol>;
 }
 
 // ── 終了商品タブ：停止中／過去の出品 の2セクション（どちらも再出品できる） ──────────────────────
