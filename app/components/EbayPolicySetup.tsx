@@ -29,32 +29,12 @@ const DEFAULTS: Record<string, string> = {
   large: String(SHIP_TIER_USD.large),
 };
 
-// 国際発送を許可できる国（アメリカは常に対象＝DOMESTIC）。主要英語/EU圏（core）＋低リスクなアジア（JP/HK/SG/TW/KR）。
-// アジア5市場は配送/詐欺・INR/制裁/需要の4軸で低リスクと確認（2026-06-27 調査）。香港=関税ゼロが最有力。
-// ⚠️ 除外：CN/IN/PH/ID/VN/TH/MY（詐欺・INR/通関摩擦が高い）。IT(イタリア)/ES(スペイン)は EBAY_US の配送ポリシーで
-//    errorId=216347「unsupported destinations for this marketplace」で弾かれるため不可。
-//    eBay が他国を制限した場合もここから外すこと（サーバーは regions を regionName に渡す＝非対応時は core だけで作り直す）。
-//    UI と route(ALLOWED_REGIONS) を必ず一致させること。
-const COUNTRIES = [
-  { code: "AU", label: "オーストラリア" },
-  { code: "GB", label: "イギリス" },
-  { code: "CA", label: "カナダ" },
-  { code: "DE", label: "ドイツ" },
-  { code: "FR", label: "フランス" },
-  { code: "JP", label: "日本（国内）" },
-  { code: "HK", label: "香港" },
-  { code: "SG", label: "シンガポール" },
-  { code: "TW", label: "台湾" },
-  { code: "KR", label: "韓国" },
-];
+// 発送先は sellApi 側で Worldwide（全世界）固定。国別ホワイトリストは EBAY_US で 216347 により
+// AU/GB/CA/DE/FR の5カ国に縮退し、対象外の買い手に「見積もり依頼」を出す原因になるため廃止。
 
 export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>({ ...DEFAULTS });
   const [showAdvanced, setShowAdvanced] = useState(false); // 詳細オプション（変更したい人だけ）
-  // 発送先の国（アメリカは常に含む）。規定＝推奨発送先（主要英語/EU圏＋低リスクなアジア）。基本このままでOK、詳細オプションで増減できる。
-  const [regions, setRegions] = useState<string[]>(["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"]);
-  const toggleRegion = (code: string) =>
-    setRegions((rs) => (rs.includes(code) ? rs.filter((r) => r !== code) : [...rs, code]));
   // 返品：規定で受け付ける（30日・返送料は買い手負担）。eBayは30日返品可を検索/Top Rated で優遇＝売れやすい。
   const [returnsAccepted, setReturnsAccepted] = useState(true);
   // 送料無料(送料込み)ポリシーも作る。規定ON＝出品/編集の「送料込み」トグルが使えるようになる。
@@ -94,7 +74,6 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
           small: vals.small,
           medium: vals.medium,
           large: vals.large,
-          regions,
           returnsAccepted,
           returnDays: 30,
           freeShipping,
@@ -139,7 +118,7 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
         <p className="text-[11px] font-black text-[#2D323B]">おすすめ設定（このまま登録でOK）</p>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料</span><span className="font-bold text-gray-800 text-right tabular-nums">サイズで自動（<span className="whitespace-nowrap">小約¥{Math.round(Number(vals.small) * 155).toLocaleString("ja-JP")}</span>・<span className="whitespace-nowrap">中約¥{Math.round(Number(vals.medium) * 155).toLocaleString("ja-JP")}</span>・<span className="whitespace-nowrap">大約¥{Math.round(Number(vals.large) * 155).toLocaleString("ja-JP")}</span>／購入者負担）</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">送料無料（送料込み）</span><span className="font-bold text-gray-800">{freeShipping ? "使える（おすすめ）" : "作らない"}</span></div>
-        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right whitespace-nowrap">アメリカ＋{regions.length}の国・地域</span></div>
+        <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送先</span><span className="font-bold text-gray-800 text-right whitespace-nowrap">全世界（アメリカ＋世界中）</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">返品</span><span className="font-bold text-gray-800">{returnsAccepted ? "30日OK（売れやすい）" : "なし"}</span></div>
         <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">発送まで</span><span className="font-bold text-gray-800">{vals.handlingDays}日</span></div>
       </div>
@@ -199,34 +178,14 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
               ))}
             </div>
 
-            {/* 発送先の国（アメリカは常に対象＝DOMESTIC） */}
+            {/* 発送先（全世界固定・eBayの「見積もり依頼」を出さないため） */}
             <div className="space-y-1.5">
-              <p className="text-[12px] font-bold text-gray-700">発送先の国</p>
+              <p className="text-[12px] font-bold text-gray-700">発送先</p>
               <p className="text-[11px] text-gray-400 leading-relaxed">
-                <span className="whitespace-nowrap">アメリカは常に対象。</span><wbr />
-                <span className="whitespace-nowrap">推奨は主要英語/EU圏＋低リスクなアジア</span><wbr />
-                <span className="whitespace-nowrap">（香港・シンガポール・台湾・韓国・日本）。</span><wbr />
-                <span className="whitespace-nowrap">送料は米国宛ベースで同額請求。</span><wbr />
-                <span className="whitespace-nowrap">詐欺/通関リスクの高い国は外しています。</span>
+                <span className="whitespace-nowrap">アメリカ＋世界中（Worldwide）に発送。</span><wbr />
+                <span className="whitespace-nowrap">国を絞ると一部の国に「送料見積もり依頼」が</span><wbr />
+                <span className="whitespace-nowrap">出て売れないため、全世界で固定しています。</span>
               </p>
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#2D323B] text-white whitespace-nowrap">アメリカ（必須）</span>
-                {COUNTRIES.map((c) => {
-                  const on = regions.includes(c.code);
-                  return (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => toggleRegion(c.code)}
-                      className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
-                        on ? "bg-[#2D323B]/10 border-[#2D323B]/40 text-[#2D323B]" : "bg-white border-[#A98B5C]/35 text-gray-400"
-                      }`}
-                    >
-                      {on ? "✓ " : ""}{c.label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             {/* 送料無料（送料込み）ポリシー */}
