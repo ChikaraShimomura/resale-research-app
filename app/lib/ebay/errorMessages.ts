@@ -144,6 +144,26 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
       known: true,
     };
 
+  // 出品がeBayサイト/別ツールの管理下に移り、アプリ(Inventory API)から変更できない（#21916884/#21919474）。
+  // eBay側でこの出品を編集すると起きる。一度この状態になると、eBayで削除してアプリから出品し直すしかない。
+  // ※ listing.ts の LISTING_CONFLICT_RE と同じエラー群（あちらは出品の自己修復、ここは画面表示の日本語化）。
+  if (
+    errorId === "21916884" ||
+    errorId === "21919474" ||
+    has(
+      "inventory-based listing management is not currently supported",
+      "refer to the tool used to create this listing",
+      "not allowed for inventory items"
+    )
+  )
+    return {
+      message:
+        "この出品はeBayサイト側で編集されたため、アプリからは変更できなくなっています。" +
+        "お手数ですが、eBayでこの出品を一度削除してから、アプリで出品し直してください" +
+        "（以後の写真・価格の変更は、アプリの「出品を編集」から行うと管理が外れません）。",
+      known: true,
+    };
+
   // ── ここから「出品内容」起因のエラー。errorId を最優先に分類し、疑わしいフィールド名を文に差し込む ──
   // ※ Best Offer(値下げ交渉)は廃止したので、自動承諾額関連のエラー分類は撤去（自社出品では発生しない）。
 
