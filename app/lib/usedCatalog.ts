@@ -235,12 +235,17 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
       const st = (f as { status?: string } | null)?.status;
       return st === "soldout" || st === "dead";
     };
+    // ★精度極限ゲート：確定品(ebayConfirmed=同一型番でeBay実落札を照合済＝精密な想定売値)のみ配信する。
+    //   build直後の未確定候補は「カテゴリ系列の中央値＝目安」で精度が落ちるため出さず、refine(型番確定)が通ってから出す。
+    //   既定ON。確定品が薄くて一覧が寂しい時だけ env USED_CATALOG_CONFIRMED_ONLY=0 で一時的に目安品も出せる(再デプロイ不要)。
+    const confirmedOnly = process.env.USED_CATALOG_CONFIRMED_ONLY !== "0";
     // 利益率＝純利益 ÷ 仕入れ価格（仕入れに対する投資収益率/ROI）に配信時で統一する。
     // ⚠️ ビルド/refineスクリプトが過去に「純利益 ÷ eBay想定売値（粗利率）」で書いていたため、
     //    古いKVデータでも正しい率になるよう配信時に必ず再計算する（buyJpy=0/欠損は0%）。
     return arr
       .filter((x) => x && typeof x.profitJpy === "number")
       .filter((x) => !isSoldOut(x.id)) // 仕入れ元が売切/削除＝もう仕入れられないので一覧から隠す
+      .filter((x) => !confirmedOnly || x.ebayConfirmed === true) // 精度極限：確定品(実落札・同一型番)のみ
       .map((x) => ({ ...x, profitRate: x.buyJpy > 0 ? Math.round((x.profitJpy / x.buyJpy) * 100) : 0 }))
       // 利益率＝純利益÷仕入れ値(ROI)が10%未満の品は配信時に弾く（ビルド/refineの版に依らず最終ゲートで保証）。
       // ⚠️ 端数で「10%」表示なのに除外…を避けるため生比率(>=0.10)で判定（round前）。

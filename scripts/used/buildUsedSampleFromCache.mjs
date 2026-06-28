@@ -78,9 +78,11 @@ async function loadCategories() {
   const all = await loadCategories(); // ハードオフ中古ジャンル（時計/オーディオ/カメラ/ゲーム機/エフェクター）
 
   const catalog = [];
-  const TARGET = Number(process.env.TARGET) || 600; // 候補の総上限（env TARGET で調整可・上げると候補↑＝refineのeBay負荷↑）
-  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 20; // 1カテゴリあたりの上限（env CAP_PER_CAT で調整可）
-  const PAGES = Number(process.env.HARDOFF_PAGES) || 3; // 1カテゴリで取るハードオフ検索ページ数（増やすと候補↑＝供給拡大の主レバー）
+  // 精度極限ゲート(getUsedCatalog=確定品のみ配信)により、未確定候補は表示されず「確定待ちキュー」になる。
+  // ＝候補を厚く貯めても精度は落ちない。キューを厚くするほど refine が確定できる型番の母数が増える(歩留まり↑)。
+  const TARGET = Number(process.env.TARGET) || 1200; // 候補の総上限（確定待ちキュー。env TARGET で調整可）
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 40; // 1カテゴリ上限（取得済みページから拾う数を増やす＝追加fetchなしで候補↑）
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 4; // 1カテゴリで取るハードオフ検索ページ数（深掘り。低頻度厳守で3h毎なら4は常識内）
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
