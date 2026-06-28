@@ -789,6 +789,27 @@ export async function withdrawListingForSku(
   return { ok: false, ended: false, error: r.error };
 }
 
+// 再出品: 取り下げ済み(UNPUBLISHED)オファーを再公開する＝元の価格/カテゴリ/Item Specifics/ポリシーのまま
+// eBay 出品を復活させる。オファーは eBay 側に保持されている(withdrawOfferは消さない)のでパラメータ再構築は不要。
+// 25604(在庫反映待ち)は待って再試行。既に PUBLISHED なら冪等で ok:true(alreadyLive)。⚠️ウォッチャー/閲覧数は
+// eBay仕様上、再公開で新listingId＝引き継がれない（どの再出品方法でも同じ）。
+export async function republishOfferForSku(
+  token: string,
+  sku: string
+): Promise<{ ok: boolean; listingId?: string; alreadyLive?: boolean; error?: string }> {
+  const offer = await getOfferForSku(token, sku);
+  if (!offer?.offerId) return { ok: false, error: "オファーが見つかりません（eBay側に保持されていない＝出品モーダルから作り直しが必要）。" };
+  if (offer.status === "PUBLISHED" && offer.listingId) return { ok: true, listingId: offer.listingId, alreadyLive: true };
+  let pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offer.offerId}/publish`);
+  for (let attempt = 1; attempt <= 2 && !pub.ok && /25604|availability not found/i.test(pub.error ?? ""); attempt++) {
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
+    pub = await ebayFetch(token, "POST", `/sell/inventory/v1/offer/${offer.offerId}/publish`);
+  }
+  if (!pub.ok) return { ok: false, error: pub.error };
+  const listingId = (pub.data as { listingId?: string } | null)?.listingId;
+  return { ok: true, listingId };
+}
+
 // ── 実物写真の追加（在庫アイテムの画像を差し替え。公開中の出品にも即反映） ──
 // 在庫アイテムをGETで読む（imageUrlsのマージや状態維持のため。PUTは全置換なので既存値を欠かさず再送する）。
 export async function getInventoryItem(token: string, sku: string): Promise<Record<string, unknown> | null> {
