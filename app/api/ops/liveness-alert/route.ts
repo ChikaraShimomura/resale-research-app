@@ -1,18 +1,18 @@
 import { kv } from "@vercel/kv";
 import { sendEmail, REPORT_TO } from "../../../lib/email";
 
-// 売切見張りワーカー(スマホ/住宅IP)の死活監視。cron-job.org から定期的に叩く(GitHub Actions schedule に依存しない)。
-// ワーカーが書く心拍が古ければ「止まってる/ブロックされてる」と判断しメール通知。連投なし(状態遷移時＋down継続は24hごと)。
-// 監視はクラウド側＝スマホ本体が死んでも気づける。CRON_SECRET で保護。
+// 中古カタログ・ワーカー(スマホ/住宅IP)の死活監視。cron-job.org から定期的に叩く(GitHub Actions schedule に依存しない)。
+// ワーカーが各ジョブ後に書く心拍(wlog:*)が古ければ「止まってる/ブロックされてる」と判断しメール通知。
+// 連投なし(状態遷移時＋down継続は24hごと)。監視はクラウド側＝スマホ本体が死んでも気づける。CRON_SECRET で保護。
+// ※ 旧「楽天の売切検知(liveness)/ギャラリー取得(gallery)」の心拍監視は無在庫モデル撤去に伴い廃止(2026-06-28)。
+//    心拍は最頻ジョブ＝型番リファイン(refine・20分ごと・成否問わず記録)を主に、build/meta もフォールバックで見る。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STALE_H = Number(process.env.LIVENESS_STALE_HOURS) || 3;
+const STALE_H = Number(process.env.LIVENESS_STALE_HOURS) || 3; // refineは20分ごと→3h超(=約9バッチ欠)で異常
 const REMIND_H = Number(process.env.LIVENESS_REMIND_HOURS) || 24;
-const GALLERY_STALE_H = Number(process.env.GALLERY_STALE_HOURS) || 12; // ギャラリーは約6hごと→12h超で異常
 
-type RealRun = { at?: string };
-type Status = { at?: string; soldout?: number; catalogHidden?: number };
+type Wlog = { at?: string; exit?: number | null; git?: string };
 type AlertState = { down?: boolean; since?: string | null; lastEmailAt?: string | null };
 
 const fmtAge = (ms: number) => {
@@ -29,9 +29,9 @@ function downHtml(reasons: string[]) {
     <p><code>bash ~/resale-research-app/scripts/termux-run.sh</code></p>
     <p>復活すると、自動で「復活しました」メールが届きます。</p>`;
 }
-function upHtml(st: Status | null) {
-  return `<p>✅ <b>売切の見張りが復活しました。</b></p>
-    <p>直近：${st?.at || "-"}（売切 ${st?.soldout ?? "-"} 件 / カタログ非表示 ${st?.catalogHidden ?? "-"} 件）。正常稼働中です。</p>`;
+function upHtml(beat: Wlog | null) {
+  return `<p>✅ <b>中古カタログ・ワーカーが復活しました。</b></p>
+    <p>直近：${beat?.at || "-"}（${beat?.git || "-"}）。正常稼働中です。</p>`;
 }
 
 export async function GET(req: Request) {
@@ -51,20 +51,22 @@ export async function GET(req: Request) {
   }
 
   const now = Date.now();
-  // 売切検知(liveness): 実検査成立時刻を最優先・STALE_H(既定3h)超で異常
-  const real = await kv.get<RealRun>("liveness_last_real_run");
-  const st = await kv.get<Status>("liveness_status");
-  const livenessAt = real?.at || st?.at || null;
-  const livenessAge = livenessAt ? now - Date.parse(livenessAt) : Infinity;
-  // ギャラリー取得(gallery): 約6hごと→GALLERY_STALE_H(既定12h)超で異常。心拍がまだ無い(移行直後)なら判定保留(誤報防止)。
-  const gallery = await kv.get<RealRun>("gallery_last_run");
-  const galleryAge = gallery?.at ? now - Date.parse(gallery.at) : null;
+  // 心拍＝ワーカーが各ジョブ後に書く wlog:*。最頻の refine を主に、build/meta もフォールバック(=どれか新しければ生存)。
+  const [refine, build, meta] = await Promise.all([
+    kv.get<Wlog>("wlog:refine"),
+    kv.get<Wlog>("wlog:build"),
+    kv.get<Wlog>("wlog:meta"),
+  ]);
+  const beats = [refine, build, meta].filter((b): b is Wlog => !!b?.at);
+  // 一度も心拍が無い(移行直後/初回起動前)はアラームを出さない＝誤警告回避(fail-safe)。本物の停止は次回以降が拾う。
+  if (beats.length === 0) {
+    return Response.json({ ok: true, down: false, unknown: true, action: "none" });
+  }
+  const freshest = beats.reduce((a, b) => (Date.parse(a.at!) >= Date.parse(b.at!) ? a : b));
+  const age = now - Date.parse(freshest.at!);
 
   const reasons: string[] = [];
-  if (!livenessAt || !Number.isFinite(livenessAge) || livenessAge > STALE_H * 3600000)
-    reasons.push(`売切検知が止まっています（最終 ${fmtAge(livenessAge)}）`);
-  if (galleryAge != null && galleryAge > GALLERY_STALE_H * 3600000)
-    reasons.push(`ギャラリー取得が止まっています（最終 ${fmtAge(galleryAge)}）`);
+  if (age > STALE_H * 3600000) reasons.push(`ワーカーが止まっています（最終 ${fmtAge(age)}）`);
   const down = reasons.length > 0;
   const prev = (await kv.get<AlertState>("liveness_alert_state")) || { down: false, since: null, lastEmailAt: null };
 
@@ -84,14 +86,13 @@ export async function GET(req: Request) {
       action = "down-suppressed";
     }
   } else if (prev.down) {
-    await sendEmail({ to: REPORT_TO, subject: "✅ 輸出ラボ 住宅IPワーカーが復活しました", html: upHtml(st) });
+    await sendEmail({ to: REPORT_TO, subject: "✅ 輸出ラボ 住宅IPワーカーが復活しました", html: upHtml(freshest) });
     await kv.set("liveness_alert_state", { down: false, since: null, lastEmailAt: new Date(now).toISOString() });
     action = "recovered";
   }
 
   return Response.json({
     ok: true, down, reasons, action,
-    livenessAgeH: Number.isFinite(livenessAge) ? Math.round((livenessAge / 3600000) * 10) / 10 : null,
-    galleryAgeH: galleryAge != null ? Math.round((galleryAge / 3600000) * 10) / 10 : null,
+    ageH: Math.round((age / 3600000) * 10) / 10,
   });
 }

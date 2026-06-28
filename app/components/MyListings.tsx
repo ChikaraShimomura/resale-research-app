@@ -63,7 +63,6 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
   const [relistProduct, setRelistProduct] = useState<ProfitProduct | null>(null); // 再出品モーダルで開く商品
   const [relistBusy, setRelistBusy] = useState<string | null>(null); // 再出品の商品データ取得中
   const [editDeal, setEditDeal] = useState<LiveDeal | null>(null); // アプリ内編集（価格・数量）モーダルで開く出品
-  const [livenessStale, setLivenessStale] = useState(false); // 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている
   const [planInfo, setPlanInfo] = useState<{ planName: string; limit: number | null; liveCount: number } | null>(null); // プラン上限ナッジ用
   const [optimizedIds, setOptimizedIds] = useState<Set<string>>(new Set()); // 現テンプレ版で最適化済みの商品ID（ボタンのグレーアウト用）
   const [optBusy, setOptBusy] = useState<string | null>(null); // 最適化中の商品ID
@@ -120,14 +119,6 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
     }
     setOptBusy(null);
   };
-
-  // 売切検知ワーカー(住宅IP)の鮮度を確認。停止中(stale)なら在庫チェックが遅れている＝降格表示する。
-  useEffect(() => {
-    fetch("/api/ops/liveness", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => setLivenessStale(j?.fresh === false))
-      .catch(() => {});
-  }, []);
 
   // 「出品停止」：eBayの出品(オファー)を取り下げて終了し、出品停止中一覧へ移す。
   const stopListing = async (productId: string) => {
@@ -233,20 +224,6 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       )}
 
       {/* 売切検知ワーカー(住宅IP)が停止中＝在庫チェックが遅れている時の降格バナー（出品中がある時だけ） */}
-      {livenessStale && show.includes("live") && (live?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
-          <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
-            <span className="whitespace-nowrap">⚠️ 在庫の自動チェックが</span><wbr />
-            <span className="whitespace-nowrap">一時停止中。</span><wbr />
-            <span className="whitespace-nowrap">売り切れ検知が遅れる場合あり。</span><wbr />
-            <span className="font-normal text-amber-700/80">
-              <span className="whitespace-nowrap">出品中は念のため</span><wbr />
-              <span className="whitespace-nowrap">仕入れ先の在庫もご確認を。</span>
-            </span>
-          </p>
-        </div>
-      )}
-
       {/* プラン上限ナッジ：同時出品が上限の8割以上で表示。到達なら強め＋アップグレード導線。 */}
       {show.includes("live") && planInfo?.limit != null && planInfo.liveCount / planInfo.limit >= 0.8 && (
         <div className={`rounded-xl border px-4 py-3 ${planInfo.liveCount >= planInfo.limit ? "border-amber-300 bg-amber-50" : "border-[#A98B5C]/30 bg-[#A98B5C]/5"}`}>
