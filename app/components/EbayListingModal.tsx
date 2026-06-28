@@ -858,13 +858,13 @@ export default function EbayListingModal({
                   <label className={`flex items-start gap-2 mb-1.5 ${canFreeShip ? "" : "opacity-60"}`}>
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={freeShip && canFreeShip} disabled={!canFreeShip} onChange={() => setFreeShip(true)} />
                     <span className="text-[12px] leading-snug">
-                      <b className="whitespace-nowrap">送料無料(推奨)</b><span className="text-gray-500"> — <span className="whitespace-nowrap">出品価格 + 送料を合算して請求</span></span>
+                      <b className="whitespace-nowrap">送料無料(推奨)</b><span className="text-gray-500"> : <span className="whitespace-nowrap">出品価格 + 送料を合算して請求</span></span>
                       {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5"><span className="whitespace-nowrap">※eBayに「送料無料」の配送ポリシーを</span><wbr /><span className="whitespace-nowrap">1つ作ると使えます（一度だけ）。</span><wbr /><span className="whitespace-nowrap">今は送料別。</span></span>}
                     </span>
                   </label>
                   <label className="flex items-start gap-2">
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={!freeShip || !canFreeShip} onChange={() => setFreeShip(false)} />
-                    <span className="text-[12px] leading-snug"><b className="whitespace-nowrap">送料別（購入者が送料を払う）</b><span className="text-gray-500"> — <span className="whitespace-nowrap">本体価格＋送料を別に請求</span></span></span>
+                    <span className="text-[12px] leading-snug"><b className="whitespace-nowrap">送料別(購入者が送料を払う)</b><span className="text-gray-500"> : <span className="whitespace-nowrap">本体 + 送料を別に請求</span></span></span>
                   </label>
                 </div>
 
