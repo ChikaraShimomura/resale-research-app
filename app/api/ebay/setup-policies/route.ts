@@ -7,7 +7,7 @@ import {
   createFlatIntlFulfillmentPolicy,
   createFreeIntlFulfillmentPolicy,
   getFulfillmentPolicies,
-  pickGoodServiceCodes,
+  resolveServiceCodes,
 } from "../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../lib/ebay/errorMessages";
 
@@ -88,8 +88,8 @@ export async function POST(req: Request) {
     error: ret.error,
   });
 
-  // 配送サービスコードは既存の正しいポリシーから読み戻す（USPS等の再生成を防ぐ）。無ければ sellApi の既定。
-  const codes = pickGoodServiceCodes(await getFulfillmentPolicies(token, MARKETPLACE)) ?? undefined;
+  // 配送サービスコードは既存の正しいポリシー→全アカ学習値→既定 の順で解決（USPS等の再生成を防ぐ）。
+  const codes = await resolveServiceCodes(await getFulfillmentPolicies(token, MARKETPLACE));
 
   for (const s of sizes) {
     const f = await createFlatIntlFulfillmentPolicy(

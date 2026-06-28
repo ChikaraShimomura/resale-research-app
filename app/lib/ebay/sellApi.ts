@@ -1,6 +1,7 @@
 // eBay Sell API クライアント（サーバー専用・読み取り中心）。
 // アクセストークンは getValidAccessToken() で取得したものを渡す。
 // まずは「出品準備チェック」用の参照系のみ。下書き作成(write)は別途・要確認のうえ追加する。
+import { kv } from "@vercel/kv";
 
 const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
 const API = ENV === "sandbox" ? "https://api.sandbox.ebay.com" : "https://api.ebay.com";
@@ -584,6 +585,46 @@ export function pickGoodServiceCodes(policies: RawFulfillmentPolicy[]): Shipping
   return null;
 }
 
+// ── 学習した配送サービスコード（全アカウント共通）──
+// eBay の shippingServiceCode はマーケット(EBAY_US)共通なので、1つでも正しいポリシーを持つアカウントから
+// 読み戻せれば、基準ポリシーが無い別アカウント(チーム等)もそのコードを使える。
+// ⚠️ OtherInternational(=既定フォールバック)は買い手に「送料見積もりをリクエスト」を出すので学習・採用しない。
+const LEARNED_CODES_KEY = "ebay:learned_service_codes:EBAY_US";
+
+async function loadLearnedServiceCodes(): Promise<ShippingServiceCodes | null> {
+  try {
+    const v = await kv.get<ShippingServiceCodes>(LEARNED_CODES_KEY);
+    if (!v?.domestic || !v?.intl) return null;
+    if (isUsCarrierCode(v.domestic) || isUsCarrierCode(v.intl) || v.intl === DEFAULT_INTL_SERVICE_CODE) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+async function saveLearnedServiceCodes(codes: ShippingServiceCodes): Promise<void> {
+  // 既定フォールバック(OtherInternational等)や米国キャリアは「正しいコード」ではないので学習しない。
+  if (isUsCarrierCode(codes.domestic) || isUsCarrierCode(codes.intl) || codes.intl === DEFAULT_INTL_SERVICE_CODE) return;
+  try {
+    await kv.set(LEARNED_CODES_KEY, codes);
+  } catch {
+    /* noop */
+  }
+}
+
+// 有効な配送サービスコードを解決：このアカウントの正しいポリシー → 全アカ学習値 → 既定。
+// 正しいコードを読み戻せたら全アカ共通として学習する（他アカウントの基準になる）。
+export async function resolveServiceCodes(policies: RawFulfillmentPolicy[]): Promise<ShippingServiceCodes> {
+  const own = pickGoodServiceCodes(policies);
+  if (own && own.intl !== DEFAULT_INTL_SERVICE_CODE) {
+    await saveLearnedServiceCodes(own);
+    return own;
+  }
+  const learned = await loadLearnedServiceCodes();
+  if (learned) return learned;
+  return own ?? DEFAULT_SERVICE_CODES;
+}
+
 // 配送ポリシーの作成（重複なら更新）。名前は固定のため再実行で同名衝突する→「重複なら更新(PUT)」する。
 // okIfExists で握りつぶすと送料・発送日数の変更が無音で無効化されるため、必ず更新する。
 async function upsertFulfillmentPolicy(
@@ -698,7 +739,24 @@ export async function optimizeFulfillmentPolicies(
   regions: string[]
 ): Promise<PolicyOptimizeResult> {
   const policies = await getFulfillmentPolicies(token, marketplace);
-  const codes = pickGoodServiceCodes(policies) ?? DEFAULT_SERVICE_CODES;
+  const codes = await resolveServiceCodes(policies);
+  // 正しい国際コードを学習できていない場合は OtherInternational を適用しない（買い手に「見積もり依頼」が出る原因）。
+  // 先に正しい配送ポリシーを持つアカウントで最適化すれば、全アカウント共通で学習される。
+  if (codes.intl === DEFAULT_INTL_SERVICE_CODE) {
+    return {
+      ok: false,
+      steps: [
+        {
+          step: "配送ポリシー",
+          ok: false,
+          error:
+            "正しい国際配送コードを学習できていません。先に「Shipping Free」を正しく設定したアカウント(例: japanselecttrading)でこのボタンを押すと、全アカウント共通のコードとして学習し、他のアカウントも直せるようになります。",
+        },
+      ],
+      codes,
+      fixedCount: 0,
+    };
+  }
   const targets = policies.filter((p) => (p.name ?? "").startsWith("Shipping "));
   const steps: PolicyOptimizeStep[] = [];
   let fixedCount = 0;
