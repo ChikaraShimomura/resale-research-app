@@ -1,3 +1,4 @@
+import { kv } from "@vercel/kv";
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
 import { optimizeFulfillmentPolicies, type PolicyOptimizeStep } from "../../../lib/ebay/sellApi";
@@ -21,6 +22,18 @@ export async function POST() {
   if (!token) return Response.json({ ok: false, error: "eBay未連携です。先に連携してください。" }, { status: 401 });
 
   const result = await optimizeFulfillmentPolicies(token, MARKETPLACE, DEFAULT_REGIONS);
+
+  // 診断(一時): 検出した生サービスコードをKVに残す。復号鍵なしでローカルから原因を確認するため。
+  try {
+    await kv.lpush(
+      "ebay:optimize_diag",
+      JSON.stringify({ conn, ok: result.ok, codes: result.codes, seen: result.seen, ts: new Date().toISOString() })
+    );
+    await kv.ltrim("ebay:optimize_diag", 0, 19);
+    await kv.expire("ebay:optimize_diag", 7 * 24 * 60 * 60);
+  } catch {
+    /* 診断失敗は無視 */
+  }
 
   const friendlySteps = result.steps.map((s) => {
     // こちらが意図して出す案内(known)はそのまま見せる（生eBayエラー変換も「報告」導線も出さない）。

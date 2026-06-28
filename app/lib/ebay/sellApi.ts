@@ -733,6 +733,7 @@ export interface PolicyOptimizeResult {
   steps: PolicyOptimizeStep[];
   codes: ShippingServiceCodes;
   fixedCount: number;
+  seen?: { name: string; dom: string | null; intl: string | null }[]; // 診断: 各ポリシーが実際に持つサービスコード
 }
 export async function optimizeFulfillmentPolicies(
   token: string,
@@ -741,6 +742,12 @@ export async function optimizeFulfillmentPolicies(
 ): Promise<PolicyOptimizeResult> {
   const policies = await getFulfillmentPolicies(token, marketplace);
   const codes = await resolveServiceCodes(policies);
+  // 診断: 各ポリシーが実際に持つ国内/国際サービスコード（検出ロジックの当たり外れを確認するため）。
+  const seen = policies.map((p) => ({
+    name: p.name ?? "",
+    dom: serviceCodeOf(p, "DOMESTIC") ?? null,
+    intl: serviceCodeOf(p, "INTERNATIONAL") ?? null,
+  }));
   // 正しい国際コードを学習できていない場合は OtherInternational を適用しない（買い手に「見積もり依頼」が出る原因）。
   // 先に正しい配送ポリシーを持つアカウントで最適化すれば、全アカウント共通で学習される。
   if (codes.intl === DEFAULT_INTL_SERVICE_CODE) {
@@ -756,6 +763,7 @@ export async function optimizeFulfillmentPolicies(
         },
       ],
       codes,
+      seen,
       fixedCount: 0,
     };
   }
@@ -769,7 +777,7 @@ export async function optimizeFulfillmentPolicies(
       ok: false,
       error: "アプリの配送ポリシー(Shipping *)が見つかりません。先に出品設定で作成してください。",
     });
-    return { ok: false, steps, codes, fixedCount };
+    return { ok: false, steps, codes, seen, fixedCount };
   }
 
   for (const p of targets) {
@@ -804,5 +812,5 @@ export async function optimizeFulfillmentPolicies(
     steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}` });
   }
 
-  return { ok: steps.every((s) => s.ok), steps, codes, fixedCount };
+  return { ok: steps.every((s) => s.ok), steps, codes, seen, fixedCount };
 }
