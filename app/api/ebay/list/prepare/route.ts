@@ -19,7 +19,7 @@ import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
 import { hasPerm } from "../../../../lib/team";
-import { breakevenUsd } from "../../../../lib/ebay/priceModel";
+import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
 
 // 「eBay出品画面」の確認用データを返す（読み取りのみ・eBayへの書き込みなし）。
 // 楽天画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
@@ -367,9 +367,9 @@ export async function POST(req: Request) {
   const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
   // 着地コストの内訳表示用（モーダルに渡す）＝推奨価格(priceUsd)時点の送料/関税の目安。
   const landed = landedCostForWeight(weightG, Number(priceUsd));
-  // 損益分岐(±0)は SSOT(breakevenUsd)で算出＝モーダル/商品管理と完全一致。自己整合(自分の価格で着地コスト評価)の
-  // 不動点なので、関税$100/EMS$120のしきい値をまたいでも矛盾しない。重量は推定実重量(weightG)。
-  const floorUsd = breakevenUsd(effBuyJpy, weightG).toFixed(2);
+  // 損益分岐(±0)は SSOT(breakevenTotalUsd)で算出＝モーダル/商品管理と完全一致。総額(eBay掲載価格)基準で
+  // 関税$100/EMS$120を総額で評価＝閾値跨ぎでも矛盾せず絶対に赤字にならない。重量は推定実重量(weightG)。
+  const floorUsd = breakevenTotalUsd(effBuyJpy, weightG).toFixed(2);
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 

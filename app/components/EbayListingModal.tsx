@@ -9,7 +9,7 @@ import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
-import { computePriceModel, floorAtPriceUsd } from "../lib/ebay/priceModel";
+import { computePriceModelTotal, netAtTotalJpy } from "../lib/ebay/priceModel";
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
@@ -306,13 +306,13 @@ export default function EbayListingModal({
 
   // 準備済みの内容で出品APIを叩く（publish と「登録完了」で共有）。
   const postPublish = (): Promise<PublishResult> => {
-    // 送料込み(送料無料)なら、選んだ送料サイズの送料を価格に上乗せ＋配送ポリシーを「送料無料」に差し替える。
-    // eBay上は「価格=本体+送料／送料無料」になり、総額が同じでも検索(総額順)・バイヤー心理で有利。
-    // 送料無料ポリシーが口座に無ければ自動で送料別のまま(useFree=false)。
+    // 価格は「総額(買い手の支払=申告価値)」基準。送料無料モード＝eBay掲載価格=総額そのまま(送料を別請求しない＝検索の総額順/心理で有利)。
+    // 送料別モード＝eBay商品価格=総額−送料で出し送料を別請求＝買い手の総額は同じ。送料無料ポリシーが無ければ自動で送料別。
     const freePol = data?.shipping?.find((s) => Number(s.costUsd) < 0.01) || null;
     const selPol = data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId) || null;
     const useFree = freeShip && !!freePol;
-    const foldUsd = useFree ? Number(selPol?.costUsd || 0) : 0;
+    const shipChargeUsd = Number(selPol?.costUsd || 0);
+    const itemPriceUsd = useFree ? Number(priceUsd || 0) : Math.max(0.01, Number(priceUsd || 0) - shipChargeUsd);
     return fetch("/api/ebay/list/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -320,7 +320,7 @@ export default function EbayListingModal({
         productId: product.id,
         title,
         description,
-        priceUsd: (Number(priceUsd || 0) + foldUsd).toFixed(2), // 送料込みは送料分を上乗せ
+        priceUsd: itemPriceUsd.toFixed(2), // 総額基準：送料無料=総額そのまま／送料別=総額−送料(商品価格)
         condition,
         categoryId: data?.category?.categoryId,
         aspects,
@@ -434,7 +434,9 @@ export default function EbayListingModal({
   };
   // 候補があるのに1枚も選んでいなければ出品させない（写真ゼロの出品を防ぐ）。
   const photoOk = photoCandidates.length === 0 || selectedImages.length >= 1;
-  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled && photoOk;
+  // $800超は米国向けDDP郵便ルートで発送不可＝売れても出荷不能(キャンセル/defect)になるため出品をブロックする(総額=priceUsdで判定)。
+  const aboveDdpMax = Number(priceUsd) > 800;
+  const canPublish = !!data?.category?.categoryId && Number(priceUsd) > 0 && aspectsFilled && photoOk && !aboveDdpMax;
 
   // 売り方の選択：最安（eBay最安・最速・既定）/ はやく（相場-8%）/ 高く（相場どおり）。選ぶと価格を自動セット。
   // 相場の基準は中央値(medianUsd)。表示価格(priceUsd)は最安ベースなので、はやく/高くは中央値を基準に計算する。
@@ -444,24 +446,23 @@ export default function EbayListingModal({
   // またいで価格を変えた時に floor が実態とズレ、過剰/過少な赤字警告になる（修正前の不具合）。空欄/タイプ途中は推奨価格へフォールバック。
   const estWeightG = data?.landed?.weightG ?? 700;
   const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
-  // 関税/EMS判定は「商品価値＝本体価格(priceUsd)」で評価する。米国関税は商品価値にかかり国際送料は課税対象外(FOB基準)。
-  // ＝送料込み(送料無料)でも本体価格で判定＝損益分岐(±0ボタン)と警告が同じ基準で一致する。
+  // ★価格は全て「総額(eBay掲載価格=買い手の支払=申告価値・priceUsd)」基準。関税/EMS/送料の閾値も総額で評価する
+  //   ＝実際の送料method($120EMS)/米国関税($100)/eBay手数料と一致＝閾値を跨ぐ品も損益分岐に正しく織り込み、絶対に赤字にならない。
   const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
-  // 価格モデル(SSOT)＝商品管理(priceTiers)と【同じ式・同じ入力】。±0/最安/中央/高値を一括算出。
-  // 各段は「その価格自身の損益分岐」を絶対に割らないクランプ済み＝赤字にならない。選択を切替えても±0は動かない。
+  // 価格モデル(SSOT・総額基準)＝±0/最安/中央/高値を一括算出。各段は自身の総額で損益分岐を割らないクランプ済み＝赤字にならない。
   const priceModel = data?.effBuyJpy != null
-    ? computePriceModel(data.effBuyJpy, effWeightG, medianUsd)
+    ? computePriceModelTotal(data.effBuyJpy, effWeightG, medianUsd)
     : { breakevenUsd: Number(data?.floorUsd) || 0, lowUsd: 0, medianUsd: 0, highUsd: 0 };
-  const floorStableUsd = priceModel.breakevenUsd; // ±0表記/クランプ用（自己整合・固定）
-  // 赤字警告だけは「実際に出す価格(priceUsd)」での損益分岐で判定＝しきい値直上の薄利/赤字も検知。
-  const floorUsd =
-    data?.effBuyJpy != null
-      ? Math.round(floorAtPriceUsd(data.effBuyJpy, effWeightG, dutyValueUsd) * 100) / 100
-      : Number(data?.floorUsd) || 0;
-  // 損益分岐(floor)未満の価格＝赤字の恐れ。出すには「承知の上で」確認チェックが要る（ハードブロックはせず警告＋確認で続行可）。
-  // ※ 警告は「実際に出す価格(priceUsd)」で評価する live floorUsd を使う＝しきい値直上の薄利も正しく検知。
-  const belowFloor = floorUsd > 0 && Number(priceUsd) > 0 && Number(priceUsd) < floorUsd;
+  const floorStableUsd = priceModel.breakevenUsd; // 総額の損益分岐(±0)。表示/クランプ/警告の基準を総額で統一。
+  const floorUsd = floorStableUsd;
+  // 損益分岐未満＝赤字の恐れ。警告は「実際に出す総額(priceUsd)」での純利益で精密判定＝閾値直上の損失帯も検知。
+  // ハードブロックはせず警告＋「承知の上で」確認で続行可。
+  const belowFloor =
+    Number(priceUsd) > 0 &&
+    (data?.effBuyJpy != null
+      ? netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd)) < 0
+      : floorUsd > 0 && Number(priceUsd) < floorUsd);
   // 価格が floor 以上に戻ったら確認をリセット＝再び下回ったら必ず再チェックさせる（確認の使い回し防止）。
   useEffect(() => { if (!belowFloor) setAcceptLoss(false); }, [belowFloor]);
   // 最適サイズ（自動選択中の配送ポリシー）と、その定額請求が実費をカバーできているかの判定。
@@ -810,7 +811,7 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">出品価格（円・商品代）<ReqBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">出品価格（円・送料込み）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">¥</span>
                   <input
@@ -828,11 +829,12 @@ export default function EbayListingModal({
                 </div>
                 {/* 価格の内訳を1行コンパクトに。仕入・送料・関税・手数料を引いた利益まで。各値は下の送料/関税表示と同値。利益マイナスは赤字色。 */}
                 {Number(priceUsd) > 0 && data?.effBuyJpy != null && liveLanded && (() => {
-                  const tierUsd = Number(recoChoice?.costUsd || 0);
-                  const totalJpy = Math.round((Number(priceUsd) + tierUsd) * USD_JPY); // 買い手の支払総額(本体+送料)
+                  const totalJpy = Math.round(Number(priceUsd) * USD_JPY); // priceUsd=総額(買い手の支払)＝eBay掲載価格
                   const costJ = Math.round(data.effBuyJpy);
                   const feeJ = Math.round(totalJpy * 0.1325) + 47;
-                  const profitJ = totalJpy - costJ - Math.round(liveLanded.shippingJpy) - Math.round(liveLanded.dutyJpy) - feeJ;
+                  // 利益は損益分岐(belowFloor)と同じ式(netAtTotalJpy=安全係数込み)で出す＝緑/赤の表示が赤字警告と必ず一致する。
+                  // 内訳の送料/関税は実費の目安(liveLanded)を表示するため、安全係数ぶん利益と僅差が出るが、判定の正は利益(=net)。
+                  const profitJ = netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd));
                   const j = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
                   return (
                     <p className="text-[10px] text-gray-500 mt-1 leading-snug">
@@ -1089,6 +1091,7 @@ export default function EbayListingModal({
               { ok: aspectsFilled, label: "必須項目（商品の詳細）をすべて入力" },
               { ok: Number(priceUsd) > 0, label: "販売価格を入力" },
               { ok: !!data.category?.categoryId, label: "eBayカテゴリの自動判定" },
+              ...(aboveDdpMax ? [{ ok: false, label: "送料込み価格を$800以下に（$800超は米国へDDP発送できず出荷不能になります）" }] : []),
               ...(belowFloor ? [{ ok: acceptLoss, label: "赤字の可能性を承知のうえでチェック" }] : []),
             ];
             const unmet = checks.filter((c) => !c.ok);

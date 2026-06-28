@@ -4,14 +4,14 @@ import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock
 import { getFavoriteItems, getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
 import { listDealsForUser, getListingSku } from "../lib/ebay/stats";
 import { getValidAccessToken } from "../lib/ebay/tokens";
-import { getOfferForSku } from "../lib/ebay/listing";
+import { getOfferForSku, listFulfillmentPolicies } from "../lib/ebay/listing";
 import { skuForProduct } from "../lib/ebay/sellApi";
 import { getTeamContext } from "../lib/auth/teamActor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
 import { estimateWeightG, USD_JPY } from "../lib/ebay/landedCost";
-import { computePriceModel } from "../lib/ebay/priceModel";
+import { computePriceModelTotal } from "../lib/ebay/priceModel";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
 import FavoriteHeart from "../components/FavoriteHeart";
@@ -42,7 +42,7 @@ const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 function priceTiers(medianJpy: number, costJpy: number, category?: string, weightG?: number) {
   const medianUsd = medianJpy > 0 ? medianJpy / USD_JPY : 0;
   const w = weightG && weightG > 0 ? weightG : estimateWeightG(category);
-  const m = computePriceModel(costJpy, w, medianUsd);
+  const m = computePriceModelTotal(costJpy, w, medianUsd); // 総額(eBay掲載価格)基準。±0/最安/中央/高値とも総額で損益分岐を割らない。
   return { breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd };
 }
 
@@ -110,17 +110,26 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     }
   }
 
-  // 出品中タブ：いま実際にeBayに出している価格を取得して表示（本人が変えた値も反映）。best-effort・並列。
+  // 出品中タブ：いま実際にeBayに出している「総額(買い手の支払)」を取得して表示・赤字判定に使う。best-effort・並列。
+  // ★eBayの offer.priceUsd は「商品価格」。送料別の出品は商品価格=総額−送料なので、その出品の送料を足して総額に復元する。
+  //   価格モデル(tiers)は総額基準なので、総額同士で比較しないと送料別の黒字出品を誤って赤字判定してしまう。
   const priceById: Record<string, string> = {};
   if (tab === "listed" && live.length && ebayActor) {
     try {
       const token = await getValidAccessToken(ebayActor);
       if (token) {
+        const policies = await listFulfillmentPolicies(token).catch(() => []);
+        const shipUsdOf = (policyId?: string) => {
+          const c = Number(policies.find((p) => p.fulfillmentPolicyId === policyId)?.costUsd || 0);
+          return c >= 0.01 ? c : 0; // 送料無料ポリシーは0
+        };
         const results = await Promise.all(
           live.slice(0, 120).map(async (d) => { // 赤字バナー判定に必要なので上限を広げる(プロ100件想定をカバー)
             const sku = (await getListingSku(ebayActor, d.id)) ?? skuForProduct(d.id);
             const offer = await getOfferForSku(token, sku).catch(() => null);
-            return [d.id, offer?.priceUsd] as const;
+            if (!offer?.priceUsd) return [d.id, undefined] as const;
+            const totalUsd = (Number(offer.priceUsd) + shipUsdOf(offer.fulfillmentPolicyId)).toFixed(2); // 商品価格+送料=総額
+            return [d.id, totalUsd] as const;
           })
         );
         for (const [id, price] of results) if (price) priceById[id] = price;

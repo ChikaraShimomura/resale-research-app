@@ -7,7 +7,7 @@ import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
 import { getProductById } from "../../../../lib/ebay/productStore";
-import { breakevenUsd } from "../../../../lib/ebay/priceModel";
+import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
 import { estimateWeightG, USD_JPY } from "../../../../lib/ebay/landedCost";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
 
-// 商品の損益分岐(±0・USD)を SSOT(priceModel) で算出。原価=psnap.source.price、重量=weight:{id}キャッシュ(無ければカテゴリ概算)。
-// 手入力価格がこれ未満なら赤字＝編集モーダルで警告し、承知(acceptLoss)が無ければ更新を弾く。出品モーダル/商品管理と同じ式。
+// 商品の損益分岐(±0・USD)を SSOT(priceModel・総額基準) で算出。返り値は「総額の損益分岐」＝価格タイル/総額入力と同じ土俵で比較。
+// 原価=psnap.source.price＋国内送料、重量=weight:{id}キャッシュ(無ければカテゴリ概算)。総額がこれ未満なら赤字＝警告し承知が無ければ弾く。
 async function breakevenUsdFor(id: string): Promise<number> {
   try {
     const snap = await getProductById(id);
@@ -30,7 +30,7 @@ async function breakevenUsdFor(id: string): Promise<number> {
     const costJpy = (Number(src?.price) || 0) + (Number(src?.shippingJpy) || 0);
     const wRaw = await kvReadOnly.get<number>(`weight:${id}`);
     const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : estimateWeightG((snap as { category?: string } | null)?.category);
-    if (costJpy > 0 && weightG > 0) return Math.round(breakevenUsd(costJpy, weightG) * 100) / 100;
+    if (costJpy > 0 && weightG > 0) return Math.round(breakevenTotalUsd(costJpy, weightG) * 100) / 100;
   } catch { /* floor不明でも編集自体は使える（警告が出ないだけ） */ }
   return 0;
 }
@@ -116,9 +116,11 @@ export async function POST(req: Request) {
       if (curIsFree === false) return Response.json({ ok: true, already: true, mode: "paid" }); // 既に送料別
       const target = paid[0]; // 最安の有料送料に戻す
       if (!target) return Response.json({ ok: false, error: "有料の配送ポリシーがありません。" });
-      // 上乗せ分を価格から引く。ただし損益分岐(±0)を下回らないようクランプ＝送料別へ戻しても赤字にしない。
+      // 買い手総額(=現在の送料無料価格 curPrice)を保ちつつ損益分岐(総額)は割らせない：総額をfloorでクランプ→商品価格=総額−送料。
+      // ※ floor は breakevenTotalUsd=「総額」の損益分岐。商品価格(item)を総額floorで直接クランプすると過剰値上げになるため総額で判定する。
       const floor = await breakevenUsdFor(body.productId);
-      newPrice = Math.max(floor || 0.01, Math.round((curPrice - Number(target.costUsd)) * 100) / 100).toFixed(2);
+      const newTotal = Math.max(floor || 0.01, curPrice);
+      newPrice = Math.max(0.01, Math.round((newTotal - Number(target.costUsd)) * 100) / 100).toFixed(2);
       newPolicyId = target.fulfillmentPolicyId;
     }
     const sr = await updateOfferShipping(token, offer.offerId, { priceUsd: newPrice, fulfillmentPolicyId: newPolicyId });
@@ -155,6 +157,17 @@ export async function POST(req: Request) {
   const sku = await skuFor(actor, body.productId);
   const offer = await getOfferForSku(token, sku);
   if (!offer) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
+
+  // 総額→eBay商品価格の変換：価格タイル(PriceTierEdit)が送る priceUsd は「総額(買い手の支払=申告価値)」。
+  // 送料無料の出品はそのまま(商品価格=総額)。送料別の出品は総額からその出品の送料を引いて商品価格にする(買い手の総額は不変)。
+  if (opts.priceUsd != null) {
+    try {
+      const policies = await listFulfillmentPolicies(token);
+      const cur = policies.find((p) => p.fulfillmentPolicyId === offer.fulfillmentPolicyId) || null;
+      const curShip = cur && Number(cur.costUsd) >= 0.01 ? Number(cur.costUsd) : 0;
+      if (curShip > 0) opts.priceUsd = Math.max(0.01, Number(opts.priceUsd) - curShip).toFixed(2);
+    } catch { /* ポリシー取得失敗時は総額をそのまま商品価格に(送料無料前提・安全側) */ }
+  }
 
   // 価格のみ変更でも、現在の数量(availability)を更新リクエストに同梱する。
   // 在庫(availability)が欠けた状態だと #25604「Availability not found」系で400になることがあるため、
