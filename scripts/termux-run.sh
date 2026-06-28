@@ -16,6 +16,12 @@ SOLD_EVERY="${SOLD_EVERY_CYCLES:-24}"              # 何サイクルごとにeBa
 REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-1200}"   # 型番リファインの小バッチ間隔(秒・既定1200=20分)。1サイクル内で複数回回す。
 cd "$HOME/resale-research-app" || exit 1
 
+# 自己更新の罠対策：走行中の bash は起動時にパースした本体を実行し続けるので、git pull で
+# このスクリプト自体が変わっても新ジョブが反映されない(手動再起動が必要だった)。起動時の内容を
+# 記録し、毎サイクルの git pull 後に変化を検知したら exec で自分を再読込＝スクリプト更新を自動適用する。
+SELF="$HOME/resale-research-app/scripts/termux-run.sh"
+SELF_SUM="$(cksum "$SELF" 2>/dev/null)"
+
 termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て止まるのを防ぐ(Termux:API無ければ無視)
 
 # 各ジョブの結果(時刻/終了コード/gitコミット/ログ末尾)を KV に push＝PC側から遠隔でログを見られるようにする。
@@ -27,6 +33,14 @@ while true; do
   # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)。pull結果＋現在のgitコミットをKVに記録＝旧コードで止まってないか遠隔で分かる。
   git pull --ff-only > "$HOME/gitpull.log" 2>&1; gitrc=$?
   wl meta "$HOME/gitpull.log" "$gitrc"
+
+  # このスクリプト自体が更新されていたら exec で再読込＝新ジョブ/変更を自動適用（手動再起動が要らなくなる）。
+  # cksum が無い環境では SELF_SUM/NEW_SUM が空で一致し再起動しない（安全側）。
+  NEW_SUM="$(cksum "$SELF" 2>/dev/null)"
+  if [ -n "$NEW_SUM" ] && [ "$NEW_SUM" != "$SELF_SUM" ]; then
+    echo "termux-run.sh が更新された→ exec で再読込して新ループを適用 ($(date))"
+    exec bash "$SELF"
+  fi
 
   # ① eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→中古カタログ(build)がハードオフ照合。実売起点の発掘。
