@@ -441,13 +441,26 @@ function RelistCard({ d, snap, canList }: { d: ListedItem; snap?: ProfitProduct;
           </div>
         </div>
         <div className="mt-2.5 space-y-2">
-          {snap && canList && <ListingHelper product={snap} defaultListed={false} relist />}
-          {snap && !canList && <p className="text-[11px] text-gray-400 text-center">再出品にはプラン加入が必要です。</p>}
-          {!snap && <p className="text-[11px] text-gray-400 text-center">再出品データを準備中です。時間をおいて再度開いてください。</p>}
-          {d.listingId && (
-            <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
-              eBayの出品を見る <ExternalLink size={13} />
-            </a>
+          {snap && canList ? (
+            // 再出品する／eBayの出品を見る を横並び（同じ高さ・等幅）。
+            <div className="flex items-stretch gap-2">
+              <ListingHelper product={snap} defaultListed={false} relist />
+              {d.listingId && (
+                <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 h-11 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
+                  eBayの出品を見る <ExternalLink size={13} />
+                </a>
+              )}
+            </div>
+          ) : (
+            <>
+              {snap && !canList && <p className="text-[11px] text-gray-400 text-center">再出品にはプラン加入が必要です。</p>}
+              {!snap && <p className="text-[11px] text-gray-400 text-center">再出品データを準備中です。時間をおいて再度開いてください。</p>}
+              {d.listingId && (
+                <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
+                  eBayの出品を見る <ExternalLink size={13} />
+                </a>
+              )}
+            </>
           )}
         </div>
       </div>
