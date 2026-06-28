@@ -774,12 +774,14 @@ export async function optimizeFulfillmentPolicies(
     const name = p.name ?? "";
     const dom = p.shippingOptions?.find((o) => o.optionType === "DOMESTIC")?.shippingServices?.[0];
     const hasIntl = !!p.shippingOptions?.some((o) => o.optionType === "INTERNATIONAL");
+    const intlCode = serviceCodeOf(p, "INTERNATIONAL");
+    const badIntl = intlCode === DEFAULT_INTL_SERVICE_CODE; // OtherInternational=買い手に「送料見積もりをリクエスト」を出す
     const badCarrier = (p.shippingOptions ?? []).some((o) =>
       (o.shippingServices ?? []).some((s) => isUsCarrierCode(s.shippingServiceCode))
     );
-    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${serviceCodeOf(p, "INTERNATIONAL") ?? "(国際なし)"}`;
-    // 米国キャリアでなく国際発送もある＝既に正しい → 触らない。
-    if (!badCarrier && hasIntl) {
+    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${intlCode ?? "(国際なし)"}`;
+    // 米国キャリア/OtherInternationalでなく国際発送もある＝既に正しい → 触らない。
+    if (!badCarrier && hasIntl && !badIntl) {
       steps.push({ step: name, ok: true, before, after: "変更なし（問題なし）" });
       continue;
     }
