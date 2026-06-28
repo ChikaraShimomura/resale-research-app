@@ -23,7 +23,8 @@ export async function POST() {
   const result = await optimizeFulfillmentPolicies(token, MARKETPLACE, DEFAULT_REGIONS);
 
   const friendlySteps = result.steps.map((s) => {
-    if (s.ok || !s.error) return s;
+    // こちらが意図して出す案内(known)はそのまま見せる（生eBayエラー変換も「報告」導線も出さない）。
+    if (s.ok || !s.error || s.known) return s;
     const f = friendlyEbayError(s.error);
     return { ...s, error: f.message, known: f.known, errorDetail: s.error };
   });

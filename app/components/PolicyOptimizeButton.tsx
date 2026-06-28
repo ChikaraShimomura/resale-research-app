@@ -44,7 +44,8 @@ export default function PolicyOptimizeButton() {
         );
       } else {
         setState("error");
-        setMsg(res.errorKind === "unexpected" ? "一部で予期せぬエラーが出ました。" : res.error || "最適化できませんでした。");
+        const stepMsg = Array.isArray(res.steps) ? res.steps.find((s: Step) => !s.ok)?.error : undefined;
+        setMsg(res.errorKind === "unexpected" ? "一部で予期せぬエラーが出ました。" : stepMsg || res.error || "最適化できませんでした。");
       }
     } catch {
       setState("error");

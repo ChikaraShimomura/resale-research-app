@@ -726,6 +726,7 @@ export interface PolicyOptimizeStep {
   error?: string;
   before?: string;
   after?: string;
+  known?: boolean; // true=こちらが意図して出す案内メッセージ（生eBayエラーでない＝「開発者に報告」を出さない）
 }
 export interface PolicyOptimizeResult {
   ok: boolean;
@@ -747,10 +748,11 @@ export async function optimizeFulfillmentPolicies(
       ok: false,
       steps: [
         {
-          step: "配送ポリシー",
+          step: "先に基準アカウントで最適化が必要",
           ok: false,
+          known: true,
           error:
-            "正しい国際配送コードを学習できていません。先に「Shipping Free」を正しく設定したアカウント(例: japanselecttrading)でこのボタンを押すと、全アカウント共通のコードとして学習し、他のアカウントも直せるようになります。",
+            "まず「Shipping Free」を正しく設定済みのアカウント（例: japanselecttrading）でこのボタンを押してください。その内容を全アカウント共通の基準として学習し、このアカウントも直せるようになります。",
         },
       ],
       codes,
