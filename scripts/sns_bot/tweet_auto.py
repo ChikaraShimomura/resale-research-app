@@ -1,18 +1,26 @@
 """
 輸出ラボ 自動投稿 - 外部cronから workflow_dispatch でトリガー
 
+サイト趣旨（2026-06-25ピボット）に合わせ「日本の中古→eBay輸出で純利益が出る“儲かる型番”リサーチ」を発信する。
+データ源は中古カタログ KV `used_catalog`（型番・状態・想定売値=eBay落札中央値・純利益率/ROI）。
+⚠️ 旧モデル（楽天新品 profitable_products）は使わない。公開コピーに楽天は出さない（アフィリ撤退・直リンク方針）。
+
 コンテンツ設計(柱モデル): 価値:宣伝=8:2 を投稿数で機械的に担保する。
   柱(pillar):
-    - soba         「今日の相場 #N」日次(朝枠予約) … 商品の相場の読み解き(知識)
-    - pro          eBay輸出経験者向けの実利/相場の考え方
-    - recruit      副業初心者向けの不安解消・基礎
-    - howto        汎用ノウハウ(送料の電子申告/カテゴリ/英訳/危険物/利益計算)
-    - pitfall      「輸出の落とし穴 #N」週次(木) … 失敗→なぜ→回避
-    - buildinpublic 週次(月) … 運営のプロセス数字(出品数/相場一致率など・収入断定なし)
-    - announce     新商品告知(=直接宣伝) 1日1本まで。唯一URLを自己リプに付ける枠。
+    - soba         「今日の中古相場 #N」日次(朝枠予約) … 中古相場の読み解き(知識)
+    - pro          現役eBay輸出セラー向けの中古特有の取りこぼし防止
+    - recruit      副業初心者向け「普通の中古が海外でこの相場」の驚き＋できそう
+    - howto        中古輸出の汎用ノウハウ(状態説明/真贋/着地コスト/危険物/カテゴリ)
+    - pitfall      「中古輸出の落とし穴 #N」週次(木) … 失敗→なぜ→回避
+    - buildinpublic 週次(月) … 運営のプロセス数字(型番件数/純利益率平均など・収入断定なし)
+    - announce     新着の「利益が出る中古の型番」速報(=直接宣伝) 1日1本まで。唯一URLを自己リプに付ける枠。
+    - poll         「この中古、海外でいくら?」価格当て(答え合わせで想定売値の目安だけ開示)
   → announce以外はURLを本文にも自己リプにも付けない(リーチ重視・誘導はプロフィール)。
 
-人格(ペルソナ)を全投稿に固定注入。リーチ最適化(本文URL回避/画像ネイティブ直アップ/低頻度/
+⚠️ モート保護: 仕入れ先の店名・仕入れ値・仕入れURL・正確な型番・仕入れ元画像は“絶対に”公開しない（＝有料の核）。
+   公開して良いのは ブランド/商品名/カテゴリ/状態ランク/想定利益率(目安)/想定売値(目安=eBay落札中央値) まで。
+
+人格(ペルソナ)を全投稿に固定注入。リーチ最適化(本文URL回避/画像はデータカードを直アップ/低頻度/
 保存・問いかけCTA/ハッシュタグ基本0)は従来どおり。収入の断定・誇大はゼロ(景表法/特商法)。
 """
 import os
@@ -37,9 +45,9 @@ SEEN_KEY = "tweet_seen_pids"
 SEEN_CAP = 1200
 LOG_KEY = "tweet_post_log"        # 直近投稿 [{"t":epoch,"k":kind}, ...]
 LASTKIND_KEY = "tweet_last_kind"
-SOBA_N_KEY = "tweet_soba_n"        # 「今日の相場」連番
-PITFALL_N_KEY = "tweet_pitfall_n"  # 「輸出の落とし穴」連番
-POLL_PENDING_KEY = "tweet_poll_pending"  # 投票の答え合わせ待ち [{id,t,e,r,p}, ...]
+SOBA_N_KEY = "tweet_soba_n"        # 「今日の中古相場」連番
+PITFALL_N_KEY = "tweet_pitfall_n"  # 「中古輸出の落とし穴」連番
+POLL_PENDING_KEY = "tweet_poll_pending"  # 投票の答え合わせ待ち [{id,t,e}, ...]
 POLL_DURATION_MIN = 1440           # 投票期間(24時間)
 
 # 頻度制御
@@ -57,9 +65,12 @@ _URL_RE = re.compile(r'https?://\S+')
 
 # ── 人格(ペルソナ): 全投稿の生成プロンプトに固定注入 ──
 PERSONA = (
-    "あなたは『輸出ラボ』運営者“本人”の人格で書く。30歳くらいのITコンサルタントで、楽天→eBay輸出も自分でやっている。"
+    "あなたは『輸出ラボ』運営者“本人”の人格で書く。30歳くらいのITコンサルタントで、"
+    "日本の中古品（カメラ・ゲーム機・時計・オーディオなど）を自分でeBayに出して海外へ輸出している。"
     "口調は自然な標準語。友達に話すくらいの、ほどよく砕けた距離感(タメ口寄り)で書く。"
     "⚠️方言・関西弁は使わない（『〜やねん／〜やで／〜やろ』等のエセ関西弁は禁止）。わざとらしい言い回し・若者言葉の盛りすぎ(『ぶっちゃけ』等)も避け、等身大で素直に。"
+    "⚠️仕入れ先の店名・仕入れ値・仕入れURL・正確な型番は“絶対に”書かない（そこはツールの価値なので明かさない）。"
+    "話せるのは『どんな中古が海外で評価されるか／相場の見方／利益の考え方／状態の扱い』まで。"
     "ITコンサルなので要点はロジカルに分かりやすく整理する。絵文字は使わない。"
     "収入・利益額の断定や保証、『必ず/確実/誰でも◯円/簡単/即金/不労所得』は禁止(景表法・特商法)。利益や相場は必ず『想定・目安』とわかる書き方。"
 )
@@ -67,8 +78,8 @@ PERSONA = (
 # ── 共通: 末尾の問いかけ/保存CTA(返信・ブックマークを狙う) ──
 ENGAGE = (
     "末尾に『読み手が次に取る行動』を、はっきり1つ促すCTAを必ず入れる（押しは強めでOK。ただし誇大・命令の連打はしない）。"
-    "例:『新着は毎日更新。見逃さないようにフォローを』『プロフィールのリンクから無料で相場をチェックできる』『まず自分の家にある物の相場を調べてみて』。"
-    "行動で得られるもの（相場が分かる／取りこぼしが減る 等）を一言添えて動機まで作る。言い切りで終わらせず、続きを見たくなる余白も残す。"
+    "例:『新着は毎日更新。見逃さないようにフォローを』『プロフィールのリンクから、いま純利益が出てる中古の型番を無料でチェックできる』『まずは家やリサイクルショップにある中古の相場を調べてみて』。"
+    "行動で得られるもの（儲かる中古の型番が分かる／取りこぼしが減る 等）を一言添えて動機まで作る。言い切りで終わらせず、続きを見たくなる余白も残す。"
 )
 
 # ── 共通: 読みやすさ(改行・句読点を「適度に」入れる。多すぎは逆効果なので慎重に) ──
@@ -82,7 +93,7 @@ READABILITY = (
 # ── 共通: 検索からも見つかるよう核キーワードを“自然に”入れる(X検索は本文テキストが対象) ──
 DISCOVERY = (
     "Xの検索からも見つかるように、核となる言葉を本文に自然に入れる: 『eBay』と『輸出』は文脈に合う限り必ず入れる(この海外輸出/物販の話だと一目で分かるように)。"
-    "さらに話題に合えば『副業』『せどり』『越境EC』『物販』など“よく検索される言葉”を1つだけ自然に織り込む。"
+    "さらに話題に合えば『中古』『中古せどり』『せどり』『越境EC』など“よく検索される言葉”を1つだけ自然に織り込む。"
     "ただしキーワードの羅列・不自然な詰め込みは絶対にしない(読み手にもアルゴリズムにも嫌われる)。あくまで普通の文章の流れの中で。"
 )
 
@@ -142,6 +153,22 @@ def kv_get_raw(key: str):
         return None
 
 
+def kv_hgetall(key: str) -> dict:
+    # Upstash REST: /hgetall/{key} → {"result":[field1,val1,field2,val2,...]} を dict に畳む。
+    kv_url, kv_token = _kv_env()
+    if not kv_url or not kv_token:
+        return {}
+    try:
+        resp = requests.get(f"{kv_url}/hgetall/{key}", headers={"Authorization": f"Bearer {kv_token}"}, timeout=10)
+        arr = resp.json().get("result") or []
+        if not isinstance(arr, list):
+            return {}
+        return {arr[i]: arr[i + 1] for i in range(0, len(arr) - 1, 2)}
+    except Exception as e:
+        print(f"  KV hgetall エラー({key}): {e}")
+        return {}
+
+
 def kv_set_raw(key: str, value: str) -> bool:
     kv_url, kv_token = _kv_env()
     if not kv_url or not kv_token:
@@ -193,28 +220,84 @@ def merge_seen(seen: list, current_ids: list) -> list:
     return s[-SEEN_CAP:]
 
 
-# ── 商品取得 ──
+# ── 状態ランクの表示（app/lib/usedCatalog.ts conditionLabel と揃える） ──
+def used_condition_label(c) -> str:
+    raw = (c or "")
+    up = raw.upper()
+    if re.search(r'JUNK|ジャンク', up):
+        return "ジャンク(動作未確認)"
+    if re.search(r'新品|未使用', raw):
+        return "新品同様"
+    m = re.search(r'(?:中古)?\s*([NSABCD])\b', up)
+    rank = m.group(1) if m else ""
+    return {
+        "N": "新品同様", "S": "ほぼ新品", "A": "目立つ傷なし",
+        "B": "普通の使用感", "C": "傷・使用感あり", "D": "難あり",
+    }.get(rank, "中古")
+
+
+# ── 中古カタログ取得（KV used_catalog）。配信ゲートは getUsedCatalog と同等＝確定品/売切除外/ROI≥10% ──
+# ⚠️ 公開して良い安全フィールドだけに正規化する。仕入れ値(buyJpy)・仕入れURL・正確な型番(code)・仕入れ元画像は載せない。
 def fetch_products() -> list:
-    raw = kv_get_raw("profitable_products")
+    raw = kv_get_raw("used_catalog")
     if not raw:
         return []
     try:
-        products = json.loads(raw)
-        good = [p for p in products if p.get("realProfitRate", 0) >= 30 and p.get("imageUrl")]
-        return good if good else products
+        arr = json.loads(raw)
     except Exception as e:
-        print(f"  商品パースエラー: {e}")
+        print(f"  中古カタログ パースエラー: {e}")
         return []
+    if not isinstance(arr, list):
+        return []
+    status = kv_hgetall("used_source_status")  # 仕入れ元が売切/削除と判定された品（隠す）
+
+    def sold_out(pid: str) -> bool:
+        f = status.get(str(pid))
+        if isinstance(f, str):
+            try:
+                f = json.loads(f)
+            except Exception:
+                return False
+        st = f.get("status") if isinstance(f, dict) else None
+        return st in ("soldout", "dead")
+
+    out = []
+    for x in arr:
+        if not isinstance(x, dict):
+            continue
+        buy = x.get("buyJpy") or 0
+        profit = x.get("profitJpy")
+        if not isinstance(profit, (int, float)) or buy <= 0:
+            continue
+        if profit / buy < 0.10:                 # ROI<10%は配信ゲートで除外
+            continue
+        if x.get("ebayConfirmed") is not True:  # 確定品(同一型番でeBay実落札を照合済)のみ＝サイト既定
+            continue
+        pid = str(x.get("id") or x.get("modelKey") or "")
+        if not pid or sold_out(pid):
+            continue
+        out.append({
+            "id": pid,
+            "title": (x.get("name") or x.get("modelKey") or "").strip(),
+            "brand": (x.get("brand") or "").strip(),
+            "cat": (x.get("cat") or "").strip(),
+            "conditionLabel": used_condition_label(x.get("condition")),
+            "realProfitRate": round(profit / buy * 100),        # 想定純利益率(ROI・目安)
+            "realAvgPrice": int(x.get("ebayMedianJpy") or 0),   # eBay落札中央値(想定売値・目安)
+            "soldCount": x.get("soldCount") or 0,               # 直近の落札件数(実需シグナル・公開可)
+        })
+    out.sort(key=lambda p: p["realProfitRate"], reverse=True)
+    return out
 
 
-def pick_product(products: list) -> dict | None:
+def pick_product(products: list):
     if not products:
         return None
     top = sorted(products, key=lambda p: p.get("realProfitRate", 0), reverse=True)[:20]
     return random.choice(top)
 
 
-# ── 投票(価格当て)の選択肢: eBay相場(円)を含む4つの価格帯 ──
+# ── 投票(価格当て)の選択肢: eBay想定売値(円)を含む4つの価格帯 ──
 def poll_options(avg) -> list:
     try:
         avg = int(avg)
@@ -239,19 +322,20 @@ def poll_options(avg) -> list:
     return [f"〜{m(e[0])}", f"{m(e[0])}〜{m(e[1])}", f"{m(e[1])}〜{m(e[2])}", f"{m(e[2])}〜"]
 
 
-# ── データカード画像のURL(/api/card)。botがこれを直アップする ──
+# ── データカード画像のURL(/api/card?mode=used)。botがこれを直アップする ──
+# ⚠️ 仕入れ値は渡さない。出すのは 商品名/状態/想定売値(目安)/想定利益率(目安) のみ。
 def build_card_url(title: str, product: dict) -> str:
-    src = product.get("source", {}).get("price", 0)
-    return (f"{SITE_URL}/api/card?t={quote(title)}"
+    return (f"{SITE_URL}/api/card?mode=used&t={quote(title)}"
             f"&n={quote(str(product.get('title', ''))[:50])}"
-            f"&r={src}&e={product.get('realAvgPrice', 0)}&p={product.get('realProfitRate', 0)}")
+            f"&c={quote(str(product.get('conditionLabel', '')))}"
+            f"&e={product.get('realAvgPrice', 0)}&p={product.get('realProfitRate', 0)}")
 
 
 # ── ハッシュタグ: 基本0個(2026年のXはタグで伸びない)。たまに1個だけニッチタグ ──
 TAG_POOLS = {
     "default": ["#eBay輸出", "#越境EC"],
-    "recruit": ["#eBay輸出", "#副業"],
-    "soba": ["#eBay輸出", "#物販"],
+    "recruit": ["#eBay輸出", "#中古せどり"],
+    "soba": ["#eBay輸出", "#中古せどり"],
     "pitfall": ["#eBay輸出", "#輸出ビジネス"],
     "announce": ["#eBay輸出", "#輸出ラボ"],
 }
@@ -265,29 +349,29 @@ def pick_tags(kind: str) -> list:
 
 
 # 誘導先は公開ティーザーの「利益商品ランキング」(/ranking)。ここは無料で見られるので“無料”表現が正直に成立。
-# 各商品の詳細・検索・自動出品は購読(30日無料お試し)で解放、という建て付けに揃える。
+# 各型番の詳細(仕入れ先/仕入れ値)・検索は購読(30日無料お試し)で解放、という建て付けに揃える。
 REPLY_LEADS = [
-    "こういう利益商品、毎日更新で無料で見れます。ランキングはこちら↓",
-    "気になったら今すぐチェック。楽天→eBayの利益商品ランキング（無料・毎日更新）↓",
-    "いま利益が出てる商品、無料で見れます。まずはここから↓",
+    "こういう“いま純利益が出てる中古の型番”、毎日更新で無料で見れます。ランキングはこちら↓",
+    "日本の中古が海外でいくらになるか、無料でチェック。利益が出る中古の型番ランキング（毎日更新）↓",
+    "いま利益が出てる中古、無料で見れます。まずはここから↓",
     "本格的に探すなら30日無料でお試し。まずはランキングを無料で↓",
 ]
 
 HOWTO_TOPICS = [
-    "国際郵便は2024年から内容品の英語電子申告が必須(国際郵便マイページで送り状)。手書きラベルは原則不可、という基礎",
-    "eBayのカテゴリ選びでつまずかないコツ(タイトルを具体的にすると自動判定が通りやすい)",
-    "英語タイトル・説明は身構えなくていい(定型＋商品名で十分。やり取りもテンプレで回る)という話",
-    "手取りの考え方: 売値からeBay手数料13.25%+¥47・国内送料・楽天ポイント還元まで引いて初めて『実利』。粗利で判断しない",
-    "発送できない物に注意(モバイルバッテリー/リチウム電池単体/香水/スプレー等は航空危険物で国際発送不可)。仕入れ前の確認が肝",
-    "新規セラーは売上が一時保留・出品上限があるのは『正常』。これを知らずに不安になる人が多い、という基礎",
+    "中古は“状態の説明”が命。eBayのコンディション(Pre-owned等)に加え、傷・使用感・付属品を正直に書くほど返品やクレームが減る、という基礎",
+    "手取りの考え方: 売値からeBay手数料(約13.25%＋固定手数料)・国際送料・関税(DDP)・仕入れまで引いて初めて『純利益』。粗利で判断しない",
+    "発送できない物に注意(モバイルバッテリー/リチウム電池単体/香水/スプレー等は航空危険物で国際発送不可)。中古でも仕入れ前の確認が肝",
+    "eBayはブランド名・型番(MPN)を正確に入れるほど検索に出やすい。中古は“型番”で探されることが多い、という基礎",
+    "国際郵便は内容品の英語電子申告が必須(国際郵便マイページで送り状)。手書きラベルは原則不可、という基礎",
+    "ブランド時計やカメラは真贋が大事。確証が持てない物には手を出さない、状態と付属品は正直に、という基礎",
 ]
 
 PITFALL_TOPICS = [
+    "状態を良く書きすぎて返品になるミス。中古は“悪い点も正直に”書いた方が、結局クレームが減って得",
+    "粗利は出てるのに実は薄利…eBay手数料・国際送料・関税(DDP)を入れ忘れる値付けのミス",
+    "高く出して在庫を寝かせ続けるミス。早く回すなら、出品中の最安でなく直近の落札(売れた価格)の中央値に寄せる",
+    "ブランド品の真贋を確かめずに仕入れるミス。確証のない高額ブランドには手を出さない",
     "売れてから『これ国際郵便で送れない物だった』と気づくミス(電池/香水/スプレー等の航空危険物)。仕入れ前に発送可否を確認",
-    "粗利は出てるのに実は薄利…手数料13.25%+¥47と国内送料・ポイント還元を入れ忘れる値付けのミス",
-    "高く出して在庫を寝かせ続けるミス。早く回すなら相場(現行の最安〜中央値)に寄せる",
-    "カテゴリ誤り/タイトルが曖昧で検索に埋もれるミス。具体的なタイトルにする",
-    "無在庫で出してしまうミス(在庫を持つ前提・トラブルの元)。先に仕入れてから出す",
     "追跡番号の登録漏れで売上保留・未着クレームになるミス。発送後は必ず登録",
 ]
 
@@ -314,40 +398,47 @@ def cap_body(body: str, limit: int) -> str:
     return out.rstrip() + "…"
 
 
-def _prod_lines(product: dict | None) -> str:
+def _prod_lines(product) -> str:
     if not product:
         return ""
-    src = product.get("source", {}).get("price", 0)
-    return (
-        f"商品名: {product.get('title','')}\n"
-        f"楽天仕入れ価格: {src:,}円\n"
-        f"eBay想定売値(相場・現行の最安〜中央値ベース): {product.get('realAvgPrice',0):,}円\n"
-        f"想定利益率: {product.get('realProfitRate',0)}%\n"
+    lines = f"商品名: {product.get('title', '')}\n"
+    if product.get("brand"):
+        lines += f"ブランド: {product.get('brand')}\n"
+    if product.get("cat"):
+        lines += f"ジャンル: {product.get('cat')}\n"
+    if product.get("conditionLabel"):
+        lines += f"状態ランク: {product.get('conditionLabel')}\n"
+    lines += (
+        f"eBay想定売値(海外の中古落札・中央値ベース): {product.get('realAvgPrice', 0):,}円\n"
+        f"想定純利益率(ROI・目安): {product.get('realProfitRate', 0)}%\n"
+        "※ 仕入れ先の店名・仕入れ値・仕入れURL・正確な型番は本文に書かない(伏せる)\n"
     )
+    return lines
 
 
 # ── 柱(kind)別の生成指示 ──
-def kind_brief(kind: str, product: dict | None, extra: str = "") -> str:
+def kind_brief(kind: str, product, extra: str = "") -> str:
     B = {
-        "soba": "テーマ=『今日の相場』(知識/エバーグリーン)。個別商品の宣伝でなく、この商品を題材に『なぜ海外で評価されるか/相場の読み方/需要が動く条件』を解説。商品名を消しても“相場の見方”として成立する知識に。売り込まない。",
-        "pro": "読者=現役eBay輸出セラー。狙い=【“取りこぼし防止”で『もっと取りこぼさず稼げるかも』という希望】。次の“あるある取りこぼし”を1つ取り上げ、ピア目線で『分かるわ〜→こう防げる』に持っていく: "
-                "・粗利で判断して手数料13.25%+¥47・国内送料・ポイント還元を引き忘れ実は薄利→“手取り利益率順”で見る ／ "
-                "・相場を高く付け過ぎて在庫を寝かせた→現行の最安〜中央値に寄せて早く回す ／ "
-                "・危険物/国際発送不可を仕入れてから気づいた→事前に除外 ／ ・追跡番号の登録漏れで売上保留。"
-                "『あるある、と共感→こう防げる』の流れで。リサーチ時短(手取りベースで利益率順に一覧)も絡めてよい。教える上から目線・初心者煽りはしない。専門用語OK。数字・相場は想定/目安と分かる書き方。金額の約束はしない。",
+        "soba": "テーマ=『今日の中古相場』(知識/エバーグリーン)。この中古品を題材に『なぜこの手の日本の中古が海外で評価されるか/相場の読み方(出品中の最安でなく“直近の落札=売れた価格の中央値”を見る)/状態ランクと値段の関係』を解説。商品名を消しても“中古相場の見方”として成立する知識に。仕入れ先・仕入れ値は明かさず、売り込まない。",
+        "pro": "読者=現役eBay輸出セラー。狙い=【“取りこぼし防止”で『もっと取りこぼさず利益が出せるかも』という希望】。中古特有の“あるある取りこぼし”を1つ取り上げ、ピア目線で『分かるわ〜→こう防げる』に持っていく: "
+                "・粗利で判断してeBay手数料(約13.25%＋固定)・国際送料・関税(DDP)を引き忘れ実は薄利→“純利益(ROI)順”で見る ／ "
+                "・状態を良く書きすぎて返品→正直な状態説明で結局得 ／ "
+                "・相場を高く付け過ぎて在庫を寝かせた→直近の落札中央値に寄せて早く回す ／ "
+                "・危険物/国際発送不可を仕入れてから気づいた→事前に除外 ／ ・ブランド品の真贋を確かめず仕入れた。"
+                "『あるある、と共感→こう防げる』の流れで。リサーチ時短(eBayの実落札と型番が一致した“確定品”だけ純利益順に一覧)も絡めてよい。教える上から目線・初心者煽りはしない。専門用語OK。数字・相場は想定/目安と分かる書き方。金額の約束はしない。",
         "recruit": "読者=これから副業を始めたい初心者。狙い=【“驚き＋自分にもできそう”という希望】。"
-                "①驚き: この商品の楽天仕入れ値→eBay想定売値のギャップを使い『普通の日本の物が、海外だとこの値段になる』という“えっ”を作る(数字は想定・目安と分かる書き方)。"
-                "②できそう: 英語ほぼ不要(タイトル自動/やり取り定型)・写真だけでほぼ自動出品・日本にいながら完結・手取りで利益が分かる、の中から1〜2点だけ自然に添えて『難しそう/英語が無理/怖い』を溶かす。"
-                "断定や金額の約束はしない。締めは行動をはっきり促す（例『まずはランキングを無料で見てみて。自分の家にある物の相場も調べられる』『新着を見逃さないようにフォローを』）。専門用語は使わない。",
-        "howto": f"テーマ=輸出の基礎ノウハウ(知識)。次の論点を1つ、初心者にやさしく解説: {extra}。商品の宣伝はしない。",
-        "pitfall": f"テーマ=『輸出の落とし穴』(失敗回避の知識)。次の“やりがちなミス”を『ミス→なぜダメ→どう回避』の3段でコンパクトに: {extra}。共感を呼ぶ書き出しで。",
+                "①驚き: 日本だと中古で手に入るこの手の物(ジャンル/状態)が、海外のeBayだと想定でこれくらいの相場になる、という“えっ”を作る(eBay想定売値・利益率は想定・目安と分かる書き方)。"
+                "②できそう: 特別な物でなく“普通の中古”でいい・状態ランクで状態が分かる・型番で海外の相場を調べるだけ・日本にいながら完結、の中から1〜2点だけ自然に添えて『難しそう/自分には無理』を溶かす。"
+                "⚠️仕入れ先の店名・仕入れ値は書かない。断定や金額の約束はしない。締めは行動をはっきり促す（例『まずは無料ランキングで“いま利益が出てる中古の型番”を見てみて』『新着を見逃さないようにフォローを』）。専門用語は使わない。",
+        "howto": f"テーマ=中古輸出の基礎ノウハウ(知識)。次の論点を1つ、初心者にやさしく解説: {extra}。商品の宣伝はしない。",
+        "pitfall": f"テーマ=『中古輸出の落とし穴』(失敗回避の知識)。次の“やりがちなミス”を『ミス→なぜダメ→どう回避』の3段でコンパクトに: {extra}。共感を呼ぶ書き出しで。",
         "buildinpublic": f"テーマ=運営の“プロセスの数字”を等身大に共有(build in public)。次の事実だけ使う(収入額は出さない): {extra}。『どう考えてどう動いているか』を見せる。淡々と、でも人間味を。",
-        "announce": "テーマ=新着の利益商品の速報＝【“こんな身近な物が海外でこの値段”の驚き】。商品名・楽天仕入れ→eBay想定売値・想定利益率を短くテンポよく出し、『えっ、これが？』という発見の驚きを主役にする(数字は想定/目安と分かる書き方)。“自分にもできそう”を一言だけ添えてよい(写真だけ出品/英語ほぼ不要 等)。金額の約束・断定はしない。締めは『続きはランキングで無料チェック(本格利用は30日無料お試し)、新着は定期更新やからフォローを』に自然に繋ぐ。",
+        "announce": "テーマ=新着の“利益が出る中古の型番”の速報＝【“こんな身近な中古が海外でこの相場”の驚き】。ジャンル・状態ランク・eBay想定売値・想定純利益率を短くテンポよく出し、『えっ、これが？』という発見の驚きを主役にする(数字は想定/目安と分かる書き方)。⚠️仕入れ先・仕入れ値・正確な型番は書かない。“自分にもできそう”を一言だけ添えてよい(普通の中古でいい/状態ランクで分かる)。金額の約束・断定はしない。締めは『続きはランキングで無料チェック(本格利用は30日無料お試し)、新着は定期更新なのでフォローを』に自然に繋ぐ。",
     }
     return B.get(kind, "")
 
 
-def generate_body(kind: str, product: dict | None, ai_client, body_limit: int, extra: str = "") -> str | None:
+def generate_body(kind: str, product, ai_client, body_limit: int, extra: str = "") -> str | None:
     prod = _prod_lines(product)
     prod_block = ("【商品情報】\n" + prod) if prod else ""
     prompt = f"""{PERSONA}
@@ -369,8 +460,9 @@ X(Twitter)の投稿本文を1つ生成してください。
 【絶対ルール】
 - 本文のみ出力(前置き・「見出し:」等の注釈は不要)
 - URL・ハッシュタグ・絵文字は含めない(必要な画像・タグ・URLはこちらで付けます)
+- ⚠️仕入れ先の店名・仕入れ値・仕入れURL・正確な型番は絶対に書かない(伏せる)
 - 本文はTwitterウェイト{body_limit}以内(日本語1字=2・英数字=1)。必ずこの範囲に収め、最後は文の途中で切らず「。」等で言い切って終える(超過して途中で切れるのは厳禁)
-- 数字(利益率・価格)は上の商品情報のものを使い、利益率・相場は「想定/目安」とわかる書き方
+- 数字(利益率・想定売値)は上の商品情報のものを使い、利益率・相場は「想定/目安」とわかる書き方
 - 毎回 書き出しと構成を変える
 
 本文のみ出力してください。"""
@@ -383,18 +475,22 @@ X(Twitter)の投稿本文を1つ生成してください。
         return None
 
 
-# ── 投票ポストの本文(eBay相場・利益率は伏せる=投票の答えになるため) ──
+# ── 投票ポストの本文(eBay想定売値・利益率は伏せる=投票の答えになるため) ──
 def generate_poll_body(product: dict, ai_client, body_limit: int) -> str | None:
-    src = product.get("source", {}).get("price", 0)
+    hint = "\n".join(filter(None, [
+        f"商品名: {product.get('title', '')}",
+        f"ブランド: {product.get('brand')}" if product.get("brand") else "",
+        f"ジャンル: {product.get('cat')}" if product.get("cat") else "",
+        f"状態ランク: {product.get('conditionLabel')}" if product.get("conditionLabel") else "",
+    ]))
     prompt = f"""{PERSONA}
 
 X(Twitter)の「投票ポスト」の本文を1つ生成してください(投票の選択肢は別で付けます)。
 
-商品名: {product.get('title', '')}
-楽天仕入れ価格: {src:,}円
+{hint}
 
-【狙い】この商品が「eBay(海外)でいくらで売れそうか」を読者に当ててもらう投票。楽天の仕入れ値をヒントに『海外だといくらだと思う?』と当てたくなる導線にする。答え合わせは後日する、と一言添えてよい。
-【厳守】eBayの想定売値・利益率・具体的な売値の数字は絶対に書かない(投票の答えになるため)。
+【狙い】この中古品が「eBay(海外)でいくらで売れそうか」を読者に当ててもらう投票。ジャンルや状態をヒントに『海外だといくらだと思う?』と当てたくなる導線にする。答え合わせは後日する、と一言添えてよい。
+【厳守】eBayの想定売値・利益率・具体的な売値の数字は絶対に書かない(投票の答えになるため)。仕入れ先・仕入れ値・正確な型番も書かない。
 
 【読みやすさ】
 {READABILITY}
@@ -418,9 +514,7 @@ X(Twitter)の「投票ポスト」の本文を1つ生成してください(投�
 def upscale_image(url: str) -> str:
     if not url:
         return ""
-    if "thumbnail.image.rakuten.co.jp/@0_mall/" in url:
-        return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").split("?")[0]
-    return re.sub(r'_ex=\d+x\d+', '_ex=600x600', url)
+    return url
 
 
 def upload_image(api_v1, image_url: str):
@@ -431,7 +525,7 @@ def upload_image(api_v1, image_url: str):
         r.raise_for_status()
         ctype = r.headers.get("Content-Type", "").lower()
         ext = "png" if "png" in ctype else "gif" if "gif" in ctype else "webp" if "webp" in ctype else "jpg"
-        media = api_v1.media_upload(filename=f"product.{ext}", file=BytesIO(r.content))
+        media = api_v1.media_upload(filename=f"card.{ext}", file=BytesIO(r.content))
         return media.media_id
     except Exception as e:
         print(f"  画像アップロード失敗(画像なしで続行): {e}")
@@ -460,20 +554,22 @@ def _count_today(log: list, kind: str, now: datetime) -> int:
                and datetime.fromtimestamp(float(e["t"]), JST).strftime("%Y-%m-%d") == today)
 
 
-# ── 柱の選択(価値:宣伝=8:2を機械的に担保＋シリーズ枠予約) ──
-def choose_kind(now: datetime, log: list, has_new: bool) -> str:
-    if has_new and _count_today(log, "announce", now) < ANNOUNCE_CAP:
-        return "announce"  # 直接宣伝は1日2本まで(=8:2)。新着の速報性を優先
-    if now.hour in MORNING_HOURS and _count_today(log, "soba", now) == 0:
-        return "soba"      # 朝枠は『今日の相場』を予約
+# ── 柱の選択(価値:宣伝=8:2を機械的に担保＋シリーズ枠予約)。中古カタログが無い時は知識柱だけで回す ──
+def choose_kind(now: datetime, log: list, has_new: bool, has_products: bool) -> str:
+    if has_products and has_new and _count_today(log, "announce", now) < ANNOUNCE_CAP:
+        return "announce"  # 直接宣伝は1日1本まで(=8:2)。新着の速報性を優先
+    if has_products and now.hour in MORNING_HOURS and _count_today(log, "soba", now) == 0:
+        return "soba"      # 朝枠は『今日の中古相場』を予約
     if now.weekday() == PITFALL_WEEKDAY and _count_today(log, "pitfall", now) == 0:
-        return "pitfall"   # 木曜は『輸出の落とし穴』
-    if now.weekday() == BUILDINPUBLIC_WEEKDAY and _count_today(log, "buildinpublic", now) == 0:
+        return "pitfall"   # 木曜は『中古輸出の落とし穴』(知識・商品不要)
+    if has_products and now.weekday() == BUILDINPUBLIC_WEEKDAY and _count_today(log, "buildinpublic", now) == 0:
         return "buildinpublic"  # 月曜は運営の数字
-    # 残りは価値の柱を加重ランダム(直近と同じは避ける)
+    # 残りは加重ランダム(直近と同じは避ける)。注力2柱(pro=取りこぼし防止/recruit=驚き＋できそう)を厚めに。
     last = kv_get_raw(LASTKIND_KEY) or ""
-    # 注力2柱(pro=取りこぼし防止/recruit=驚き＋できそう)を厚めに加重。残りで多様性を確保。
-    weighted = ["pro", "pro", "pro", "recruit", "recruit", "recruit", "howto", "soba", "poll", "poll"]
+    if has_products:
+        weighted = ["pro", "pro", "pro", "recruit", "recruit", "recruit", "howto", "soba", "poll", "poll"]
+    else:
+        weighted = ["howto", "howto", "pitfall", "pro"]  # 商品データが無い時は商品不要の知識柱だけ
     pool = [k for k in weighted if k != last] or weighted
     return random.choice(pool)
 
@@ -493,9 +589,9 @@ def reveal_pending_polls(now: datetime, client) -> None:
             age_h = 999
         if revealed == 0 and age_h >= 20:
             try:
-                txt = (f"答え合わせ：eBayの想定売値は約{int(e.get('e', 0)):,}円"
-                       f"（現行の最安〜中央値ベース・あくまで想定）。"
-                       f"楽天{int(e.get('r', 0)):,}円→想定利益率{e.get('p', 0)}%。当たってましたか？")
+                txt = (f"答え合わせ：海外(eBay)の想定売値は約{int(e.get('e', 0)):,}円"
+                       f"（直近の落札中央値ベース・あくまで想定）。"
+                       f"日本だと中古で手に入る物が、海外だとこの相場。当たってましたか？")
                 client.create_tweet(text=txt, in_reply_to_tweet_id=e["id"])
                 print("  投票の答え合わせを投稿")
                 revealed += 1
@@ -538,28 +634,24 @@ def main():
     if not ok:
         print("  → 今回は投稿しない"); return
 
+    # 中古カタログ（無くても知識柱で投稿を続ける＝供給状況は別途 liveness 監視に任せる）
     products = fetch_products()
-    if not products:
-        print("商品なし - スキップ")
-        send_alert_email("⚠️ 輸出ラボBot 商品データなし",
-                         f"商品データがKVに無いため投稿をスキップ。refresh.yml を確認。\n{now.strftime('%Y-%m-%d %H:%M')} JST")
-        return
-
+    has_products = len(products) > 0
     current_ids = [str(p["id"]) for p in products if p.get("id")]
     seen = load_seen()
     seen_set = set(seen)
-    first_run = len(seen) == 0
-    new_products = [p for p in products if str(p.get("id")) not in seen_set]
-    has_new = (not first_run) and len(new_products) > 0
+    first_run = has_products and len(seen) == 0
+    new_products = [p for p in products if str(p.get("id")) not in seen_set] if has_products else []
+    has_new = has_products and (not first_run) and len(new_products) > 0
     if first_run:
         save_seen(current_ids)  # 初回は基準記録のみ(全件“新着”誤爆を防ぐ)
 
-    kind = choose_kind(now, log, has_new)
+    kind = choose_kind(now, log, has_new, has_products)
 
     # 柱ごとの素材を準備
     product = None
     extra = ""
-    image_url = ""        # ネイティブ直アップする画像(商品写真 or データカード)のURL
+    image_url = ""        # ネイティブ直アップする画像(中古データカード)のURL
     add_url = False       # URLを自己リプに付けるか(announceのみ)
     mark_seen = False
     series_prefix = ""
@@ -567,14 +659,20 @@ def main():
 
     if kind == "announce":
         product = max(new_products, key=lambda p: p.get("realProfitRate", 0))
-        image_url = product.get("imageUrl", ""); add_url = True; mark_seen = True
+        image_url = build_card_url("新着・利益が出る中古", product); add_url = True; mark_seen = True
     elif kind == "soba":
         product = pick_product(products)
         n = kv_get_int(SOBA_N_KEY) + 1
-        series_prefix = f"【今日の相場 #{n}】"
-        image_url = build_card_url(f"今日の相場 #{n}", product)  # 相場データカード(保存される情報型)
-    elif kind in ("pro", "recruit"):
-        product = pick_product(products); image_url = product.get("imageUrl", "")
+        series_prefix = f"【今日の中古相場 #{n}】"
+        image_url = build_card_url(f"今日の中古相場 #{n}", product)
+    elif kind == "recruit":
+        product = pick_product(products)
+        if product:
+            image_url = build_card_url("日本の中古が、海外だと", product)
+    elif kind == "pro":
+        product = pick_product(products) if has_products else None
+        if product:
+            image_url = build_card_url("中古せどりの相場", product)
     elif kind == "poll":
         product = pick_product(products)
         poll_opts = poll_options(product.get("realAvgPrice", 0))
@@ -582,19 +680,19 @@ def main():
         extra = random.choice(HOWTO_TOPICS)
     elif kind == "pitfall":
         n = kv_get_int(PITFALL_N_KEY) + 1
-        series_prefix = f"【輸出の落とし穴 #{n}】"
+        series_prefix = f"【中古輸出の落とし穴 #{n}】"
         extra = random.choice(PITFALL_TOPICS)
     elif kind == "buildinpublic":
         rates = [p.get("realProfitRate", 0) for p in products]
         avg = round(sum(rates) / len(rates)) if rates else 0
-        extra = (f"今このアプリが追跡している“利益率30%以上の利益商品”は約{len(products)}件、"
-                 f"想定利益率の平均は約{avg}%。相場の自動判定の一致率は実測で約82%。"
+        extra = (f"今このアプリが追跡している“純利益が出る中古の型番”は約{len(products)}件、"
+                 f"想定の純利益率(ROI)の平均は約{avg}%。eBayの実際の落札相場と型番が一致した“確定品”だけを載せている。"
                  f"危険物・国際発送不可の物はカタログから自動除外している。")
 
     tags = pick_tags(kind)
     tags_str = " ".join(tags)
     body_limit = MAX_CHARS - tw_len(tags_str) - tw_len(series_prefix) - 4
-    print(f"  {now.strftime('%-H:%M')} / kind={kind} / 新着={len(new_products)} / poll={bool(poll_opts)} / 画像={'card' if kind == 'soba' else bool(image_url)} / URL={add_url} / tags={tags_str}")
+    print(f"  {now.strftime('%-H:%M')} / kind={kind} / 中古={len(products)} / 新着={len(new_products)} / poll={bool(poll_opts)} / 画像={bool(image_url)} / URL={add_url} / tags={tags_str}")
     if product:
         print(f"  商品: {product['title'][:30]}")
 
@@ -613,7 +711,7 @@ def main():
 
     time.sleep(random.randint(0, 90))  # 等間隔を避ける軽いジッター
 
-    # 投票は画像と共存不可。画像枠(商品写真 or データカード)は poll 以外で使う。
+    # 投票は画像と共存不可。画像枠(中古データカード)は poll 以外で使う。
     media_id = upload_image(api_v1, image_url) if (image_url and not poll_opts) else None
 
     print(f"\n投稿本文 ({tw_len(main_text)}w):\n{main_text}\n")
@@ -650,13 +748,10 @@ def main():
         except Exception as e:
             print(f"自己リプ失敗(本投稿は成功済み): {type(e).__name__}: {e}")
 
-    # 投票は後日「答え合わせ」するため pending に積む
+    # 投票は後日「答え合わせ」するため pending に積む(想定売値の目安だけ後で開示・仕入れ値/利益率は出さない)
     if kind == "poll" and product:
         pend = _load_list(POLL_PENDING_KEY)
-        pend.append({"id": str(tweet_id), "t": now.timestamp(),
-                     "e": product.get("realAvgPrice", 0),
-                     "r": product.get("source", {}).get("price", 0),
-                     "p": product.get("realProfitRate", 0)})
+        pend.append({"id": str(tweet_id), "t": now.timestamp(), "e": product.get("realAvgPrice", 0)})
         kv_set_raw(POLL_PENDING_KEY, json.dumps(pend[-20:]))
 
     # 状態更新

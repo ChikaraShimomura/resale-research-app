@@ -38,11 +38,16 @@ export async function GET(req: Request) {
   const raku = sp.get("r");
   const ebay = sp.get("e");
   const rate = (sp.get("p") || "").slice(0, 5);
+  // mode=used＝中古モデル用カード(仕入れ値・楽天表記なし／想定売値=eBay落札中央値・状態ランク・想定純利益率のみ)。
+  // 既定(modeなし)・縦型(v=1)は従来の楽天モデル表示のまま＝studioの動画素材を壊さない。
+  const mode = sp.get("mode");
+  const cond = (sp.get("c") || "").slice(0, 24);
 
   const glyphs =
-    title + name +
+    title + name + cond +
     "輸出ラボ楽天eBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
     "今日の利益商品日本でこれが海外だと無料で登録して他の商品もプロフィールのリンクから見れますやってみた" +
+    "状態純売落札海外で想定中古※：" +
     "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + "0123456789,%→¥〜";
   const font = await loadJpFont(glyphs);
   const ff = font ? "Noto Sans JP" : "sans-serif";
@@ -91,6 +96,46 @@ export async function GET(req: Request) {
         </div>
       ),
       { width: 1080, height: 1920, fonts }
+    );
+  }
+
+  // 中古モデル用カード（横1080x1080・X自動投稿）。仕入れ値/楽天は出さず、想定売値(eBay落札中央値)・状態・想定純利益率のみ。
+  if (mode === "used") {
+    return new ImageResponse(
+      (
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#ffffff", fontFamily: ff }}>
+          <div style={{ display: "flex", alignItems: "center", background: CRIMSON, color: "#ffffff", padding: "38px 56px", fontSize: 56, fontWeight: 700 }}>
+            {title}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "52px 56px", justifyContent: "center" }}>
+            <div style={{ display: "flex", fontSize: 38, color: "#444444", lineHeight: 1.3, marginBottom: cond ? 16 : 40 }}>{name}</div>
+            {cond ? (
+              <div style={{ display: "flex", alignItems: "center", fontSize: 34, color: "#777777", marginBottom: 40 }}>状態：{cond}</div>
+            ) : null}
+
+            <div style={{ display: "flex", alignItems: "center", fontSize: 46, color: "#777777", marginBottom: 6 }}>海外(eBay)で想定</div>
+            <div style={{ display: "flex", alignItems: "baseline", fontSize: 104, fontWeight: 700, color: "#111111", marginBottom: 44 }}>
+              約¥{yen(ebay)}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <span style={{ display: "flex", fontSize: 40, color: "#444444", marginRight: 24 }}>想定純利益率</span>
+              <span style={{ display: "flex", fontSize: 104, fontWeight: 700, color: CRIMSON }}>{rate || "—"}%</span>
+            </div>
+
+            <div style={{ display: "flex", fontSize: 26, color: "#999999", marginTop: 40 }}>
+              ※ 想定売値はeBayの落札中央値ベースの目安です
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "30px 56px", borderTop: "2px solid #eeeeee", fontSize: 32, color: "#888888" }}>
+            <span style={{ display: "flex", fontWeight: 700, color: CRIMSON }}>輸出ラボ</span>
+            <span style={{ display: "flex" }}>yushutsu-fukugyo.com</span>
+          </div>
+        </div>
+      ),
+      { width: 1080, height: 1080, fonts }
     );
   }
 
