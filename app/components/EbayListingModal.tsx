@@ -218,8 +218,13 @@ export default function EbayListingModal({
         const floorU = Number(p.floorUsd) || 0;
         const medU = Number(p.medianUsd) || Number(p.priceUsd) || 0;
         const initMedian = medU > 0 ? Math.max(medU, floorU) : lowU > 0 ? Math.max(lowU, floorU) : Number(p.priceUsd) || 0;
+        // 表示は送料込み(本体+推奨送料)。初期の送料サイズは下の def と同じ推奨ロジックで先取りして織り込む。
+        const recId0 = p.recommendedShippingId && p.shipping?.some((s) => s.fulfillmentPolicyId === p.recommendedShippingId)
+          ? p.recommendedShippingId
+          : (p.shipping?.find((s) => /medium/i.test(s.name)) ?? p.shipping?.[0])?.fulfillmentPolicyId;
+        const initTierUsd = Number(p.shipping?.find((s) => s.fulfillmentPolicyId === recId0)?.costUsd || 0);
         setPriceUsd(initMedian.toFixed(2));
-        setPriceYen(initMedian > 0 ? String(Math.round(initMedian * USD_JPY)) : "");
+        setPriceYen(initMedian > 0 ? String(Math.round((initMedian + initTierUsd) * USD_JPY)) : "");
       }
       setCondition(p.condition);
       // デフォルトはジャンル(サイズ)に最適な送料。無ければ中サイズ→先頭にフォールバック。
@@ -477,9 +482,14 @@ export default function EbayListingModal({
   const lowSel = priceModel.lowUsd;
   const medianSel = priceModel.medianUsd;
   const highSel = priceModel.highUsd;
+  // ★表示・入力は「送料込み(eBayに実際に出る価格＝買い手の支払総額)」に統一する。内部の priceUsd は本体価格(商品代)のまま＝
+  //   損益分岐/関税/EMS/赤字防止の計算は一切変えない(安全)。送料込み = 本体 + 送料tier(recoChoice.costUsd)。
+  //   送料込み/送料別どちらのモードでも買い手の総額は同じなので、表示は常に送料込みでよい。
+  const shipTierUsd = Number(recoChoice?.costUsd || 0);
+  const toAllInYen = (bodyUsd: number) => Math.round((bodyUsd + shipTierUsd) * USD_JPY);
   // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
   // 価格を $ で確定すると同時に、円入力欄(priceYen)も同期する（表示は円・内部はUSD）。
-  const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(Math.round(u * USD_JPY)) : ""); };
+  const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(toAllInYen(u)) : ""); }; // priceUsd=本体, priceYen=送料込み表示
   const chooseStrategy = (s: "breakeven" | "custom" | "low" | "median" | "high") => {
     setStrategy(s);
     if (s === "custom") return; // 自由入力（価格はそのまま）
@@ -751,7 +761,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">🌱 ±0出品</span>
-                    <span className="text-[10px]">アカウント育成用{floorStableUsd > 0 ? `・${formatJpy(Math.round(floorStableUsd * USD_JPY))}` : ""}</span>
+                    <span className="text-[10px]">アカウント育成用{floorStableUsd > 0 ? `・${formatJpy(toAllInYen(floorStableUsd))}` : ""}</span>
                   </button>
                   <button
                     type="button"
@@ -776,7 +786,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">最安</span>
-                    <span className="text-[10px]">{lowSel > 0 ? formatJpy(Math.round(lowSel * USD_JPY)) : "—"}</span>
+                    <span className="text-[10px]">{lowSel > 0 ? formatJpy(toAllInYen(lowSel)) : "—"}</span>
                   </button>
                   <button
                     type="button"
@@ -787,7 +797,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">中央値</span>
-                    <span className="text-[10px]">{medianSel > 0 ? formatJpy(Math.round(medianSel * USD_JPY)) : "—"}</span>
+                    <span className="text-[10px]">{medianSel > 0 ? formatJpy(toAllInYen(medianSel)) : "—"}</span>
                   </button>
                   <button
                     type="button"
@@ -798,7 +808,7 @@ export default function EbayListingModal({
                     }`}
                   >
                     <span className="text-[12px] font-bold">高値</span>
-                    <span className="text-[10px]">{highSel > 0 ? formatJpy(Math.round(highSel * USD_JPY)) : "—"}</span>
+                    <span className="text-[10px]">{highSel > 0 ? formatJpy(toAllInYen(highSel)) : "—"}</span>
                   </button>
                 </div>
                 <p className="text-[9px] text-gray-300 mt-0.5">
@@ -810,7 +820,7 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">出品価格（円・商品代）<ReqBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">出品価格（円・送料込み）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">¥</span>
                   <input
@@ -819,9 +829,9 @@ export default function EbayListingModal({
                     value={priceYen}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/[^\d]/g, "");
-                      setPriceYen(raw);
-                      const yen = Number(raw);
-                      setPriceUsd(yen > 0 ? (yen / USD_JPY).toFixed(2) : ""); // 内部はUSD（eBayは$建て）に換算
+                      setPriceYen(raw); // 入力・表示は送料込みの円
+                      const bodyUsd = Number(raw) / USD_JPY - shipTierUsd; // 内部は本体価格(商品代)＝送料込みから送料を引く
+                      setPriceUsd(bodyUsd > 0 ? bodyUsd.toFixed(2) : "");
                     }}
                     className="flex-1 h-10 px-3 rounded-xl border border-[#A98B5C]/35 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2D323B]/40 focus:border-[#2D323B]"
                   />
@@ -897,7 +907,7 @@ export default function EbayListingModal({
                 {belowFloor && (
                   <div className="mt-1.5">
                     <p role="alert" className="text-[11px] text-[#2D323B] bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 leading-relaxed">
-                      <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorUsd * USD_JPY))}</span><wbr /><span className="whitespace-nowrap">を下回り、<b>赤字の恐れ</b>があります。</span>
+                      <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 {formatJpy(toAllInYen(floorUsd))}</span><wbr /><span className="whitespace-nowrap">を下回り、<b>赤字の恐れ</b>があります。</span>
                     </p>
                     <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
                       <input
