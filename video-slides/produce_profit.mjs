@@ -64,8 +64,8 @@ function slidesFor(p) {
   const badges = [{ t: `利益率 ${rate}%`, c: 'green' }];
   if (pt > 0) badges.push({ t: `+${pt}pt`, c: 'pink' });
   return [
-    { type: 'title', image: null, badge: '楽天 → eBay', title: '今日の\n利益商品', helper: '楽天で仕入れて海外で売ると…', hold: 2.6, narration: '今日の、利益が出る商品です。' },
-    { type: 'profit', vlabel: '仕入れ → 想定売値', img, rows: [{ t: '楽天で仕入れ', v: yen(s.price) }, { t: 'eBay 想定売値', v: yen(p.realAvgPrice), c: 'blue' }], hold: 3.5, narration: `楽天で${Math.round(s.price)}円。eBayの相場は${Math.round(p.realAvgPrice)}円。` },
+    { type: 'title', image: null, badge: '中古 → eBay', title: '今日の\n利益商品', helper: '中古品を仕入れて海外で売ると…', hold: 2.6, narration: '今日の、利益が出る商品です。' },
+    { type: 'profit', vlabel: '仕入れ → 想定売値', img, rows: [{ t: '仕入れ価格', v: yen(s.price) }, { t: 'eBay 想定売値', v: yen(p.realAvgPrice), c: 'blue' }], hold: 3.5, narration: `仕入れ${Math.round(s.price)}円。eBayの相場は${Math.round(p.realAvgPrice)}円。` },
     { type: 'profit', vlabel: '差し引きの利益は…', img, hero: { t: '利益', v: yen(p.realProfit) }, badges, hold: 4.0, narration: `差し引きの利益は${Math.round(p.realProfit)}円。利益率${rate}パーセントです。` },
     { type: 'outro', image: null, badge: '無料アプリでチェック', title: '輸出ラボで\nもっと探す', helper: 'こんな商品が毎日見つかる', hold: 3.0, narration: '輸出ラボで、もっと探せます。' },
   ];

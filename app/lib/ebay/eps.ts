@@ -1,7 +1,7 @@
 // eBay Picture Services (EPS) へ画像をアップロードするクライアント（Trading API: UploadSiteHostedPictures）。
 // OAuth の User access token を X-EBAY-API-IAF-TOKEN ヘッダに載せて呼ぶ（RequesterCredentials は使わない）。
 // 返る FullURL（i.ebayimg.com）を Sell Inventory API の inventory_item.product.imageUrls に使える。
-// ※1出品内で「EPS画像」と「自前ホスト画像(楽天URL)」は混在不可なので、楽天画像も ExternalPictureURL で
+// ※1出品内で「EPS画像」と「外部ホスト画像」は混在不可なので、外部画像も ExternalPictureURL で
 //   EPS化して全EPSに統一する（このファイルの fromUrl）。
 
 const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
@@ -53,7 +53,7 @@ function parseEps(xml: string): EpsResult {
   return { ok: false, error: [long || short, code && `#${code}`].filter(Boolean).join(" ") || "画像アップロードに失敗しました。" };
 }
 
-// 公開URL（例: 楽天の商品画像）を eBay にフェッチさせて EPS 化する（バイナリ送信なし）。
+// 公開URL（例: 仕入れ元の商品画像）を eBay にフェッチさせて EPS 化する（バイナリ送信なし）。
 export async function uploadHostedPictureFromUrl(token: string, externalUrl: string, name?: string): Promise<EpsResult> {
   try {
     const res = await fetch(TRADING_API, {

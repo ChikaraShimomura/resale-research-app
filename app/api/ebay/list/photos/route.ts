@@ -8,8 +8,8 @@ import { processRealPhoto } from "../../../../lib/ebay/imageProcess";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 
 // 実物写真をアプリ内で追加する。eBay Picture Services(EPS)に画像をホストし、当該SKUの在庫アイテムの
-// imageUrls を「全EPS」に統一して差し替える（楽天=自前URLとEPSの混在はeBayでエラーになるため）。
-// 楽天の既存画像も ExternalPictureURL でEPS化して残す（=「両方残す」方針）。
+// imageUrls を「全EPS」に統一して差し替える（自前URLとEPSの混在はeBayでエラーになるため）。
+// 仕入れ元の既存画像も ExternalPictureURL でEPS化して残す（=「両方残す」方針）。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // 画像のEPS往復で時間がかかるため上限を引き上げ
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   }
   const existing = ((item.product as { imageUrls?: string[] } | undefined)?.imageUrls) ?? [];
 
-  // 既存画像: EPS(i.ebayimg.com)は再変換不要。それ以外(楽天=自前URL)は混在不可なのでEPS化する。
+  // 既存画像: EPS(i.ebayimg.com)は再変換不要。それ以外(仕入れ元=自前URL)は混在不可なのでEPS化する。
   // 失敗した自前URLはスキップ（混在を避けるため自前URLは絶対に残さない）。
   const existingEps = (
     await Promise.all(
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: firstErr });
   }
 
-  // 楽天(EPS化済) → 実物 の順で統一（全EPS・最大24枚）。
+  // 仕入れ元画像(EPS化済) → 実物 の順で統一（全EPS・最大24枚）。
   const merged = [...existingEps, ...newEps].slice(0, 24);
   const upd = await updateInventoryItemImages(token, sku, merged);
   if (!upd.ok) {

@@ -3,7 +3,7 @@ import { calcProfit } from "./profitCore.mjs";
 import { kvReadOnly } from "../kv";
 
 // 直近落札(ebay_soldprice:{id}・ebaySoldWorker が住宅IPで収集)が新鮮なら、その中央値を eBay 相場として
-// 利益を再判定する＝「eBay直近落札 × 楽天」。落札データが無い/古い商品は従来の現在出品相場(realAvgPrice)のまま。
+// 利益を再判定する＝「eBay直近落札 × 仕入れ元」。落札データが無い/古い商品は従来の現在出品相場(realAvgPrice)のまま。
 //
 // コスト最小：Anthropic も再マッチも走らせない。配信のたびに ebay_soldprice をまとめ読み(pipeline)して
 // 算術で再計算するだけ。ワーカーが止まれば各値は TTL で自然失効→自動で現在出品相場へフォールバック。
@@ -41,7 +41,7 @@ export async function applySoldComp(products: ProfitProduct[]): Promise<ProfitPr
   const now = Date.now();
   return products.map((p, i) => {
     // 落札発掘パイプラインで「生まれた時点で落札確定(soldVerified)」の品は、相場/利益/soldUrl を既に焼き込み済み。
-    // 旧Pixel workerが残した非verifiedな ebay_soldprice 中央値でこれを上書き(soldVerified→false等)すると掲載から落ちるため、触らない。
+    // 旧workerが残した非verifiedな ebay_soldprice 中央値でこれを上書き(soldVerified→false等)すると掲載から落ちるため、触らない。
     if (p.soldVerified) return p;
     const r = parseRec(recs?.[i]);
     if (!r) return p;

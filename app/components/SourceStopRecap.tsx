@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// 仕入れ元(楽天)が売切/リンク切れで「自動で出品停止した商品」を、次にアプリを開いたときにまとめて報告するモーダル。
+// 仕入れ元が売切/リンク切れで「自動で出品停止した商品」を、次にアプリを開いたときにまとめて報告するモーダル。
 // 開いた瞬間に未処理ぶんの停止も実行（/api/ebay/list/reconcile）。1セッション1回だけ確認する。
 interface Entry {
   id: string;
@@ -81,7 +81,7 @@ export default function SourceStopRecap() {
         <div className="px-4 pt-4 pb-3 border-b border-[#A98B5C]/25">
           <h2 id="src-recap-title" className="text-[15px] font-black text-emerald-700">🛡️ 欠品トラブルを未然に防ぎました</h2>
           <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-            <span className="whitespace-nowrap">仕入れ元（楽天）に</span><wbr />
+            <span className="whitespace-nowrap">仕入れ元に</span><wbr />
             <span className="whitespace-nowrap">問題が出た下記を、</span><wbr />
             <b className="whitespace-nowrap">評価を守るため</b><wbr />
             <span className="whitespace-nowrap">自動で出品停止</span><wbr />

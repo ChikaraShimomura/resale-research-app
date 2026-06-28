@@ -56,7 +56,7 @@ export async function countReturnPolicies(token: string, marketplace: string): P
 
 // ── アプリ出品の SKU（売却検知の鍵） ──
 // アプリ経由でeBay出品した商品は SKU を "rr-{サニタイズ済み商品ID}" にする。
-// 楽天 itemCode は "shop:code" のようにコロンを含み eBay SKU(英数字+ハイフン+_/50字)で弾かれるため、
+// 仕入れ元の itemCode は "shop:code" のようにコロンを含み eBay SKU(英数字+ハイフン+_/50字)で弾かれるため、
 // SKUはサニタイズし、SKU→商品ID の対応表を別途KVに保存して逆引きする（route側で実施）。
 export const APP_SKU_PREFIX = "rr-";
 

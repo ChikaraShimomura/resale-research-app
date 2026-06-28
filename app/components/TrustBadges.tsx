@@ -3,7 +3,7 @@ import { Globe, Users, ShieldCheck, KeyRound, TrendingUp, Landmark, Briefcase, L
 
 // このサイトが使うサービスを「信頼できる相手」として直感的に伝える信頼ブロック。
 // 海外サイトへの不安を「使う相手が世界基準の大企業」と一目で示して下げる。
-// withRakuten=true で 仕入れ先の楽天を加えた3つ（ホーム上部）。false で eBay/Payoneer の2つ（eBay設定画面・従来どおり）。
+// withRakuten=true で 仕入れ元を加えた3つ（ホーム上部）。false で eBay/Payoneer の2つ（eBay設定画面・従来どおり）。
 // linked=true で各カードがそのサービスのガイドへのリンクになる。
 // 数値は裏取り済み（eBay: 190の国・地域/1.3億人超/買い手保護, Payoneer: NASDAQ上場/200カ国超/各国ライセンス）。
 
@@ -14,10 +14,10 @@ const PAYO = "#FF6B00";
 type Pt = { Icon: LucideIcon; t: string };
 
 const rakuPoints: Pt[] = [
-  { Icon: ShoppingBag, t: "日本最大級。いつもの通販感覚で仕入れ" },
-  { Icon: Coins, t: "買うほどポイント還元で実質コスト減" },
+  { Icon: ShoppingBag, t: "全国の店舗在庫から中古をまとめて仕入れ" },
+  { Icon: Coins, t: "状態の良い中古を相場より安く確保" },
   { Icon: Package, t: "仕入れも受け取りも国内で安心" },
-  { Icon: CircleCheck, t: "楽天会員アカウントでそのまま購入" },
+  { Icon: CircleCheck, t: "いつもの通販感覚でそのまま購入" },
 ];
 const ebayPoints: Pt[] = [
   { Icon: Globe, t: "世界190の国・地域で利用（1995年〜）" },
@@ -107,9 +107,9 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
           <p className="text-[12px] text-gray-500 leading-relaxed mt-0.5">
             {withRakuten ? (
               <>
-                <span className="whitespace-nowrap">仕入れは楽天、出品はeBay、</span><wbr />
+                <span className="whitespace-nowrap">仕入れはハードオフ、出品はeBay、</span><wbr />
                 <span className="whitespace-nowrap">入金はPayoneer。</span><wbr />
-                <span className="whitespace-nowrap">日本最大級と世界基準の</span><wbr />
+                <span className="whitespace-nowrap">国内の中古と世界基準の</span><wbr />
                 <span className="whitespace-nowrap">サービスだけ。</span>
               </>
             ) : (
@@ -125,7 +125,7 @@ export default function TrustBadges({ withRakuten = false, linked = false }: { w
 
       <div className={`grid ${withRakuten ? "grid-cols-3 gap-2" : "grid-cols-1 sm:grid-cols-2 gap-3"}`}>
         {withRakuten && (
-          <Card accent={RAKU} HeadIcon={ShoppingBag} name="楽天" role="仕入れ" tagline="日本最大級の通販モール" points={rakuPoints} href="/guide/rakuten" linked={linked} compact={withRakuten} />
+          <Card accent={RAKU} HeadIcon={ShoppingBag} name="ハードオフ" role="仕入れ" tagline="全国チェーンの中古ショップ" points={rakuPoints} href="/guide" linked={linked} compact={withRakuten} />
         )}
         <Card accent={EBAY} HeadIcon={Globe} name="eBay" role={withRakuten ? "販売" : undefined} tagline={withRakuten ? "世界最大級のフリマ" : "世界最大級のフリマサイト"} points={ebayPoints} href="https://www.ebay.com/sl/sell" linked={linked} external compact={withRakuten} />
         <Card accent={PAYO} HeadIcon={Landmark} name="Payoneer" role={withRakuten ? "受け取り" : undefined} tagline={withRakuten ? "世界の入金・受け取り" : "世界の入金・受け取りサービス"} points={payoPoints} href="/guide/payoneer-withdraw" linked={linked} compact={withRakuten} />

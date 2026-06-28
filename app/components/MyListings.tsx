@@ -374,7 +374,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           </div>
                           {/* 追加仕入れは控えめ（仕入れできない状態なので弱める）。在庫が戻った場合の確認用に残す。 */}
                           <a
-                            href={toRakutenProductUrl(d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`)}
+                            href={toRakutenProductUrl(d.sourceUrl || `https://netmall.hardoff.co.jp/search/?q=${encodeURIComponent(d.title || "")}`)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-lg border border-[#A98B5C]/35 text-gray-500 text-[10px] font-bold active:bg-gray-50"
@@ -386,13 +386,13 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                       /* 出品中の操作は2×2に最適化：追加仕入れ／出品停止・売れた／商品の編集。
                          再出品は出品中では不要(=既に出品中)・「やめた」は出品停止に集約して整理（停止品は記録を残したまま後で「過去の出品」へ）。 */
                       <div className="grid grid-cols-2 gap-1.5">
-                        {/* 追加仕入れ：楽天の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
-                            sourceUrl はカタログから補完した楽天直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
+                        {/* 追加仕入れ：仕入れ元の「その商品ページ」へ直行（売れたら仕入れて発送／在庫の買い増し）。
+                            sourceUrl はカタログから補完した仕入れ元の直リンク。失効/旧dealで無いときだけ商品名検索にフォールバック。 */}
                         <a
-                          href={toRakutenProductUrl(d.sourceUrl || `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(d.title || "")}/`)}
+                          href={toRakutenProductUrl(d.sourceUrl || `https://netmall.hardoff.co.jp/search/?q=${encodeURIComponent(d.title || "")}`)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-[#BF0000] text-white text-[11px] font-bold active:bg-[#9E0000]"
+                          className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-[#2D323B] text-white text-[11px] font-bold active:bg-[#1A1D23]"
                         >
                           <ShoppingCart size={13} /> 追加仕入れ
                         </a>

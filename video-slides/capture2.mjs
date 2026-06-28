@@ -29,15 +29,15 @@ async function main() {
     await page.goto(`${BASE}/guide`, { waitUntil: 'networkidle' });
 
     await shotEl(await page.$('main .bg-gradient-to-br'), 'g_intro');
-    add('g_intro', { guide: 'guide', kind: 'card', screen: '楽天xeBay 輸出転売の概要＋フロー図（仕入れ→販売→回収）', instruction: '楽天で仕入れてeBayで海外に売る副業の全体像' });
+    add('g_intro', { guide: 'guide', kind: 'card', screen: '中古xeBay 輸出転売の概要＋フロー図（仕入れ→販売→回収）', instruction: '中古品を仕入れてeBayで海外に売る副業の全体像' });
 
     const stepCards = await page.$$('main > div:nth-child(2) > div:nth-child(2) > div');
     const stepMeta = [
-      ['g_step1', '①楽天で商品を仕入れる', 'ポイント高還元日(0と5のつく日/スーパーSALE)を狙う'],
+      ['g_step1', '①日本の中古品を仕入れる', '状態のよい人気ジャンルの中古品を相場より安く仕入れる'],
       ['g_step2', '②eBayアカウントを作成する', '売上受け取りのセラー登録は初回だけ。画像つきガイドあり'],
-      ['g_step3', '③eBayに出品する', '「楽天で仕入れる」を押すと自動出品が解放。タイトル・価格は自動'],
+      ['g_step3', '③eBayに出品する', '「ハードオフで仕入れる」を押すと自動出品が解放。タイトル・価格は自動'],
       ['g_step4', '④売れたら発送する', '日本郵便の国際郵便で発送。追跡番号をeBayに登録'],
-      ['g_step5', '⑤利益を受け取る', 'Payoneer経由で銀行へ。楽天ポイントは次の仕入れに'],
+      ['g_step5', '⑤利益を受け取る', 'Payoneer経由で銀行へ。売却益が手元に残る'],
     ];
     for (let i = 0; i < stepMeta.length && i < stepCards.length; i++) {
       const [id, screen, instruction] = stepMeta[i];
@@ -46,7 +46,7 @@ async function main() {
     }
 
     await shotEl(await page.$('main [class*="font-mono"]'), 'g_profit');
-    add('g_profit', { guide: 'guide', kind: 'card', screen: '利益の計算式(eBay相場 − 楽天仕入れ + ポイント − 手数料)', instruction: '全商品この式で利益を算出。国際送料は購入者負担' });
+    add('g_profit', { guide: 'guide', kind: 'card', screen: '利益の計算式(eBay相場 − 中古仕入れ − 国際送料 − 手数料 − 関税)', instruction: '全商品この式で利益を算出。送料・手数料・関税まで差し引く' });
 
     await ctx.close();
   }

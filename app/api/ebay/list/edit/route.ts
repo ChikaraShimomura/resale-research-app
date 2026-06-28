@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       error: OFFER_NOT_FOUND,
     });
   }
-  // 撮影の参考用：自宅ワーカー(galleryWorker)が取得・保存した楽天ギャラリー(ref_gallery:{id})を返す。
+  // 撮影の参考用：自宅ワーカー(galleryWorker)が取得・保存した仕入れ元ギャラリー(ref_gallery:{id})を返す。
   // 表示専用(eBay出品には載せない)。未取得なら空配列。
   let refImages: string[] = [];
   try {

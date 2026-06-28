@@ -112,7 +112,7 @@ export default async function PricingPage({
           </div>
         )}
 
-        {/* 個別サポート（任意・非楽天の収益導線）。eBayセラー登録=最初の1回が最大の難所→詰まった時だけ他社(ココナラ)に相談。 */}
+        {/* 個別サポート（任意）。eBayセラー登録=最初の1回が最大の難所→詰まった時だけ他社(ココナラ)に相談。 */}
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
           <p className="text-sm font-black text-gray-800 mb-1.5">eBayのセラー登録でつまずいたら（任意）</p>
           <p className="text-[12px] text-gray-500 leading-relaxed mb-4">

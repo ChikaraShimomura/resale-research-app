@@ -34,7 +34,7 @@ interface Order {
   shippedAt?: string;
   shortageHandledAt?: string; // ⑤ 欠品（仕入れ不可）として記録済み
   cancelled?: boolean; // eBay側でキャンセル＝発送不要
-  sourceUrl?: string; // 仕入れ元（楽天）の直リンク。注文に紐づいて返れば「① 楽天で仕入れる」を出す（無ければ非表示）
+  sourceUrl?: string; // 仕入れ元の直リンク。注文に紐づいて返れば「① 仕入れ先で確認」を出す（無ければ非表示）
 }
 
 const isShipped = (o: Order) => !!o.trackingNumber || o.fulfillmentStatus === "FULFILLED";
@@ -246,7 +246,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
   const ebayOrderUrl = `https://www.ebay.com/sh/ord/details?orderid=${encodeURIComponent(order.orderId)}`;
   const ddp = ddpInfo(order); // 米国宛$100超なら関税前払い(Zonos)が要る
 
-  // ① 楽天で仕入れる：注文に紐づく仕入れ元URL（直リンク）。取得できない注文ではボタンを出さない。
+  // ① 仕入れ先で確認：注文に紐づく仕入れ元URL（直リンク）。取得できない注文ではボタンを出さない。
   const rakutenUrl = safeHttpUrl(toRakutenProductUrl(order.sourceUrl || ""));
   // ③ 送り状作成→追跡番号取得の導線で貼り付ける宛先テキスト。
   const addr = addressText(order.shipTo);
@@ -360,23 +360,23 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
         </div>
       ) : (
         <>
-          {/* ① 楽天で仕入れる（無在庫の起点）。仕入れ元URLが注文に紐づく時だけ出す＝楽天赤はブランドCTAなので許容。 */}
+          {/* ① 仕入れ先で確認。仕入れ元URLが注文に紐づく時だけ出す。 */}
           {rakutenUrl && (
             <a
               href={rakutenUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 h-10 rounded-lg bg-[#BF0000] text-white text-[12px] font-bold active:opacity-90"
+              className="flex items-center justify-center gap-1.5 h-10 rounded-lg bg-[#2D323B] text-white text-[12px] font-bold active:opacity-90"
             >
-              <ShoppingBag size={14} className="shrink-0" /> ① 楽天で仕入れる
+              <ShoppingBag size={14} className="shrink-0" /> ① 仕入れ先で確認
               <ExternalLink size={12} className="shrink-0 opacity-80" />
             </a>
           )}
 
-          {/* やること（適応表示）：①仕入れ→②梱包発送→③追跡登録。米国$100超は②.5でZonos前払いを挟む。 */}
+          {/* やること（適応表示）：①仕入れ先で確認→②梱包発送→③追跡登録。米国$100超は②.5でZonos前払いを挟む。 */}
           <p className="text-[10px] text-gray-400 leading-tight">
             <span className="whitespace-nowrap">やること：</span><wbr />
-            <span className="whitespace-nowrap">① 楽天で仕入れる →</span><wbr />
+            <span className="whitespace-nowrap">① 仕入れ先で確認 →</span><wbr />
             <span className="whitespace-nowrap">② 梱包・発送 →</span><wbr />
             {ddp.needed && (
               <>
@@ -472,7 +472,7 @@ function OrderCard({ order, onShipped }: { order: Order; onShipped: () => void }
           ) : (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 space-y-1.5">
               <p className="text-[10px] text-amber-800 leading-relaxed">
-                <span className="whitespace-nowrap">楽天で仕入れできない時は</span><wbr />
+                <span className="whitespace-nowrap">仕入れできない時は</span><wbr />
                 <span className="whitespace-nowrap">買い手に連絡→</span><wbr />
                 <span className="whitespace-nowrap">eBayの注文をキャンセル</span><wbr />
                 <span className="whitespace-nowrap">（理由：在庫切れ）。</span><wbr />

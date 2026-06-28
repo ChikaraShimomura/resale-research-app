@@ -3,7 +3,7 @@ import { OG_BADGE } from "./lib/marketing";
 
 // サイト共通の OGP/Twitter カード画像（X・LINE・各SNSでリンク共有時に出る大きな画像）。
 // これが無いと summary_large_image 指定でも画像が出ず、自動投稿の見栄え＝流入が落ちる。
-// 商品ページは generateMetadata 側の og:image（楽天サムネ）で個別に上書きされる。
+// 商品ページは generateMetadata 側の og:image（商品サムネ）で個別に上書きされる。
 
 export const alt = "輸出ラボ｜eBay輸出の中古利益リサーチ";
 export const size = { width: 1200, height: 630 };

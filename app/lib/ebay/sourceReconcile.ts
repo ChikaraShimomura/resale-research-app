@@ -1,5 +1,5 @@
-// 仕入れ元(楽天)が「売り切れ/リンク切れ」になった出品を、eBayから自動で取り下げる。サーバー専用。
-// 検知は checkListings.mjs (cron, 楽天API) が deal.sourceStatus に dead/soldout を立てる。
+// 仕入れ元が「売り切れ/リンク切れ」になった出品を、eBayから自動で取り下げる。サーバー専用。
+// 検知は checkListings.mjs (cron) が deal.sourceStatus に dead/soldout を立てる。
 // ここはその検知結果を消費して「自動停止＋出品停止中へ移動＋recap記録」を行う。
 // 欠品キャンセル(売れたのに送れない)を防ぐのが目的＝止めすぎても再出品で戻せる安全側。
 import { kv } from "@vercel/kv";
@@ -60,7 +60,7 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
     const sku = d.sku ?? skuForProduct(productId);
     const r = await withdrawListingForSku(token, sku); // 冪等(未公開でもok)
     if (!r.ok) {
-      // 取り下げ失敗＝eBayにゾンビ出品が残るリスク（楽天売切なのにeBay売出中＝欠品販売に直結）。
+      // 取り下げ失敗＝eBayにゾンビ出品が残るリスク（仕入れ元売切なのにeBay売出中＝欠品販売に直結）。
       // 無音でリトライし続けず、失敗回数を deal に記録。続くようなら MyListings が手動対応を促す。
       try {
         const fails = (Number(d.stopFailedCount) || 0) + 1;
@@ -74,7 +74,7 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
     }
     // sku未保存の旧deal×自己修復SKU(rr-{id}-{乱数})だと基本SKUでオファーが当たらず ended=false(未検出)になり得る。
     // 「本当に取り下げた確証なし」なので停止扱い/recapにはしない（誤報告防止）。ただし黙って continue すると
-    // 楽天売切なのに eBay 売出中(欠品販売)のゾンビ出品が放置されるため、取り下げ失敗と同じく手動対応フラグを立てて可視化する。
+    // 仕入れ元売切なのに eBay 売出中(欠品販売)のゾンビ出品が放置されるため、取り下げ失敗と同じく手動対応フラグを立てて可視化する。
     if (!r.ended && !d.sku) {
       try {
         const fails = (Number(d.stopFailedCount) || 0) + 1;

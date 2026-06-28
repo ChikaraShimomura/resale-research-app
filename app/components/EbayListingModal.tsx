@@ -36,8 +36,8 @@ interface PrepareData {
   requiredAspects: RequiredAspect[];
   shipping: ShippingChoice[];
   recommendedShippingId?: string; // ジャンル(サイズ)に最適な送料ポリシー（既定選択に使う）
-  refImages?: string[];     // 楽天ギャラリー(自宅ワーカー取得・出品/撮影の候補)
-  productImages?: string[]; // 楽天APIの代表画像(常に最低1枚)
+  refImages?: string[];     // カタログのギャラリー画像(自宅ワーカー取得・出品/撮影の候補)
+  productImages?: string[]; // カタログの代表画像(常に最低1枚)
 }
 
 const MAX_LISTING_PHOTOS = 12; // eBay出品に使える最大枚数（EPS加工時間の都合で12に制限）
@@ -416,12 +416,12 @@ export default function EbayListingModal({
   // 詳細オプションの開閉。必須項目が未入力の時は強制で開く（隠れて出品できない原因にならないように）。
   const advOpen = showAdv || !aspectsFilled;
 
-  // 出品写真の候補（楽天ギャラリー＋API代表画像・重複除去）。ユーザーがチェックで選ぶ。
+  // 出品写真の候補（カタログのギャラリー画像＋代表画像・重複除去）。ユーザーがチェックで選ぶ。
   const photoCandidates = Array.from(new Set([...(data?.refImages ?? []), ...(data?.productImages ?? [])]))
     .filter(Boolean)
     .filter((u) => !badPhotos.has(u)); // 低解像度/読み込み不可と判定した候補は出さない
   // 拡大プレビューは「実際にeBayへ送る加工後画像」を出す（clean-img の list=1＝enhanceToEpsと同一加工）＝WYSIWYG。
-  // プロキシは楽天系ホストのみ許可なので、楽天画像だけ通し、それ以外は元URL。
+  // プロキシはレガシー画像ホスト(rakuten.co.jp|r10s.jp)のみ許可なので、その画像だけ通し、それ以外は元URL。
   const ebayPreviewSrc = (url: string) =>
     /(rakuten\.co\.jp|r10s\.jp)/i.test(url) ? `/api/clean-img?u=${encodeURIComponent(url)}&list=1` : url;
   // チェックの切り替え。選んだ順を保持＝この順番がそのまま出品の画像順になる（先頭=メイン写真）。
@@ -555,7 +555,7 @@ export default function EbayListingModal({
 
           {phase === "form" && data && (
             <div className="space-y-4">
-              {/* 商品画像（楽天） */}
+              {/* 商品画像（カタログ） */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">商品画像（自動取得）</label>
                 <div className="flex items-center gap-3">
@@ -622,7 +622,7 @@ export default function EbayListingModal({
               </div>
               </>)}
 
-              {/* 出品に使う写真（楽天ギャラリーから選ぶ・先頭がメイン写真） */}
+              {/* 出品に使う写真（カタログのギャラリー画像から選ぶ・先頭がメイン写真） */}
               {photoCandidates.length > 0 && (
                 <div>
                   <label className="block text-[11px] text-gray-500 mb-1">

@@ -24,7 +24,7 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   let url;
   try { url = new URL(req.url); } catch { return; }
-  if (url.origin !== self.location.origin) return; // 外部(楽天/eBay/CDN)はそのまま
+  if (url.origin !== self.location.origin) return; // 外部(eBay/CDN等)はそのまま
   if (url.pathname.startsWith("/api/")) return;     // 動的データはキャッシュしない
 
   if (req.mode === "navigate") {

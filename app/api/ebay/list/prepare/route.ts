@@ -22,7 +22,7 @@ import { hasPerm } from "../../../../lib/team";
 import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
 
 // 「eBay出品画面」の確認用データを返す（読み取りのみ・eBayへの書き込みなし）。
-// 楽天画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
+// 仕入れ元の画像・タイトル・推奨USD価格・自動判定カテゴリ・必須Item Specifics を返す。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -126,7 +126,7 @@ function brandFor(genre: string, titleText: string): { options: string[]; value:
   return { options: base.options, value: base.def };
 }
 
-// 状態の自動判定：大半は新品。楽天タイトルに「中古」等があるときだけ中古に。
+// 状態の自動判定：大半は新品。タイトルに「中古」等があるときだけ中古に。
 function detectCondition(jaTitle: string): string {
   if (/中古|ユーズド|used|ジャンク/i.test(jaTitle)) {
     if (/非常に良い|美品|ほぼ新品|新品同様|like ?new/i.test(jaTitle)) return "USED_EXCELLENT";
@@ -304,7 +304,7 @@ export async function POST(req: Request) {
   if (!/japan/i.test(baseTitle)) titleParts.push("Japan");
   const enTitle = titleParts.join(" ").slice(0, 80).trim();
   // ★中古有在庫モデル：仕入れ元が中古サイト(ハードオフ/2nd ST)なら必ず中古。状態ランク(usedCondition)を段階反映。
-  //   ジャンクは USED_ACCEPTABLE＋説明文で「for parts/not working」を明示。旧モデル(楽天新品)だけタイトル判定。
+  //   ジャンクは USED_ACCEPTABLE＋説明文で「for parts/not working」を明示。旧モデル(新品)だけタイトル判定。
   const srcSite = product.source?.site as string | undefined;
   const usedCond = (product as { usedCondition?: string }).usedCondition;
   const isJunkItem = /JUNK|ジャンク/i.test(usedCond || "");
@@ -362,7 +362,7 @@ export async function POST(req: Request) {
   const effectiveCategoryId = cat?.categoryId || (cat ? mappedCategoryId : undefined);
 
   // 損益分岐(USD)：このeBay価格を下回ると赤字になる下限。「最安で出す」時もここは割らない。
-  // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(楽天価格+国内送料)。
+  // profit=0 ⇔ ebayJpy*(1-fee) - 固定手数料 = 現金原価(仕入れ価格+国内送料)。
   // ※ ポイントは利益に含めない方針なので原価から引かない＝ポイント頼みで赤字ラインを下げない（安全側）。
   const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
   // 着地コストの内訳表示用（モーダルに渡す）＝推奨価格(priceUsd)時点の送料/関税の目安。
@@ -443,7 +443,7 @@ export async function POST(req: Request) {
     });
   }
 
-  // 出品画像の候補：自宅ワーカー(galleryWorker)が取得した楽天ギャラリー(ref_gallery)＋APIの代表画像。
+  // 出品画像の候補：自宅ワーカー(galleryWorker)が取得した仕入れ元ギャラリー(ref_gallery)＋APIの代表画像。
   // ユーザーは出品画面でこの中から「出品に使う写真」をチェックで選ぶ。未取得ならAPIの画像だけ。
   let refImages: string[] = [];
   try {
@@ -475,8 +475,8 @@ export async function POST(req: Request) {
         rakutenPrice: product.source.price,
         ebayAvgJpy: product.realAvgPrice,
       },
-      refImages,      // 楽天ギャラリー(自宅ワーカー取得・出品/撮影の候補)
-      productImages,  // 楽天APIの代表画像(常に最低1枚)
+      refImages,      // 仕入れ元ギャラリー(自宅ワーカー取得・出品/撮影の候補)
+      productImages,  // 仕入れ元APIの代表画像(常に最低1枚)
       title: enTitle,
       description: finalDescription,
       priceUsd,  // 既定の表示価格＝eBay最安ベース

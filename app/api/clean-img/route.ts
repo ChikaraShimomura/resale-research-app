@@ -2,13 +2,13 @@ import sharp from "sharp";
 import { cleanupBakedText } from "../../lib/ebay/imageCleanup";
 import { processListingImage } from "../../lib/ebay/imageProcess";
 
-// 表示用の画像プロキシ: 楽天画像を取得→焼き込み文字を背景色で消去(imageCleanup)→JPEGで返す。
+// 表示用の画像プロキシ: 仕入れ元の画像を取得→焼き込み文字を背景色で消去(imageCleanup)→JPEGで返す。
 // 各画像は初回だけ処理し、以降は CDN/ブラウザキャッシュ（immutable・1年）で配るのでコスト・遅延は初回のみ。
 // GOOGLE_VISION_API_KEY 未設定 or 失敗時は cleanupBakedText が元画像を返す（=素通り・fail-open）。
-// SSRF対策で楽天系ホストのみ許可。取得失敗時は元URLへ302（壊さない）。
+// SSRF対策で許可リストのホストのみ許可。取得失敗時は元URLへ302（壊さない）。
 export const runtime = "nodejs";
 
-// 楽天の画像CDNホストのみ許可（rakuten.co.jp / r10s.jp 系）。
+// レガシー画像CDNホストのみ許可（rakuten.co.jp / r10s.jp 系・無在庫時代の画像表示に必要）。
 const ALLOW = /(^|\.)(rakuten\.co\.jp|r10s\.jp)$/i;
 
 function allowedTarget(u: string): string | null {

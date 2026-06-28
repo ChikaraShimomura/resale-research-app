@@ -44,7 +44,7 @@ export default function RegisterPage() {
                 <span className="whitespace-nowrap"><Link href="/privacy" target="_blank" className="text-[#2D323B] underline">プライバシーポリシー</Link>に</span><wbr />
                 <span className="whitespace-nowrap">同意します。</span><wbr />
                 <span className="whitespace-nowrap">本サービスは利益を保証しません。</span><wbr />
-                <span className="whitespace-nowrap">eBay・楽天等の各規約遵守、</span><wbr />
+                <span className="whitespace-nowrap">eBay・各仕入れ元サイトの規約遵守、</span><wbr />
                 <span className="whitespace-nowrap">出品の合法性、</span><wbr />
                 <span className="whitespace-nowrap">古物商許可の要否は</span><wbr />
                 <span className="whitespace-nowrap">利用者ご自身でご確認ください。</span>

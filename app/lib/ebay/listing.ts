@@ -1,4 +1,4 @@
-// eBay 出品（楽天画像を使った完全自動公開）のサーバー専用ロジック。
+// eBay 出品（仕入れ元画像を使った完全自動公開）のサーバー専用ロジック。
 // 在庫アイテム(PUT) → オファー(POST/PUT) → 公開(publishOffer) を行う。
 // カテゴリ/必須Item Specifics は Taxonomy API で取得（アプリトークン使用）。
 import { skuForProduct, isNoOpUpdate } from "./sellApi";
@@ -12,7 +12,7 @@ export const MARKETPLACE = "EBAY_US";
 export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
 export { USD_JPY }; // realAvgPrice の換算レート（再エクスポート＝既存の `from "./listing"` 取り込みを維持）
 
-// 楽天のmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠でボケるため、出品時は最大解像度に差し替える。
+// レガシーのmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠でボケるため、出品時は最大解像度に差し替える。
 // ★ thumbnail.image.rakuten.co.jp(リサイズCDN・_ex=1200でも1200頭打ち)ではなく image.rakuten.co.jp(原寸オリジナル)を使う。
 //   高解像度をアップしている店ほど鮮明になる。元画像が小さい店はそのサイズが上限(=これ以上は鮮明化不能)。
 function upscaleListingImage(url: string): string {
@@ -504,9 +504,9 @@ async function publishWithSku(token: string, input: PublishInput, sku: string): 
     steps.push({ step: `状態をカテゴリ対応に補正（${input.condition}→${condEnum}）`, ok: true });
   }
 
-  // 1) 在庫アイテム（楽天画像・タイトル・状態・必須項目）
+  // 1) 在庫アイテム（仕入れ元画像・タイトル・状態・必須項目）
   // JAN/EAN(13/8桁)があれば product.ean に載せる＝eBayがカタログ一致時に「公式ストック画像」と必須項目を
-  // 自動添付(正規ルート・規約OK)。不一致/無しでも従来の楽天画像で出品は必ず通る(fail-open)。
+  // 自動添付(正規ルート・規約OK)。不一致/無しでも従来の仕入れ元画像で出品は必ず通る(fail-open)。
   const eanDigits = (input.ean || "").replace(/\D/g, "");
   const eanOk = eanDigits.length === 13 || eanDigits.length === 8;
   const itemBody = {

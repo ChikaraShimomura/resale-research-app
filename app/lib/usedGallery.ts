@@ -1,5 +1,5 @@
 // 仕入れ元(ハードオフ)の商品詳細ページから全画像(ギャラリー)を取得する。
-// ハードオフは Akamai 無し＝Vercel(DC-IP)からも素の fetch で取れる（楽天/eBay/2nd STは住宅IP必須なので不可）。
+// ハードオフは Akamai 無し＝Vercel(DC-IP)からも素の fetch で取れる（eBay/2nd STは住宅IP必須なので不可）。
 // 一次ソースは詳細ページの JSON-LD schema.org Product の "image":[...]（本体商品の全画像が大きいサイズで並ぶ）。失敗時は空配列。
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";

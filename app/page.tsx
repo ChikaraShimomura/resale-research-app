@@ -115,7 +115,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ホーム紹介動画(home-intro.mp4)は楽天前提のナレーションのため、中古モデル用に再生成するまで一旦非表示。
+      {/* ホーム紹介動画(home-intro.mp4)は旧モデル前提のナレーションのため、中古モデル用に再生成するまで一旦非表示。
           eBay登録・出金の動画(モデル非依存)は /guide に置いてあり、上の「使い方を詳しく見る」から到達できる。 */}
 
       {/* 「海外に売るのは怖い／難しい」を払拭する安心セクション（先頭＝まず不安を解く） */}
@@ -148,7 +148,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* このサイトで使うサービス（販売=eBay／受け取り=Payoneer。仕入れは中古サイトなので楽天バッジは出さない） */}
+      {/* このサイトで使うサービス（販売=eBay／受け取り=Payoneer。仕入れは中古サイトなので仕入れ元バッジは出さない） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <TrustBadges linked />
       </section>

@@ -89,7 +89,7 @@ function MoneyFlow({ s }: { s: Stats }) {
         )}
       </div>
 
-      {/* 着地の利益（現金）。楽天ポイントは「( + ○○ポイント )」で別物として併記する。 */}
+      {/* 着地の利益（現金）。ポイントは「( + ○○ポイント )」で別物として併記する。 */}
       <div className="mt-3 pt-3 border-t border-[#A98B5C]/25 flex items-center justify-between gap-2">
         <span className="text-[12px] font-bold text-gray-700">あなたの利益（現金）</span>
         <div className="text-right">
@@ -125,7 +125,7 @@ function Legend({ color, label, value, bold }: { color: string; label: string; v
 }
 
 // 収支（仕入れ ↔ 売上）。仕入れ累計＝「仕入れた商品(used_bought)」の合計（送料込・/boughtと一致）。
-// 売上＝自動出品で売れた金額。差引＝売上−手数料−仕入れ累計。旧モデル(楽天)のdealsは混ぜない。
+// 売上＝自動出品で売れた金額。差引＝売上−手数料−仕入れ累計。旧モデル(無在庫)のdealsは混ぜない。
 function UsedFinancePanel({ s }: { s: Stats }) {
   const totalBuy = s.boughtTotalJpy; // 仕入れ商品の合計（送料込）＝/boughtと一致
   const buyCount = s.boughtTotalCount;

@@ -33,7 +33,7 @@ function ProfitRateBadge({ rate }: { rate: number }) {
   );
 }
 
-// 「ポイ活専用」バッジ：現金利益は薄いが楽天ポイントで得する品。現金で稼げる品と一目で区別する（ユーザー方針2026-06-23）。
+// 「ポイ活専用」バッジ：現金利益は薄いがポイントで得する品。現金で稼げる品と一目で区別する（ユーザー方針2026-06-23）。
 function PointKatsuBadge() {
   return (
     <span className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full text-white leading-none bg-violet-500">
@@ -100,7 +100,7 @@ function TrustBadge({ count }: { count: number }) {
 
 export default function ProductCard({ product, ebaySold = false, autoOpenListing = false, listed = false }: { product: ProfitProduct; ebaySold?: boolean; autoOpenListing?: boolean; listed?: boolean }) {
   const { source } = product;
-  // 仕入れボタン/画像リンクは楽天の直リンク（非アフィリエイト）。アフィリ中継が混ざっていても剥がして直URLにする。
+  // 仕入れボタン/画像リンクは仕入れ元の直リンク（非アフィリエイト）。中継が混ざっていても剥がして直URLにする。
   const sourceUrl = toRakutenProductUrl(source.url);
   // eBayタイトル全文は特定的すぎて検索が0件→無関係品になる。主要語に絞り、かつ
   // 表示中のeBay金額(realAvgPrice)を下回る出品はリンク先に出さない（_udloフロア）。
@@ -115,7 +115,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [imgError, setImgError] = useState(false); // 画像が読み込めない(リンク切れ)時はカードごと出さない
 
-  // 「楽天で仕入れる」を押した端末を localStorage(rkt_) に記録する。オンボーディングの「仕入れた」判定に使う。
+  // 「仕入れる」を押した端末を localStorage(rkt_) に記録する。オンボーディングの「仕入れた」判定に使う。
   const markRakutenClicked = () => {
     try { localStorage.setItem(`rkt_${product.id}`, "1"); } catch { /* noop */ }
     track("rakuten_buy_click", { product_id: product.id, profit_rate: product.realProfitRate });
@@ -124,7 +124,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   };
 
   // 仕入れ中としてアカウントに記録（別端末でもマイページの仕入れ中一覧に出る／カタログ非依存のスナップショット保存）。
-  // スマホで楽天アプリへ遷移するとブラウザがバックグラウンド化し通常の fetch は中断されるため、
+  // スマホで仕入れ元アプリへ遷移するとブラウザがバックグラウンド化し通常の fetch は中断されるため、
   // ページ離脱でも確実に送れる sendBeacon を使う（不可なら keepalive 付き fetch にフォールバック）。
   const recordSourcing = () => {
     const body = JSON.stringify({
@@ -154,7 +154,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   // 差分を「国際発送まわりの目安（送料のeBay手数料＋関税）」として1行に束ねる。
   const intlAndDuty = Math.max(0, Math.round(product.realAvgPrice - source.price - shippingJpy - ebayFee - product.realProfit));
 
-  // 画像が無い／読み込めない（楽天のリンク切れ画像）商品はカードごと出さない＝「画像無し」を防ぐ。
+  // 画像が無い／読み込めない（リンク切れ画像）商品はカードごと出さない＝「画像無し」を防ぐ。
   if (!product.imageUrl || imgError) return null;
 
   // 未購読(free)＝マスク版：タイトル/画像/利益率だけのティーザー。利益額・仕入れ先・eBay相場・出品はプラン。
@@ -201,7 +201,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
       {/* eBayで売却済み：仕入れ→発送を促す帯（最下部に沈むカードの目印） */}
       {ebaySold && (
         <div className="bg-emerald-50 border-b border-emerald-100 px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-          <BadgeCheck size={13} /> eBay売却済み — 楽天で仕入れて発送
+          <BadgeCheck size={13} /> eBay売却済み — 仕入れて発送
         </div>
       )}
 
@@ -222,19 +222,19 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
         <div className="flex gap-3.5 mb-4">
           {/* 画像 */}
           <div className="shrink-0 relative">
-            {/* 画像タップ＝楽天で商品を見る（アフィリ付き・新規タブ）。
+            {/* 画像タップ＝仕入れ元で商品を見る（新規タブ）。
                 ※ これは「見るだけ」。仕入れフラグ(rkt_)は付けない（オンボーディングの仕入れ判定に影響させない）。 */}
             <a href={sourceUrl} rel="noopener noreferrer"
               onClick={() => logEvent("product_view")}
-              className="block relative" aria-label="楽天市場でこの商品を見る">
+              className="block relative" aria-label="仕入れ元でこの商品を見る">
               <img src={cleanImg(product.imageUrl)} alt={product.title}
                 onError={() => setImgError(true)}
-                // 楽天の画像が消えると 404 で「1x1の極小プレースホルダgif」が返り onError が出ない＝空表示で残る。
+                // 仕入れ元の画像が消えると 404 で「1x1の極小プレースホルダgif」が返り onError が出ない＝空表示で残る。
                 // 読み込めた画像が極小(正規サムネは128px以上)ならリンク切れ扱いにしてカードごと隠す（負荷ゼロ・表示側のみ）。
                 onLoad={(e) => { const w = e.currentTarget.naturalWidth; if (w > 0 && w < 16) setImgError(true); }}
                 className={`w-[92px] h-[92px] object-cover rounded-xl bg-gray-50 border-2 ${product.realProfitRate >= 30 ? "border-[#A98B5C]" : "border-[#AEB4BD]"}`} />
               <span className="absolute bottom-1 inset-x-1 text-center text-[8px] font-bold text-white bg-black/45 rounded-md py-0.5 leading-none pointer-events-none">
-                楽天で見る
+                見る
               </span>
             </a>
             {isHot && (
@@ -259,7 +259,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               {product.title}
             </h3>
 
-            {/* 楽天仕入れ価格 */}
+            {/* 仕入れ価格 */}
             <div className="flex items-baseline gap-1.5">
               <span className="text-[11px] text-gray-400 whitespace-nowrap">仕入れ{shippingJpy > 0 ? "(送料込)" : ""}</span>
               <span className="text-lg font-black text-[#2D323B]">
@@ -287,7 +287,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           )}
 
           {/* 利益（ヒーロー）：現金利益（円）を主役に。ポイ活専用(現金1〜9%)は紫の「ポイ活専用」バッジで一目で区別＋利益率を併記。
-              楽天ポイントは「( + ○○ポイント )」で別物として併記（現金で稼げる品もポイ活専用も共通）。 */}
+              ポイントは「( + ○○ポイント )」で別物として併記（現金で稼げる品もポイ活専用も共通）。 */}
           <div className={`mt-2.5 pt-2.5 border-t flex items-end justify-between gap-2 ${product.profitKind === "point" ? "border-violet-300/50" : "border-[#A98B5C]/25"}`}>
             <div className="shrink-0">
               <p className="text-xs text-gray-400 mb-1">利益（最安売却時）</p>
@@ -361,11 +361,11 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span className="font-semibold text-blue-600">+ {formatJpy(product.realAvgPrice)}</span>
             </div>
             <div className="flex justify-between text-[#2D323B]">
-              <span>楽天仕入れ価格</span>
+              <span>仕入れ価格</span>
               <span>- {formatJpy(source.price)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
-              <span className="whitespace-nowrap">国内送料（楽天→自分）</span>
+              <span className="whitespace-nowrap">国内送料（仕入れ元→自分）</span>
               {shippingJpy > 0 ? (
                 <span className="text-[#2D323B]">- {formatJpy(shippingJpy)}（概算）</span>
               ) : (
@@ -390,24 +390,17 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               <span>利益（現金）</span>
               <span>{formatJpy(product.realProfit)}</span>
             </div>
-            {pointAmount > 0 && (
-              <div className="flex justify-between text-[11px] text-[#FF4466] font-bold">
-                <span>＋ 楽天ポイント<span className="whitespace-nowrap">（{source.pointRate ?? 1}%・利益とは別）</span></span>
-                <span>{pointAmount.toLocaleString()}ポイント</span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* 主要CTA — eBay自動出品 / 楽天で仕入れる を横並び（flex-1で等幅・位置を入れ替え済み） */}
+        {/* 主要CTA — eBay自動出品 / ハードオフで仕入れる を横並び（flex-1で等幅・位置を入れ替え済み） */}
         <div className="flex gap-2.5">
           <ListingHelper product={product} autoOpen={autoOpenListing} defaultListed={listed} />
-          {/* 同じタブで開く：target="_blank"だと楽天アフィリの中継ページ(hb.afl)が楽天アプリへ飛ばした後、
+          {/* 同じタブで開く：target="_blank"だと中継ページが仕入れ元アプリへ飛ばした後、
               中身のない空タブが残り「飛ぶ時も戻った時も真っ白」になるため。同タブなら戻るで輸出ラボへ戻れる。 */}
           <a href={sourceUrl} rel="noopener noreferrer" onClick={markRakutenClicked}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 bg-white border border-[#BF0000] text-[#BF0000] hover:bg-[#BF0000]/5 active:scale-[0.99] text-[13px] font-bold rounded-xl transition-all whitespace-nowrap">
-            <span className="inline-flex w-4 h-4 bg-[#BF0000] rounded-full items-center justify-center text-white font-black text-[9px] shrink-0">R</span>
-            楽天で仕入れる
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 bg-white border border-[#2D323B] text-[#2D323B] hover:bg-[#2D323B]/5 active:scale-[0.99] text-[13px] font-bold rounded-xl transition-all whitespace-nowrap">
+            ハードオフで仕入れる
           </a>
         </div>
       </div>

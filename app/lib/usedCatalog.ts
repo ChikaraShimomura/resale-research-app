@@ -3,7 +3,7 @@ import type { ProfitProduct } from "./profitFilter";
 
 // 【中古利益カタログ】eBay起点→中古サイト(ハードオフ等)照合→利益判定で作る「儲かる型番」エントリ。
 // buildUsedSampleFromCache.mjs(住宅IPワーカー)が KV `used_catalog` に書き、ここで読み出す。
-// ⚠️ 旧モデル(楽天新品の ProfitProduct)とは別系統。中古は1点物なので「型番」を主役に扱う。
+// ⚠️ 旧モデル(新品の ProfitProduct)とは別系統。中古は1点物なので「型番」を主役に扱う。
 export type UsedCatalogItem = {
   id?: string; // 出品フロー用の安定ID（psnap:{id} と対応）。buildが付与。
   modelKey: string; // 型番 or 商品名(同型の束ねキー)

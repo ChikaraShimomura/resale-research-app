@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-// 相場データカード画像。商品の 楽天→eBay相場・想定利益率を PNG で返す。
+// 相場データカード画像。商品の 仕入れ→eBay相場・想定利益率を PNG で返す。
 // 既定=1080x1080(X自動投稿用・ネイティブ直アップ)。?v=1 で 1080x1920 の縦型(Shorts/TikTok/Reels の動画素材)。
 // 生成失敗時、呼び出し側は画像なしで続行する想定(best-effort)。
 export const runtime = "nodejs";
@@ -38,14 +38,14 @@ export async function GET(req: Request) {
   const raku = sp.get("r");
   const ebay = sp.get("e");
   const rate = (sp.get("p") || "").slice(0, 5);
-  // mode=used＝中古モデル用カード(仕入れ値・楽天表記なし／想定売値=eBay落札中央値・状態ランク・想定純利益率のみ)。
-  // 既定(modeなし)・縦型(v=1)は従来の楽天モデル表示のまま＝studioの動画素材を壊さない。
+  // mode=used＝中古モデル用カード(仕入れ値・仕入れ元名は出さない／想定売値=eBay落札中央値・状態ランク・想定純利益率のみ)。
+  // 既定(modeなし)・縦型(v=1)は従来の仕入れ→eBay表示のまま＝studioの動画素材を壊さない。
   const mode = sp.get("mode");
   const cond = (sp.get("c") || "").slice(0, 24);
 
   const glyphs =
     title + name + cond +
-    "輸出ラボ楽天eBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
+    "輸出ラボ仕入れeBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
     "今日の利益商品日本でこれが海外だと無料で登録して他の商品もプロフィールのリンクから見れますやってみた" +
     "状態純売落札海外で想定中古※：" +
     "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + "0123456789,%→¥〜";
@@ -99,7 +99,7 @@ export async function GET(req: Request) {
     );
   }
 
-  // 中古モデル用カード（横1080x1080・X自動投稿）。仕入れ値/楽天は出さず、想定売値(eBay落札中央値)・状態・想定純利益率のみ。
+  // 中古モデル用カード（横1080x1080・X自動投稿）。仕入れ値/仕入れ元名は出さず、想定売値(eBay落札中央値)・状態・想定純利益率のみ。
   if (mode === "used") {
     return new ImageResponse(
       (
@@ -150,7 +150,7 @@ export async function GET(req: Request) {
           <div style={{ display: "flex", fontSize: 38, color: "#444444", lineHeight: 1.3, marginBottom: 40 }}>{name}</div>
 
           <div style={{ display: "flex", alignItems: "center", fontSize: 62, fontWeight: 700, color: "#111111" }}>
-            <span style={{ display: "flex", color: "#777777", fontSize: 38, marginRight: 16 }}>楽天</span>
+            <span style={{ display: "flex", color: "#777777", fontSize: 38, marginRight: 16 }}>仕入れ</span>
             ¥{yen(raku)}
             <span style={{ display: "flex", color: CRIMSON, margin: "0 22px", fontSize: 70 }}>→</span>
             <span style={{ display: "flex", color: "#777777", fontSize: 38, marginRight: 16 }}>eBay</span>

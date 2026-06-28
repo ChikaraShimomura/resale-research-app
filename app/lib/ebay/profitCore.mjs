@@ -8,7 +8,7 @@ import { EBAY_FEE_RATE } from "./landedCostCore.mjs";
 export const EBAY_FEE_FIXED_JPY = Number(process.env.LANDED_EBAY_FEE_FIXED_JPY ?? 47);
 export const SHIPPING_COST_JPY = Number(process.env.LANDED_SHIPPING_COST_JPY ?? 0); // 国際送料は買い手負担。国内→自分の着地コストは displayProfit/landedCost で別途。
 
-// 粗利 = eBay価格 -（楽天価格 + 国内送料 - 獲得ポイント）- eBay手数料 - 国際送料(0)。
+// 粗利 = eBay価格 -（仕入れ価格 + 国内送料 - 獲得ポイント）- eBay手数料 - 国際送料(0)。
 // ここで返す profit は「ポイントを原価控除した粗利」。配信の applyDisplayProfit がポイントを足し戻し、
 // 着地コスト(国際送料のeBay手数料+米国関税)を差し引いて“現金純利益”へ変換する（二重計上にならない設計）。
 export function calcProfit(rakutenPrice, ebayAvgJpy, pointAmount, domesticShipJpy = 0) {

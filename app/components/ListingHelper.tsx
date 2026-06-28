@@ -61,7 +61,7 @@ export default function ListingHelper({ product, autoOpen = false, defaultListed
     setListed(true);
   };
 
-  // 誰でも押せる（楽天仕入れの有無は出品ボタン押下時にモーダル内でチェックする）。出品済みのみ非アクティブ。
+  // 誰でも押せる（仕入れの有無は出品ボタン押下時にモーダル内でチェックする）。出品済みのみ非アクティブ。
   const onClick = () => {
     if (listed) return;
     track("ebay_list_open", { product_id: product.id });

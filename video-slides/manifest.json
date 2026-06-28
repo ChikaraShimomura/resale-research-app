@@ -2,14 +2,14 @@
   "g_intro": {
     "guide": "guide",
     "kind": "card",
-    "screen": "楽天xeBay 輸出転売の概要＋フロー図（仕入れ→販売→回収）",
-    "instruction": "楽天で仕入れてeBayで海外に売る副業の全体像"
+    "screen": "中古xeBay 輸出転売の概要＋フロー図（仕入れ→販売→回収）",
+    "instruction": "中古品を仕入れてeBayで海外に売る副業の全体像"
   },
   "g_step1": {
     "guide": "guide",
     "kind": "card",
-    "screen": "①楽天で商品を仕入れる",
-    "instruction": "ポイント高還元日(0と5のつく日/スーパーSALE)を狙う"
+    "screen": "①日本の中古品を仕入れる",
+    "instruction": "状態のよい人気ジャンルの中古品を相場より安く仕入れる"
   },
   "g_step2": {
     "guide": "guide",
@@ -21,7 +21,7 @@
     "guide": "guide",
     "kind": "card",
     "screen": "③eBayに出品する",
-    "instruction": "「楽天で仕入れる」を押すと自動出品が解放。タイトル・価格は自動"
+    "instruction": "「ハードオフで仕入れる」を押すと自動出品が解放。タイトル・価格は自動"
   },
   "g_step4": {
     "guide": "guide",
@@ -33,13 +33,13 @@
     "guide": "guide",
     "kind": "card",
     "screen": "⑤利益を受け取る",
-    "instruction": "Payoneer経由で銀行へ。楽天ポイントは次の仕入れに"
+    "instruction": "Payoneer経由で銀行へ。売却益が手元に残る"
   },
   "g_profit": {
     "guide": "guide",
     "kind": "card",
-    "screen": "利益の計算式(eBay相場 − 楽天仕入れ + ポイント − 手数料)",
-    "instruction": "全商品この式で利益を算出。国際送料は購入者負担"
+    "screen": "利益の計算式(eBay相場 − 中古仕入れ − 国際送料 − 手数料 − 関税)",
+    "instruction": "全商品この式で利益を算出。送料・手数料・関税まで差し引く"
   },
   "e_intro": {
     "guide": "ebay",

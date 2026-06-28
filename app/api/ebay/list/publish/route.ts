@@ -131,15 +131,15 @@ export async function POST(req: Request) {
 
   // 出品画像: ユーザーが出品画面で選んだ写真があればそれを使う（先頭=メイン）。
   // eBay上限＆EPS加工時間(maxDuration)を考え最大12枚に制限。重複は除去。
-  // 選択が無ければ従来どおり 楽天ギャラリー(最大3)から「商品写真だけ」を自動選定。
+  // 選択が無ければ従来どおり 仕入れ元ギャラリー(最大3)から「商品写真だけ」を自動選定。
   const picked = Array.isArray(body.selectedImages)
     ? Array.from(new Set(body.selectedImages.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)))).slice(0, 12)
     : [];
   const baseImages = picked.length
     ? picked
     : await filterProductImages(product.images?.length ? product.images : [product.imageUrl]);
-  // 品質加工(無料sharp): 楽天画像を取得→1600px正方白背景・シャープ→EPSへ載せ替え(全EPS化で混在も回避)。
-  // 失敗時は元の楽天URLのまま出品(fail-open)＝出品は必ず通る。
+  // 品質加工(無料sharp): 仕入れ元の画像を取得→1600px正方白背景・シャープ→EPSへ載せ替え(全EPS化で混在も回避)。
+  // 失敗時は元の画像URLのまま出品(fail-open)＝出品は必ず通る。
   let images = baseImages;
   try {
     const enhanced = await enhanceToEps(token, baseImages);
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
 
   // 「出品完了」＝eBayに公開できたものだけ記録する。下書き/本人確認待ち(result.ok=false)は成績に数えない。
   // ・SKU→商品ID（売却検知の逆引き）
-  // ・マイページ成績の出品（件数・仕入れ額）。仕入れは楽天価格＋国内送料（＝実際に払った額）。
+  // ・マイページ成績の出品（件数・仕入れ額）。仕入れは仕入れ価格＋国内送料（＝実際に払った額）。
   if (result.ok) {
     try {
       // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）で対応表を書く。SKU対応表は出品アカウント(ebayActor)基準。

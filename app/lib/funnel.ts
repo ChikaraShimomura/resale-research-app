@@ -27,7 +27,7 @@ export const FUNNEL_LABELS: Record<FunnelEvent, string> = {
   search: "検索した",
   results_view: "検索結果を見た",
   product_view: "商品の詳細を見た",
-  rakuten_buy: "楽天で仕入れる",
+  rakuten_buy: "仕入れる",
   listing_open: "出品をはじめた",
   listed: "出品が完了",
   sold: "売れた",

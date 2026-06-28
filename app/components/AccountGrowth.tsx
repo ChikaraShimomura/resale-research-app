@@ -127,7 +127,7 @@ export default function AccountGrowth() {
       t: "即発送・在庫確実だけ",
       d: (
         <>
-          <span className="whitespace-nowrap">⚠️ 売れてから楽天が売切→</span><wbr />
+          <span className="whitespace-nowrap">⚠️ 売れてから仕入れ元が売切→</span><wbr />
           <span className="whitespace-nowrap">キャンセルは、</span><wbr />
           <span className="whitespace-nowrap">育ち始めの新規アカに致命的</span><wbr />
           <span className="whitespace-nowrap">（増枠が止まる）。</span><wbr />

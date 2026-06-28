@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  // 利益商品データ(楽天仕入URL/仕入値/利益率/eBay照合URL等)は購読者(＋身内/管理者)限定。
+  // 利益商品データ(仕入れ元URL/仕入値/利益率/eBay照合URL等)は購読者(＋身内/管理者)限定。
   // /api/products と同じ canViewCatalog ゲートを掛け、未購読/未ログインにはデータを渡さない（ID列挙による課金回避を防ぐ）。
   // PAYWALL_ENABLED が OFF の間は canViewCatalog が常に true＝既存挙動のまま。
   if (!(await canViewCatalog())) {

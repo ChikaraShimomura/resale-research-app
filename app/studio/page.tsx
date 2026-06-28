@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTopProfitProducts } from "../lib/topProducts";
 import BottomNav from "../components/BottomNav";
 import CopyText from "../components/CopyText";
+import { sourceSiteName } from "../lib/usedCatalog";
 import { Download } from "lucide-react";
 
 // 運営者向けの「動画素材スタジオ」。今日の利益商品ごとに、縦型カード(動画用)＋台本＋キャプションを用意。
@@ -39,17 +40,17 @@ function script(raku: number, ebay: number, rate: number): string {
   ].join("\n");
 }
 
-// 動画投稿用キャプション(Shorts/TikTok/Reels)。
-function caption(raku: number, ebay: number, rate: number): string {
+// 動画投稿用キャプション(Shorts/TikTok/Reels)。srcName=仕入れ元の表示名(sourceSiteNameで出し分け)。
+function caption(raku: number, ebay: number, rate: number, srcName: string): string {
   return [
     `今日の利益商品💹`,
-    `楽天 ${yen(raku)} → eBay想定 ${yen(ebay)}（想定利益率 ${rate}%）`,
+    `${srcName} ${yen(raku)} → eBay想定 ${yen(ebay)}（想定利益率 ${rate}%）`,
     ``,
     `日本→海外の輸出転売。利益が出やすい商品を毎日チェック（登録で30日無料）。`,
     `※数字は想定・目安です`,
     `▶ プロフィールのリンクから`,
     ``,
-    `#eBay輸出 #物販 #副業 #せどり #楽天ポイントせどり`,
+    `#eBay輸出 #物販 #副業 #せどり #中古転売`,
   ].join("\n");
 }
 
@@ -98,6 +99,7 @@ export default async function StudioPage() {
               const raku = p.source?.price || 0;
               const ebay = p.realAvgPrice || 0;
               const rate = p.realProfitRate || 0;
+              const srcName = sourceSiteName(p.source?.site);
               return (
                 <section key={p.id} className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-4">
                   <div className="flex items-center gap-3 mb-3">
@@ -110,7 +112,7 @@ export default async function StudioPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{p.title}</p>
                       <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
-                        楽天 {yen(raku)} → eBay想定 <span className="text-[#0064D2] font-bold">{yen(ebay)}</span>・利益率 <span className="text-[#2D323B] font-bold">{rate}%</span>
+                        {srcName} {yen(raku)} → eBay想定 <span className="text-[#0064D2] font-bold">{yen(ebay)}</span>・利益率 <span className="text-[#2D323B] font-bold">{rate}%</span>
                       </p>
                     </div>
                   </div>
@@ -124,7 +126,7 @@ export default async function StudioPage() {
                   <div className="mb-2.5"><CopyText text={script(raku, ebay, rate)} label="台本コピー" /></div>
 
                   <p className="text-[11px] font-bold text-gray-500 mb-1">キャプション</p>
-                  <CopyText text={caption(raku, ebay, rate)} label="コピー" />
+                  <CopyText text={caption(raku, ebay, rate, srcName)} label="コピー" />
                 </section>
               );
             })}

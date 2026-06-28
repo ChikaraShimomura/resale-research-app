@@ -59,7 +59,7 @@ export default function OnboardingChecklist() {
 
       setSteps([
         { key: "view", label: "利益商品を見る", cta: { href: "/search", text: "見る" }, done: viewed || purchased || listedCount > 0 },
-        { key: "buy", label: "楽天で仕入れる", cta: { href: "/search", text: "探す" }, done: purchased || listedLocal || listedCount > 0 },
+        { key: "buy", label: "ハードオフで仕入れる", cta: { href: "/search", text: "探す" }, done: purchased || listedLocal || listedCount > 0 },
         { key: "connect", label: "eBayと連携する", cta: { href: "/settings/ebay", text: "連携" }, done: connected },
         { key: "list", label: "はじめて出品する", cta: { href: "/search", text: "出品" }, done: listedLocal || listedCount > 0 },
         { key: "sold", label: "はじめて売れる🎉", done: soldCount > 0 },

@@ -6,7 +6,7 @@ import { USD_JPY } from "./ebay/landedCostCore.mjs"; // SSOT(env駆動/既定155
 //
 // 保存カタログの realProfit は「国際送料前・ポイントを原価から引いて算出した粗利」＝実質ポイント込み。
 // ここで2つを行う：
-//   (1) 楽天ポイントを利益から外す（ポイントはあくまでポイント＝おまけ。source.pointAmount で別表示する）
+//   (1) ポイントを利益から外す（ポイントはあくまでポイント＝おまけ。source.pointAmount で別表示する）
 //   (2) 国際送料(目安)にかかるeBay手数料＋米国関税(目安)を差し引いて、手元に残る現金純利益にする
 // 結果：realProfit=現金純利益(円) / realProfitRate=現金原価ベースの利益率(%)。
 //        source.pointAmount は変更しない（「( + ○○ポイント )」の別表示に使う）。
@@ -23,7 +23,7 @@ export function applyDisplayProfit(p: ProfitProduct): ProfitProduct {
   const valueUsd = (p.realAvgPrice || 0) / USD_JPY;
   const landed = landedCost(p.category, valueUsd);
   const point = p.source?.pointAmount ?? 0;
-  // 現金原価＝楽天価格＋国内送料（ポイントは引かない＝ポイントで利益を底上げしない）。
+  // 現金原価＝仕入れ価格＋国内送料（ポイントは引かない＝ポイントで利益を底上げしない）。
   const cashBuy = (p.source?.price ?? 0) + (p.source?.shippingJpy ?? 0);
   // 保存 realProfit はポイントを原価控除済み＝現金粗利＋ポイント。pointを引いて現金に戻し、着地コストを差し引く。
   const netCash = Math.round((p.realProfit ?? 0) - point - landed.subtractJpy);

@@ -49,7 +49,7 @@ function maskProduct(p: ProfitProduct): ProfitProduct {
     realAvgPrice: 0,
     realProfit: 0,
     realCount: 0,
-    source: { site: "rakuten", siteName: "楽天市場", price: 0, url: "" },
+    source: { site: "rakuten", siteName: "", price: 0, url: "" },
   } as ProfitProduct;
 }
 
@@ -67,7 +67,7 @@ export async function GET() {
       getRestoredProducts(),
       // 透かし入り商品の記録（checkWatermarks.mjs が Haiku 検知で作る {id:"1"=透かし/"0"=クリーン}）。
       kvReadOnly.hgetall<Record<string, unknown>>("product_watermark").catch(() => ({})),
-      // 仕入れ元(楽天)の売切/削除フラグ（住宅IPワーカー sourceLivenessWorker が実ページ確認して記録）。
+      // 仕入れ元の売切/削除フラグ（住宅IPワーカー sourceLivenessWorker が実ページ確認して記録）。
       kvReadOnly.hgetall<Record<string, unknown>>("catalog_source_status").catch(() => ({})),
       // 箱価格(複数タイプ)で原価誤認＝不採算の商品ID（refresh が記録）。一覧からも隠す（防御的・通常はカタログ除外済み）。
       kvReadOnly.get<string[]>("catalog_overpriced_ids").catch(() => []),
@@ -78,7 +78,7 @@ export async function GET() {
       Object.entries(wmHash ?? {}).filter(([, v]) => v === "1" || v === 1).map(([id]) => id)
     );
 
-    // 楽天で売切/削除の商品IDは一覧から隠す（実ページ確認＝権威。在庫復活でワーカーが解除→自動で戻る）。
+    // 仕入れ元で売切/削除の商品IDは一覧から隠す（実ページ確認＝権威。在庫復活でワーカーが解除→自動で戻る）。
     const deadSourceIds = new Set(
       Object.entries(srcStatus ?? {})
         .filter(([, v]) => {
@@ -128,7 +128,7 @@ export async function GET() {
       // セーフティ：ゲートで全消え(ギャラリーワーカー停止・全TTL失効など)した時はブラックアウトを避け全件出す。
       if (ready.length === 0 && merged.length > 0) ready = merged;
 
-      // eBay直近落札 × 楽天で利益を再判定（新鮮な落札中央値がある商品だけ反映・無ければ現在出品相場のまま）。
+      // eBay直近落札 × 仕入れ元で利益を再判定（新鮮な落札中央値がある商品だけ反映・無ければ現在出品相場のまま）。
       ready = await applySoldComp(ready);
 
       // 国際送料・米国関税を差し引いて利益を正直化。
@@ -146,7 +146,7 @@ export async function GET() {
             (p.soldVerified && // ★eBay落札をAI画像で確認できた商品だけ掲載（未確定＝落札実績が確認できない品は出さない・ユーザー方針2026-06-23）
               p.profitKind !== "none" && // cash(現金純利益率≥10%)＋point(ポイ活専用=現金<10%でもポイント込みで損しない)を掲載。ポイント込みでも赤字は除外。
               (p.realAvgPrice || 0) / USD_JPY <= MAX_DECLARED_USD &&
-              !deadSourceIds.has(p.id)) // 楽天で売切/削除は隠す
+              !deadSourceIds.has(p.id)) // 仕入れ元で売切/削除は隠す
         );
       // 確定品が0でも未確定は出さない（「確実に実績あり」方針）。手動復活(restored)だけは救済。
       if (priced.length === 0 && ready.length > 0) {

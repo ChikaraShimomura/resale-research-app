@@ -1,7 +1,7 @@
 import { getActorId } from "../../../../lib/auth/actor";
 import { markShortage } from "../../../../lib/ebay/orders";
 
-// ⑤ 欠品（楽天で仕入れ不可）として記録。eBayの自動キャンセルは別scope(Post-Order API)が必要で未対応のため、
+// ⑤ 欠品（仕入れ元で仕入れ不可）として記録。eBayの自動キャンセルは別scope(Post-Order API)が必要で未対応のため、
 // ここでは「欠品対応中」フラグを立てるだけ＝発送タブで買い手連絡＋eBayキャンセル画面への導線を出す。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

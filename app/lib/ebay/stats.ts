@@ -48,17 +48,17 @@ async function publishedFilter(actor: string): Promise<(productId: string) => bo
 }
 
 export interface Deal {
-  purchase: number; // 楽天仕入れ値(JPY)
+  purchase: number; // 仕入れ値(JPY)
   points: number; // 基本ポイント
   title: string;
-  imageUrl?: string; // 楽天画像（一覧のサムネ用。新規出品から保存）
-  sourceUrl?: string; // 楽天の商品ページ直URL（「仕入れ」ボタン用）。カタログから補完して焼き込む＝失効後も残る
+  imageUrl?: string; // 商品画像（一覧のサムネ用。新規出品から保存）
+  sourceUrl?: string; // 仕入れ元の商品ページ直URL（「仕入れ」ボタン用）。カタログから補完して焼き込む＝失効後も残る
   listedAt: string;
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
   stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
   archivedAt?: string; // 出品停止のまま24時間を過ぎて「過去の出品(アーカイブ)」へ移した日時(ISO)。既定の出品停止中一覧からは外すがレコード/成績は残す。再出品で解除。完全削除は手動のみ。
-  sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
+  sourceStatus?: "dead" | "soldout"; // 仕入れ元が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
   sourceCheckedAt?: string; // 仕入れ元の最終確認日時(ISO)
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の現在価格が出品時原価を閾値以上上回った時に立つ（checkListings cron）
   stopFailedCount?: number; // 自動取り下げ(reconcileActorStops)の連続失敗回数。一定超で「手動でeBayから取り下げを」とUI表示
@@ -127,13 +127,13 @@ export interface LiveDeal {
   id: string;
   title: string;
   listedAt: string;
-  purchase: number; // 楽天仕入れ(送料込・JPY)
-  imageUrl: string; // 楽天画像（無い古いdealは現行カタログから補完。見つからなければ空）
-  sourceUrl?: string; // 楽天の商品ページ直URL（「仕入れ」ボタン）。無い旧deal/失効商品では undefined→商品名検索にフォールバック
+  purchase: number; // 仕入れ(送料込・JPY)
+  imageUrl: string; // 商品画像（無い古いdealは現行カタログから補完。見つからなければ空）
+  sourceUrl?: string; // 仕入れ元の商品ページ直URL（「仕入れ」ボタン）。無い旧deal/失効商品では undefined→商品名検索にフォールバック
   listingId?: string; // eBay公開ID。あれば「写真追加」をその出品ページへ直リンク（無い旧データは出品一覧へ）
   stoppedAt?: string; // 出品停止中一覧の項目に付く停止日時。出品中の項目では undefined。
   archivedAt?: string; // 「過去の出品(アーカイブ)」一覧の項目に付くアーカイブ日時。出品中/停止中では undefined。
-  sourceStatus?: "dead" | "soldout"; // 仕入れ元(楽天)が掲載終了/売り切れの時に⚠️表示するためのフラグ
+  sourceStatus?: "dead" | "soldout"; // 仕入れ元が掲載終了/売り切れの時に⚠️表示するためのフラグ
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の値上がり警告（出品時原価を閾値超過）
   stopFailedCount?: number; // 自動取り下げが繰り返し失敗（一定超で「手動でeBayから取り下げを」と表示）
 }
@@ -143,8 +143,8 @@ export interface SoldDeal {
   imageUrl: string;
   soldAt: string;
   soldJpy: number; // 売れた金額(JPY換算)
-  profitJpy: number; // 現金利益(売上−手数料−仕入れ)。楽天ポイントは含めない＝別枠(points)で扱う
-  purchase: number; // 楽天仕入れ(送料込・JPY)
+  profitJpy: number; // 現金利益(売上−手数料−仕入れ)。ポイントは含めない＝別枠(points)で扱う
+  purchase: number; // 仕入れ(送料込・JPY)
 }
 
 // 出品停止中(未売却・stoppedAtあり)で、停止から24時間を過ぎ、まだアーカイブされていない取引のID
@@ -326,7 +326,7 @@ export async function listDealsForUser(
   // さらに補完できた値は deal 自体に焼き込み直す＝以後はカタログに依存しない（商品が利益商品から
   // 外れても出品中/販売した一覧の表示が欠けないようにする。新規dealは出品時に保存済みで対象外）。
   const catInfo: Record<string, { imageUrl?: string; title?: string; sourceUrl?: string }> = {};
-  // 出品中/停止中/アーカイブは「仕入れ」ボタン用に楽天URL(sourceUrl)も要る（売却済みは不要なのでトリガに含めない）。
+  // 出品中/停止中/アーカイブは「仕入れ」ボタン用に仕入れ元URL(sourceUrl)も要る（売却済みは不要なのでトリガに含めない）。
   const needBackfill =
     [...liveEntries, ...stoppedEntries, ...archivedEntries, ...soldEntries].some(([, d]) => !d.imageUrl || !d.title) ||
     [...liveEntries, ...stoppedEntries, ...archivedEntries].some(([, d]) => !d.sourceUrl);
@@ -390,7 +390,7 @@ export async function listDealsForUser(
       imageUrl: d.imageUrl || catInfo[id]?.imageUrl || "",
       sourceUrl: d.sourceUrl || catInfo[id]?.sourceUrl || undefined,
       listingId: d.listingId,
-      sourceStatus: d.sourceStatus, // 楽天の仕入れ元が売り切れ/リンク切れなら⚠️
+      sourceStatus: d.sourceStatus, // 仕入れ元が売り切れ/リンク切れなら⚠️
       priceDrift: d.priceDrift, // ④ 仕入れ元の値上がり警告
       stopFailedCount: d.stopFailedCount, // 自動取り下げ連続失敗（手動対応を促す）
     }))
@@ -514,11 +514,11 @@ export interface Stats {
   boughtOnHandCount: number; // 同・件数
   boughtTotalJpy: number; // 「仕入れた商品(used_bought)」全件の仕入れ値合計(JPY・送料込)＝収支の仕入れ累計。/boughtと一致
   boughtTotalCount: number; // 同・件数
-  listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・楽天価格+国内送料)
+  listedPurchase: number; // 出品中(未売却)の仕入れ合計(JPY・仕入れ価格+国内送料)
   totalPurchase: number; // 仕入れ合計(JPY・売れたもの)
   totalSales: number; // 売上合計(JPY換算)
-  totalProfit: number; // 現金利益(売上-仕入れ-手数料)。楽天ポイントは含めない＝totalPoints で別枠
-  totalPoints: number; // 楽天ポイント累計(売れたもの・おまけ。利益には含めない)
+  totalProfit: number; // 現金利益(売上-仕入れ-手数料)。ポイントは含めない＝totalPoints で別枠
+  totalPoints: number; // ポイント累計(売れたもの・おまけ。利益には含めない)
   totalFees: number; // eBay手数料合計(JPY)
   avgProfit: number; // 1件あたり平均利益(売れたもの)
   bestProfit: number; // 最も稼いだ1取引の利益
@@ -536,7 +536,7 @@ export async function getStats(actor: string): Promise<Stats> {
   const entries = Object.entries(deals);
 
   // 「仕入れた商品(used_bought)」の合計＝収支の仕入れ累計（/bought と一致させる）。送料も含める（指定なければ一律1000）。
-  //  ★boughtTotalJpy = 仕入れ商品の総額（出品済みも含む全件）。これを収支の「仕入れ累計」に使う＝旧deals(楽天等)を巻き込まない。
+  //  ★boughtTotalJpy = 仕入れ商品の総額（出品済みも含む全件）。これを収支の「仕入れ累計」に使う＝旧deals(無在庫等)を巻き込まない。
   //  boughtOnHandJpy = うち未出品分（参考・後方互換）。
   let boughtOnHandJpy = 0, boughtOnHandCount = 0;
   let boughtTotalJpy = 0, boughtTotalCount = 0;

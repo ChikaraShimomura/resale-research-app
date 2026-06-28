@@ -176,7 +176,7 @@ export default function GuidePage() {
           </div>
         </div>
 
-        {/* 全体像の動画(guide-overview.mp4)は楽天フロー前提のため、中古モデル用に再生成するまで一旦非表示。
+        {/* 全体像の動画(guide-overview.mp4)は旧モデルフロー前提のため、中古モデル用に再生成するまで一旦非表示。
             下の eBay登録・出金の動画(モデル非依存)は維持。 */}
 
         {/* 手順の動画（eBay登録・出金）。モデル非依存（eBayセラー登録・Payoneer出金の手順）。 */}
@@ -316,7 +316,7 @@ export default function GuidePage() {
           </Link>
         </div>
 
-        {/* 個別サポート（任意・非楽天）。eBayセラー登録(最初の1回が最大の難所)で詰まった時だけ他社に相談。 */}
+        {/* 個別サポート（任意）。eBayセラー登録(最初の1回が最大の難所)で詰まった時だけ他社に相談。 */}
         <p className="text-center text-[12px] text-gray-500 leading-relaxed mt-4">
           <span className="whitespace-nowrap">海外輸出いちばんの難所が</span><wbr />
           <b className="text-gray-700 whitespace-nowrap">eBayのセラー登録</b><wbr />

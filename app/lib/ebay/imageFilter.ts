@@ -1,4 +1,4 @@
-// 楽天ギャラリー画像から「商品が写った写真」を選ぶ（複数画像出品用）。
+// 仕入れ元のギャラリー画像から「商品が写った写真」を選ぶ（複数画像出品用）。
 // 文字/小ロゴ/隅のバナーが乗っていても採用し（焼き込み文字は imageCleanup で後段に背景色で消す）、
 // 除外するのは「商品が写っていない店の装飾画像（バナー/サイズ表/クーポン/全面テキスト）」と「透かしが商品全体に被った画像」。
 // ①ファイル名ヒント(無料・明白な装飾だけ事前除外) ②Haikuビジョン判定。
@@ -10,7 +10,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const JUNK_HINT =
   /soryo|送料|free.?ship|sale|campaign|ivent|event|banner|logo|header|footer|toppage|info|setsumei|説明|guide|chart|size|サイズ|coupon|クーポン|qr|point|ポイント|review|レビュー|notice|caution|attention/i;
 
-// 楽天サムネ(リサイズCDN)→ 原寸オリジナル。出品画像のボケ低減と同じ変換。
+// レガシーサムネ(リサイズCDN)→ 原寸オリジナル。出品画像のボケ低減と同じ変換。
 function toOriginal(url: string): string {
   if (/thumbnail\.image\.rakuten\.co\.jp\/@0_mall\//.test(url)) {
     return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").replace(/\?_ex=\d+x\d+/, "");
@@ -79,7 +79,7 @@ async function isProductPhoto(url: string): Promise<boolean> {
 
 // 商品写真だけを原寸URLで返す。最大 maxKeep 枚。空なら呼び出し側で代表画像にフォールバック。
 export async function filterProductImages(urls: string[], maxKeep = 6): Promise<string[]> {
-  const uniq = [...new Set((urls || []).filter(Boolean))].slice(0, 5); // 楽天APIは最大3だが安全側で5まで
+  const uniq = [...new Set((urls || []).filter(Boolean))].slice(0, 5); // 安全側で5枚まで見る
   const kept: string[] = [];
   for (const u of uniq) {
     if (JUNK_HINT.test(u)) continue; // 無料の事前フィルタ

@@ -1,4 +1,4 @@
-// 「仕入れ中の商品」＝「楽天で仕入れる」を押したが、まだeBayに出品していない商品。
+// 「仕入れ中の商品」＝「仕入れる」を押したが、まだeBayに出品していない商品。
 // 端末(アクター)単位の KV ハッシュ ebay_sourcing:{actor} に蓄積する。ログイン時は actor=acct:{uuid} なので
 // アカウントに紐づき別端末でも同じ仕入れ中が出る。表示用の値(商品名/画像/仕入れ値)はスナップショット保存し、
 // 利益商品カタログから外れても一覧の表示が欠けないようにする（出品中/販売した一覧と同じ方針）。
@@ -10,7 +10,7 @@ const TTL_SECONDS = 730 * 24 * 60 * 60; // ebay_deals と揃える（2年保持�
 export interface SourcingItem {
   title: string;
   imageUrl?: string;
-  purchase: number; // 楽天仕入れ(送料込・JPY)。表示用スナップショット
+  purchase: number; // 仕入れ値(送料込・JPY)。表示用スナップショット
   points: number;
   addedAt: string;
   purchased?: boolean; // 「仕入れた」を押した＝購入済み・出品待ち
@@ -25,7 +25,7 @@ export interface SourcingView {
   addedAt: string;
 }
 
-// 「楽天で仕入れる」押下時：仕入れ中として記録。既存があれば壊さない（購入済み印・スナップショットを維持）。
+// 「仕入れる」押下時：仕入れ中として記録。既存があれば壊さない（購入済み印・スナップショットを維持）。
 export async function recordSourcing(
   actor: string,
   productId: string,

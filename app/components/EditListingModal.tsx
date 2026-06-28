@@ -34,7 +34,7 @@ export default function EditListingModal({
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<ErrInfo | null>(null);
   const [photoDone, setPhotoDone] = useState<string | null>(null);
-  const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得した楽天ギャラリー
+  const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得したカタログ画像
   // 送料の出し方（送料込み/別）の現在状態と切替プレビュー。
   const [ship, setShip] = useState<{ mode: "free" | "paid"; canFree: boolean; foldUsd: number; unfoldUsd: number } | null>(null);
   const [shipBusy, setShipBusy] = useState(false);
@@ -294,14 +294,14 @@ export default function EditListingModal({
               <span className="text-[12px] font-bold text-gray-700">実物写真を追加</span>
               <p className="text-[10px] text-gray-400 mt-0.5 mb-2 leading-relaxed">
                 <span className="whitespace-nowrap">実物写真を足すと売れやすい。</span><wbr />
-                <span className="whitespace-nowrap">楽天画像は残したまま追加</span><wbr />
+                <span className="whitespace-nowrap">カタログ画像は残したまま追加</span><wbr />
                 <span className="whitespace-nowrap">（最大6枚・1枚12MBまで・JPG/PNG等）。</span><wbr />
                 <span className="whitespace-nowrap">eBay側で触ると管理が外れるので、</span><wbr />
                 <span className="whitespace-nowrap">写真変更はここから。</span>
               </p>
               {refImages.length > 0 && (
                 <div className="mb-2">
-                  <span className="text-[11px] font-bold text-gray-600">📷 撮影の参考（楽天の商品写真 {refImages.length}枚）</span>
+                  <span className="text-[11px] font-bold text-gray-600">📷 撮影の参考（カタログ写真 {refImages.length}枚）</span>
                   <p className="text-[10px] text-gray-400 mt-0.5 mb-1.5 leading-relaxed"><span className="whitespace-nowrap">このアングルを参考に実物を撮ると伝わりやすい</span><wbr /><span className="whitespace-nowrap">（※参考用・eBayには載せません）。</span></p>
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     {refImages.map((u, i) => (

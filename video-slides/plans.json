@@ -25,17 +25,17 @@
       "vlabel": "はじめてガイド",
       "vtitle": "",
       "plan": {
-        "videoTitle": "楽天×eBay 輸出転売 はじめてガイド",
+        "videoTitle": "中古×eBay 輸出転売 はじめてガイド",
         "slides": [
-          {"type":"title","image":null,"badge":"はじめてガイド","title":"楽天×eBayで海外に売る","helper":"楽天で仕入れて世界へ売る副業の全体像\nやり方に迷ったら、まずこの動画から","hold":3.5},
-          {"type":"screen","image":"g_intro","badge":"全体の流れ","title":"まずは全体像をつかむ","helper":"楽天で仕入れ→eBayで売る→利益を回収\n進め方は5ステップ。順番どおりでOK","hold":5},
-          {"type":"screen","image":"g_step1","badge":"① ／ 5","title":"楽天で仕入れる","helper":"0と5のつく日はポイント高還元のチャンス\nスーパーSALEは最大44倍。日を狙って買う","hold":5},
+          {"type":"title","image":null,"badge":"はじめてガイド","title":"中古品×eBayで海外に売る","helper":"日本の中古品を仕入れて世界へ売る副業の全体像\nやり方に迷ったら、まずこの動画から","hold":3.5},
+          {"type":"screen","image":"g_intro","badge":"全体の流れ","title":"まずは全体像をつかむ","helper":"中古品を仕入れ→eBayで売る→利益を回収\n進め方は5ステップ。順番どおりでOK","hold":5},
+          {"type":"screen","image":"g_step1","badge":"① ／ 5","title":"中古品を仕入れる","helper":"ハードオフなど中古ショップで状態のよい品を\n海外で人気のジャンルを相場より安く仕入れる","hold":5},
           {"type":"screen","image":"g_step2","badge":"② ／ 5","title":"eBayの口座を作る","helper":"売上の受け取り口座（セラー登録）は初回だけ\n詳しいやり方は専用の登録ガイド動画で解説","hold":5},
-          {"type":"screen","image":"g_step3","badge":"③ ／ 5","title":"eBayに出品する","helper":"灰色のときは先に赤い「楽天で仕入れる」を押すと解放\nタイトル・価格・カテゴリは自動。初回だけ設定が必要","hold":5.5},
+          {"type":"screen","image":"g_step3","badge":"③ ／ 5","title":"eBayに出品する","helper":"灰色のときは先に「ハードオフで仕入れる」を押すと解放\nタイトル・価格・カテゴリは自動。初回だけ設定が必要","hold":5.5},
           {"type":"screen","image":"g_step4","badge":"④ ／ 5","title":"売れたら発送する","helper":"国際郵便で発送。電池・香水など送れない物に注意\n内容品は英語で電子申告・追跡番号の登録を忘れずに","hold":6.5},
           {"type":"screen","image":"g_step5","badge":"⑤ ／ 5","title":"利益を受け取る","helper":"売上はPayoneer経由で銀行へ。手数料は13.25%＋¥47\n新規は最初お金が保留される＝正常。実績で早まる","hold":6.5},
-          {"type":"screen","image":"g_profit","badge":"利益の式","title":"もうけの計算式","helper":"eBay相場−楽天仕入れ＋ポイント−手数料＝利益\n国際送料は購入者の負担。ポイントは次の仕入れに","hold":6},
-          {"type":"outro","image":null,"badge":"次の一歩","title":"アプリで始めよう","helper":"まずは楽天で1品。アプリの出品ガイドが案内\n迷ったら各ステップの詳しい動画もチェック","hold":4}
+          {"type":"screen","image":"g_profit","badge":"利益の式","title":"もうけの計算式","helper":"eBay相場−中古仕入れ−国際送料−手数料−関税＝利益\n送料・手数料・関税まで差し引いた残りが利益","hold":6},
+          {"type":"outro","image":null,"badge":"次の一歩","title":"アプリで始めよう","helper":"まずは中古品を1品。アプリの出品ガイドが案内\n迷ったら各ステップの詳しい動画もチェック","hold":4}
         ]
       }
     },

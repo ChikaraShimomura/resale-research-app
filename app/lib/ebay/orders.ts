@@ -100,7 +100,7 @@ export async function notifyShipDue(actor: string): Promise<number> {
   }
 }
 
-// ⑤ 欠品（楽天で仕入れ不可）として記録。発送タブで「欠品対応中」に切替＝買い手連絡＋eBayキャンセルの導線用。
+// ⑤ 欠品（仕入れ元で仕入れ不可）として記録。発送タブで「欠品対応中」に切替＝買い手連絡＋eBayキャンセルの導線用。
 export async function markShortage(actor: string, orderId: string): Promise<void> {
   try {
     const prev = await kv.hget<StoredOrder>(ORDERS_KEY(actor), orderId);

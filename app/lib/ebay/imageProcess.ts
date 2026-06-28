@@ -25,7 +25,7 @@ async function getWatermark(): Promise<{ buf: Buffer; w: number; h: number } | n
   }
 }
 
-// 自動掲載の楽天画像向け: 1600x1600 の正方・白背景キャンバスに収め、軽くシャープ→JPEG。
+// 自動掲載のカタログ画像向け: 1600x1600 の正方・白背景キャンバスに収め、軽くシャープ→JPEG。
 // opts.watermark=true のときだけ右下隅に控えめなブランド名透かしを合成(サブ画像用)。
 export async function processListingImage(input: Buffer, opts?: { watermark?: boolean }): Promise<Buffer> {
   let img = sharp(input, { failOn: "none" })
@@ -58,8 +58,8 @@ const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0",
 };
 
-// SSRF対策: 取得先は楽天の画像CDN(https・rakuten.co.jp / r10s.jp 系)のみ許可。
-// 出品画像は楽天ギャラリー由来なのでこれで十分。内部/プライベートIPやメタデータ宛のサーバー発リクエストを遮断。
+// SSRF対策: 取得先はレガシー画像CDN(https・rakuten.co.jp / r10s.jp 系)のみ許可。
+// 旧カタログ画像の表示に必要なため許可リストとして残す。内部/プライベートIPやメタデータ宛のサーバー発リクエストを遮断。
 // ※ /api/clean-img の ALLOW と同じ。変更時は両方そろえること。
 const ALLOW_HOST = /(^|\.)(rakuten\.co\.jp|r10s\.jp)$/i;
 function isAllowedImageUrl(u: string): boolean {
@@ -83,7 +83,7 @@ async function fetchImage(url: string): Promise<Buffer | null> {
   }
 }
 
-// 楽天画像URL群を「取得→1600px正方白背景に加工→EPSアップロード」し、出品に使うEPS URL群を返す。
+// 画像URL群を「取得→1600px正方白背景に加工→EPSアップロード」し、出品に使うEPS URL群を返す。
 // 1枚でも成功すれば全EPS(自前URLとの混在を回避)。全滅なら null を返し、呼び出し側は元URLにフォールバック(fail-open)。
 export async function enhanceToEps(token: string, urls: string[]): Promise<string[] | null> {
   if (process.env.LISTING_IMAGE_ENHANCE === "0") return null; // 緊急停止スイッチ(既定ON)
