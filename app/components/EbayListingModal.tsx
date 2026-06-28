@@ -1160,32 +1160,6 @@ export default function EbayListingModal({
                 <span className="whitespace-nowrap">売れたら自動で検知して、</span><wbr />
                 <span className="whitespace-nowrap">この一覧の下の方に移動します。</span>
               </p>
-              <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 text-left">
-                <p className="text-[12px] text-emerald-800 leading-relaxed">
-                  <b>売れたら</b>：<wbr />
-                  <span className="whitespace-nowrap">① 日本郵便で発送</span> → <wbr />
-                  <span className="whitespace-nowrap">② 売上はPayoneerに入る</span> → <wbr />
-                  <span className="whitespace-nowrap">銀行へ出金</span>
-                </p>
-                <a
-                  href="/guide/payoneer-withdraw"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[12px] font-bold text-[#0064D2] underline underline-offset-2"
-                >
-                  💴 売上の受け取り方を見る
-                </a>
-              </div>
-              {/* 実物写真の追加を促す。楽天の画像だけより、実物写真があると信頼され売れやすい。 */}
-              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left">
-                <p className="text-[12px] text-amber-800 leading-relaxed">
-                  <span className="whitespace-nowrap"><b>📸 商品が届いたら</b>、</span><wbr />
-                  <span className="whitespace-nowrap">実物の写真を撮って</span><wbr />
-                  <span className="whitespace-nowrap"><b>eBayの出品に追加</b>を。</span><wbr />
-                  <span className="whitespace-nowrap">実物写真があると<b>信頼されて売れやすく</b>なります</span><wbr />
-                  <span className="whitespace-nowrap">（下の「eBayで確認」→ 写真の編集から）。</span>
-                </p>
-              </div>
               {/* 前進CTA：出品の勢いを次の行動へ。連続出品(=売上の主因)とアプリ内回遊を切らさない。 */}
               <button
                 onClick={() => router.push("/search")}
