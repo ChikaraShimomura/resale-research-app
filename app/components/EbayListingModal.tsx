@@ -631,7 +631,7 @@ export default function EbayListingModal({
                   <label className="block text-[11px] text-gray-500 mb-1">
                     出品に使う写真（<b>タップした順に並びます</b>・先頭がメイン・{selectedImages.length}/{Math.min(photoCandidates.length, MAX_LISTING_PHOTOS)}枚）<ReqBadge />
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {photoCandidates.map((u, i) => {
                       const idx = selectedImages.indexOf(u);
                       const checked = idx >= 0;
@@ -639,7 +639,7 @@ export default function EbayListingModal({
                       return (
                         <div
                           key={i}
-                          className={`relative aspect-square rounded-xl overflow-hidden border-[3px] transition-colors ${
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
                             checked ? "border-[#0064D2]" : "border-[#A98B5C]/30"
                           } ${disabled && !checked ? "opacity-50" : ""}`}
                         >
@@ -664,7 +664,7 @@ export default function EbayListingModal({
                           </button>
                           {/* 選択バッジ（左上・番号）。タップは下の画像ボタンに透過。 */}
                           <span
-                            className={`absolute top-1 left-1 w-7 h-7 rounded-full text-sm font-black flex items-center justify-center pointer-events-none border ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full text-[11px] font-black flex items-center justify-center pointer-events-none border ${
                               checked ? "bg-[#0064D2] text-white border-[#0064D2] shadow" : "bg-white/90 text-gray-400 border-gray-300"
                             }`}
                           >
@@ -675,13 +675,13 @@ export default function EbayListingModal({
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setZoomIndex(i); }}
                             aria-label={`写真${i + 1}をフルスクリーンで拡大`}
-                            className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/45 text-white text-xs flex items-center justify-center"
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/45 text-white text-[10px] flex items-center justify-center"
                           >
                             🔍
                           </button>
-                          {checked && <span className="absolute inset-0 rounded-lg ring-2 ring-inset ring-[#0064D2] pointer-events-none" />}
+                          {checked && <span className="absolute inset-0 rounded-md ring-2 ring-inset ring-[#0064D2] pointer-events-none" />}
                           {idx === 0 && (
-                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[10px] font-bold text-center py-0.5 pointer-events-none">メイン</span>
+                            <span className="absolute bottom-0 inset-x-0 bg-[#0064D2] text-white text-[9px] font-bold text-center py-px pointer-events-none">メイン</span>
                           )}
                         </div>
                       );
