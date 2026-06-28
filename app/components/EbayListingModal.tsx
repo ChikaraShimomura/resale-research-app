@@ -445,13 +445,9 @@ export default function EbayListingModal({
   // またいで価格を変えた時に floor が実態とズレ、過剰/過少な赤字警告になる（修正前の不具合）。空欄/タイプ途中は推奨価格へフォールバック。
   const estWeightG = data?.landed?.weightG ?? 700;
   const effWeightG = Number(weightInput) > 0 ? Number(weightInput) : estWeightG;
-  // 送料込み(送料無料)の時は eBay掲載価格＝本体＋送料 が通関申告額＝関税($100)/EMS($120)はこの額で判定する
-  // （本体価格だけで見ると、送料を足すと$100/$120を跨ぐ品の関税・EMSを floor が見落として赤字を通す）。
-  const foldNowUsd =
-    freeShip && data?.shipping?.some((s) => Number(s.costUsd) < 0.01)
-      ? Number(data?.shipping?.find((s) => s.fulfillmentPolicyId === shippingId)?.costUsd) || 0
-      : 0;
-  const dutyValueUsd = (Number(priceUsd) + foldNowUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
+  // 関税/EMS判定は「商品価値＝本体価格(priceUsd)」で評価する。米国関税は商品価値にかかり国際送料は課税対象外(FOB基準)。
+  // ＝送料込み(送料無料)でも本体価格で判定＝損益分岐(±0ボタン)と警告が同じ基準で一致する。
+  const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
   // 価格モデル(SSOT)＝商品管理(priceTiers)と【同じ式・同じ入力】。±0/最安/中央/高値を一括算出。
   // 各段は「その価格自身の損益分岐」を絶対に割らないクランプ済み＝赤字にならない。選択を切替えても±0は動かない。
