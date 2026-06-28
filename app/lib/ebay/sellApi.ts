@@ -498,10 +498,11 @@ function fulfillmentBody(
   };
 }
 
-// 国際発送オプション（発送先ホワイトリスト）。空（米国のみ）なら null＝INTERNATIONAL を付けない
-// （空 regionIncluded は eBay が弾く）。regions は設定画面(EbayPolicySetup)から変更可（規定 AU/GB）。
-function intlShippingOption(shippingCostUsd: string, regions: string[], serviceCode: string): Record<string, unknown> | null {
-  if (regions.length === 0) return null;
+// 国際発送オプション。発送先は Worldwide（全世界）固定。
+// ⚠️ 国別ホワイトリストは EBAY_US で一部の国が216347で弾かれ AU/GB/CA/DE/FR の5カ国(=「Australia+4」)に縮退し、
+//    その5カ国以外の買い手に「送料見積もりをリクエスト」を出す原因になる。Worldwideは常に受理され全世界に値段が出る。
+export const INTL_SHIP_REGION = "Worldwide";
+function intlShippingOption(shippingCostUsd: string, serviceCode: string): Record<string, unknown> {
   return {
     optionType: "INTERNATIONAL",
     costType: "FLAT_RATE",
@@ -510,7 +511,7 @@ function intlShippingOption(shippingCostUsd: string, regions: string[], serviceC
         sortOrder: 1,
         shippingServiceCode: serviceCode,
         shippingCost: { value: shippingCostUsd, currency: "USD" },
-        shipToLocations: { regionIncluded: regions.map((r) => ({ regionName: r })) },
+        shipToLocations: { regionIncluded: [{ regionName: INTL_SHIP_REGION }] },
       },
     ],
   };
@@ -542,6 +543,7 @@ interface RawShippingService {
   shippingServiceCode?: string;
   freeShipping?: boolean;
   shippingCost?: { value?: string };
+  shipToLocations?: { regionIncluded?: { regionName?: string }[] };
 }
 interface RawShippingOption {
   optionType?: string;
@@ -589,43 +591,27 @@ async function upsertFulfillmentPolicy(
   return put.ok || isNoOpUpdate(put.error) ? { ok: true, status: put.status, id } : { ok: false, status: put.status, error: put.error };
 }
 
-// EBAY_US の配送ポリシーで確実に受理される既知の安全圏。Asia等を楽観追加した時に eBay が
-// 216347「unsupported destinations for this marketplace」で弾いたら、この集合だけで作り直す（全体失敗を防ぐ）。
-const CORE_SAFE_REGIONS = ["AU", "GB", "CA", "DE", "FR"];
-function isUnsupportedDestError(err?: string): boolean {
-  return /216347|unsupported destination/i.test(err ?? "");
-}
-
-// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。regions＝国際発送を許可する国コード(規定 AU/GB)。
+// サイズ別の一律・国際送料の配送ポリシー（1サイズ＝1ポリシー）。発送先は Worldwide。
 export async function createFlatIntlFulfillmentPolicy(
   token: string,
   marketplace: string,
   name: string,
   shippingCostUsd: string,
   handlingDays: number,
-  regions: string[] = ["AU", "GB"],
   codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
 ): Promise<EbayPostResult> {
-  const build = (regs: string[]): Record<string, unknown> => {
-    const shippingOptions: Record<string, unknown>[] = [
-      {
-        // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
-        optionType: "DOMESTIC",
-        costType: "FLAT_RATE",
-        shippingServices: [
-          { sortOrder: 1, shippingServiceCode: codes.domestic, shippingCost: { value: shippingCostUsd, currency: "USD" } },
-        ],
-      },
-    ];
-    const intl = intlShippingOption(shippingCostUsd, regs, codes.intl);
-    if (intl) shippingOptions.push(intl);
-    return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
-  };
-  const res = await upsertFulfillmentPolicy(token, marketplace, name, build(regions));
-  if (res.ok || !isUnsupportedDestError(res.error)) return res;
-  // 非対応の発送先が混ざっていた → 既知の安全圏だけで作り直す（Asia等の楽観追加でポリシー全体が失敗するのを防ぐ）。
-  const safe = regions.filter((r) => CORE_SAFE_REGIONS.includes(r));
-  return upsertFulfillmentPolicy(token, marketplace, name, build(safe.length ? safe : CORE_SAFE_REGIONS));
+  const shippingOptions: Record<string, unknown>[] = [
+    {
+      // 国内（マーケット国=米国）向け。これが無いと LOGISTICS_INFO_IS_MISSING になる。
+      optionType: "DOMESTIC",
+      costType: "FLAT_RATE",
+      shippingServices: [
+        { sortOrder: 1, shippingServiceCode: codes.domestic, shippingCost: { value: shippingCostUsd, currency: "USD" } },
+      ],
+    },
+    intlShippingOption(shippingCostUsd, codes.intl),
+  ];
+  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
 }
 
 // 送料無料の配送ポリシー（送料込み出品＝価格に送料を内包し、買い手の送料は$0）。
@@ -637,26 +623,17 @@ export async function createFreeIntlFulfillmentPolicy(
   marketplace: string,
   name: string,
   handlingDays: number,
-  regions: string[] = ["AU", "GB"],
   codes: ShippingServiceCodes = DEFAULT_SERVICE_CODES
 ): Promise<EbayPostResult> {
-  const build = (regs: string[]): Record<string, unknown> => {
-    const shippingOptions: Record<string, unknown>[] = [
-      {
-        optionType: "DOMESTIC",
-        costType: "FLAT_RATE",
-        shippingServices: [{ sortOrder: 1, shippingServiceCode: codes.domestic, freeShipping: true }],
-      },
-    ];
-    const intl = intlShippingOption("0.00", regs, codes.intl); // 国際は0.00で無料に
-    if (intl) shippingOptions.push(intl);
-    return fulfillmentBody(marketplace, name, handlingDays, shippingOptions);
-  };
-  const res = await upsertFulfillmentPolicy(token, marketplace, name, build(regions));
-  if (res.ok || !isUnsupportedDestError(res.error)) return res;
-  // 非対応の発送先 → 既知の安全圏だけで作り直す（全体失敗を防ぐ）。
-  const safe = regions.filter((r) => CORE_SAFE_REGIONS.includes(r));
-  return upsertFulfillmentPolicy(token, marketplace, name, build(safe.length ? safe : CORE_SAFE_REGIONS));
+  const shippingOptions: Record<string, unknown>[] = [
+    {
+      optionType: "DOMESTIC",
+      costType: "FLAT_RATE",
+      shippingServices: [{ sortOrder: 1, shippingServiceCode: codes.domestic, freeShipping: true }],
+    },
+    intlShippingOption("0.00", codes.intl), // 国際は0.00で無料に
+  ];
+  return upsertFulfillmentPolicy(token, marketplace, name, fulfillmentBody(marketplace, name, handlingDays, shippingOptions));
 }
 
 // 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を検出して正しいサービスコードへ直し、eBayへ同期する。
@@ -676,13 +653,18 @@ export interface PolicyOptimizeResult {
   codes: ShippingServiceCodes;
   fixedCount: number;
 }
-// 既存の配送ポリシーを検査し、米国キャリア(USPS等)/国際発送欠落を「正しい設定」へ直してeBayへ同期する。
-// 正しい設定＝国内 EconomyShippingFromOutsideUS / 国際 OtherInternational(表示「Economy International Shipping」)。
+// 国際発送が Worldwide（全世界）か。AU+4等の狭い発送先だと対象国以外の買い手に「見積もり依頼」が出るので直す。
+function intlShipsWorldwide(p: RawFulfillmentPolicy): boolean {
+  const intl = p.shippingOptions?.find((o) => o.optionType === "INTERNATIONAL")?.shippingServices?.[0];
+  return !!intl?.shipToLocations?.regionIncluded?.some((r) => r.regionName === INTL_SHIP_REGION);
+}
+
+// 既存の配送ポリシーを検査し、米国キャリア(USPS)/国際発送欠落/発送先が狭い(AU+4等)を「正しい設定」へ直して同期する。
+// 正しい設定＝国内 EconomyShippingFromOutsideUS / 国際 OtherInternational(表示「Economy International Shipping」)・発送先 Worldwide。
 // "Shipping " で始まるアプリ管理ポリシーのみ対象。送料(無料/定額)・金額・発送日数は保ったままコード/発送先を直す。
 export async function optimizeFulfillmentPolicies(
   token: string,
-  marketplace: string,
-  regions: string[]
+  marketplace: string
 ): Promise<PolicyOptimizeResult> {
   const policies = await getFulfillmentPolicies(token, marketplace);
   const codes = DEFAULT_SERVICE_CODES;
@@ -706,27 +688,27 @@ export async function optimizeFulfillmentPolicies(
     const badCarrier = (p.shippingOptions ?? []).some((o) =>
       (o.shippingServices ?? []).some((s) => isUsCarrierCode(s.shippingServiceCode))
     );
-    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${serviceCodeOf(p, "INTERNATIONAL") ?? "(国際なし)"}`;
-    // 米国キャリアでなく国際発送もある＝既に正しい → 触らない。
-    if (!badCarrier && hasIntl) {
+    const worldwide = intlShipsWorldwide(p);
+    const before = `${serviceCodeOf(p, "DOMESTIC") ?? "—"} / ${serviceCodeOf(p, "INTERNATIONAL") ?? "(国際なし)"}${worldwide ? "" : "・発送先が狭い"}`;
+    // 米国キャリアでなく・国際発送あり・発送先Worldwide＝既に正しい → 触らない。
+    if (!badCarrier && hasIntl && worldwide) {
       steps.push({ step: name, ok: true, before, after: "変更なし（問題なし）" });
       continue;
     }
     const handlingDays = Number(p.handlingTime?.value) > 0 ? Number(p.handlingTime?.value) : 3;
     const isFree = !!dom?.freeShipping || Number(dom?.shippingCost?.value ?? "0") < 0.01;
     const res = isFree
-      ? await createFreeIntlFulfillmentPolicy(token, marketplace, name, handlingDays, regions, codes)
+      ? await createFreeIntlFulfillmentPolicy(token, marketplace, name, handlingDays, codes)
       : await createFlatIntlFulfillmentPolicy(
           token,
           marketplace,
           name,
           String(dom?.shippingCost?.value ?? "0.00"),
           handlingDays,
-          regions,
           codes
         );
     if (res.ok) fixedCount++;
-    steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}` });
+    steps.push({ step: name, ok: res.ok, error: res.error, before, after: `${codes.domestic} / ${codes.intl}・発送先=全世界` });
   }
 
   return { ok: steps.every((s) => s.ok), steps, codes, fixedCount };

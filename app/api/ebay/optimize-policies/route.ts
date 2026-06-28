@@ -10,8 +10,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
-// 発送先（アメリカは常に DOMESTIC で対象）。setup-policies / EbayPolicySetup の推奨と一致させる。
-const DEFAULT_REGIONS = ["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"];
 
 export async function POST() {
   const conn = await getActorId();
@@ -20,7 +18,7 @@ export async function POST() {
   const token = await getValidAccessToken(conn);
   if (!token) return Response.json({ ok: false, error: "eBay未連携です。先に連携してください。" }, { status: 401 });
 
-  const result = await optimizeFulfillmentPolicies(token, MARKETPLACE, DEFAULT_REGIONS);
+  const result = await optimizeFulfillmentPolicies(token, MARKETPLACE);
 
   const friendlySteps = result.steps.map((s) => {
     if (s.ok || !s.error) return s;

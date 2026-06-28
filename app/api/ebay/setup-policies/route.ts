@@ -15,13 +15,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MARKETPLACE = "EBAY_US";
-// 国際発送を許可できる国コード（ホワイトリスト）。主要英語/EU圏（core）＋低リスクなアジア（JP/HK/SG/TW/KR）。
-// アジア5市場は配送/詐欺・INR/制裁/需要の4軸で低リスクと確認（2026-06-27 調査）。香港=関税ゼロが最有力。
-// ⚠️ 除外：CN/IN/PH/ID/VN/TH/MY（詐欺・INR/通関摩擦が高い）。IT/ES は EBAY_US で 216347 で弾かれるため不可。
-//    万一 eBay がいずれかの発送先を非対応(216347)とした場合は sellApi 側のフォールバックが core だけで作り直す。
-//    UI(EbayPolicySetup の COUNTRIES)と必ず一致させること。
-const ALLOWED_REGIONS = ["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"];
-const DEFAULT_REGIONS = ["AU", "GB", "CA", "DE", "FR", "JP", "HK", "SG", "TW", "KR"]; // 推奨発送先。UI(EbayPolicySetup)の既定と一致。
+// 発送先は sellApi 側で Worldwide（全世界）固定。国別ホワイトリストは EBAY_US で 216347 により
+// AU/GB/CA/DE/FR の5カ国(=「Australia+4」)に縮退し、対象外の買い手に「見積もり依頼」を出す原因になるため廃止。
 
 export async function POST(req: Request) {
   const conn = await getActorId();
@@ -50,10 +45,6 @@ export async function POST(req: Request) {
   }
 
   const handlingDays = Number(body.handlingDays) > 0 ? Math.floor(Number(body.handlingDays)) : 7;
-  // 発送先の国：ホワイトリストで濾過し重複除去。未指定/不正は規定(AU/GB)。空配列なら米国のみ(国際発送なし)。
-  const regions = Array.isArray(body.regions)
-    ? [...new Set(body.regions.filter((r) => ALLOWED_REGIONS.includes(r)))]
-    : DEFAULT_REGIONS;
   // 返品：既定は返品不可。返品可なら期間(日)は1〜90にクランプ(既定30)。
   const returnsAccepted = body.returnsAccepted === true;
   const returnDays = returnsAccepted ? Math.min(90, Math.max(1, Math.floor(Number(body.returnDays) || 30))) : 30;
@@ -92,8 +83,7 @@ export async function POST(req: Request) {
       MARKETPLACE,
       `Shipping ${s.key}`,
       String(s.value).trim(),
-      handlingDays,
-      regions
+      handlingDays
     );
     steps.push({ step: `配送ポリシー(${s.key})`, ok: f.ok, error: f.error });
   }
@@ -101,7 +91,7 @@ export async function POST(req: Request) {
   // 送料無料(送料込み)ポリシー。未指定=作る。これがあると出品/編集の「送料込み」トグルが使えるようになる
   //（買い手の送料は$0・送料は商品価格に内包する運用）。発送日数・発送先はサイズ別と同じ。
   if (body.freeShipping !== false) {
-    const free = await createFreeIntlFulfillmentPolicy(token, MARKETPLACE, "Shipping Free", handlingDays, regions);
+    const free = await createFreeIntlFulfillmentPolicy(token, MARKETPLACE, "Shipping Free", handlingDays);
     steps.push({ step: "配送ポリシー(送料無料・送料込み)", ok: free.ok, error: free.error });
   }
 
