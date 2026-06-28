@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 const SHORT_INTRO =
-  "輸出ラボは、eBayで売れている型番を日本の中古サイト（ハードオフ等）の現在価格と照合し、純利益で「儲かる中古」を探せるリサーチツール。eBay手数料・国際送料・米国関税まで引いた“手取りベースの純利益率”を状態ランクつきで自動表示。30日無料、その後 月¥500〜（要会員登録）。（利益は想定・目安）";
+  "輸出ラボは、eBayで売れている型番を日本の中古サイト（ハードオフ等）の現在価格と照合し、純利益で「儲かる中古」を探せるリサーチツール。eBay手数料・国際送料・米国関税まで引いた“手取りベースの純利益率”を状態ランクつきで自動表示。30日無料、その後 月¥5,000〜（要会員登録）。（利益は想定・目安）";
 
 const LONG_INTRO = `「輸出ラボ」は、日本の中古を仕入れてeBayへ輸出・転売する副業向けのリサーチツール。
 
@@ -20,7 +20,7 @@ eBayで売れている型番を、日本の中古サイト（ハードオフ等�
 
 英語・貿易の知識がない初心者でも始めやすいのが特長。航空危険物など国際郵便で送れない商品は除外、数字はすべて「想定・目安」で表示（収入の断定なし）。
 
-要会員登録。まずは30日無料、その後 月¥500〜。
+要会員登録。まずは30日無料、その後 月¥5,000〜。
 ▶ https://www.yushutsu-fukugyo.com`;
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -69,7 +69,7 @@ export default function PressPage() {
               <span className="whitespace-nowrap">リサーチツール</span>
             </li>
             <li>・<b>誰向け</b>：eBay輸出の初心者〜中級／中古せどり層</li>
-            <li>・<b>料金</b>：30日無料 → その後 月¥500〜（要会員登録）</li>
+            <li>・<b>料金</b>：30日無料 → その後 月¥5,000〜（要会員登録）</li>
             <li>・<b>URL</b>：<a href="https://www.yushutsu-fukugyo.com" className="text-[#2D323B] underline underline-offset-2">yushutsu-fukugyo.com</a></li>
           </ul>
         </Card>

@@ -3,10 +3,10 @@
 //
 // 権限は5種類（＋未購読の入口 free）:
 //  - free    : ログイン済み・未購読。閲覧のみ（自動出品0）＝集客の入口。
-//  - amateur(表示=ライト)       : ¥500/月。最初の30日（TRIAL_DAYS）無料。
-//  - veteran(表示=スタンダード) : ¥2,000/月。
+//  - amateur(表示=ライト)       : ¥5,000/月。最初の30日（TRIAL_DAYS）無料。
+//  - veteran(表示=スタンダード) : ¥20,000/月。
 // ※ id は内部キー(Stripeのenv名 STRIPE_PRICE_* と対応)・name は画面表示。idは変えない。
-//  - pro     : プロ       ¥3,000/月。
+//  - pro     : プロ       ¥30,000/月。
 //  - master  : 身内（管理者が管理画面で指定）。無料・無制限。
 //  - admin   : 管理者（ADMIN_EMAILS）。無料・無制限＋/admin＋身内の指定。
 // promax(プロMAX) = 自動出品(eBay)が使える最上位プラン。価格は仮(¥100,000)・見直し予定。
@@ -22,9 +22,9 @@ export interface Plan {
 
 export const PLANS: Record<PlanId, Plan> = {
   free:    { id: "free",    name: "無料",       priceJpy: 0,    listingLimit: 0,        paid: false },
-  amateur: { id: "amateur", name: "ライト",     priceJpy: 500,  listingLimit: 10,       paid: true  },
-  veteran: { id: "veteran", name: "スタンダード", priceJpy: 2000, listingLimit: 50,     paid: true  },
-  pro:     { id: "pro",     name: "プロ",       priceJpy: 3000, listingLimit: 100,      paid: true  },
+  amateur: { id: "amateur", name: "ライト",     priceJpy: 5000,  listingLimit: 10,      paid: true  },
+  veteran: { id: "veteran", name: "スタンダード", priceJpy: 20000, listingLimit: 50,    paid: true  },
+  pro:     { id: "pro",     name: "プロ",       priceJpy: 30000, listingLimit: 100,     paid: true  },
   // ⚠️価格は仮(¥100,000)・見直し予定。自動出品(eBay)が使える唯一の有料プラン。
   promax:  { id: "promax",  name: "プロMAX",    priceJpy: 100000, listingLimit: 300,    paid: true  },
   master:  { id: "master",  name: "身内",       priceJpy: 0,    listingLimit: Infinity, paid: false },

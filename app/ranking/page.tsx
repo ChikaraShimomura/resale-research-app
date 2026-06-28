@@ -206,7 +206,7 @@ export default async function RankingPage({
               <p className="mt-1.5 text-center text-[11px] text-gray-400 leading-relaxed">
                 <span className="whitespace-nowrap">ランキングは無料。</span><wbr />
                 <span className="whitespace-nowrap"><b className="text-gray-500">各商品の詳細・仕入れ先は</b></span><wbr />
-                <span className="whitespace-nowrap"><b className="text-gray-500">プラン（月¥500〜・30日無料）で解放</b>されます。</span>
+                <span className="whitespace-nowrap"><b className="text-gray-500">プラン（月¥5,000〜・30日無料）で解放</b>されます。</span>
               </p>
             </div>
           )}
@@ -218,7 +218,7 @@ export default async function RankingPage({
         <p className="mt-6 text-[11px] text-gray-400 leading-relaxed">
           <span className="whitespace-nowrap">輸出ラボは国内の中古→eBay輸出の</span><wbr />
           <span className="whitespace-nowrap">副業向け<b>リサーチツール</b></span><wbr />
-          <span className="whitespace-nowrap">（ランキング無料・本格利用は月¥500〜）。</span><wbr />
+          <span className="whitespace-nowrap">（ランキング無料・本格利用は月¥5,000〜）。</span><wbr />
           <span className="whitespace-nowrap">表示の想定利益は目安で、</span><wbr />
           <span className="whitespace-nowrap">商品の状態・相場・為替で変動します。</span>
         </p>

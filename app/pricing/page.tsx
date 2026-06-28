@@ -68,10 +68,10 @@ export default async function PricingPage({
                     <span className="whitespace-nowrap"><b className="text-yellow-300">最初の30日無料</b>で全部試せる。</span><wbr />
                     <span className="whitespace-nowrap">合わなければ解約するだけ。</span>
                   </p>
-                  {/* 不安解消：純利益が出る型番だけを狙える／固定費は最安プランの月¥500だけ。 */}
+                  {/* 不安解消：純利益が出る型番だけを狙える／固定費は最安プランの月¥5,000から。 */}
                   <p className="mt-2 text-[12px] font-bold text-white/95 leading-relaxed">
                     <span className="whitespace-nowrap">純利益が出る型番だけを狙えて、</span><wbr />
-                    <span className="whitespace-nowrap">固定費は<b className="text-yellow-300">月¥500だけ</b>。</span>
+                    <span className="whitespace-nowrap">固定費は<b className="text-yellow-300">月¥5,000から</b>。</span>
                   </p>
                   {/* 回遊維持：壁に当たっても無料で見られる場所（ランキング）へ戻れることを明示。 */}
                   {(from === "ranking" || from === "product") && (
