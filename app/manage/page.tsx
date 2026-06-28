@@ -4,7 +4,9 @@ import { Flame, ArrowRight, ExternalLink, Heart, ShoppingBag, Tag, Archive, Lock
 import { getFavoriteItems, getBoughtItems, sourceSiteName } from "../lib/usedCatalog";
 import { listDealsForUser, getListingSku } from "../lib/ebay/stats";
 import { getValidAccessToken } from "../lib/ebay/tokens";
-import { getOfferForSku } from "../lib/ebay/listing";
+import { getOfferForSku, getComparableMarket } from "../lib/ebay/listing";
+import { getAppAccessToken } from "../lib/ebay/oauth";
+import { kv } from "@vercel/kv";
 import { skuForProduct } from "../lib/ebay/sellApi";
 import { getTeamContext } from "../lib/auth/teamActor";
 import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
@@ -130,6 +132,36 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     }
   }
 
+  // 仕入れ商品タブ：eBay競合数（同型番の現在出品数）を表示＝仕入れ/出品判断の材料。
+  // 競合数は数日ほぼ不変なので KV(ebay_active:{id}・TTL3日)にキャッシュし、無い時だけ Browse(getComparableMarket)で取得。best-effort。
+  const compById: Record<string, number> = {};
+  if (tab === "bought" && boughtNotListed.length) {
+    try {
+      const appToken = await getAppAccessToken();
+      const results = await Promise.all(
+        boughtNotListed.slice(0, 60).map(async (p) => {
+          try {
+            const cached = await kvReadOnly.get<number>(`ebay_active:${p.id}`);
+            if (typeof cached === "number") return [p.id, cached] as const;
+          } catch { /* noop */ }
+          if (typeof p.ebayActiveCount === "number") return [p.id, p.ebayActiveCount] as const; // refine済みならそれ
+          if (!appToken) return [p.id, -1] as const;
+          try {
+            const m = await getComparableMarket(appToken, p.coreKeyword || p.title || "");
+            if (typeof m?.activeCount === "number") {
+              try { await kv.set(`ebay_active:${p.id}`, m.activeCount, { ex: 3 * 24 * 3600 }); } catch { /* noop */ }
+              return [p.id, m.activeCount] as const;
+            }
+          } catch { /* noop */ }
+          return [p.id, -1] as const;
+        })
+      );
+      for (const [id, c] of results) if (c >= 0) compById[id] = c;
+    } catch {
+      /* 競合数が取れなくても仕入れ商品は表示する */
+    }
+  }
+
   return (
     <div className="min-h-dvh bg-[#F5F7FA] pb-nav">
       <header
@@ -148,7 +180,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
           <FavoritesTab items={favItems} canList={canList} isAdminUser={isAdminUser} />
         )}
         {tab === "bought" && (
-          <BoughtTab items={boughtNotListed} canList={canList} />
+          <BoughtTab items={boughtNotListed} canList={canList} compById={compById} />
         )}
         {tab === "listed" && (
           <ListedTab live={live} sold={deals.sold} tiersById={tiersById} priceById={priceById} />
@@ -208,7 +240,7 @@ function FavoritesTab({ items, canList, isAdminUser }: { items: Awaited<ReturnTy
 }
 
 // ── 仕入れ商品（未出品） ─────────────────────────────────────
-function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBoughtItems>>; canList: boolean }) {
+function BoughtTab({ items, canList, compById }: { items: Awaited<ReturnType<typeof getBoughtItems>>; canList: boolean; compById?: Record<string, number> }) {
   if (items.length === 0) {
     return (
       <Empty Icon={ShoppingBag} title="まだ仕入れた商品はありません" body={<><span className="whitespace-nowrap">利益カタログで</span><wbr /><span className="whitespace-nowrap">「仕入れた」を押すと、</span><wbr /><span className="whitespace-nowrap">ここに入って出品できます。</span></>} />
@@ -229,6 +261,12 @@ function BoughtTab({ items, canList }: { items: Awaited<ReturnType<typeof getBou
                   <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
                     仕入れ {yen(buyJpy)} <span className="text-gray-300">→</span> eBay想定 <span className="text-[#0064D2] font-bold">{yen(p.realAvgPrice)}</span>
                   </p>
+                  {/* eBay競合数＝同型番の現在出品数。仕入れ/出品の判断材料（少ない=狙い目／多い=価格競争）。 */}
+                  {typeof compById?.[p.id] === "number" && (() => {
+                    const n = compById![p.id];
+                    const t = n < 200 ? { c: "text-emerald-600", l: "少なめ・狙い目" } : n <= 2000 ? { c: "text-amber-600", l: "やや多い" } : { c: "text-red-500", l: "多い・価格競争" };
+                    return <p className={`text-[10px] font-bold mt-0.5 ${t.c}`}><span className="whitespace-nowrap">eBay競合 約{n.toLocaleString()}件・{t.l}</span></p>;
+                  })()}
                 </div>
                 <div className="text-right shrink-0">
                   <span className="inline-flex items-center gap-0.5 text-[#2D323B] font-black text-sm"><Flame size={13} />{p.realProfitRate}%</span>

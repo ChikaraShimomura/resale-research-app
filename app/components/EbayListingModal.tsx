@@ -819,7 +819,7 @@ export default function EbayListingModal({
                     </>
                   ) : strategy === "custom" ? (
                     <>
-                      <span className="whitespace-nowrap">下の「本体価格」に</span><wbr />
+                      <span className="whitespace-nowrap">下の「出品価格」に</span><wbr />
                       <span className="whitespace-nowrap">好きな金額を入力できます</span>
                     </>
                   ) : strategy === "high" ? (
@@ -854,7 +854,7 @@ export default function EbayListingModal({
 
               {/* 価格 */}
               <div>
-                <label className="block text-[11px] text-gray-500 mb-0.5">本体価格（円・商品代）<ReqBadge /></label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">出品価格（円・商品代）<ReqBadge /></label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">¥</span>
                   <input
@@ -871,6 +871,25 @@ export default function EbayListingModal({
                   />
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">eBay相場の目安：{formatJpy(data.product.ebayAvgJpy)}{Number(priceUsd) > 0 ? `（eBay掲載 $${Number(priceUsd).toFixed(2)}）` : ""}</p>
+                {/* 価格の内訳を1行で（売上＝商品代＋送料＋関税＋eBay手数料＋利益）。送料/関税は上の表示値と一致。利益がマイナスなら赤字。 */}
+                {Number(priceUsd) > 0 && data?.effBuyJpy != null && liveLanded && (() => {
+                  const tierUsd = Number(recoChoice?.costUsd || 0);
+                  const totalJpy = Math.round((Number(priceUsd) + tierUsd) * USD_JPY); // 買い手の支払総額(本体+送料)
+                  const costJ = Math.round(data.effBuyJpy);
+                  const feeJ = Math.round(totalJpy * 0.1325) + 47;
+                  const profitJ = totalJpy - costJ - Math.round(liveLanded.shippingJpy) - Math.round(liveLanded.dutyJpy) - feeJ;
+                  const j = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
+                  return (
+                    <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                      <span className="whitespace-nowrap">売上 {j(totalJpy)}＝</span><wbr />
+                      <span className="whitespace-nowrap">商品代 {j(costJ)}</span><wbr />
+                      <span className="whitespace-nowrap"> ＋送料 {j(liveLanded.shippingJpy)}</span><wbr />
+                      <span className="whitespace-nowrap"> ＋前払関税 {j(liveLanded.dutyJpy)}</span><wbr />
+                      <span className="whitespace-nowrap"> ＋eBay手数料 {j(feeJ)}</span><wbr />
+                      <span className={`whitespace-nowrap font-bold ${profitJ >= 0 ? "text-emerald-600" : "text-rose-600"}`}> ＋利益 {j(profitJ)}</span>
+                    </p>
+                  );
+                })()}
                 {/* 競合数＝同等品のeBay現在出品総数(概算)。価格表示と同一クエリなので信頼度も同等。出品判断の参考。 */}
                 {competitionCount != null && (
                   <p className="text-[10px] mt-0.5 leading-relaxed">
