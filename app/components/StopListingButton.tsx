@@ -6,7 +6,7 @@ import { PauseCircle } from "lucide-react";
 
 // 出品中の商品を手動で「出品停止」する（eBayのオファーを取り下げ→停止中へ。記録は残り再出品できる）。
 // 自動停止（仕入れ元の売切検知）とは別に、セラーが自分の判断で止められる導線。
-export default function StopListingButton({ productId }: { productId: string }) {
+export default function StopListingButton({ productId, compact = false }: { productId: string; compact?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -30,6 +30,20 @@ export default function StopListingButton({ productId }: { productId: string }) 
     }
   };
 
+  if (compact) {
+    return (
+      <div className="space-y-1">
+        <button
+          onClick={stop}
+          disabled={busy}
+          className="w-full flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 font-bold text-[11px] leading-none disabled:opacity-50 active:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-300"
+        >
+          <PauseCircle size={15} /> <span>{busy ? "終了中…" : "出品終了"}</span>
+        </button>
+        {err && <p className="text-[10px] text-rose-600 font-bold text-center">{err}</p>}
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       <button

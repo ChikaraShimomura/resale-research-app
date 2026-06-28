@@ -22,6 +22,7 @@ import ShippingInput from "../components/ShippingInput";
 import PriceTierEdit from "../components/PriceTierEdit";
 import StopListingButton from "../components/StopListingButton";
 import OptimizeButton from "../components/OptimizeButton";
+import EditListingButton from "../components/EditListingButton";
 import RemoteThumb from "../components/RemoteThumb";
 import type { ProfitProduct } from "../lib/profitFilter";
 import type { ReactNode } from "react";
@@ -388,13 +389,14 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
         </div>
         <div className="mt-2.5 space-y-2">
           {tiers && <PriceTierEdit productId={d.id} tiers={tiers} currentPriceUsd={priceNum} />}
-          <OptimizeButton productId={d.id} />
-          {/* 出品を終了する／eBayの出品を見る を横並び */}
-          <div className="flex items-start gap-2">
-            <div className="flex-1"><StopListingButton productId={d.id} /></div>
+          {/* 編集／最適化／出品終了／eBayで見る を横並び（アイコン＋短ラベルのチップ）。編集＝価格・数量・送料・実物写真の追加。 */}
+          <div className={`grid ${d.listingId ? "grid-cols-4" : "grid-cols-3"} gap-2`}>
+            <EditListingButton productId={d.id} title={d.title} compact />
+            <OptimizeButton productId={d.id} compact />
+            <StopListingButton productId={d.id} compact />
             {d.listingId && (
-              <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 h-9 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[12px] rounded-xl active:bg-[#0064D2]/5">
-                eBayの出品を見る <ExternalLink size={13} />
+              <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-[#0064D2] bg-white text-[#0064D2] font-bold text-[11px] leading-none active:bg-[#0064D2]/5">
+                <ExternalLink size={15} /> <span>eBayで見る</span>
               </a>
             )}
           </div>
