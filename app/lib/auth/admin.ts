@@ -7,6 +7,7 @@ import { supabaseAdminConfigured, listAllAuthUsers } from "../supabase/admin";
 
 const MASTERS_KEY = "comp:masters"; // 身内メールのKV集合（管理画面で編集する分）
 const REGISTERED_KEY = "registered_users"; // 登録/ログインしたメールの集合（身内指定の候補リスト用）
+const REGISTERED_AT_KEY = "registered_users_at"; // email→登録時刻(epoch ms)。身内指定UIを「直近登録順」で並べるため（Supabase service役鍵が無いと日付が取れない問題の補完）。
 
 function envList(name: string): string[] {
   return (process.env[name] ?? "")
@@ -63,6 +64,8 @@ export async function recordRegisteredUser(email: string | null | undefined): Pr
   if (!e || !e.includes("@")) return;
   try {
     await kv.sadd(REGISTERED_KEY, e);
+    // 初回記録時だけ登録時刻を残す（hsetnx＝既存は上書きしない）＝「直近登録順」の並べ替え用。再ログインでは更新しない。
+    await kv.hsetnx(REGISTERED_AT_KEY, e, Date.now());
   } catch {
     /* 記録失敗は無視（候補に出ないだけ） */
   }
@@ -72,6 +75,25 @@ export async function recordRegisteredUser(email: string | null | undefined): Pr
 export async function listRegisteredUsers(): Promise<string[]> {
   try {
     return ((await kv.smembers(REGISTERED_KEY)) ?? []).sort();
+  } catch {
+    return [];
+  }
+}
+
+// 登録済みユーザー一覧＋登録時刻（管理UIで「直近登録順」に並べる用）。時刻が取れた分だけ createdAt が付く。
+export async function listRegisteredUsersWithMeta(): Promise<{ email: string; createdAt?: string }[]> {
+  try {
+    const emails = ((await kv.smembers(REGISTERED_KEY)) ?? []) as string[];
+    let at: Record<string, unknown> = {};
+    try {
+      at = ((await kv.hgetall(REGISTERED_AT_KEY)) ?? {}) as Record<string, unknown>;
+    } catch {
+      /* 時刻が無くても一覧は返す（並びはメール順に劣化するだけ） */
+    }
+    return emails.map((email) => {
+      const t = Number(at[email]);
+      return Number.isFinite(t) && t > 0 ? { email, createdAt: new Date(t).toISOString() } : { email };
+    });
   } catch {
     return [];
   }

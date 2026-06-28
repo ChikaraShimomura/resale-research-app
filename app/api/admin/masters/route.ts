@@ -3,11 +3,15 @@
 // POST   {email}: 身内に追加
 // DELETE {email}: 身内から削除（KV管理分のみ）
 import { getCurrentUserEmail } from "../../../lib/auth/plan";
-import { isAdmin, listMasters, addMaster, removeMaster, listRegisteredUsers } from "../../../lib/auth/admin";
+import { isAdmin, listMasters, addMaster, removeMaster, listRegisteredUsersWithMeta } from "../../../lib/auth/admin";
 import { supabaseAdminConfigured, listAllAuthUsers } from "../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// 並べ替え用の登録時刻（直近登録順）。createdAt優先・無ければlastSignInAt・どちらも無ければ0（末尾）。
+const regTs = (u: { createdAt?: string; lastSignInAt?: string }) =>
+  Date.parse(u.createdAt ?? "") || Date.parse(u.lastSignInAt ?? "") || 0;
 
 async function ensureAdmin(): Promise<boolean> {
   return isAdmin(await getCurrentUserEmail());
@@ -26,7 +30,7 @@ async function fullState() {
     base = await listAllAuthUsers();
     source = "supabase";
   } else {
-    base = (await listRegisteredUsers()).map((email) => ({ email }));
+    base = await listRegisteredUsersWithMeta();
     source = "kv";
   }
 
@@ -37,7 +41,7 @@ async function fullState() {
       isMaster: masterSet.has(u.email),
       removable: managedSet.has(u.email), // env固定/管理者は解除不可、KV管理分のみ解除可
     }))
-    .sort((a, b) => a.email.localeCompare(b.email));
+    .sort((a, b) => regTs(b) - regTs(a) || a.email.localeCompare(b.email)); // 直近登録順（時刻が無い分は末尾→メール順）
 
   return { env, managed, source, users };
 }

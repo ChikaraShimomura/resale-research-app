@@ -57,14 +57,16 @@ export default function MastersAdmin() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q ? users.filter((u) => u.email.includes(q)) : users;
-  }, [users, search]);
+  const q = search.trim().toLowerCase();
+  const filtered = useMemo(
+    () => (q ? users.filter((u) => u.email.toLowerCase().includes(q)) : users),
+    [users, q],
+  );
 
-  // 表示は最大10件（出しすぎ防止）。検索は全件対象なので、超過分は絞り込みで到達できる。
-  const LIST_LIMIT = 10;
-  const shown = filtered.slice(0, LIST_LIMIT);
+  // 既定は直近登録の5件だけ（users はAPIが直近登録順で返す）。検索すると全登録ユーザーが対象になり、残りはそこから到達できる。
+  const DEFAULT_LIMIT = 5; // 無検索時に出す直近登録ユーザー数
+  const SEARCH_LIMIT = 50; // 検索時の表示上限（暴発防止・超過分はさらに絞り込み）
+  const shown = filtered.slice(0, q ? SEARCH_LIMIT : DEFAULT_LIMIT);
   const hiddenCount = filtered.length - shown.length;
 
   const masters = users.filter((u) => u.isMaster); // env固定＋KV管理（登録済みの身内）
@@ -196,7 +198,9 @@ export default function MastersAdmin() {
           </ul>
         )}
         {hiddenCount > 0 && (
-          <p className="text-[11px] text-gray-400 mt-2">他 {hiddenCount} 件。検索で絞り込み。</p>
+          <p className="text-[11px] text-gray-400 mt-2">
+            {q ? `他 ${hiddenCount} 件。さらに絞り込み。` : `直近登録の${DEFAULT_LIMIT}件を表示中。他 ${hiddenCount} 件は検索で。`}
+          </p>
         )}
       </div>
     </div>
