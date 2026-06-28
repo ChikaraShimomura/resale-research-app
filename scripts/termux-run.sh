@@ -6,8 +6,11 @@
 #      「売れた出品(Sold)」をキーワード別にスクレイプ→KV ebay_sold_seed。中古カタログ(build)がハードオフ照合で
 #      「実際に売れた実績つき」の利益商品を作る＝現在出品でなく実売起点で発掘（ユーザー指摘2026-06-23）。
 #  - 中古カタログ構築(build): 3サイクルごと(≒3h)。seed × ハードオフ現在庫 から利益候補。Anthropic不使用＝無料。
+#  - ハードオフ売切検知(hardoff-liveness): 毎サイクル(既定1h)。出品中(ebay_deals)＋used_catalog のハードオフ実ページを叩いて
+#      売切(schema.org)/削除(404)なら deal.sourceStatus＋used_source_status を立てる→reconcileがeBay停止/getUsedCatalogが非表示。
 #  - 型番リファイン(refine): 1サイクル(既定1h)内に REFINE_SUBINTERVAL(既定20分)ごとの小バッチ。型番確定＋競合数焼き込み。
 # ※ 旧「楽天の売切検知(liveness)」「楽天ギャラリー取得(gallery)」は無在庫モデルの遺物のため撤去(2026-06-28)。
+#   売切検知はハードオフ版に置換(2026-06-28)＝事業の仕入れ元がハードオフのため。
 CYCLE_INTERVAL="${CYCLE_INTERVAL_SEC:-${LIVENESS_INTERVAL_SEC:-3600}}"  # 1サイクルの長さ(秒・既定1h)。①②の頻度カウントと③の総待ちに使う(旧LIVENESS_INTERVAL_SECも互換で受ける)。
 SOLD_EVERY="${SOLD_EVERY_CYCLES:-24}"              # 何サイクルごとにeBay落札を発掘するか(既定24≒1日)
 REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-1200}"   # 型番リファインの小バッチ間隔(秒・既定1200=20分)。1サイクル内で複数回回す。
@@ -18,7 +21,7 @@ termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て�
 # 各ジョブの結果(時刻/終了コード/gitコミット/ログ末尾)を KV に push＝PC側から遠隔でログを見られるようにする。
 wl() { node scripts/workerLog.mjs "$1" "$2" "$3" >/dev/null 2>&1 || true; }  # wl <key> <logfile> <exit>
 
-echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=3サイクルごと / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log"
+echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=3サイクルごと / ハードオフ売切検知=毎サイクル / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log ~/hardoff.log"
 cycle=0
 while true; do
   # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)。pull結果＋現在のgitコミットをKVに記録＝旧コードで止まってないか遠隔で分かる。
@@ -43,7 +46,15 @@ while true; do
     [ "$brc" -ne 0 ] && echo "  (候補構築失敗・次回再試行)" >> "$HOME/usedcatalog.log"
   fi
 
-  # ③ 型番リファインを【小バッチ(既定12件)・サイクル内で複数回】実行（ユーザー指示2026-06-27）。
+  # ③ ハードオフ売切検知(毎サイクル・本番書込)。出品中(ebay_deals)＋used_catalog のハードオフ実ページを照合し、
+  #    売切(schema.org)/削除(404)なら deal.sourceStatus＋used_source_status を立てる→eBay自動停止/一覧から非表示。
+  #    schema.org availability+404 が主シグナルで fail-open(不明は止めない)＝シグナルが出ない品は何もしない安全側。
+  echo "---- $(date) hardoff-liveness ----" >> "$HOME/hardoff.log"
+  HARDOFF_LIVENESS_DRY=0 node scripts/used/hardoffLivenessWorker.mjs >> "$HOME/hardoff.log" 2>&1; hrc=$?
+  [ "$hrc" -ne 0 ] && echo "  (hardoff-liveness失敗・次回再試行)" >> "$HOME/hardoff.log"
+  wl hardoff "$HOME/hardoff.log" "$hrc"
+
+  # ④ 型番リファインを【小バッチ(既定12件)・サイクル内で複数回】実行（ユーザー指示2026-06-27）。
   #    一気に全件やるとeBayのcaptchaで弾かれる→毎回 warmup 付きの小バッチを「細かく・多く」回す方が弾かれにくく、
   #    未確認の型番を着実に確定できる。REFINE_SUBINTERVAL(既定20分)ごとに回す。
   #    件数は REFINE_BATCH（既定12・captcha閾値の十数件未満・毎回新セッションwarmup）で調整可。

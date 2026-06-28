@@ -220,13 +220,27 @@ export async function getFavoriteItems(actor: string | undefined | null): Promis
 // KVから中古カタログを読む（読み取り専用トークン）。型番DB＝中古はモデル単位で見る。
 export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
   try {
-    const arr = await kvReadOnly.get<UsedCatalogItem[]>("used_catalog");
+    // used_source_status＝仕入れ元(ハードオフ)が売切/削除と判定された品(hardoffLivenessWorkerが立てる)。一覧から隠す。
+    const [arr, srcStatus] = await Promise.all([
+      kvReadOnly.get<UsedCatalogItem[]>("used_catalog"),
+      kvReadOnly.hgetall<Record<string, unknown>>("used_source_status").catch(() => ({})),
+    ]);
     if (!Array.isArray(arr)) return [];
+    const flagged: Record<string, unknown> = srcStatus || {};
+    // 値は通常オブジェクト{status,at}。KVクライアント差で文字列で返る場合に備え string なら JSON.parse する
+    // （/api/products の catalog_source_status と同じ防御＝消費側の挙動を揃える）。
+    const isSoldOut = (id?: string) => {
+      let f: unknown = id ? flagged[id] : null;
+      if (typeof f === "string") { try { f = JSON.parse(f); } catch { return false; } }
+      const st = (f as { status?: string } | null)?.status;
+      return st === "soldout" || st === "dead";
+    };
     // 利益率＝純利益 ÷ 仕入れ価格（仕入れに対する投資収益率/ROI）に配信時で統一する。
     // ⚠️ ビルド/refineスクリプトが過去に「純利益 ÷ eBay想定売値（粗利率）」で書いていたため、
     //    古いKVデータでも正しい率になるよう配信時に必ず再計算する（buyJpy=0/欠損は0%）。
     return arr
       .filter((x) => x && typeof x.profitJpy === "number")
+      .filter((x) => !isSoldOut(x.id)) // 仕入れ元が売切/削除＝もう仕入れられないので一覧から隠す
       .map((x) => ({ ...x, profitRate: x.buyJpy > 0 ? Math.round((x.profitJpy / x.buyJpy) * 100) : 0 }))
       // 利益率＝純利益÷仕入れ値(ROI)が10%未満の品は配信時に弾く（ビルド/refineの版に依らず最終ゲートで保証）。
       // ⚠️ 端数で「10%」表示なのに除外…を避けるため生比率(>=0.10)で判定（round前）。

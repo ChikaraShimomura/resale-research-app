@@ -13,7 +13,7 @@ function env(k) {
 }
 const URL = env("KV_REST_API_URL") || env("UPSTASH_REDIS_REST_URL");
 const TOK = env("KV_REST_API_TOKEN") || env("UPSTASH_REDIS_REST_TOKEN");
-const KEYS = ["meta", "discover", "build", "refine"]; // 旧 liveness/gallery(楽天無在庫の遺物)は2026-06-28に撤去
+const KEYS = ["meta", "discover", "build", "hardoff", "refine"]; // 旧 liveness/gallery(楽天無在庫の遺物)は2026-06-28に撤去・hardoff=ハードオフ売切検知
 const showAllTail = process.argv.includes("--tail") || process.argv.includes("-t");
 
 for (const k of KEYS) {
