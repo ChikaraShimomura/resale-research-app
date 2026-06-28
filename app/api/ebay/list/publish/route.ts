@@ -14,7 +14,6 @@ import { hasPerm, markTeamListed } from "../../../../lib/team";
 import { getTeamContext } from "../../../../lib/auth/teamActor";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
-import { fetchSourceAvailability } from "../../../../lib/usedGallery";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -64,17 +63,8 @@ export async function POST(req: Request) {
 
   const product = await getProductById(body.productId);
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
-
-  // 売切ガード：仕入れ元(ハードオフ)が売切/掲載終了の品を「新規出品」させない＝欠品キャンセル(新規アカ致命)を防ぐ。
-  //  ・getUsedCatalog は売切を一覧から隠すが、psnap直リンク/お気に入り/仕入れ済みの stale な productId からは publish に到達し得る。
-  //    ここで実ページの schema.org availability を最新で確認して塞ぐ（既存ライブ出品の自動停止は hardoffLivenessWorker→reconcile が担当）。
-  //  ・unknown は通す(fail-open＝取得不能で正当な出品を妨げない)。ハードオフはVercel(DC-IP)からも取得可。
-  if ((product.source?.site as string) === "hardoff" && product.source?.url) {
-    const avail = await fetchSourceAvailability(product.source.url);
-    if (avail === "sold-out") {
-      return Response.json({ ok: false, error: "この商品は仕入れ元（ハードオフ）で売り切れ／掲載終了のため出品できません。別の商品をお試しください。" }, { status: 409 });
-    }
-  }
+  // ※ ハードオフは"有在庫"＝ユーザーが先に買って(仕入れた)手元に持ってから出品する。仕入れた品はハードオフ上で
+  //   売切になるのが当たり前なので、売切を理由に出品をブロックしてはいけない（初版の誤ガードは撤去・2026-06-28）。
 
   // 行為者のプラン。admin/master(あなた＋身内=無料・無制限)は満了・プラン上限の対象外。
   const plan = await getPlan();
