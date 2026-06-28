@@ -9,7 +9,7 @@ import SaveProgressNudge from "./SaveProgressNudge";
 import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
-import { computePriceModel, floorAtPriceUsd, FAST_DISCOUNT } from "../lib/ebay/priceModel";
+import { computePriceModel, floorAtPriceUsd } from "../lib/ebay/priceModel";
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
@@ -477,7 +477,6 @@ export default function EbayListingModal({
   const lowSel = priceModel.lowUsd;
   const medianSel = priceModel.medianUsd;
   const highSel = priceModel.highUsd;
-  const lowestClamped = medianUsd > 0 && medianUsd * (1 - FAST_DISCOUNT) < floorStableUsd; // 最安(中央値-8%)が損益分岐を割る＝損益分岐で出す
   // 価格の選び方を適用（カスタムは価格を触らない＝ユーザーが自由入力）。
   // 価格を $ で確定すると同時に、円入力欄(priceYen)も同期する（表示は円・内部はUSD）。
   const applyUsd = (u: number) => { setPriceUsd(u.toFixed(2)); setPriceYen(u > 0 ? String(Math.round(u * USD_JPY)) : ""); };
@@ -802,36 +801,6 @@ export default function EbayListingModal({
                     <span className="text-[10px]">{highSel > 0 ? formatJpy(Math.round(highSel * USD_JPY)) : "—"}</span>
                   </button>
                 </div>
-                {strategy !== "median" && (<p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
-                  {strategy === "breakeven" ? (
-                    <>
-                      <span className="whitespace-nowrap">利益ほぼ±0で出す。</span><wbr />
-                      <span className="whitespace-nowrap">eBayアカウントの評価を早く貯める育成向け</span><wbr />
-                      <span className="whitespace-nowrap">（損益分岐ぎりぎり・赤字にはしません）</span>
-                    </>
-                  ) : strategy === "custom" ? (
-                    <>
-                      <span className="whitespace-nowrap">下の「出品価格」に</span><wbr />
-                      <span className="whitespace-nowrap">好きな金額を入力できます</span>
-                    </>
-                  ) : strategy === "high" ? (
-                    <>
-                      <span className="whitespace-nowrap">過去落札の中央値より10%高く。</span><wbr />
-                      <span className="whitespace-nowrap">利益重視（売れるまで時間がかかります）</span>
-                    </>
-                  ) : lowestClamped ? (
-                    <>
-                      <span className="whitespace-nowrap">相場が薄いため、</span><wbr />
-                      <span className="whitespace-nowrap">損益分岐 {formatJpy(Math.round(floorStableUsd * USD_JPY))} で出します</span><wbr />
-                      <span className="whitespace-nowrap">（赤字回避）</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="whitespace-nowrap">中央値より少し安く。</span><wbr />
-                      <span className="whitespace-nowrap">早く売れやすく（赤字にはしません）</span>
-                    </>
-                  )}
-                </p>)}
                 <p className="text-[9px] text-gray-300 mt-0.5">
                   <span className="whitespace-nowrap">※ 最安/中央値/高値は</span><wbr />
                   <span className="whitespace-nowrap">eBayの過去落札の中央値をもとに算出</span><wbr />
@@ -866,7 +835,7 @@ export default function EbayListingModal({
                   const profitJ = totalJpy - costJ - Math.round(liveLanded.shippingJpy) - Math.round(liveLanded.dutyJpy) - feeJ;
                   const j = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
                   return (
-                    <p className="text-[10px] text-gray-500 mt-1 leading-snug text-right">
+                    <p className="text-[10px] text-gray-500 mt-1 leading-snug">
                       <span className="whitespace-nowrap">仕入{j(costJ)}</span>・<span className="whitespace-nowrap">送料{j(liveLanded.shippingJpy)}</span>・<span className="whitespace-nowrap">関税{j(liveLanded.dutyJpy)}</span>・<span className="whitespace-nowrap">手数料{j(feeJ)}</span><span className={`whitespace-nowrap font-bold ${profitJ >= 0 ? "text-emerald-600" : "text-rose-600"}`}>→利益{j(profitJ)}</span>
                     </p>
                   );
@@ -879,8 +848,7 @@ export default function EbayListingModal({
                   <label className={`flex items-start gap-2 mb-1.5 ${canFreeShip ? "" : "opacity-60"}`}>
                     <input type="radio" name="shipmode" className="mt-0.5 accent-[#2D323B]" checked={freeShip && canFreeShip} disabled={!canFreeShip} onChange={() => setFreeShip(true)} />
                     <span className="text-[12px] leading-snug">
-                      <b className="whitespace-nowrap">送料込み（送料無料で出す）</b>
-                      <span className="text-gray-500"> — <span className="whitespace-nowrap">出品価格に送料を上乗せして「送料無料」表示(推奨)</span></span>
+                      <b className="whitespace-nowrap">送料無料(推奨)</b><span className="text-gray-500"> — <span className="whitespace-nowrap">出品価格 + 送料を合算して請求</span></span>
                       {!canFreeShip && <span className="block text-[10px] text-orange-600 mt-0.5"><span className="whitespace-nowrap">※eBayに「送料無料」の配送ポリシーを</span><wbr /><span className="whitespace-nowrap">1つ作ると使えます（一度だけ）。</span><wbr /><span className="whitespace-nowrap">今は送料別。</span></span>}
                     </span>
                   </label>
