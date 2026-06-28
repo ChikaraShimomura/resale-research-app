@@ -243,34 +243,6 @@ export default function EditListingModal({
               <span className="text-[10px] text-gray-400 mt-1 block"><span className="whitespace-nowrap">確保できる数だけに</span><wbr /><span className="whitespace-nowrap">（足りないと欠品キャンセルの原因）。</span></span>
             </label>
 
-            {belowFloor && (
-              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
-                <p role="alert" className="text-[11px] text-[#2D323B] leading-relaxed">
-                  <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 ¥{Math.round(floorUsd * USD_JPY).toLocaleString("ja-JP")} を下回り、</span><b>赤字の恐れ</b>があります。
-                </p>
-                <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
-                  <input type="checkbox" checked={acceptLoss} onChange={(e) => setAcceptLoss(e.target.checked)} className="accent-[#2D323B] w-4 h-4 mt-0.5 shrink-0" />
-                  <span className="text-[11px] text-[#2D323B] leading-relaxed">赤字の可能性を承知の上で、この価格にする</span>
-                </label>
-              </div>
-            )}
-
-            {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
-
-            <button
-              onClick={save}
-              disabled={saving || !priceOk || !qtyOk || (belowFloor && !acceptLoss)}
-              className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <Spinner size={14} /> 反映中…
-                </>
-              ) : (
-                "この内容で更新"
-              )}
-            </button>
-
             {/* 送料の出し方（送料込み/別）の切替。出品中の商品にもワンタップで適用＝価格と配送ポリシーを同時更新。 */}
             {ship && (
               <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
@@ -363,6 +335,37 @@ export default function EditListingModal({
                   <>
                     <ImagePlus size={15} /> 実物写真を追加
                   </>
+                )}
+              </button>
+            </div>
+
+            {/* 最下部の主アクション＝入力した「価格・数量」を保存。送料/写真はそれぞれの操作で即時適用されるため、ここは価格・数量のみ反映。 */}
+            {belowFloor && (
+              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
+                <p role="alert" className="text-[11px] text-[#2D323B] leading-relaxed">
+                  <span aria-hidden="true">⚠️ </span><span className="whitespace-nowrap">損益分岐 ¥{Math.round(floorUsd * USD_JPY).toLocaleString("ja-JP")} を下回り、</span><b>赤字の恐れ</b>があります。
+                </p>
+                <label className="flex items-start gap-2 mt-1.5 cursor-pointer">
+                  <input type="checkbox" checked={acceptLoss} onChange={(e) => setAcceptLoss(e.target.checked)} className="accent-[#2D323B] w-4 h-4 mt-0.5 shrink-0" />
+                  <span className="text-[11px] text-[#2D323B] leading-relaxed">赤字の可能性を承知の上で、この価格にする</span>
+                </label>
+              </div>
+            )}
+
+            {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
+
+            <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
+              <button
+                onClick={save}
+                disabled={saving || !priceOk || !qtyOk || (belowFloor && !acceptLoss)}
+                className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Spinner size={14} /> 保存中…
+                  </>
+                ) : (
+                  "価格・数量を保存"
                 )}
               </button>
             </div>
