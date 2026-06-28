@@ -42,7 +42,15 @@ while true; do
     exec bash "$SELF"
   fi
 
-  # ① eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
+  # ① ハードオフ売切検知(毎サイクル・本番書込・サイクル先頭で即実行)。出品中(ebay_deals)＋used_catalog のハードオフ実ページを照合し、
+  #    売切(schema.org)/削除(404)なら deal.sourceStatus＋used_source_status を立てる→eBay自動停止/一覧から非表示。
+  #    無在庫の欠品リスクに直結するため重いdiscover/buildより前に置く。fail-open(不明は止めない)＝シグナルが出ない品は何もしない安全側。
+  echo "---- $(date) hardoff-liveness ----" >> "$HOME/hardoff.log"
+  HARDOFF_LIVENESS_DRY=0 node scripts/used/hardoffLivenessWorker.mjs >> "$HOME/hardoff.log" 2>&1; hrc=$?
+  [ "$hrc" -ne 0 ] && echo "  (hardoff-liveness失敗・次回再試行)" >> "$HOME/hardoff.log"
+  wl hardoff "$HOME/hardoff.log" "$hrc"
+
+  # ② eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→中古カタログ(build)がハードオフ照合。実売起点の発掘。
   if [ $(( cycle % SOLD_EVERY )) -eq 0 ]; then
     echo "---- $(date) ebay-discover ----" >> "$HOME/ebaysold.log"
@@ -51,7 +59,7 @@ while true; do
     wl discover "$HOME/ebaysold.log" "$rc"
   fi
 
-  # ② 中古カタログの候補構築(build)を【3時間ごと】に更新（Anthropic不使用＝無料）。
+  # ③ 中古カタログの候補構築(build)を【3時間ごと】に更新（Anthropic不使用＝無料）。
   #    キャッシュ ebay_sold_seed × ハードオフ現在庫 から利益候補を作る。確定相場は build が型番単位で引き継ぐ(崩落しない)。
   if [ $(( cycle % 3 )) -eq 0 ]; then
     echo "---- $(date) used-catalog build ----" >> "$HOME/usedcatalog.log"
@@ -59,14 +67,6 @@ while true; do
     wl build "$HOME/usedcatalog.log" "$brc"
     [ "$brc" -ne 0 ] && echo "  (候補構築失敗・次回再試行)" >> "$HOME/usedcatalog.log"
   fi
-
-  # ③ ハードオフ売切検知(毎サイクル・本番書込)。出品中(ebay_deals)＋used_catalog のハードオフ実ページを照合し、
-  #    売切(schema.org)/削除(404)なら deal.sourceStatus＋used_source_status を立てる→eBay自動停止/一覧から非表示。
-  #    schema.org availability+404 が主シグナルで fail-open(不明は止めない)＝シグナルが出ない品は何もしない安全側。
-  echo "---- $(date) hardoff-liveness ----" >> "$HOME/hardoff.log"
-  HARDOFF_LIVENESS_DRY=0 node scripts/used/hardoffLivenessWorker.mjs >> "$HOME/hardoff.log" 2>&1; hrc=$?
-  [ "$hrc" -ne 0 ] && echo "  (hardoff-liveness失敗・次回再試行)" >> "$HOME/hardoff.log"
-  wl hardoff "$HOME/hardoff.log" "$hrc"
 
   # ④ 型番リファインを【小バッチ(既定12件)・サイクル内で複数回】実行（ユーザー指示2026-06-27）。
   #    一気に全件やるとeBayのcaptchaで弾かれる→毎回 warmup 付きの小バッチを「細かく・多く」回す方が弾かれにくく、
