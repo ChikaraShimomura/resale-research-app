@@ -6,6 +6,11 @@ on:
   # X APIのURL投稿課金 $0.20/件 が倍になるため、意図的に設定しない）。
   # ピーク時間帯への集中投稿の制御は外部cron側で行う。
   workflow_dispatch:
+    inputs:
+      force:
+        description: "頻度ゲート(ピーク時間/本数上限/間隔)を無視して必ず1本投稿する（手動テスト用）"
+        type: boolean
+        default: false
 
 jobs:
   tweet:
@@ -36,6 +41,7 @@ jobs:
           KV_REST_API_URL:             ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN:           ${{ secrets.KV_REST_API_TOKEN }}
           RESEND_API_KEY:              ${{ secrets.RESEND_API_KEY }}
+          FORCE_POST:                  ${{ inputs.force }}
         run: python scripts/sns_bot/tweet_auto.py
 
       - name: エラー通知メール

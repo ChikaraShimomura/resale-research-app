@@ -629,9 +629,11 @@ def main():
     reveal_pending_polls(now, twitter_client)
 
     log = _load_list(LOG_KEY)
+    # FORCE_POST=true（手動Run workflowのforce入力）＝頻度ゲート(ピーク時間/本数上限/間隔)を無視して必ず1本出す＝テスト用。
+    force = os.environ.get("FORCE_POST") == "true"
     ok, reason = frequency_gate(now, log)
-    print(f"  頻度ゲート: {reason}")
-    if not ok:
+    print(f"  頻度ゲート: {reason}{'（FORCE_POSTで無視）' if force else ''}")
+    if not ok and not force:
         print("  → 今回は投稿しない"); return
 
     # 中古カタログ（無くても知識柱で投稿を続ける＝供給状況は別途 liveness 監視に任せる）
