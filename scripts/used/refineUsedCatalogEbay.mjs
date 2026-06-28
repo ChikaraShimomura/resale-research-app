@@ -95,11 +95,24 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
   if (!catalog.length) { console.log("used_catalog が空"); return; }
 
+  // 確定不能(eBay落札0件)の型番キャッシュ＝無駄打ち削減。{normCode: 最後に確認したISO}。TTL以内は再scrapeせず、
+  // バッチ枠を新規候補に回す＝実効の確定数が上がる。30日後に期限切れ→再挑戦(その間に新規落札が出ているかも)。
+  // ★captcha(検問)では記録しない(取りこぼしを永久除外しない)。確定できたら削除する。
+  const UNCONF_TTL_MS = (Number(process.env.REFINE_UNCONFIRMABLE_TTL_DAYS) || 30) * 864e5;
+  const nowIso = new Date().toISOString();
+  const unconf = await (async () => {
+    try { const r = (await (await fetch(`${KV_URL}/get/ebay_unconfirmable`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result; const o = r ? JSON.parse(r) : {}; return o && typeof o === "object" ? o : {}; } catch { return {}; }
+  })();
+  const isUnconfFresh = (codeNorm) => { const t = unconf[codeNorm]; return !!t && (Date.now() - Date.parse(t)) < UNCONF_TTL_MS; };
+
   // 小バッチでも毎回ちゃんと前進するよう、未確認(ebayChecked無し)→未確定→確定済み の順で処理する。
   // ＝確定済みの上位ばかり再チェックして未確認が永遠に残るのを防ぐ。同ランク内は利益額の高い順。
   //   ※ catalog と同じオブジェクト参照を並べ替えるだけ（書き戻しは元の catalog ベースなので不変条件は保たれる）。
   const pri = (p) => (p.ebayConfirmed ? 2 : p.ebayChecked ? 1 : 0); // 0=未確認 を最優先
-  const order = [...catalog].sort((a, b) => pri(a) - pri(b) || (b.profitJpy || 0) - (a.profitJpy || 0));
+  // 確定不能キャッシュに載ってる型番(TTL内)はスキップ＝バッチ枠を新規候補に集中(確定済みは再確認のため残す)。
+  const order = [...catalog]
+    .filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(p.code)))
+    .sort((a, b) => pri(a) - pri(b) || (b.profitJpy || 0) - (a.profitJpy || 0));
   const pending = order.filter((p) => !p.ebayConfirmed).length;
   console.log(`対象 ${Math.min(order.length, LIMIT)} / ${order.length}件（未確定 ${pending}件・未確認優先・1回${LIMIT}件で確定${MIN_SAME}件以上）`);
 
@@ -118,7 +131,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番(ハイフン空白化)の落札検索
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
-    if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }
+    if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; if (codeN) unconf[codeN] = nowIso; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }
     let r;
     try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
     if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}（再確認待ち・残す）`); await jitter(); continue; }
@@ -133,10 +146,12 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
       // 競合数(現在出品の総数)も同じバッチで焼き込む＝カードで「狙い目/多め」を一目表示。鍵が無ければ null のまま(fail-open)。
       const comp = await ebayCompetition(q);
       if (comp != null) p.ebayActiveCount = comp;
+      delete unconf[codeN]; // 確定できた＝もう不能ではない(再挑戦キャッシュから外す)
       confirmed++;
       console.log(`  ✓ ${q.padEnd(30)} 同一型番${same.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
     } else {
       p.ebayConfirmed = false;
+      unconf[codeN] = nowIso; // eBay落札0件＝確定不能としてTTL記録＝次回以降スキップ(30日後に再挑戦)
       console.log(`  ・ ${q.padEnd(30)} 同一型番${same.length}件（不足→相場確定せず・除外）`);
     }
     await jitter();
@@ -149,6 +164,9 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
     .filter((p) => (p.ebayChecked ? (p.ebayConfirmed && p.profitRate >= 10) : true)) // 対仕入れ(ROI)10%以上だけ。純益の絶対額フロアは撤廃＝配信ゲートと一致
     .sort((a, b) => (b.ebayConfirmed ? b.profitJpy : -1) - (a.ebayConfirmed ? a.profitJpy : -1));
   await fetch(`${KV_URL}/set/used_catalog`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(kept) });
+  // 確定不能キャッシュを掃除(期限切れ削除)して書き戻し(TTL90日でKV側も自然失効)。次バッチはここに載った型番をスキップ。
+  for (const k of Object.keys(unconf)) { const t = Date.parse(unconf[k]); if (!t || (Date.now() - t) >= UNCONF_TTL_MS) delete unconf[k]; }
+  await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify([["SET", "ebay_unconfirmable", JSON.stringify(unconf), "EX", String(90 * 24 * 3600)]]) });
   // 出品フロー用 psnap も同一型番相場で更新。TTL35日。
   const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
     id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: p.imageUrl, images: p.imageUrl ? [p.imageUrl] : [],

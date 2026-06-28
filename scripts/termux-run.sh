@@ -76,7 +76,7 @@ while true; do
   spent=0
   while [ "$spent" -lt "$CYCLE_INTERVAL" ]; do
     echo "---- $(date) used-catalog refine batch ----" >> "$HOME/usedcatalog.log"
-    REFINE_LIMIT="${REFINE_BATCH:-12}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
+    REFINE_LIMIT="${REFINE_BATCH:-30}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
     [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次バッチ再試行)" >> "$HOME/usedcatalog.log"
     wl refine "$HOME/usedcatalog.log" "$rrc"
     # 次の小バッチまで待つ。ただしサイクルを超えない範囲で（残り時間が短ければそのぶんだけ）。
