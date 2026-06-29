@@ -161,7 +161,7 @@ function LandingPage() {
         </Link>
         <div className="mt-4">
           <Link href="/ranking" className="text-[13px] font-bold text-[#2D323B] underline underline-offset-2">
-            🔥 いま稼げる利益商品ランキングを見る →
+            🔥 いま利益が出てる中古ランキングを見る（無料）→
           </Link>
         </div>
         <p className="mt-3 text-sm text-gray-400">たくさんの利益商品を掲載中</p>
