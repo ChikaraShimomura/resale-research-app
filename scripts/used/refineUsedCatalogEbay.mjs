@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import { get, parseSoldWithin } from "../ebaySoldWorker.mjs";
 import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
+import { ebayCompetition } from "./ebayCompetition.mjs"; // eBay競合数(現在出品総数)。確定時に焼き込み。鍵が無ければnull(fail-open)。
 
 const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
@@ -31,46 +32,6 @@ function envv(k) {
 }
 const KV_URL = envv("KV_REST_API_URL") || envv("UPSTASH_REDIS_REST_URL");
 const KV_TOK = envv("KV_REST_API_TOKEN") || envv("UPSTASH_REDIS_REST_TOKEN");
-
-// eBay競合数(=現在出品の総数)。型番確定した品に焼き込み、カタログカードで「狙い目/多め」を一目表示する。
-// refresh.mjs の getEbayToken/ebayCompetition と同じ公式 Browse API（HTMLスクレイプでない＝captchaなし）。
-// ★フェイルオープン：EBAY_APP_ID/EBAY_CLIENT_SECRET が無ければ token=null で静かにスキップ（落ちない）。
-const EBAY_APP_ID = envv("EBAY_APP_ID");
-const EBAY_CLIENT_SECRET = envv("EBAY_CLIENT_SECRET");
-let ebayTokenCache = null;
-async function getEbayToken() {
-  if (!EBAY_APP_ID || !EBAY_CLIENT_SECRET) return null; // 鍵が無ければ競合取得はスキップ（fail-open）
-  if (ebayTokenCache && Date.now() < ebayTokenCache.expiresAt) return ebayTokenCache.token;
-  const encoded = Buffer.from(`${EBAY_APP_ID}:${EBAY_CLIENT_SECRET}`).toString("base64");
-  try {
-    const res = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
-      method: "POST",
-      headers: { Authorization: `Basic ${encoded}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: "grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope",
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    ebayTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
-    return data.access_token;
-  } catch { return null; }
-}
-// 現在出品の総数(=競合の厚み)。limit=1 で total だけ取得＝軽量。取得不可は null(=競合不明=中立)。
-async function ebayCompetition(query) {
-  if (!query) return null;
-  const token = await getEbayToken();
-  if (!token) return null;
-  try {
-    const params = new URLSearchParams({ q: query.slice(0, 120), limit: "1", fieldgroups: "COMPACT" });
-    const res = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
-      headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return null;
-    const d = await res.json();
-    return Number.isFinite(d?.total) ? d.total : null;
-  } catch { return null; }
-}
 
 // 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログの利益が実態と一致。category=ジャンルで重量概算。
 function netProfitJPY(buyJpy, sellJpy, category) {
