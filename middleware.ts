@@ -20,10 +20,21 @@ function isPublicPath(pathname: string): boolean {
   // SNS共有カード画像(OG/Twitter)はクローラ(Twitterbot/facebookexternalhit)が未ログインで取得する＝公開必須。
   // ゲートすると /register(HTML)へ307され、X等でカード画像が一切出ない。ネスト経路(例: /ranking/opengraph-image)も許可。
   if (pathname.endsWith("/opengraph-image") || pathname.endsWith("/twitter-image")) return true;
-  // 2026-06-26 完全会員制（ユーザー指示「会員以外は何も見えないように」）＝マーケ/ガイドも含め全ページ ログイン必須。
-  //   公開のままにするのは 認証(login/register/reset/auth) ・法務(privacy/terms/legal/faq) ・PWA資産 ・OG画像 ・/sorry だけ。
-  //   トップ/ランキング/カタログ/料金/プレス/ガイド/検索/商品詳細 等はすべてゲート（未ログインは /register へ）。
-  //   全世界公開に戻す時はここに公開パスを足す。
+  // 2026-06-29 集客のためマーケ面を再公開（ユーザー判断・2026-06-26「完全会員制」を部分緩和）。
+  //   公開＝トップ(集客LP) / ランキング(Top5ぼかし・仕入れ先はゲート) / 料金 / ガイド / プレス（＋上の認証・法務・PWA・OG・/sorry）。
+  //   未ログインがここで価値を見て登録へ。詳細・仕入れ先・個人/ツール系は引き続きゲート。
+  if (
+    pathname === "/" ||
+    pathname === "/ranking" ||
+    pathname === "/pricing" ||
+    pathname === "/guide" ||
+    pathname.startsWith("/guide/") ||
+    pathname === "/press"
+  ) {
+    return true;
+  }
+  // ゲート維持＝カタログ詳細(/catalog)・商品詳細(/product/*)・検索/結果(/search,/results)・
+  //   マイページ/商品管理/設定/スタジオ/管理 等（価値の核と個人/ツール系）。未ログインは /register へ。
   return false;
 }
 
