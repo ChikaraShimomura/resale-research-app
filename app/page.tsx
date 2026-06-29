@@ -5,6 +5,7 @@ import BottomNav from "./components/BottomNav";
 import HomeHub from "./components/HomeHub";
 import TrackView from "./components/TrackView";
 import TrustBadges from "./components/TrustBadges";
+import ProfitSampleStrip from "./components/ProfitSampleStrip";
 import { META_DESC } from "./lib/marketing";
 import { PAYWALL_ENABLED } from "./lib/plans";
 import { getCurrentUserEmail } from "./lib/auth/plan";
@@ -151,6 +152,12 @@ function LandingPage() {
       {/* このサイトで使うサービス（販売=eBay／受け取り=Payoneer。仕入れは中古サイトなので仕入れ元バッジは出さない） */}
       <section className="max-w-2xl mx-auto px-4 pt-6 pb-2">
         <TrustBadges linked />
+      </section>
+
+      {/* 価値の“証拠”を壁の前に：今日の儲かる中古サンプル（実物のまま）。
+          自前タイトル付き＆0件なら null を返す＝見出しだけ残る崩れを避けるため外側見出しは置かない。 */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <ProfitSampleStrip />
       </section>
 
       {/* CTA */}

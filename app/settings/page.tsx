@@ -22,7 +22,8 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  await searchParams;
+  const sp = await searchParams;
+  const justSubscribed = sp.billing === "success"; // Checkout完了の戻り先(/settings?billing=success)＝直後の次アクションを出す
   const plan = await getPlan();
   const isAdminUser = plan === "admin";
   const isPaid = plan === "amateur" || plan === "veteran" || plan === "pro";
@@ -53,6 +54,29 @@ export default async function SettingsPage({
       </header>
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
+        {/* 課金直後の“次アクション”＝買った直後の離脱を防ぐ。中古カタログ/ランキングへすぐ送る。 */}
+        {justSubscribed && (
+          <section className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 shadow-md text-center">
+            <p className="text-base font-black mb-1.5">ご加入ありがとうございます</p>
+            <p className="text-[12px] text-white/85 leading-relaxed mb-4">
+              {plan === "amateur"
+                ? "30日間の無料期間がスタートしました（期間中はいつでも解約OK）。"
+                : "ご利用ありがとうございます。"}
+              <wbr />さっそく、いま儲かる中古を探しましょう。
+            </p>
+            <div className="flex gap-2">
+              <Link href="/catalog"
+                className="flex-1 inline-flex items-center justify-center h-11 rounded-xl bg-white text-[#2D323B] text-sm font-black active:opacity-90">
+                中古カタログを見る →
+              </Link>
+              <Link href="/ranking"
+                className="inline-flex items-center justify-center h-11 px-4 rounded-xl bg-white/15 text-white text-sm font-bold active:bg-white/25">
+                ランキング
+              </Link>
+            </div>
+          </section>
+        )}
+
         {/* アプリとして使う（ホーム画面に追加）＝バナーを閉じた後でもいつでもここから追加できる常設導線 */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">
           <InstallButton />
