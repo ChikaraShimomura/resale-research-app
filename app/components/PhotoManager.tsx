@@ -67,9 +67,18 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
     const cx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const cy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
     const s = dragStart.current;
+    // 自由なサイズの枠（1:1固定しない）。保存時に processRealPhoto がeBayの正方形フレーム(白フチ)に収める。
     setCrop({ x: Math.min(s.x, cx), y: Math.min(s.y, cy), w: Math.abs(cx - s.x), h: Math.abs(cy - s.y) });
   };
   const onUp = () => { dragStart.current = null; };
+
+  // 切り抜きの初期枠＝画像中央の「最大の正方形」を最初に出しておく（枠が見える）。以後ドラッグで好きなサイズに作り直せる。
+  const defaultSquare = (): CropRect => {
+    const el = imgRef.current;
+    const nw = el?.naturalWidth || 1, nh = el?.naturalHeight || 1;
+    if (nw <= nh) { const h = nw / nh; return { x: 0, y: (1 - h) / 2, w: 1, h }; } // 縦長→全幅の正方形
+    const w = nh / nw; return { x: (1 - w) / 2, y: 0, w, h: 1 }; // 横長→全高の正方形
+  };
 
   // ── 加工パネル（1枚を回転/切り抜き/文字消去） ──
   if (edit != null && images[edit]) {
@@ -93,7 +102,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
         {!cropMode && <p className="text-[10px] text-gray-400 mt-1 leading-snug">白い余白＝eBayの正方形フレーム。縦長/横長でも全体が収まります（保存時に確定）。</p>}
         {cropMode ? (
           <div className="mt-2">
-            <p className="text-[11px] text-gray-500 mb-1.5">画像の上をドラッグして、残す範囲を四角で囲ってください。</p>
+            <p className="text-[11px] text-gray-500 mb-1.5">枠が出ています。ドラッグで好きなサイズの枠に作り直せます（サイズ自由）。保存時にeBayの正方形フレームに白フチ付きで収めます。</p>
             <div className="flex gap-2">
               <button type="button" disabled={busy || !(c && c.w > 0.02 && c.h > 0.02)} onClick={() => transform("crop", c!)} className="flex-1 h-10 rounded-lg bg-[#2D323B] text-white text-[13px] font-bold disabled:opacity-50">この範囲で切り抜く</button>
               <button type="button" disabled={busy} onClick={() => { setCropMode(false); setCrop(null); }} className="h-10 px-4 rounded-lg border border-gray-300 text-gray-600 text-[13px] font-bold">やめる</button>
@@ -103,7 +112,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
           <div className="grid grid-cols-4 gap-2 mt-2">
             <button type="button" disabled={busy} onClick={() => transform("rotate-90")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><RotateCcw size={16} /><span>左に回転</span></button>
             <button type="button" disabled={busy} onClick={() => transform("rotate90")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><RotateCw size={16} /><span>右に回転</span></button>
-            <button type="button" disabled={busy} onClick={() => { setCropMode(true); setCrop(null); }} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Crop size={16} /><span>切り抜き</span></button>
+            <button type="button" disabled={busy} onClick={() => { setCropMode(true); setCrop(defaultSquare()); }} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Crop size={16} /><span>切り抜き</span></button>
             <button type="button" disabled={busy} onClick={() => transform("textremove")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Eraser size={16} /><span>文字消去</span></button>
           </div>
         )}
