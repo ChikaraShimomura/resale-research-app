@@ -20,7 +20,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
   const [cropMode, setCropMode] = useState(false);
   const [crop, setCrop] = useState<CropRect | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ mode: "move" | "tl" | "tr" | "bl" | "br"; sx: number; sy: number; orig: CropRect } | null>(null);
 
   const post = async (payload: object): Promise<boolean> => {
     setBusy(true); setErr(null);
@@ -51,34 +51,41 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
     if (ok) { setCropMode(false); setCrop(null); }
   };
 
-  // クロップのドラッグ（pointer events＝タッチ/マウス両対応）。座標は表示画像に対する割合(0〜1)で保持。
-  const onDown = (e: React.PointerEvent) => {
-    if (!cropMode) return;
-    const el = imgRef.current; if (!el) return;
-    const r = el.getBoundingClientRect();
-    dragStart.current = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
-    setCrop({ x: dragStart.current.x, y: dragStart.current.y, w: 0, h: 0 });
+  // ── 切り抜き：eBay風（四隅ハンドルでリサイズ＋枠内ドラッグで移動）。座標は表示画像に対する割合(0〜1)。──
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+  const MIN = 0.12; // 枠の最小サイズ(割合)＝小さすぎる切り抜き(低画質/500px割れ)を防ぐ
+  const ptFrac = (e: React.PointerEvent) => {
+    const r = imgRef.current!.getBoundingClientRect();
+    return { x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height) };
+  };
+  const startDrag = (mode: "move" | "tl" | "tr" | "bl" | "br") => (e: React.PointerEvent) => {
+    if (!crop || !imgRef.current) return;
+    e.stopPropagation();
+    const p = ptFrac(e);
+    dragRef.current = { mode, sx: p.x, sy: p.y, orig: crop };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
-  const onMove = (e: React.PointerEvent) => {
-    if (!cropMode || !dragStart.current) return;
-    const el = imgRef.current; if (!el) return;
-    const r = el.getBoundingClientRect();
-    const cx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    const cy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-    const s = dragStart.current;
-    // 自由なサイズの枠（1:1固定しない）。保存時に processRealPhoto がeBayの正方形フレーム(白フチ)に収める。
-    setCrop({ x: Math.min(s.x, cx), y: Math.min(s.y, cy), w: Math.abs(cx - s.x), h: Math.abs(cy - s.y) });
+  const onCropMove = (e: React.PointerEvent) => {
+    const d = dragRef.current; if (!d) return;
+    const p = ptFrac(e);
+    const dx = p.x - d.sx, dy = p.y - d.sy;
+    const o = d.orig;
+    if (d.mode === "move") {
+      setCrop({ x: clamp01(Math.min(o.x + dx, 1 - o.w)), y: clamp01(Math.min(o.y + dy, 1 - o.h)), w: o.w, h: o.h });
+      return;
+    }
+    // 四隅リサイズ：対角を固定して反対の辺を動かす。最小サイズMINを保つ。
+    let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+    if (d.mode.includes("l")) x1 = Math.min(clamp01(o.x + dx), x2 - MIN);
+    if (d.mode.includes("r")) x2 = Math.max(clamp01(o.x + o.w + dx), x1 + MIN);
+    if (d.mode.includes("t")) y1 = Math.min(clamp01(o.y + dy), y2 - MIN);
+    if (d.mode.includes("b")) y2 = Math.max(clamp01(o.y + o.h + dy), y1 + MIN);
+    setCrop({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
   };
-  const onUp = () => { dragStart.current = null; };
+  const onCropUp = () => { dragRef.current = null; };
 
-  // 切り抜きの初期枠＝画像中央の「最大の正方形」を最初に出しておく（枠が見える）。以後ドラッグで好きなサイズに作り直せる。
-  const defaultSquare = (): CropRect => {
-    const el = imgRef.current;
-    const nw = el?.naturalWidth || 1, nh = el?.naturalHeight || 1;
-    if (nw <= nh) { const h = nw / nh; return { x: 0, y: (1 - h) / 2, w: 1, h }; } // 縦長→全幅の正方形
-    const w = nh / nw; return { x: (1 - w) / 2, y: 0, w, h: 1 }; // 横長→全高の正方形
-  };
+  // 切り抜き開始時の初期枠＝中央90%（四隅ハンドルが画像内に見えるよう少し内側に）。
+  const initCrop = (): CropRect => ({ x: 0.05, y: 0.05, w: 0.9, h: 0.9 });
 
   // ── 加工パネル（1枚を回転/切り抜き/文字消去） ──
   if (edit != null && images[edit]) {
@@ -90,11 +97,37 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
         <div className={`relative w-full rounded-lg overflow-hidden border border-[#A98B5C]/25 ${cropMode ? "bg-gray-50" : "bg-white aspect-square"}`} style={{ touchAction: cropMode ? "none" : "auto" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img ref={imgRef} src={epsSizedUrl(images[edit], 1600)} alt="加工対象" className={`select-none ${cropMode ? "block w-full h-auto" : "w-full h-full object-contain"}`} draggable={false} />
-          {cropMode && (
-            <div className="absolute inset-0 cursor-crosshair" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
-              {c && c.w > 0 && c.h > 0 && (
-                <div className="absolute border-2 border-[#2D323B] bg-[#2D323B]/10" style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%`, width: `${c.w * 100}%`, height: `${c.h * 100}%` }} />
-              )}
+          {cropMode && c && (
+            // 切り抜き枠：外側を暗く(box-shadow)＋三分割グリッド＋四隅ハンドル。枠内ドラッグで移動、四隅でリサイズ。
+            <div
+              className="absolute border border-white"
+              style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%`, width: `${c.w * 100}%`, height: `${c.h * 100}%`, boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)", touchAction: "none", cursor: "move" }}
+              onPointerDown={startDrag("move")}
+              onPointerMove={onCropMove}
+              onPointerUp={onCropUp}
+            >
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute left-0 right-0 top-1/3 border-t border-white/50" />
+                <div className="absolute left-0 right-0 top-2/3 border-t border-white/50" />
+                <div className="absolute top-0 bottom-0 left-1/3 border-l border-white/50" />
+                <div className="absolute top-0 bottom-0 left-2/3 border-l border-white/50" />
+              </div>
+              {(["tl", "tr", "bl", "br"] as const).map((cn) => (
+                <div
+                  key={cn}
+                  onPointerDown={startDrag(cn)}
+                  onPointerMove={onCropMove}
+                  onPointerUp={onCropUp}
+                  className="absolute w-5 h-5 rounded-full bg-white border-2 border-[#2D323B] shadow"
+                  style={{
+                    left: cn.includes("l") ? "0%" : "100%",
+                    top: cn.includes("t") ? "0%" : "100%",
+                    transform: "translate(-50%,-50%)",
+                    touchAction: "none",
+                    cursor: cn === "tl" || cn === "br" ? "nwse-resize" : "nesw-resize",
+                  }}
+                />
+              ))}
             </div>
           )}
           {busy && <div className="absolute inset-0 bg-white/60 flex items-center justify-center"><Spinner size={20} /></div>}
@@ -102,7 +135,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
         {!cropMode && <p className="text-[10px] text-gray-400 mt-1 leading-snug">白い余白＝eBayの正方形フレーム。縦長/横長でも全体が収まります（保存時に確定）。</p>}
         {cropMode ? (
           <div className="mt-2">
-            <p className="text-[11px] text-gray-500 mb-1.5">枠が出ています。ドラッグで好きなサイズの枠に作り直せます（サイズ自由）。保存時にeBayの正方形フレームに白フチ付きで収めます。</p>
+            <p className="text-[11px] text-gray-500 mb-1.5">四隅の○をドラッグで枠を調整、枠の中をドラッグで移動。三分割グリッドを目安に。保存時にeBayの正方形フレーム(白フチ)に収めます。</p>
             <div className="flex gap-2">
               <button type="button" disabled={busy || !(c && c.w > 0.02 && c.h > 0.02)} onClick={() => transform("crop", c!)} className="flex-1 h-10 rounded-lg bg-[#2D323B] text-white text-[13px] font-bold disabled:opacity-50">この範囲で切り抜く</button>
               <button type="button" disabled={busy} onClick={() => { setCropMode(false); setCrop(null); }} className="h-10 px-4 rounded-lg border border-gray-300 text-gray-600 text-[13px] font-bold">やめる</button>
@@ -112,7 +145,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
           <div className="grid grid-cols-4 gap-2 mt-2">
             <button type="button" disabled={busy} onClick={() => transform("rotate-90")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><RotateCcw size={16} /><span>左に回転</span></button>
             <button type="button" disabled={busy} onClick={() => transform("rotate90")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><RotateCw size={16} /><span>右に回転</span></button>
-            <button type="button" disabled={busy} onClick={() => { setCropMode(true); setCrop(defaultSquare()); }} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Crop size={16} /><span>切り抜き</span></button>
+            <button type="button" disabled={busy} onClick={() => { setCropMode(true); setCrop(initCrop()); }} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Crop size={16} /><span>切り抜き</span></button>
             <button type="button" disabled={busy} onClick={() => transform("textremove")} className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[10px] font-bold disabled:opacity-50 leading-none"><Eraser size={16} /><span>文字消去</span></button>
           </div>
         )}
