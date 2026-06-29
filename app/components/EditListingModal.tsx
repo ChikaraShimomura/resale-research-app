@@ -396,7 +396,7 @@ export default function EditListingModal({
                   </label>
                   <label className="block">
                     <span className="text-[11px] font-bold text-gray-600">説明文</span>
-                    <textarea rows={6} value={formDesc} onChange={(e) => { setFormDesc(e.target.value); setContentDone(false); }} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
+                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => { setFormDesc(e.target.value); setContentDone(false); }} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
                     <span className="block text-[10px] text-gray-400 mt-0.5">改行はそのまま反映。英語推奨。</span>
                   </label>
                   {contentErr && <ReportableError message={contentErr.message} errorKind={contentErr.errorKind} errorDetail={contentErr.errorDetail} where="ebay_edit_content" context={{ productId }} className="mt-1" />}

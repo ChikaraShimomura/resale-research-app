@@ -840,7 +840,12 @@ export async function updateInventoryItemImages(
   if (item.condition != null) body.condition = item.condition;
   if (item.conditionDescription != null) body.conditionDescription = item.conditionDescription;
   if (item.packageWeightAndSize != null) body.packageWeightAndSize = item.packageWeightAndSize;
-  const r = await ebayFetch(token, "PUT", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, body);
+  const path = `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`;
+  let r = await ebayFetch(token, "PUT", path, body);
+  if (!r.ok) { // 一時的失敗(#25604 availability/レート/瞬断)に1回リトライ。PUTは冪等なので安全。
+    await new Promise((res) => setTimeout(res, 800));
+    r = await ebayFetch(token, "PUT", path, body);
+  }
   return { ok: r.ok, error: r.error };
 }
 

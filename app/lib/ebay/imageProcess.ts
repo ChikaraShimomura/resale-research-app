@@ -151,12 +151,14 @@ export async function transformListingImage(
       const top = Math.max(0, Math.min(H - 1, Math.round(crop.y * H)));
       const width = Math.max(1, Math.min(W - left, Math.round(crop.w * W)));
       const height = Math.max(1, Math.min(H - top, Math.round(crop.h * H)));
-      if (width > 20 && height > 20) buf = await sharp(raw, { failOn: "none" }).extract({ left, top, width, height }).toBuffer();
+      // 切り抜き後の長辺が500px未満だとeBayの最小解像度を割り、拡大でボケる→事前に弾いて案内する。
+      if (Math.max(width, height) < 500) throw new Error("切り抜き範囲が小さすぎます（切り抜き後の長辺が500px以上必要）。範囲を広げるか、より大きい元写真を使ってください。");
+      buf = await sharp(raw, { failOn: "none" }).extract({ left, top, width, height }).toBuffer();
     } else if (op === "textremove") {
       buf = await cleanupBakedText(raw); // Vision焼き込み文字消去（キー未設定/失敗時は素通り）
     }
-  } catch {
-    return { ok: false, error: "加工に失敗しました。" };
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.message || "加工に失敗しました。" }; // sharp/Visionの生エラーを表に出す（diagに記録される）
   }
   const norm = await processRealPhoto(buf); // 1600px・JPEG・EXIF補正で規格統一
   const up = await uploadHostedPictureFromBinary(token, norm, "image/jpeg", "rr-edit");
