@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { uploadHostedPictureFromBinary } from "./eps";
+import { epsLargeUrl } from "./epsUrl";
 import { WATERMARK_PNG_B64 } from "./watermarkAsset";
 import { cleanupBakedText } from "./imageCleanup";
 
@@ -133,7 +134,7 @@ export async function transformListingImage(
   op: PhotoOp,
   crop?: { x: number; y: number; w: number; h: number }
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const raw = await fetchListingImage(srcUrl);
+  const raw = await fetchListingImage(epsLargeUrl(srcUrl)); // EPSはフル解像度(s-l1600)の元画像を取得して加工する
   if (!raw) return { ok: false, error: "画像を取得できませんでした。" };
   let buf: Buffer = raw;
   try {

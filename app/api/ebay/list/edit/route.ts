@@ -8,6 +8,7 @@ import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
 import { getProductById } from "../../../../lib/ebay/productStore";
 import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
+import { epsLargeUrl } from "../../../../lib/ebay/epsUrl";
 import { estimateWeightG, USD_JPY } from "../../../../lib/ebay/landedCost";
 
 // 出品中の「価格・数量」をアプリ内で編集する（eBay.comを触らせない＝出品の管理が外れる原因を断つ）。
@@ -102,7 +103,7 @@ export async function GET(req: Request) {
   try {
     const item = await getInventoryItem(token, sku);
     const product = (item?.product ?? {}) as { imageUrls?: string[]; title?: string; description?: string };
-    images = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    images = (Array.isArray(product.imageUrls) ? product.imageUrls : []).map(epsLargeUrl); // フル解像度(s-l1600)で表示・編集
     title = typeof product.title === "string" ? product.title : "";
     description = htmlToPlain(typeof product.description === "string" ? product.description : "");
   } catch { /* 取得失敗時は空（写真/件名編集が出ないだけ・価格編集は使える） */ }

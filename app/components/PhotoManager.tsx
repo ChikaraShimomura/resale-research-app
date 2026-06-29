@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { ArrowUp, ArrowDown, Star, Trash2, Wand2, RotateCcw, RotateCw, Crop, Eraser, ArrowLeft } from "lucide-react";
 import Spinner from "./Spinner";
+import { epsSizedUrl } from "../lib/ebay/epsUrl";
 
 type Op = "rotate90" | "rotate-90" | "crop" | "textremove";
 type CropRect = { x: number; y: number; w: number; h: number };
@@ -78,7 +79,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
         <button type="button" onClick={() => { setEdit(null); setCropMode(false); setCrop(null); setErr(null); }} className="inline-flex items-center gap-1 text-[12px] font-bold text-gray-600 mb-2"><ArrowLeft size={14} /> 写真一覧へ戻る</button>
         <div className="relative w-full bg-gray-50 rounded-lg overflow-hidden border border-[#A98B5C]/25" style={{ touchAction: cropMode ? "none" : "auto" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={imgRef} src={images[edit]} alt="加工対象" className="block w-full h-auto select-none" draggable={false} />
+          <img ref={imgRef} src={epsSizedUrl(images[edit], 1600)} alt="加工対象" className="block w-full h-auto select-none" draggable={false} />
           {cropMode && (
             <div className="absolute inset-0 cursor-crosshair" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
               {c && c.w > 0 && c.h > 0 && (
@@ -117,7 +118,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
           <li key={url + i} className="flex items-center gap-2 bg-gray-50 rounded-lg p-1.5">
             <div className="relative shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`写真${i + 1}`} className="w-12 h-12 object-cover rounded-md border border-[#A98B5C]/25 bg-white" />
+              <img src={epsSizedUrl(url, 300)} alt={`写真${i + 1}`} className="w-12 h-12 object-cover rounded-md border border-[#A98B5C]/25 bg-white" />
               {i === 0 && <span className="absolute -top-1 -left-1 text-[8px] font-bold bg-[#2D323B] text-white px-1 rounded">メイン</span>}
             </div>
             <div className="flex items-center gap-1 ml-auto">

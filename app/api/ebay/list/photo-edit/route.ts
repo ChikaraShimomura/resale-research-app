@@ -4,6 +4,7 @@ import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { getInventoryItem, updateInventoryItemImages } from "../../../../lib/ebay/listing";
 import { transformListingImage, type PhotoOp } from "../../../../lib/ebay/imageProcess";
+import { epsLargeUrl } from "../../../../lib/ebay/epsUrl";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
 
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
 
   // ── 並び替え/削除/メイン設定：クライアントが作った配列をそのまま反映 ──
   if (body.action === "order") {
-    const urls = (body.imageUrls || []).filter((u) => typeof u === "string" && u).slice(0, 24);
+    // 並び順をそのまま反映。ついでにEPS画像はフル解像度(s-l1600)に揃える＝旧来の縮小URL(s-l500等)で出ていた品も鮮明化。
+    const urls = (body.imageUrls || []).filter((u) => typeof u === "string" && u).map(epsLargeUrl).slice(0, 24);
     if (!urls.length) return Response.json({ ok: false, error: "画像を1枚以上残してください。" }, { status: 400 });
     const upd = await updateInventoryItemImages(token, sku, urls);
     if (!upd.ok) {
@@ -59,9 +61,11 @@ export async function POST(req: Request) {
   // ── 1枚ごとの加工：回転/トリミング/文字消去 → EPS再ホスト → 配列内の該当URLを差し替え ──
   if (body.action === "transform") {
     if (!body.imageUrl || !body.op) return Response.json({ ok: false, error: "加工内容が不正です。" }, { status: 400 });
-    const imgs = await currentImages(token, sku);
-    if (imgs == null) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
-    const idx = imgs.indexOf(body.imageUrl);
+    const imgsRaw = await currentImages(token, sku);
+    if (imgsRaw == null) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
+    // 表示側(クライアント)と実体(eBay)でサイズ変種が違っても一致させるため両方を s-l1600 に正規化して突合する。
+    const imgs = imgsRaw.map(epsLargeUrl);
+    const idx = imgs.indexOf(epsLargeUrl(body.imageUrl));
     if (idx < 0) return Response.json({ ok: false, error: "対象の写真が見つかりませんでした。画面を開き直してください。" });
 
     const t = await transformListingImage(token, body.imageUrl, body.op, body.crop);

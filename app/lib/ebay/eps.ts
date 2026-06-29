@@ -4,6 +4,8 @@
 // ※1出品内で「EPS画像」と「外部ホスト画像」は混在不可なので、外部画像も ExternalPictureURL で
 //   EPS化して全EPSに統一する（このファイルの fromUrl）。
 
+import { epsLargeUrl } from "./epsUrl";
+
 const ENV = process.env.EBAY_ENV === "sandbox" ? "sandbox" : "production";
 const TRADING_API = ENV === "sandbox" ? "https://api.sandbox.ebay.com/ws/api.dll" : "https://api.ebay.com/ws/api.dll";
 // Trading API のスキーマ世代。古すぎると挙動差が出るため現行の安定値を固定。
@@ -45,7 +47,8 @@ function tradingHeaders(token: string): Record<string, string> {
 function parseEps(xml: string): EpsResult {
   const ack = /<Ack>(.*?)<\/Ack>/.exec(xml)?.[1] ?? "";
   const full = /<FullURL>(.*?)<\/FullURL>/.exec(xml)?.[1];
-  if (full && (ack === "Success" || ack === "Warning")) return { ok: true, fullUrl: full };
+  // FullURLは既定で小さい変種(s-l500等)が返ることがある→s-l1600に正規化してフル解像度で保存/配信する。
+  if (full && (ack === "Success" || ack === "Warning")) return { ok: true, fullUrl: epsLargeUrl(full) };
   const long = /<LongMessage>([\s\S]*?)<\/LongMessage>/.exec(xml)?.[1];
   const short = /<ShortMessage>([\s\S]*?)<\/ShortMessage>/.exec(xml)?.[1];
   const code = /<ErrorCode>(.*?)<\/ErrorCode>/.exec(xml)?.[1];
