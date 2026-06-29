@@ -249,6 +249,33 @@ export default function GuidePage() {
           </div>
         </div>
 
+        {/* 応用：チーム共有（5ステップの後の発展・任意）。HowTo構造化データ(5ステップ)には含めない＝中古販売の手順そのものではないため。 */}
+        <div className="mb-6">
+          <SectionTitle>【応用】チームで分業する</SectionTitle>
+          <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">
+            <p className="text-[13px] text-gray-600 leading-relaxed mb-3.5">
+              家族や仲間と、仕入れ・出品・発送・収支を共有して分業できます。リサーチ役と発送役を分けるなど、1人で抱えずに回せます。権限は1人ずつ細かく設定でき、在庫も売上もチーム全員で見えます。
+            </p>
+            <ul className="space-y-2 mb-4">
+              {[
+                "共有モード：オーナー1つのeBayで全員分を出品（シンプル）",
+                "個別モード：各自のeBayで出品（在庫・収支はチームで共有）",
+                "権限7種（仕入れ／出品／収支／発送／削除 ほか）を1人ずつ付与",
+                "最初は1人で。伸びたら招待して分担（段階的に拡大）",
+              ].map((t, i) => (
+                <li key={i} className="flex items-start gap-2 text-[13px] text-gray-600 leading-snug">
+                  <span aria-hidden="true" className="w-4 h-4 mt-0.5 rounded-full bg-[#2D323B]/10 text-[#2D323B] text-[10px] font-black flex items-center justify-center shrink-0">✓</span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <Link href="/team"
+              className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#2D323B] bg-[#2D323B]/5 border border-[#2D323B]/20 rounded-xl px-3.5 py-2 active:bg-[#2D323B]/10 transition-colors">
+              チーム共有を設定する →
+            </Link>
+          </div>
+        </div>
+
         {/* 読み物・コラム（SEO大黒柱記事への内部リンク） */}
         <div className="mb-6">
           <SectionTitle>もっと詳しく（記事で読む）</SectionTitle>

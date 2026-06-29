@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, ExternalLink } from "lucide-react";
+import { BadgeCheck, ExternalLink, Users } from "lucide-react";
 import BottomNav from "../components/BottomNav";
 import PlanCards from "../components/PlanCards";
 import ProfitSampleStrip from "../components/ProfitSampleStrip";
@@ -111,6 +111,22 @@ export default async function PricingPage({
             </Link>
           </div>
         )}
+
+        {/* チーム共有（全プラン共通の強み・差別化）。分業/透明性/段階的拡大の訴求に留め収入断定はしない。 */}
+        <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Users size={18} className="text-[#A98B5C] shrink-0" aria-hidden="true" />
+            <p className="text-sm font-black text-gray-800">チームで使える（全プラン）</p>
+          </div>
+          <p className="text-[12px] text-gray-500 leading-relaxed">
+            <span className="whitespace-nowrap">家族や仲間と、仕入れ・出品・発送・収支を</span><wbr />
+            <span className="whitespace-nowrap"><b className="text-gray-700">共有して分業</b>。</span><wbr />
+            <span className="whitespace-nowrap">権限は1人ずつ設定でき、</span><wbr />
+            <span className="whitespace-nowrap">在庫も売上もチーム全員で見えます。</span><wbr />
+            <span className="whitespace-nowrap"><b className="text-gray-700">共有モード</b>＝オーナー1つのeBayで全員分、</span><wbr />
+            <span className="whitespace-nowrap"><b className="text-gray-700">個別モード</b>＝各自のeBayで出品（在庫・収支は共有）。</span>
+          </p>
+        </div>
 
         {/* 個別サポート（任意）。eBayセラー登録=最初の1回が最大の難所→詰まった時だけ他社(ココナラ)に相談。 */}
         <div className="bg-white rounded-2xl border border-[#A98B5C]/25 shadow-sm p-6 mt-3 text-center">
