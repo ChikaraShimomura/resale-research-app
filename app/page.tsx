@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Tag, Banknote } from "lucide-react";
+import { Languages, MapPin, TrendingUp, ShieldCheck, Search, Tag, Banknote, Users } from "lucide-react";
 import AuthButton from "./components/AuthButton";
 import BottomNav from "./components/BottomNav";
 import HomeHub from "./components/HomeHub";
@@ -146,6 +146,28 @@ function LandingPage() {
           <Link href="/guide" className="text-[12px] font-bold text-[#2D323B] underline underline-offset-2">
             はじめ方を画像つきガイドで見る →
           </Link>
+        </div>
+      </section>
+
+      {/* チーム共有（差別化＝個人向けツールに無い強み）。コンプラ＝分業/透明性/段階的拡大の訴求に留め、収入断定はしない。 */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <div className="rounded-2xl bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white p-5 shadow-md">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={18} className="text-[#D8C089] shrink-0" aria-hidden="true" />
+            <h2 className="text-sm font-black">ひとりでも、チームでも</h2>
+          </div>
+          <p className="text-[13px] text-white/85 leading-relaxed">
+            <span className="whitespace-nowrap">仕入れ・出品・発送・収支を</span><wbr />
+            <span className="whitespace-nowrap"><b className="text-[#D8C089]">家族や仲間と共有して分業</b>。</span><wbr />
+            <span className="whitespace-nowrap">権限は1人ずつ細かく設定でき、</span><wbr />
+            <span className="whitespace-nowrap">在庫も売上もチーム全員で見えます。</span>
+          </p>
+          <ul className="mt-3 space-y-1.5 text-[12px] text-white/80">
+            <li className="flex gap-1.5"><span className="text-[#D8C089]">・</span><span><b className="text-white">共有モード</b>：オーナー1つのeBayでまとめて回す</span></li>
+            <li className="flex gap-1.5"><span className="text-[#D8C089]">・</span><span><b className="text-white">個別モード</b>：各自のeBayで出品（在庫・収支は共有）</span></li>
+            <li className="flex gap-1.5"><span className="text-[#D8C089]">・</span><span>権限7種（仕入れ／出品／収支／発送 ほか）を1人ずつ付与</span></li>
+          </ul>
+          <p className="mt-3 text-[11px] text-white/55">最初は1人で。伸びたら招待して分担。</p>
         </div>
       </section>
 
