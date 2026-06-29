@@ -168,6 +168,15 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
   // ── ここから「出品内容」起因のエラー。errorId を最優先に分類し、疑わしいフィールド名を文に差し込む ──
   // ※ Best Offer(値下げ交渉)は廃止したので、自動承諾額関連のエラー分類は撤去（自社出品では発生しない）。
 
+  // ⚠️ #25002 は eBay が「必須Item Specific不足」にも「画像が小さい/Picture Policy違反」にも使う。
+  //    画像系メッセージを先に拾い、誤って「必須項目を入れて」と案内しないようにする（実際の原因は写真の解像度）。
+  if (has("picture policy", "pixels on the longest", "resolution for provided picture", "longest side")) {
+    return {
+      message: "写真の解像度が小さすぎます（eBayは長辺500px以上が必要）。元の大きい写真をアップし直してください（縦長/横長でも自動で正方形に整えます）。",
+      known: true,
+    };
+  }
+
   // #25002 = 必須Item Specific 不足/不正（amiibo等で頻発：キャラクター・種類・対応機種 など）。
   if (errorId === "25002" || has("required item specific", "item specific", "missing required", "is a required")) {
     const detail = suspects
