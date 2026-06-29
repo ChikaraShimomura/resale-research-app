@@ -24,7 +24,9 @@ function buildRequestXml(opts: { name?: string; externalUrl?: string }): string 
     `<?xml version="1.0" encoding="utf-8"?>` +
     `<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">` +
     (opts.name ? `<PictureName>${escapeXml(opts.name)}</PictureName>` : "") +
-    `<PictureSet>Standard</PictureSet>` +
+    // Supersize＝フル解像度(最大1600px)＋ズーム対応で配信。Standardだと縮小版が返り画質が落ちる(eBay低画質の定番原因)。
+    // 800px未満の小さい画像はeBay側が自動でStandardにフォールバックするので安全。
+    `<PictureSet>Supersize</PictureSet>` +
     (opts.externalUrl ? `<ExternalPictureURL>${escapeXml(opts.externalUrl)}</ExternalPictureURL>` : "") +
     `</UploadSiteHostedPicturesRequest>`
   );
