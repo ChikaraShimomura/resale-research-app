@@ -1,14 +1,17 @@
 // Stripe Webhook 受け口。購読の作成/更新/解約を受けて KV の課金状態を更新する。
 // 署名(STRIPE_WEBHOOK_SECRET)で正当性を検証＝外部POSTだが各自トークンで確認するため middleware の同一オリジン検査からは除外する。
 import { verifyStripeEvent } from "../../../lib/stripe";
-import { setBillingState, emailForCustomer, planForPriceId, type BillingState } from "../../../lib/billing";
+import { setBillingState, getBillingState, emailForCustomer, planForPriceId, type BillingState } from "../../../lib/billing";
 import { recordFunnelEvent } from "../../../lib/funnelServer";
-import type { PlanId } from "../../../lib/plans";
+import { planRank, type PlanId } from "../../../lib/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Obj = Record<string, unknown>;
+
+// 有効とみなすStripeステータス（billing.ts の ACTIVE_STATUSES と同義・アップグレード判定に使う）。
+const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export async function POST(req: Request) {
   const raw = await req.text(); // 署名検証のため生ボディが必要（JSONにする前に取る）
@@ -39,8 +42,10 @@ export async function POST(req: Request) {
         await setBillingState(email, state);
       }
       await recordFunnelEvent("subscribed"); // 収益ファネル：課金成立を計上（チェックアウト完了＝新規購読）
-    } else if (type === "customer.subscription.created" || type === "customer.subscription.updated") {
-      await applySubscription(obj, eventTs);
+    } else if (type === "customer.subscription.created") {
+      await applySubscription(obj, eventTs, true);
+    } else if (type === "customer.subscription.updated") {
+      await applySubscription(obj, eventTs, false);
     } else if (type === "customer.subscription.deleted") {
       const email = await resolveEmail(obj);
       if (email) {
@@ -51,6 +56,7 @@ export async function POST(req: Request) {
           subscriptionId: obj.id ? String(obj.id) : undefined,
           updatedAt: eventTs,
         });
+        await recordFunnelEvent("churned"); // 継続計測：解約を計上
       }
     }
   } catch {
@@ -61,16 +67,34 @@ export async function POST(req: Request) {
   return Response.json({ received: true });
 }
 
-// subscription オブジェクトから課金状態を組み立てて保存。
-async function applySubscription(sub: Obj, eventTs: number): Promise<void> {
+// subscription オブジェクトから課金状態を組み立てて保存し、前状態との差分で遷移を計測する。
+// isCreated=true（subscription.created）: トライアル開始を計上。false（updated）: トライアル→有料/アップグレードを計上。
+async function applySubscription(sub: Obj, eventTs: number, isCreated: boolean): Promise<void> {
   const email = await resolveEmail(sub);
   if (!email) return;
   const priceId = priceIdOf(sub);
   const meta = (sub.metadata as Obj | undefined) ?? {};
   const planId = planForPriceId(priceId) ?? (meta.planId as PlanId | undefined) ?? "free";
+  const status = String(sub.status ?? "active");
+
+  // 遷移計測は前状態と比較。setBillingState の単調性ガードと整合させ、古い(再送/順序逆転)イベントでは計上しない。
+  const prev = await getBillingState(email);
+  const stale = !!prev && typeof prev.updatedAt === "number" && eventTs < prev.updatedAt;
+  if (!stale) {
+    if (isCreated) {
+      if (status === "trialing") await recordFunnelEvent("trial_started"); // 無料トライアルで開始
+    } else if (prev) {
+      if (prev.status === "trialing" && status === "active") {
+        await recordFunnelEvent("trial_converted"); // トライアル→有料に転換（最重要指標）
+      } else if (ACTIVE_STATUSES.has(status) && planRank(planId) > planRank(prev.planId)) {
+        await recordFunnelEvent("upgraded"); // 上位プランへアップグレード
+      }
+    }
+  }
+
   await setBillingState(email, {
     planId,
-    status: String(sub.status ?? "active"),
+    status,
     customerId: sub.customer ? String(sub.customer) : undefined,
     subscriptionId: sub.id ? String(sub.id) : undefined,
     currentPeriodEnd: currentPeriodEndOf(sub),
