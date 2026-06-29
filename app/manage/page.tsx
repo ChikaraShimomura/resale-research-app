@@ -11,7 +11,7 @@ import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
 import { estimateWeightG, USD_JPY } from "../lib/ebay/landedCost";
-import { computePriceModelTotal } from "../lib/ebay/priceModel";
+import { computePriceModelTotal, netAtTotalJpy } from "../lib/ebay/priceModel";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
 import FavoriteHeart from "../components/FavoriteHeart";
@@ -44,7 +44,12 @@ function priceTiers(medianJpy: number, costJpy: number, category?: string, weigh
   const medianUsd = medianJpy > 0 ? medianJpy / USD_JPY : 0;
   const w = weightG && weightG > 0 ? weightG : estimateWeightG(category);
   const m = computePriceModelTotal(costJpy, w, medianUsd); // 総額(eBay掲載価格)基準。±0/最安/中央/高値とも総額で損益分岐を割らない。
-  return { breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd };
+  // 各段の純利益(円)＝その総額での着地後利益(SSOT netAtTotalJpy)。価格変更ボタンに併記する。
+  const prof = (usd: number) => netAtTotalJpy(costJpy, w, usd);
+  return {
+    breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd,
+    profit: { breakeven: prof(m.breakevenUsd), low: prof(m.lowUsd), median: prof(m.medianUsd), high: prof(m.highUsd) },
+  };
 }
 
 type Tab = "fav" | "bought" | "listed" | "sold" | "ended";

@@ -11,7 +11,7 @@ export default function PriceTierEdit({
   currentPriceUsd,
 }: {
   productId: string;
-  tiers: { breakeven: number; low: number; median: number; high: number };
+  tiers: { breakeven: number; low: number; median: number; high: number; profit?: { breakeven: number; low: number; median: number; high: number } };
   currentPriceUsd?: number; // 今eBayに出ている価格(USD)。損益分岐を下回っていれば赤字警告＋ワンタップ修正を出す。
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export default function PriceTierEdit({
   const [err, setErr] = useState<string | null>(null);
   // 表示は円（eBayは$建てだが、ユーザーには円で見せる）。レートは SSOT(landedCost・env駆動/既定155)から。
   const yen = (u: number) => "¥" + Math.round(u * USD_JPY).toLocaleString("ja-JP");
+  const yenJ = (j: number) => "¥" + Math.round(j).toLocaleString("ja-JP"); // 円そのもの(利益額用・USD換算しない)
 
   const apply = async (key: string, usd: number) => {
     setBusy(key);
@@ -39,11 +40,11 @@ export default function PriceTierEdit({
     setBusy(null);
   };
 
-  const OPTS: { key: string; label: string; usd: number }[] = [
-    { key: "breakeven", label: "±0(育成)", usd: tiers.breakeven },
-    { key: "low", label: "最安", usd: tiers.low },
-    { key: "median", label: "中央値", usd: tiers.median },
-    { key: "high", label: "高値", usd: tiers.high },
+  const OPTS: { key: string; label: string; usd: number; profit?: number }[] = [
+    { key: "breakeven", label: "±0(育成)", usd: tiers.breakeven, profit: tiers.profit?.breakeven },
+    { key: "low", label: "最安", usd: tiers.low, profit: tiers.profit?.low },
+    { key: "median", label: "中央値", usd: tiers.median, profit: tiers.profit?.median },
+    { key: "high", label: "高値", usd: tiers.high, profit: tiers.profit?.high },
   ];
 
   // 今の価格が損益分岐(±0)を下回る＝赤字で出品中。古い計算で出した分のケア（ワンタップで±0へ引き上げ）。
@@ -74,10 +75,13 @@ export default function PriceTierEdit({
             type="button"
             onClick={() => apply(o.key, o.usd)}
             disabled={busy !== null || o.usd <= 0}
-            className="flex flex-col items-center justify-center h-11 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[11px] font-bold disabled:opacity-40 active:bg-gray-100 leading-tight"
+            className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#A98B5C]/35 bg-white text-gray-600 text-[11px] font-bold disabled:opacity-40 active:bg-gray-100 leading-tight"
           >
             <span>{o.label}</span>
             <span className="text-[10px] text-gray-400">{o.usd > 0 ? yen(o.usd) : "—"}</span>
+            {o.usd > 0 && o.profit != null && (
+              <span className="text-[10px] font-bold text-pink-600">{o.profit >= 0 ? "+" : ""}{yenJ(o.profit)}</span>
+            )}
           </button>
         ))}
       </div>
