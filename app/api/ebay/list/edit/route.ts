@@ -1,7 +1,7 @@
 import { kvReadOnly } from "../../../../lib/kv";
 import { getEbayActor } from "../../../../lib/auth/teamActor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
-import { getOfferForSku, updateOfferPriceQuantity, updateOfferPriceFull, updateOfferShipping, listFulfillmentPolicies } from "../../../../lib/ebay/listing";
+import { getOfferForSku, updateOfferPriceQuantity, updateOfferPriceFull, updateOfferShipping, listFulfillmentPolicies, getInventoryItem, reviseInventoryItemContent, updateOfferListingDescription, descriptionToHtml } from "../../../../lib/ebay/listing";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
@@ -40,6 +40,17 @@ async function breakevenUsdFor(id: string): Promise<number> {
 const OFFER_NOT_FOUND =
   "この出品が見つかりませんでした。\n違うチームメイトが出品したか、eBay側で終了された可能性があります。";
 
+// eBay用HTML説明 → 編集欄表示用のプレーンテキスト（<br>/<p>→改行、タグ除去、実体参照を戻す）。保存時は descriptionToHtml で再HTML化。
+function htmlToPlain(html: string): string {
+  return (html || "")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/p\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function GET(req: Request) {
   const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
   if (!actor) return Response.json({ ok: false, connected: false });
@@ -49,7 +60,8 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
 
-  const offer = await getOfferForSku(token, await skuFor(actor, id));
+  const sku = await skuFor(actor, id);
+  const offer = await getOfferForSku(token, sku);
   if (!offer) {
     return Response.json({
       ok: false,
@@ -83,7 +95,18 @@ export async function GET(req: Request) {
     /* 送料状態が取れなくても価格/数量編集は使えるようにする */
   }
   const floorUsd = await breakevenUsdFor(id); // 損益分岐(±0)。手入力価格がこれ未満なら赤字警告に使う。0=不明
-  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship, floorUsd });
+  // 出品中の画像・件名・説明（写真の並び替え/加工と、件名/説明の編集に使う）。説明はHTML→プレーンに戻して編集欄へ。
+  let images: string[] = [];
+  let title = "";
+  let description = "";
+  try {
+    const item = await getInventoryItem(token, sku);
+    const product = (item?.product ?? {}) as { imageUrls?: string[]; title?: string; description?: string };
+    images = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    title = typeof product.title === "string" ? product.title : "";
+    description = htmlToPlain(typeof product.description === "string" ? product.description : "");
+  } catch { /* 取得失敗時は空（写真/件名編集が出ないだけ・価格編集は使える） */ }
+  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship, floorUsd, images, title, description });
 }
 
 export async function POST(req: Request) {
@@ -92,8 +115,31 @@ export async function POST(req: Request) {
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
-  const body = (await req.json().catch(() => ({}))) as { productId?: string; priceUsd?: string | number; quantity?: number; shipMode?: "free" | "paid"; acceptLoss?: boolean };
+  const body = (await req.json().catch(() => ({}))) as { productId?: string; priceUsd?: string | number; quantity?: number; shipMode?: "free" | "paid"; acceptLoss?: boolean; title?: string; description?: string };
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
+
+  // ── 件名・説明文の編集（編集モーダルの折りたたみ「詳細オプション」）。在庫アイテム＋公開オファーの両方に反映 ──
+  if (typeof body.title === "string" || typeof body.description === "string") {
+    const sku = await skuFor(actor, body.productId);
+    const title = typeof body.title === "string" ? body.title.trim().slice(0, 80) : undefined;
+    if (title !== undefined && title.length < 1) return Response.json({ ok: false, error: "タイトルを入力してください。" }, { status: 400 });
+    const descriptionHtml = typeof body.description === "string" ? descriptionToHtml(body.description) : undefined;
+    const inv = await reviseInventoryItemContent(token, sku, { title, descriptionHtml });
+    if (!inv.ok) {
+      const f = friendlyEbayError(inv.error);
+      if (!f.known) await recordAutoError({ where: "ebay_edit_content", message: f.message, errorDetail: inv.error, productId: body.productId, actor });
+      return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: inv.error });
+    }
+    if (descriptionHtml != null) {
+      const off = await updateOfferListingDescription(token, sku, descriptionHtml); // offer.listingDescription が優先されるので両方に反映
+      if (!off.ok) {
+        const f = friendlyEbayError(off.error);
+        if (!f.known) await recordAutoError({ where: "ebay_edit_content_offer", message: f.message, errorDetail: off.error, productId: body.productId, actor });
+        return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: off.error });
+      }
+    }
+    return Response.json({ ok: true });
+  }
 
   // ── 送料の出し方（送料込み/別）の切替。価格と配送ポリシーを同時更新する（価格/数量編集とは別操作）。──
   if (body.shipMode === "free" || body.shipMode === "paid") {

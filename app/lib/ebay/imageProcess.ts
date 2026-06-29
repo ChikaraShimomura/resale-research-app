@@ -107,3 +107,53 @@ export async function enhanceToEps(token: string, urls: string[]): Promise<strin
   const eps = results.filter((u): u is string => !!u);
   return eps.length ? eps : null;
 }
+
+// ── 出品中の画像を1枚ずつ「加工」してEPSへ再ホストする（編集モーダルの加工ボタン用） ──
+// 既存の出品画像は EPS(ebayimg.com) か仕入れ元(rakuten/r10s) か自サイトのプロキシにある。これらだけ取得を許可（SSRF対策）。
+const LISTING_IMG_ALLOW = /(^|\.)(ebayimg\.com|rakuten\.co\.jp|r10s\.jp|yushutsu-fukugyo\.com)$/i;
+async function fetchListingImage(url: string): Promise<Buffer | null> {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || !LISTING_IMG_ALLOW.test(u.hostname)) return null;
+  } catch { return null; }
+  try {
+    const res = await fetch(url, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    const ab = await res.arrayBuffer();
+    return ab.byteLength ? Buffer.from(ab) : null;
+  } catch { return null; }
+}
+
+export type PhotoOp = "rotate90" | "rotate-90" | "crop" | "textremove";
+// 1枚の出品画像を加工→1600px正方化(processRealPhoto)→EPSへ上げ、新しいEPS URLを返す。
+// crop は {x,y,w,h}=元画像に対する0〜1の割合（クライアントのドラッグ枠から算出）。
+export async function transformListingImage(
+  token: string,
+  srcUrl: string,
+  op: PhotoOp,
+  crop?: { x: number; y: number; w: number; h: number }
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const raw = await fetchListingImage(srcUrl);
+  if (!raw) return { ok: false, error: "画像を取得できませんでした。" };
+  let buf: Buffer = raw;
+  try {
+    if (op === "rotate90") buf = await sharp(raw, { failOn: "none" }).rotate(90).toBuffer();
+    else if (op === "rotate-90") buf = await sharp(raw, { failOn: "none" }).rotate(-90).toBuffer();
+    else if (op === "crop" && crop) {
+      const meta = await sharp(raw).metadata();
+      const W = meta.width ?? 0, H = meta.height ?? 0;
+      const left = Math.max(0, Math.min(W - 1, Math.round(crop.x * W)));
+      const top = Math.max(0, Math.min(H - 1, Math.round(crop.y * H)));
+      const width = Math.max(1, Math.min(W - left, Math.round(crop.w * W)));
+      const height = Math.max(1, Math.min(H - top, Math.round(crop.h * H)));
+      if (width > 20 && height > 20) buf = await sharp(raw, { failOn: "none" }).extract({ left, top, width, height }).toBuffer();
+    } else if (op === "textremove") {
+      buf = await cleanupBakedText(raw); // Vision焼き込み文字消去（キー未設定/失敗時は素通り）
+    }
+  } catch {
+    return { ok: false, error: "加工に失敗しました。" };
+  }
+  const norm = await processRealPhoto(buf); // 1600px・JPEG・EXIF補正で規格統一
+  const up = await uploadHostedPictureFromBinary(token, norm, "image/jpeg", "rr-edit");
+  return up.ok && up.fullUrl ? { ok: true, url: up.fullUrl } : { ok: false, error: up.error || "アップロードに失敗しました。" };
+}
