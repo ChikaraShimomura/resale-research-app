@@ -86,6 +86,11 @@ function joinLabels(labels: string[]): string {
 export function friendlyEbayError(raw?: string | null, status?: number): FriendlyError {
   const s = (raw || "").toLowerCase();
   const has = (...keys: string[]) => keys.some((k) => s.includes(k));
+  // 当方が既に整形済みの日本語メッセージ（getInventoryItem失敗・出品が見つからない等）はそのまま既知扱いにし、
+  // 「予期せぬエラー（開発者に報告）」へ格下げしない＝二重に friendlyEbayError を通しても安全。
+  if (raw && /商品情報を取得できませんでした|再出品し直してください|出品が見つかりませんでした|写真は最低|画像を1枚以上/.test(raw)) {
+    return { message: raw, known: true };
+  }
   // eBayがJSON body無しで失敗すると error は "HTTP 401" 等になる。status未渡しでもメッセージからコードを拾う。
   const code = status ?? (Number((s.match(/\bhttp\s*(\d{3})\b/) || [])[1]) || undefined);
   // eBayのエラー番号（#25002 等）。分類の最優先キーにする（曖昧な includes より確実）。

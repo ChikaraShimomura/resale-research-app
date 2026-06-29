@@ -101,7 +101,7 @@ export async function GET(req: Request) {
   let title = "";
   let description = "";
   try {
-    const item = await getInventoryItem(token, sku);
+    const { item } = await getInventoryItem(token, sku);
     const product = (item?.product ?? {}) as { imageUrls?: string[]; title?: string; description?: string };
     images = (Array.isArray(product.imageUrls) ? product.imageUrls : []).map(epsLargeUrl); // フル解像度(s-l1600)で表示・編集
     title = typeof product.title === "string" ? product.title : "";

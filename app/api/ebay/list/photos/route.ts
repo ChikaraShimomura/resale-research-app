@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   }
 
   const sku = (await getListingSku(actor, productId)) ?? skuForProduct(productId);
-  const item = await getInventoryItem(token, sku);
+  const { item } = await getInventoryItem(token, sku);
   if (!item) {
     return Response.json({
       ok: false,

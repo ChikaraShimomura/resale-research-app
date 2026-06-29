@@ -26,11 +26,11 @@ const skuFor = async (actor: string, productId: string): Promise<string> =>
 
 const OFFER_NOT_FOUND = "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。";
 
-// 在庫アイテムの現在の画像配列を読む。
-async function currentImages(token: string, sku: string): Promise<string[] | null> {
-  const item = await getInventoryItem(token, sku);
-  if (!item) return null;
-  return ((item.product as { imageUrls?: string[] } | undefined)?.imageUrls) ?? [];
+// 在庫アイテムの現在の画像配列を読む（取得失敗の生エラーも返す＝原因を記録/分類できる）。
+async function currentImages(token: string, sku: string): Promise<{ images: string[] | null; error?: string }> {
+  const { item, error } = await getInventoryItem(token, sku);
+  if (!item) return { images: null, error };
+  return { images: ((item.product as { imageUrls?: string[] } | undefined)?.imageUrls) ?? [] };
 }
 
 export async function POST(req: Request) {
@@ -68,8 +68,12 @@ export async function POST(req: Request) {
   // ── 1枚ごとの加工：回転/トリミング/文字消去 → EPS再ホスト → 配列内の該当URLを差し替え ──
   if (body.action === "transform") {
     if (!body.imageUrl || !body.op) return Response.json({ ok: false, error: "加工内容が不正です。" }, { status: 400 });
-    const imgsRaw = await currentImages(token, sku);
-    if (imgsRaw == null) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
+    const { images: imgsRaw, error: getErr } = await currentImages(token, sku);
+    if (imgsRaw == null) {
+      await diag("transform_getitem", getErr, { productId: body.productId });
+      const f = friendlyEbayError(getErr || "");
+      return Response.json({ ok: false, error: getErr ? f.message : OFFER_NOT_FOUND, errorKind: getErr && !f.known ? "unexpected" : "known", errorDetail: getErr });
+    }
     // 表示側(クライアント)と実体(eBay)でサイズ変種(s-l1600/s-l500)が違っても一致するよう、サイズを伏せた基準キーで突合する。
     const idx = imgsRaw.map(epsMatchKey).indexOf(epsMatchKey(body.imageUrl));
     if (idx < 0) return Response.json({ ok: false, error: "対象の写真が見つかりませんでした。画面を開き直してください。" });

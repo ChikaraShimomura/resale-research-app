@@ -812,10 +812,15 @@ export async function republishOfferForSku(
 
 // ── 実物写真の追加（在庫アイテムの画像を差し替え。公開中の出品にも即反映） ──
 // 在庫アイテムをGETで読む（imageUrlsのマージや状態維持のため。PUTは全置換なので既存値を欠かさず再送する）。
-export async function getInventoryItem(token: string, sku: string): Promise<Record<string, unknown> | null> {
-  const r = await ebayFetch(token, "GET", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`);
-  if (!r.ok || !r.data) return null;
-  return r.data as Record<string, unknown>;
+export async function getInventoryItem(token: string, sku: string): Promise<{ item: Record<string, unknown> | null; error?: string }> {
+  let lastErr: string | undefined;
+  for (let i = 0; i < 2; i++) {
+    const r = await ebayFetch(token, "GET", `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`);
+    if (r.ok && r.data) return { item: r.data as Record<string, unknown> };
+    lastErr = r.error;
+    if (i === 0) await new Promise((res) => setTimeout(res, 600)); // 一時的失敗(レート/瞬断)に1回だけリトライ
+  }
+  return { item: null, error: lastErr }; // 生エラーを返す＝呼び出し側で原因を分類/記録できる
 }
 
 // 既存の在庫アイテムを読み、product.imageUrls だけ新しい配列（全EPS）に差し替えてPUT。
@@ -825,9 +830,9 @@ export async function updateInventoryItemImages(
   sku: string,
   imageUrls: string[]
 ): Promise<{ ok: boolean; error?: string }> {
-  const item = await getInventoryItem(token, sku);
+  const { item, error: getErr } = await getInventoryItem(token, sku);
   if (!item) {
-    return { ok: false, error: "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
+    return { ok: false, error: getErr || "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
   }
   const product = { ...((item.product as Record<string, unknown>) ?? {}), imageUrls: imageUrls.slice(0, 24) };
   const body: Record<string, unknown> = { product };
@@ -848,9 +853,9 @@ export async function reviseInventoryItemContent(
   sku: string,
   fields: { title?: string; descriptionHtml?: string; aspects?: Record<string, string> }
 ): Promise<{ ok: boolean; error?: string }> {
-  const item = await getInventoryItem(token, sku);
+  const { item, error: getErr } = await getInventoryItem(token, sku);
   if (!item) {
-    return { ok: false, error: "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
+    return { ok: false, error: getErr || "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。" };
   }
   const prevProduct = (item.product as Record<string, unknown>) ?? {};
   const prevAspects = (prevProduct.aspects as Record<string, string[]>) ?? {};
