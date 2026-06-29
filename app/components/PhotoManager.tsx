@@ -77,9 +77,10 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
     return (
       <div>
         <button type="button" onClick={() => { setEdit(null); setCropMode(false); setCrop(null); setErr(null); }} className="inline-flex items-center gap-1 text-[12px] font-bold text-gray-600 mb-2"><ArrowLeft size={14} /> 写真一覧へ戻る</button>
-        <div className="relative w-full bg-gray-50 rounded-lg overflow-hidden border border-[#A98B5C]/25" style={{ touchAction: cropMode ? "none" : "auto" }}>
+        {/* 通常時=正方形フレーム(白背景)でeBayでの見え方を表示／切り抜き時=元比率にして枠の座標を元画像に正しく対応させる。 */}
+        <div className={`relative w-full rounded-lg overflow-hidden border border-[#A98B5C]/25 ${cropMode ? "bg-gray-50" : "bg-white aspect-square"}`} style={{ touchAction: cropMode ? "none" : "auto" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={imgRef} src={epsSizedUrl(images[edit], 1600)} alt="加工対象" className="block w-full h-auto select-none" draggable={false} />
+          <img ref={imgRef} src={epsSizedUrl(images[edit], 1600)} alt="加工対象" className={`select-none ${cropMode ? "block w-full h-auto" : "w-full h-full object-contain"}`} draggable={false} />
           {cropMode && (
             <div className="absolute inset-0 cursor-crosshair" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
               {c && c.w > 0 && c.h > 0 && (
@@ -89,6 +90,7 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
           )}
           {busy && <div className="absolute inset-0 bg-white/60 flex items-center justify-center"><Spinner size={20} /></div>}
         </div>
+        {!cropMode && <p className="text-[10px] text-gray-400 mt-1 leading-snug">白い余白＝eBayの正方形フレーム。縦長/横長でも全体が収まります（保存時に確定）。</p>}
         {cropMode ? (
           <div className="mt-2">
             <p className="text-[11px] text-gray-500 mb-1.5">画像の上をドラッグして、残す範囲を四角で囲ってください。</p>
