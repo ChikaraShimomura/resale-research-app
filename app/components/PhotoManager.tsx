@@ -47,7 +47,8 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
   };
   const transform = async (op: Op, cropArg?: CropRect) => {
     if (edit == null) return;
-    const ok = await post({ action: "transform", imageUrl: images[edit], op, crop: cropArg });
+    // クライアントが今表示している配列(=正)とindexを送る＝サーバーで取り直し/突合しない（順番・枚数のズレで詰まらない）。
+    const ok = await post({ action: "transform", imageUrls: images, index: edit, op, crop: cropArg });
     if (ok) { setCropMode(false); setCrop(null); }
   };
 

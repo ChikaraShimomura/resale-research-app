@@ -10,10 +10,3 @@ export function epsSizedUrl(url: string, size: number): string {
 export function epsLargeUrl(url: string): string {
   return epsSizedUrl(url, 1600);
 }
-
-// 突合用の基準キー：EPS画像はサイズ変種(s-l{N})だけ違っても同一画像なので、サイズ部分を伏せて比較する。
-// 表示側(s-l1600)と実体(s-l500等)の変種差でも一致するようにする。非EPSはそのまま。
-export function epsMatchKey(url: string): string {
-  if (!url || !url.includes("i.ebayimg.com")) return url;
-  return url.replace(/\/s-l\d+(\.[a-zA-Z0-9]+)/i, "/s-lKEY$1");
-}
