@@ -8,9 +8,12 @@ import { getUsedCatalog, isProhibited, conditionLabel } from "../lib/usedCatalog
 const yen = (n?: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 
 export default async function ProfitSampleStrip() {
-  const items = (await getUsedCatalog())
-    .filter((p) => p.profitRate >= 5 && !isProhibited(`${p.brand} ${p.name}`))
-    .slice(0, 3);
+  // 「自分にもできそう」を優先：getUsedCatalog は利益“額”順なので高額品が先頭に来がち。
+  // サンプルは“手が届く仕入れ値(≤¥30,000)”を利益“率”の高い順で優先し、足りなければ残りから利益率順に補完して3件。
+  const all = (await getUsedCatalog()).filter((p) => !isProhibited(`${p.brand} ${p.name}`));
+  const affordable = all.filter((p) => p.buyJpy > 0 && p.buyJpy <= 30000).sort((a, b) => b.profitRate - a.profitRate);
+  const rest = all.filter((p) => !affordable.includes(p)).sort((a, b) => b.profitRate - a.profitRate);
+  const items = [...affordable, ...rest].slice(0, 3);
   if (items.length === 0) return null;
 
   return (
