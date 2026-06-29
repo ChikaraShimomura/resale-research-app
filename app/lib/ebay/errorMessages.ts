@@ -57,7 +57,8 @@ function extractFields(raw: string): string[] {
       // 数値のみ/空/長すぎる断片は除外（フィールド名は英字を含む短い語）。
       // 内部フィールド名(BEST_OFFER_AUTO_ACCEPT_AMOUNT 等の全大文字スネーク)や通貨コード(USD)は
       // ユーザー向けの「必須項目」ではないので拾わない＝小文字を含む人間語、または既知ラベルだけ採用。
-      if (t && (/[a-z]/.test(t) || !!FIELD_LABELS[t.toLowerCase()]) && t.length <= 40 && !/^\d+$/.test(t)) found.add(t);
+      // 2文字未満は「s」等のノイズなので拾わない（項目名は短くても2文字以上）。
+      if (t && (/[a-z]/.test(t) || !!FIELD_LABELS[t.toLowerCase()]) && t.length >= 2 && t.length <= 40 && !/^\d+$/.test(t)) found.add(t);
     }
   }
   const patterns = [

@@ -7,6 +7,12 @@ import { transformListingImage, type PhotoOp } from "../../../../lib/ebay/imageP
 import { epsLargeUrl, epsMatchKey } from "../../../../lib/ebay/epsUrl";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
+import { kv } from "@vercel/kv";
+
+// 写真操作の失敗時、eBayの生エラーをKVに残してPC側から原因を読めるようにする（既知/未知問わず・診断用・TTL7日）。
+async function diag(where: string, raw?: string, extra?: Record<string, unknown>) {
+  try { await kv.set("diag:photoerr", { at: new Date().toISOString(), where, raw: raw || "", ...extra }, { ex: 7 * 24 * 3600 }); } catch { /* noop */ }
+}
 
 // 出品中の「写真の並び替え・メイン設定・削除（＝画像配列の差し替え）」と「1枚ごとの加工（回転/トリミング/文字消去）」。
 //   action="order"     { imageUrls } … 画像配列をそのまま eBay へ反映（先頭=メイン）。削除/並び替えはクライアントで配列を作って送る。
@@ -51,6 +57,7 @@ export async function POST(req: Request) {
     if (!urls.length) return Response.json({ ok: false, error: "画像を1枚以上残してください。" }, { status: 400 });
     const upd = await updateInventoryItemImages(token, sku, urls);
     if (!upd.ok) {
+      await diag("order", upd.error, { productId: body.productId });
       const f = friendlyEbayError(upd.error);
       if (!f.known) await recordAutoError({ where: "ebay_photo_order", message: f.message, errorDetail: upd.error, productId: body.productId, actor });
       return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: upd.error });
@@ -77,6 +84,7 @@ export async function POST(req: Request) {
     next[idx] = t.url; // 同じ位置に差し替え（並び順は保つ）
     const upd = await updateInventoryItemImages(token, sku, next);
     if (!upd.ok) {
+      await diag("transform_save", upd.error, { op: body.op, productId: body.productId });
       const f = friendlyEbayError(upd.error);
       if (!f.known) await recordAutoError({ where: "ebay_photo_transform_save", message: f.message, errorDetail: upd.error, productId: body.productId, actor });
       return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: upd.error });
