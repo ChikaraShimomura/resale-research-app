@@ -4,7 +4,7 @@ import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { getInventoryItem, updateInventoryItemImages } from "../../../../lib/ebay/listing";
 import { transformListingImage, type PhotoOp } from "../../../../lib/ebay/imageProcess";
-import { epsLargeUrl } from "../../../../lib/ebay/epsUrl";
+import { epsLargeUrl, epsMatchKey } from "../../../../lib/ebay/epsUrl";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
 
@@ -63,18 +63,17 @@ export async function POST(req: Request) {
     if (!body.imageUrl || !body.op) return Response.json({ ok: false, error: "加工内容が不正です。" }, { status: 400 });
     const imgsRaw = await currentImages(token, sku);
     if (imgsRaw == null) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
-    // 表示側(クライアント)と実体(eBay)でサイズ変種が違っても一致させるため両方を s-l1600 に正規化して突合する。
-    const imgs = imgsRaw.map(epsLargeUrl);
-    const idx = imgs.indexOf(epsLargeUrl(body.imageUrl));
+    // 表示側(クライアント)と実体(eBay)でサイズ変種(s-l1600/s-l500)が違っても一致するよう、サイズを伏せた基準キーで突合する。
+    const idx = imgsRaw.map(epsMatchKey).indexOf(epsMatchKey(body.imageUrl));
     if (idx < 0) return Response.json({ ok: false, error: "対象の写真が見つかりませんでした。画面を開き直してください。" });
 
-    const t = await transformListingImage(token, body.imageUrl, body.op, body.crop);
+    const t = await transformListingImage(token, imgsRaw[idx], body.op, body.crop); // 実体URLから加工（内部でs-l1600取得）
     if (!t.ok) {
       const f = friendlyEbayError(t.error);
       if (!f.known) await recordAutoError({ where: "ebay_photo_transform", message: t.error, errorDetail: t.error, productId: body.productId, actor, op: body.op });
       return Response.json({ ok: false, error: f.known ? f.message : t.error, errorKind: f.known ? "known" : "unexpected" });
     }
-    const next = imgs.slice();
+    const next = imgsRaw.map(epsLargeUrl); // 保存は全てフル解像度(s-l1600)に揃える
     next[idx] = t.url; // 同じ位置に差し替え（並び順は保つ）
     const upd = await updateInventoryItemImages(token, sku, next);
     if (!upd.ok) {
