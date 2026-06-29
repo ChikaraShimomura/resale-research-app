@@ -31,8 +31,11 @@ export const PLANS: Record<PlanId, Plan> = {
   admin:   { id: "admin",   name: "管理者",     priceJpy: 0,    listingLimit: Infinity, paid: false },
 };
 
-// 料金ページに並べる有料プラン（表示順）。
-export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro", "promax"];
+// 料金ページに並べる有料プラン（表示順）＝自己申込の対象。
+// ⚠️プロMAX(promax)は当面ここから外す＝料金カード非表示＋checkoutでも弾く。理由＝STRIPE_PRICE_PROMAX未設定で
+//   押すと「No such price」になる／無在庫(dropship)は規約グレー([[resale-app-mukaiko-ebay-policy]])で今は売り込まない。
+//   再掲載する時は "promax" を戻し、Stripeで¥100,000のPrice作成＋STRIPE_PRICE_PROMAX env を設定すること。
+export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
 
 // プランの序列（アップグレード/ダウングレード判定用）。free<ライト<スタンダード<プロ<プロMAX。身内/管理者は無制限=最上位扱い。
 const PLAN_RANK: Record<PlanId, number> = { free: 0, amateur: 1, veteran: 2, pro: 3, promax: 4, master: 9, admin: 9 };
