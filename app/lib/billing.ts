@@ -83,3 +83,17 @@ export function planFromBilling(state: BillingState | null): PlanId {
 export async function billingPlanFor(email: string | null): Promise<PlanId> {
   return planFromBilling(await getBillingState(email));
 }
+
+// 無料トライアル中の残日数を返す（終了予告バナー用）。trialing 以外は null。
+// status=trialing のとき currentPeriodEnd はトライアル終了日(unix)＝そこから残日数を切り上げで算出。
+export interface TrialInfo {
+  plan: PlanId;
+  daysLeft: number; // 0以上（当日終了なら0）
+  endsAt: number; // トライアル終了(unix秒)
+}
+export async function getTrialInfo(email: string | null): Promise<TrialInfo | null> {
+  const s = await getBillingState(email);
+  if (!s || s.status !== "trialing" || !s.currentPeriodEnd) return null;
+  const daysLeft = Math.max(0, Math.ceil((s.currentPeriodEnd * 1000 - Date.now()) / 86400000));
+  return { plan: s.planId, daysLeft, endsAt: s.currentPeriodEnd };
+}

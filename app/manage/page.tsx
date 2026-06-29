@@ -14,6 +14,7 @@ import { estimateWeightG, USD_JPY } from "../lib/ebay/landedCost";
 import { computePriceModelTotal, netAtTotalJpy } from "../lib/ebay/priceModel";
 import BottomNav from "../components/BottomNav";
 import ManageTabs from "../components/ManageTabs";
+import TrialBanner from "../components/TrialBanner";
 import FavoriteHeart from "../components/FavoriteHeart";
 import CatalogActionButtons from "../components/CatalogActionButtons";
 import ListingHelper from "../components/ListingHelper";
@@ -158,6 +159,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5">
+        <TrialBanner className="mb-3" />
         <ManageTabs active={tab} counts={counts} />
 
         {tab === "fav" && (

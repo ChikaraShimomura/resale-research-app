@@ -5,6 +5,7 @@ import BottomNav from "../components/BottomNav";
 import PushSettings from "../components/PushSettings";
 import InstallButton from "../components/InstallButton";
 import MfaSetup from "../components/MfaSetup";
+import TrialBanner from "../components/TrialBanner";
 import { getPlan } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import { listDealsForUser } from "../lib/ebay/stats";
@@ -76,6 +77,9 @@ export default async function SettingsPage({
             </div>
           </section>
         )}
+
+        {/* 無料トライアル中の終了予告（課金直後の歓迎カードと重複しないよう success 戻り時は出さない）。 */}
+        {!justSubscribed && <TrialBanner />}
 
         {/* アプリとして使う（ホーム画面に追加）＝バナーを閉じた後でもいつでもここから追加できる常設導線 */}
         <section className="bg-white rounded-2xl p-4 border border-[#A98B5C]/25 shadow-sm">

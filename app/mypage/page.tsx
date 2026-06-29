@@ -5,6 +5,7 @@ import AuthButton from "../components/AuthButton";
 import BottomNav from "../components/BottomNav";
 import MyDashboard from "../components/MyDashboard";
 import PolicyOptimizeButton from "../components/PolicyOptimizeButton";
+import TrialBanner from "../components/TrialBanner";
 import { getPlan } from "../lib/auth/plan";
 
 export const metadata: Metadata = {
@@ -39,6 +40,7 @@ export default async function MyPage() {
       </header>
 
       <main className="max-w-2xl mx-auto p-3 space-y-3">
+        <TrialBanner />
         <MyDashboard />
         <PolicyOptimizeButton />
       </main>
