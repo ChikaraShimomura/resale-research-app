@@ -335,6 +335,9 @@ export default function EditListingModal({
                 <span className="whitespace-nowrap">実物写真を足すと売れやすい。</span><wbr />
                 <span className="whitespace-nowrap">カタログ画像は残したまま追加</span><wbr />
                 <span className="whitespace-nowrap">（最大6枚・1枚12MBまで・JPG/PNG等）。</span><wbr />
+                <span className="whitespace-nowrap"><b className="text-gray-500">おすすめは正方形・長辺1600px以上。</b></span><wbr />
+                <span className="whitespace-nowrap">縦長/横長でも自動で白フチを付けて</span><wbr />
+                <span className="whitespace-nowrap">正方形フレームに収めます。</span><wbr />
                 <span className="whitespace-nowrap">eBay側で触ると管理が外れるので、</span><wbr />
                 <span className="whitespace-nowrap">写真変更はここから。</span>
               </p>

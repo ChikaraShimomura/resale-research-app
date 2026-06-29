@@ -44,12 +44,16 @@ export async function processListingImage(input: Buffer, opts?: { watermark?: bo
   return await img.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
 }
 
-// ユーザーの実物写真向け: 構図は変えず長辺1600pxへ収め(12MB超のスマホ写真対策)＋JPEG最適化。
+// ユーザーの実物写真向け: 1600×1600の正方・白背景キャンバスに「全体を収める」(fit:contain)。
+// ＝縦長/横長の写真でもeBayの正方グリッドで端が切れず商品全体が映る(フレーム内に収める)。白背景はeBay推奨。
+// EXIF向き補正＋ダウンスケールで眠くなる分を軽くシャープ＋JPEG高品質。
 export async function processRealPhoto(input: Buffer): Promise<Buffer> {
   return await sharp(input, { failOn: "none" })
-    .rotate()
-    .resize(TARGET, TARGET, { fit: "inside", withoutEnlargement: true, kernel: sharp.kernel.lanczos3 })
-    .jpeg({ quality: 88, mozjpeg: true })
+    .rotate() // EXIF向き補正（縦で撮った写真が横にならないように）
+    .resize(TARGET, TARGET, { fit: "contain", background: WHITE, kernel: sharp.kernel.lanczos3 })
+    .flatten({ background: WHITE }) // 透過/わずかな色被りを白に
+    .sharpen() // ダウンスケールで失われる輪郭を戻す（ボケ対策）
+    .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer();
 }
 
