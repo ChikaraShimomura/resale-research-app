@@ -12,10 +12,9 @@ on:
 
 jobs:
   radar:
-    # ⏸ 2026-06-25 コスト停止(ユーザー指示「自動投稿だけ残す」)。Xリプ候補レーダーはX読み取り＋Anthropic分類で
-    #   課金が出るため停止。cron-job.orgが叩いてもジョブskip＝課金ゼロ。再開はこの if 行を削除するだけ。
-    #   ※X自動「投稿」(tweet-yushutsu.yml)は指示どおり維持。
-    if: ${{ false }}
+    # 2026-06-29 再開(ユーザー指示)。2026-06-25にコスト停止していたXリプ候補レーダーを再稼働。
+    #   ⚠️ X読み取り(recent search・Basic以上が必要)＋Anthropic分類で課金が出る。cron-job.orgが毎日20:00 JSTに dispatch。
+    #   再び止めたい時は次行に `if: ${{ false }}` を足すだけ（cron-job.orgが叩いてもskip＝課金ゼロ）。
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
