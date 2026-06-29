@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import { get, parseSoldWithin } from "../ebaySoldWorker.mjs";
 import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
-import { ebayCompetition } from "./ebayCompetition.mjs"; // eBay競合数(現在出品総数)。確定時に焼き込み。鍵が無ければnull(fail-open)。
+import { ebayCompetition, hasEbayKeys } from "./ebayCompetition.mjs"; // eBay競合数(現在出品総数)。確定時に焼き込み。鍵が無ければnull(fail-open)。
 
 const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
@@ -55,6 +55,10 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
 (async () => {
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
   if (!catalog.length) { console.log("used_catalog が空"); return; }
+
+  // ★競合数(ebayActiveCount)の取得に必要なeBay鍵の有無を毎回ログ＝KV(wlog:refine)経由でPC側から遠隔確認できる。
+  //   「なし」＝Pixelの.env.localに EBAY_APP_ID/EBAY_CLIENT_SECRET が無い→競合数は焼き込まれない(fail-open)。
+  console.log(`eBay競合鍵(EBAY_APP_ID/CLIENT_SECRET): ${hasEbayKeys() ? "あり ✓" : "なし→競合数スキップ(.env.localに2鍵を追加)"}`);
 
   // 確定不能(eBay落札0件)の型番キャッシュ＝無駄打ち削減。{normCode: 最後に確認したISO}。TTL以内は再scrapeせず、
   // バッチ枠を新規候補に回す＝実効の確定数が上がる。30日後に期限切れ→再挑戦(その間に新規落札が出ているかも)。
