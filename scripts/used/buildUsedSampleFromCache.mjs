@@ -156,6 +156,7 @@ async function loadCategories() {
       return {
         ...c, ebayMedianJpy: median, profitJpy: net, profitRate: c.buyJpy > 0 ? Math.round((net / c.buyJpy) * 100) : 0, // 利益率＝純利益÷仕入れ(ROI)
         soldCount: prev.soldCount ?? c.soldCount, ebayConfirmed: true, ebayChecked: true, ebaySoldUrl: prev.ebaySoldUrl,
+        ebayActiveCount: prev.ebayActiveCount ?? c.ebayActiveCount, // 競合数(=eBay現在出品総数)も引き継ぐ＝buildのたびに消えてバッジが出なくなるのを防ぐ
       };
     });
     const haveUrls = new Set(catalog.map((p) => p.hardoffUrl));
@@ -175,6 +176,7 @@ async function loadCategories() {
       category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(), brand: c.brand, code: c.code,
       realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
       realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed, usedCondition: c.condition,
+      ebayActiveCount: c.ebayActiveCount, // 競合数(STR/競合バッジ用)。引き継いだ確定品なら入る。未取得は undefined(中立)。
       source: { site: c.site || "hardoff", siteName: c.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
     };
     return ["SET", `psnap:${c.id}`, JSON.stringify(snap), "EX", String(35 * 24 * 3600)];
