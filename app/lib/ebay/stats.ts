@@ -270,6 +270,11 @@ export async function deleteDealsWithSku(actor: string, ids: string[]): Promise<
   } catch {
     /* noop */
   }
+  // 完全削除＝もう競合しない→満了枠(listing_actors)も解放。残すと該当商品が「出品中(満了)」扱いのまま
+  // 他の出品者にも90日(TTL満了まで)出品ブロックがかかり続ける＝ゾンビ枠になる。
+  for (const id of ids) {
+    await releaseListingSlot(actor, id);
+  }
 }
 
 // cron用：出品停止中に入って24時間を過ぎた取引をまとめて「アーカイブ（既定で隠す）」へ移す。アーカイブしたIDを返す。

@@ -1,5 +1,5 @@
 import { kvReadOnly } from "../../../../lib/kv";
-import { getEbayActor } from "../../../../lib/auth/teamActor";
+import { resolveEditAuth } from "../../../../lib/ebay/editAuth";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getOfferForSku, updateOfferPriceQuantity, updateOfferPriceFull, updateOfferShipping, listFulfillmentPolicies, getInventoryItem, reviseInventoryItemContent, updateOfferListingDescription, descriptionToHtml } from "../../../../lib/ebay/listing";
 import { getListingSku } from "../../../../lib/ebay/stats";
@@ -30,7 +30,10 @@ async function breakevenUsdFor(id: string): Promise<number> {
     const src = (snap as { source?: { price?: number; shippingJpy?: number } } | null)?.source;
     const costJpy = (Number(src?.price) || 0) + (Number(src?.shippingJpy) || 0);
     const wRaw = await kvReadOnly.get<number>(`weight:${id}`);
-    const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : estimateWeightG((snap as { category?: string } | null)?.category);
+    const category = (snap as { category?: string } | null)?.category;
+    // weight:{id}キャッシュ優先→無ければカテゴリ概算。ただしカテゴリ不明だと概算が軽め(~805g)に出て、重い品(オーディオ/カメラ/工具)で
+    // EMS/関税が過小評価＝floorが甘くなり赤字を通す。カテゴリ不明時は安全側(1800g)を使い floor を甘くしない。
+    const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : (category ? estimateWeightG(category) : 1800);
     if (costJpy > 0 && weightG > 0) return Math.round(breakevenTotalUsd(costJpy, weightG) * 100) / 100;
   } catch { /* floor不明でも編集自体は使える（警告が出ないだけ） */ }
   return 0;
@@ -53,8 +56,9 @@ function htmlToPlain(html: string): string {
 }
 
 export async function GET(req: Request) {
-  const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
-  if (!actor) return Response.json({ ok: false, connected: false });
+  const auth = await resolveEditAuth(); // 出品中の編集は出品に使ったeBayアカウント基準＋チームメンバーは'list'権限必須
+  if ("deny" in auth) return auth.deny;
+  const actor = auth.actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
@@ -107,12 +111,19 @@ export async function GET(req: Request) {
     title = typeof product.title === "string" ? product.title : "";
     description = htmlToPlain(typeof product.description === "string" ? product.description : "");
   } catch { /* 取得失敗時は空（写真/件名編集が出ないだけ・価格編集は使える） */ }
-  return Response.json({ ok: true, priceUsd: offer.priceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship, floorUsd, images, title, description });
+  // ★編集モーダルは「総額(買い手の支払=eBay掲載価格基準)」で扱う。送料別の出品は offer.priceUsd が商品価格なので、
+  //   現在の送料(ship.foldUsd)を足して総額にして返す（POST側も総額を受けて商品価格に変換＝往復が一致）。送料無料/不明はそのまま。
+  const totalPriceUsd =
+    ship && ship.mode === "paid" && ship.foldUsd > 0
+      ? (Number(offer.priceUsd || 0) + ship.foldUsd).toFixed(2)
+      : offer.priceUsd;
+  return Response.json({ ok: true, priceUsd: totalPriceUsd, quantity: offer.quantity, listingId: offer.listingId, refImages, ship, floorUsd, images, title, description });
 }
 
 export async function POST(req: Request) {
-  const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
-  if (!actor) return Response.json({ ok: false, connected: false });
+  const auth = await resolveEditAuth(); // 出品中の編集は出品に使ったeBayアカウント基準＋チームメンバーは'list'権限必須
+  if ("deny" in auth) return auth.deny;
+  const actor = auth.actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 
@@ -149,6 +160,8 @@ export async function POST(req: Request) {
     if (!offer) return Response.json({ ok: false, error: OFFER_NOT_FOUND });
     const policies = await listFulfillmentPolicies(token);
     const cur = policies.find((p) => p.fulfillmentPolicyId === offer.fulfillmentPolicyId) || null;
+    // 現在の配送ポリシーが特定できない＝現在の送料が不明＝総額を正しく計算できない→送料を0と誤算して赤字/総額崩れになる前に弾く。
+    if (!cur) return Response.json({ ok: false, error: "現在の送料の状態を確認できませんでした。画面を開き直してから再度お試しください。" });
     const free = policies.find((p) => Number(p.costUsd) < 0.01) || null;
     const paid = policies.filter((p) => Number(p.costUsd) >= 0.01).sort((a, b) => Number(a.costUsd) - Number(b.costUsd));
     const curPrice = Number(offer.priceUsd || 0);
@@ -166,7 +179,9 @@ export async function POST(req: Request) {
       // 買い手総額(=現在の送料無料価格 curPrice)を保ちつつ損益分岐(総額)は割らせない：総額をfloorでクランプ→商品価格=総額−送料。
       // ※ floor は breakevenTotalUsd=「総額」の損益分岐。商品価格(item)を総額floorで直接クランプすると過剰値上げになるため総額で判定する。
       const floor = await breakevenUsdFor(body.productId);
-      const newTotal = Math.max(floor || 0.01, curPrice);
+      // floor(損益分岐)が出せない時に切替を続行すると、curPriceが極小だと商品価格が0.01へクランプ＝大赤字。floor不明なら保留する。
+      if (!(floor > 0)) return Response.json({ ok: false, error: "損益分岐を確認できないため送料の切替を保留しました。価格を直接編集するか、出品し直してください。" });
+      const newTotal = Math.max(floor, curPrice);
       newPrice = Math.max(0.01, Math.round((newTotal - Number(target.costUsd)) * 100) / 100).toFixed(2);
       newPolicyId = target.fulfillmentPolicyId;
     }

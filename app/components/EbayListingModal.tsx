@@ -329,6 +329,8 @@ export default function EbayListingModal({
         quantity,
         selectedImages, // 出品に使う写真（先頭=メイン）
         onBehalfOf, // チーム共有：オーナー名義で出品
+        totalUsd: Number(priceUsd || 0).toFixed(2), // 買い手総額(送料込み)＝サーバー赤字ガードが損益分岐と照合する基準
+        acceptLoss, // 損益分岐未満を承知のうえで出品（チェック時のみtrue。サーバーの赤字ガードを通す）
       }),
     })
       .then((r) => r.json())

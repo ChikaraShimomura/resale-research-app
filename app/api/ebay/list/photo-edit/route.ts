@@ -1,4 +1,4 @@
-import { getEbayActor } from "../../../../lib/auth/teamActor";
+import { resolveEditAuth } from "../../../../lib/ebay/editAuth";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
@@ -26,8 +26,9 @@ const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
 
 export async function POST(req: Request) {
-  const actor = await getEbayActor(); // 出品中の編集は出品に使ったeBayアカウント基準（共有=オーナー/個別=本人）
-  if (!actor) return Response.json({ ok: false, connected: false });
+  const auth = await resolveEditAuth(); // 出品中の編集は出品に使ったeBayアカウント基準＋チームメンバーは'list'権限必須
+  if ("deny" in auth) return auth.deny;
+  const actor = auth.actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 

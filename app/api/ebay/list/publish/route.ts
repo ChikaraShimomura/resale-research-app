@@ -14,6 +14,8 @@ import { hasPerm, markTeamListed } from "../../../../lib/team";
 import { getTeamContext } from "../../../../lib/auth/teamActor";
 import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
+import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
+import { estimateWeightG, USD_JPY } from "../../../../lib/ebay/landedCost";
 
 // 「eBay出品する」：在庫アイテム→オファー→公開を実行し、SKU→商品ID の対応表を保存する。
 export const runtime = "nodejs";
@@ -33,6 +35,8 @@ interface Payload {
   quantity?: number; // 出品個数（在庫数）。1〜30
   onBehalfOf?: string; // チーム：出品権限のあるメンバーがチームの共有在庫を出品する時のオーナーactor。eBayアカウントはモードで決まる。
   selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
+  totalUsd?: string; // 買い手総額(送料込み・申告価値)。サーバー側の赤字ガードで損益分岐と照合する基準（priceUsdは商品価格＝送料別だと総額未満になる）。
+  acceptLoss?: boolean; // 損益分岐を下回る価格でも「承知の上で」出品する（モーダルで確認済み）。trueなら赤字ガードを通す。
 }
 
 export async function POST(req: Request) {
@@ -65,6 +69,31 @@ export async function POST(req: Request) {
   if (!product) return Response.json({ ok: false, error: "商品が見つかりませんでした。" }, { status: 404 });
   // ※ ハードオフは"有在庫"＝ユーザーが先に買って(仕入れた)手元に持ってから出品する。仕入れた品はハードオフ上で
   //   売切になるのが当たり前なので、売切を理由に出品をブロックしてはいけない（初版の誤ガードは撤去・2026-06-28）。
+
+  // ── 赤字ガード（サーバー側・多層防御）─────────────────────────────────────────────
+  // 出品モーダルは損益分岐未満を acceptLoss 無しでブロックするが、直叩き/クライアント不具合で割れた価格が来た時も
+  // サーバーで弾く＝「絶対に赤字にならない」をサーバーでも担保。floor は priceModel SSOT(breakevenTotalUsd・総額基準)で
+  // 独立に再計算し、クライアントが送る買い手総額(totalUsd)と照合する。
+  // ・原価/重量は prepare と同一基準(effBuyJpy=品代+国内送料／weight:{id}キャッシュ→カテゴリ概算)＝floor が一致し正規出品を誤ブロックしない。
+  // ・totalUsd 未送出（直叩き）や floor が出せない時はブロックしない（fail-open＝正規の出品を絶対に止めない）。
+  if (!body.acceptLoss && body.totalUsd != null) {
+    const totalUsd = Number(body.totalUsd);
+    if (Number.isFinite(totalUsd) && totalUsd > 0) {
+      try {
+        const effBuyJpy = (Number(product.source?.price) || 0) + (Number(product.source?.shippingJpy) || 0);
+        const wRaw = await kv.get<number>(`weight:${product.id}`);
+        const category = (product as { category?: string }).category;
+        // weight:{id}キャッシュ(prepare が保存)優先→無ければカテゴリ概算。カテゴリ不明は安全側(1800g)でfloorを甘くしない（editルートと同基準）。
+        const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : (category ? estimateWeightG(category) : 1800);
+        if (effBuyJpy > 0 && weightG > 0) {
+          const floor = Math.round(breakevenTotalUsd(effBuyJpy, weightG) * 100) / 100;
+          if (floor > 0 && totalUsd < floor) {
+            return Response.json({ ok: false, belowFloor: true, floorUsd: floor, error: `この価格は損益分岐（約¥${Math.round(floor * USD_JPY).toLocaleString("ja-JP")}）を下回り、赤字になります。` }, { status: 400 });
+          }
+        }
+      } catch { /* floor算出失敗はブロックしない（fail-open） */ }
+    }
+  }
 
   // 行為者のプラン。admin/master(あなた＋身内=無料・無制限)は満了・プラン上限の対象外。
   const plan = await getPlan();

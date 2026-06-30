@@ -44,6 +44,16 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
   } catch {
     return [];
   }
+  // SKU対応表(sku→productId)の逆引き(productId→sku)。古いdeal(d.sku未保存)でも、出品時に保存した実SKU
+  // （自己修復の rr-{id}-{乱数} を含む）を引いて取り下げ対象にできる＝固定SKU(rr-{id})では当たらず、仕入れ元売切なのに
+  //  eBay売出中（欠品販売のゾンビ出品）が放置される穴を根治する。ループ前に1回だけ読む（hgetall 1回）。
+  const skuByProduct = new Map<string, string>();
+  try {
+    const map = (await kv.hgetall<Record<string, string>>(`ebay_sku_map:${actor}`)) ?? {};
+    for (const [sku, pid] of Object.entries(map)) if (pid && !skuByProduct.has(pid)) skuByProduct.set(pid, sku);
+  } catch {
+    /* 逆引き不能でも d.sku/固定SKU で続行 */
+  }
   const overpriced = overpricedIds ?? (await fetchOverpricedIds());
   const stopped: AutoStopEntry[] = [];
   for (const [productId, d] of Object.entries(deals)) {
@@ -57,7 +67,9 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
         ? "overpriced"
         : null;
     if (!reason) continue; // 検知フラグが立っているものだけ
-    const sku = d.sku ?? skuForProduct(productId);
+    // SKU解決：deal保存値 ＞ SKU対応表の逆引き(自己修復SKUもここで拾う) ＞ 固定SKU(rr-{id})。
+    const mappedSku = d.sku ?? skuByProduct.get(productId) ?? null;
+    const sku = mappedSku ?? skuForProduct(productId);
     const r = await withdrawListingForSku(token, sku); // 冪等(未公開でもok)
     if (!r.ok) {
       // 取り下げ失敗＝eBayにゾンビ出品が残るリスク（仕入れ元売切なのにeBay売出中＝欠品販売に直結）。
@@ -72,20 +84,11 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
       }
       continue;
     }
-    // sku未保存の旧deal×自己修復SKU(rr-{id}-{乱数})だと基本SKUでオファーが当たらず ended=false(未検出)になり得る。
-    // 「本当に取り下げた確証なし」なので停止扱い/recapにはしない（誤報告防止）。ただし黙って continue すると
-    // 仕入れ元売切なのに eBay 売出中(欠品販売)のゾンビ出品が放置されるため、取り下げ失敗と同じく手動対応フラグを立てて可視化する。
-    if (!r.ended && !d.sku) {
-      try {
-        const fails = (Number(d.stopFailedCount) || 0) + 1;
-        await kv.hset(`ebay_deals:${actor}`, {
-          [productId]: { ...d, stopFailedCount: fails, stopFailedAt: new Date().toISOString() },
-        });
-      } catch {
-        /* noop */
-      }
-      continue;
-    }
+    // r.ended=false ＝ 解決したSKUに公開中オファーが無い（＝既に取り下げ済み/掲載終了）。
+    // SKUの手掛かりが一切無い(mappedSku=null)＝出品記録が無く実SKUも特定できない場合は、ゾンビ出品の可能性も極めて低い。
+    // ここで stopFailedCount を増やすと「既に止まっている」品にも手動対応フラグが量産され誤報になるため、無音でスキップする。
+    // （実SKUが分かる品=mappedSku有 は上の withdraw で確実に取り下げ済み＝この穴に落ちない＝ゾンビは残らない。）
+    if (!r.ended && !mappedSku) continue;
     await markStopped(actor, productId); // 出品停止中一覧へ（sourceStatus は維持＝理由が残る）
     stopped.push({ id: productId, title: d.title ?? "", imageUrl: d.imageUrl ?? "", reason, at: new Date().toISOString() });
   }

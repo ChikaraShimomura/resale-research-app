@@ -1,4 +1,4 @@
-import { getActorId } from "../../../../lib/auth/actor";
+import { resolveEditAuth } from "../../../../lib/ebay/editAuth";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
@@ -20,8 +20,9 @@ const MAX_BYTES = 40 * 1024 * 1024;
 const MAX_FILES = 6;
 
 export async function POST(req: Request) {
-  const actor = await getActorId();
-  if (!actor) return Response.json({ ok: false, connected: false });
+  const auth = await resolveEditAuth(); // 出品操作は出品に使ったeBayアカウント基準＋チームメンバーは'list'権限必須（他の編集系と統一）
+  if ("deny" in auth) return auth.deny;
+  const actor = auth.actor;
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 

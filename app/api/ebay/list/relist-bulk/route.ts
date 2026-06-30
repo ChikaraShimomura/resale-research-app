@@ -56,6 +56,7 @@ export async function GET(req: Request) {
     delete nd.sourceCheckedAt;
     delete nd.stopFailedCount;
     delete nd.stopFailedAt;
+    nd.sku = sku; // 使用SKUを台帳に保存＝次回の編集/停止で getListingSku が同じSKUを引け、固定SKUへのズレ(オファー不一致)を防ぐ。
     if (r.listingId) nd.listingId = r.listingId;
     await kv.hset(`ebay_deals:${actor}`, { [id]: nd });
     try {
