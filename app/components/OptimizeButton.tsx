@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles, Check } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 出品中の商品を「返品最小化テンプレ」に最適化する（タイトル・説明・Item Specifics を改訂）。
 // 決定論テンプレ＝AI不使用＝連打しても課金ゼロ。価格・数量・画像は変えない。誤ったItem Specificsの是正にも使える。
@@ -21,9 +22,13 @@ export default function OptimizeButton({ productId, optimized = false, compact =
         body: JSON.stringify({ productId }),
       }).then((r) => r.json());
       if (res.ok) setDone(true);
-      else if (res.errorKind === "unexpected") setErr("エラーが発生しました。自動で報告したので調査して直します。");
-      else setErr(res.error || "最適化できませんでした。");
-    } catch {
+      else {
+        if (res.errorKind !== "known") reportClientError("ebay_optimize", { action: "optimize", endpoint: "/api/ebay/list/optimize", status: 0, detail: res.errorDetail || res.error || "(no detail)", productId });
+        if (res.errorKind === "unexpected") setErr("エラーが発生しました。自動で報告したので調査して直します。");
+        else setErr(res.error || "最適化できませんでした。");
+      }
+    } catch (e) {
+      reportClientError("ebay_optimize", { action: "optimize", endpoint: "/api/ebay/list/optimize", status: 0, detail: `fetch例外: ${errToDetail(e)}`, productId });
       setErr("通信エラーで最適化できませんでした。");
     }
     setBusy(false);

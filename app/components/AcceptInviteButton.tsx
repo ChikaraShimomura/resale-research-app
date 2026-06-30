@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // チーム招待の承認ボタン。POST /api/team/accept → 成功で /team へ。
 export default function AcceptInviteButton({ token }: { token: string }) {
@@ -23,10 +24,12 @@ export default function AcceptInviteButton({ token }: { token: string }) {
       } else {
         setErr(res.error || "承認に失敗しました。");
         setBusy(false);
+        if (res?.errorKind !== "known") reportClientError("team_accept_invite", { action: "accept_invite", endpoint: "/api/team/accept", status: 0, detail: res?.errorDetail || res?.error || "(no detail)" });
       }
-    } catch {
+    } catch (e) {
       setErr("通信エラーで承認できませんでした。");
       setBusy(false);
+      reportClientError("team_accept_invite", { action: "accept_invite", endpoint: "/api/team/accept", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
     }
   };
 

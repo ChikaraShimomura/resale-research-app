@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PauseCircle } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 出品中の商品を手動で「出品停止」する（eBayのオファーを取り下げ→停止中へ。記録は残り再出品できる）。
 // 自動停止（仕入れ元の売切検知）とは別に、セラーが自分の判断で止められる導線。
@@ -23,8 +24,12 @@ export default function StopListingButton({ productId, compact = false }: { prod
         body: JSON.stringify({ productId }),
       }).then((r) => r.json());
       if (res.ok) { setBusy(false); router.refresh(); }
-      else { setErr(res.error || "停止できませんでした。"); setBusy(false); }
-    } catch {
+      else {
+        if (res.errorKind !== "known") reportClientError("ebay_stop_listing", { action: "stop_listing", endpoint: "/api/ebay/list/stop", status: 0, detail: res.errorDetail || res.error || "(no detail)", productId });
+        setErr(res.error || "停止できませんでした。"); setBusy(false);
+      }
+    } catch (e) {
+      reportClientError("ebay_stop_listing", { action: "stop_listing", endpoint: "/api/ebay/list/stop", status: 0, detail: `fetch例外: ${errToDetail(e)}`, productId });
       setErr("通信エラーで停止できませんでした。");
       setBusy(false);
     }

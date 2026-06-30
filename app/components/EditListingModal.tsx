@@ -137,9 +137,10 @@ export default function EditListingModal({
           if (j.ship) setShip(j.ship);
         } else {
           setLoadError(j?.error || "出品情報を取得できませんでした。");
+          if (j?.errorKind !== "known") reportClientError("ebay_list_edit_load", { action: "list_edit_load", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
         }
       })
-      .catch(() => alive && setLoadError("通信エラーで出品情報を取得できませんでした。"))
+      .catch((e) => { if (alive) setLoadError("通信エラーで出品情報を取得できませんでした。"); reportClientError("ebay_list_edit_load", { action: "list_edit_load", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` }); })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -253,8 +254,8 @@ export default function EditListingModal({
         body: JSON.stringify({ productId, title: formTitle, description: formDesc }),
       }).then((r) => r.json());
       if (j?.ok) { setContentDone(true); onSaved?.(); }
-      else setContentErr({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
-    } catch { setContentErr({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" }); }
+      else { setContentErr({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail }); if (j?.errorKind !== "known") reportClientError("ebay_edit_content", { action: "content_save", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" }); }
+    } catch (e) { setContentErr({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" }); reportClientError("ebay_edit_content", { action: "content_save", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` }); }
     setSavingContent(false);
   };
 

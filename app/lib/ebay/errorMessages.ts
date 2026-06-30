@@ -126,6 +126,14 @@ export function friendlyEbayError(raw?: string | null, status?: number): Friendl
   if ((code && code >= 500) || has("internal error", "service unavailable", "bad gateway", "gateway timeout"))
     return { message: "eBay側で一時的なエラーが発生しています。少し時間をおいて、もう一度お試しください。", known: true };
 
+  // 在庫アイテム/出品が見つからない（GETが404＝eBay側で削除/別管理に移った、または自己修復SKUのズレ）。
+  // バグではなく再出品で復帰できる既知状態。「予期せぬエラー（開発者に報告）」へ落とさない。
+  if (code === 404 || has("inventory item not found", "not found for sku", "does not exist", "no inventory item"))
+    return {
+      message: "この出品はeBay側で削除/別管理に移った可能性があります。マイページから再出品し直してください。",
+      known: true,
+    };
+
   // eBay在庫サービスの一時エラー（#25604 在庫の反映待ちで公開できず / #25001 内部エラー）。多くは時間をおけば解消。
   // 続く場合は発送元の住所(在庫ロケーション)が未登録の可能性。
   if (errorId === "25604" || errorId === "25001" || has("availability not found", "inventory service can not publish", "core inventory service"))

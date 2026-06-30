@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 利益カタログ各カード右上の♡。押すとお気に入り(used_fav)に登録/解除（per-actor）。/manage?tab=fav に一覧表示される。
 // カタログからは消えない（仕入れた/非表示と違い triage ではなく、後で見返すブックマーク）。
@@ -33,10 +34,13 @@ export default function FavoriteHeart({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: next ? "fav" : "unfav", productId }),
       }).then((r) => r.json());
-      if (!res.ok) setFaved(!next); // 失敗は戻す
-      else if (refreshOnChange) router.refresh();
-    } catch {
+      if (!res.ok) {
+        setFaved(!next); // 失敗は戻す
+        if (res?.errorKind !== "known") reportClientError("catalog_favorite_toggle", { action: "toggle_fav", endpoint: "/api/catalog/action", status: 0, productId, detail: res?.errorDetail || res?.error || "(no detail)" });
+      } else if (refreshOnChange) router.refresh();
+    } catch (e) {
       setFaved(!next);
+      reportClientError("catalog_favorite_toggle", { action: "toggle_fav", endpoint: "/api/catalog/action", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` });
     }
     setBusy(false);
   };

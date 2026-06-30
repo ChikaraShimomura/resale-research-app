@@ -9,6 +9,7 @@ import { Plug, Search, Star, Truck, Store, Coins, ShieldCheck, RefreshCw } from 
 import ProductCard from "./ProductCard";
 import { fetchProducts } from "../lib/products";
 import { ProfitProduct } from "../lib/profitFilter";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 export default function AccountGrowth() {
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -29,6 +30,11 @@ export default function AccountGrowth() {
         fetchProducts(),
       ]);
       if (!alive) return;
+      // rejected を握り潰さず記録（UIは変えない）。失敗したエンドポイント名のみ（個人情報は含めない）。
+      if (statusR.status === "rejected") reportClientError("account_growth_load", { action: "account_data_load", endpoint: "/api/ebay/status", status: 0, detail: `fetch例外: ${errToDetail(statusR.reason)}` });
+      if (statsR.status === "rejected") reportClientError("account_growth_load", { action: "account_data_load", endpoint: "/api/ebay/stats", status: 0, detail: `fetch例外: ${errToDetail(statsR.reason)}` });
+      if (fbR.status === "rejected") reportClientError("account_growth_load", { action: "account_data_load", endpoint: "/api/ebay/feedback", status: 0, detail: `fetch例外: ${errToDetail(fbR.reason)}` });
+      if (prodR.status === "rejected") reportClientError("account_growth_load", { action: "account_data_load", endpoint: "fetchProducts", status: 0, detail: `fetch例外: ${errToDetail(prodR.reason)}` });
       if (statusR.status === "fulfilled") setConnected(Boolean(statusR.value?.connected));
       if (statsR.status === "fulfilled" && statsR.value?.ok) setSoldCount(statsR.value.stats?.soldCount ?? 0);
       if (fbR.status === "fulfilled" && fbR.value?.ok) {

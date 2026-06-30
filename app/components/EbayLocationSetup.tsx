@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import ReportableError from "./ReportableError";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface AddrJa { prefecture: string; city: string; town: string }
 interface AddrEn { stateOrProvince: string; city: string; town: string }
@@ -47,13 +48,15 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         setLookupMsg("");
         setLookupFailed(false);
       } else {
+        reportClientError("ebay_postal_lookup", { action: "postal_lookup", endpoint: "/api/postal-lookup", status: 0, detail: r.error || "(no detail)" });
         setJa(null);
         setEn(null);
         setLookupMsg(r.error || "住所が見つかりませんでした");
         setLookupFailed(true); // 手入力に切替可能にする
       }
-    } catch {
+    } catch (e) {
       if (gen !== lookupGen.current) return;
+      reportClientError("ebay_postal_lookup", { action: "postal_lookup", endpoint: "/api/postal-lookup", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
       // 失敗時も住所をクリア（古いenが残って新zipと食い違うのを防ぐ）
       setJa(null);
       setEn(null);
@@ -97,12 +100,14 @@ export default function EbayLocationSetup({ onDone }: { onDone?: () => void }) {
         setMsg("発送元を登録しました。");
         setTimeout(() => onDone?.(), 1200);
       } else {
+        if (r?.errorKind !== "known") reportClientError("ebay_create_location", { action: "create_location", endpoint: "/api/ebay/create-location", status: 0, detail: r.errorDetail || r.error || "(no detail)" });
         setState("error");
         setMsg(r.error || "登録に失敗しました。");
         setErrKind(r.errorKind);
         setErrDetail(r.errorDetail);
       }
-    } catch {
+    } catch (e) {
+      reportClientError("ebay_create_location", { action: "create_location", endpoint: "/api/ebay/create-location", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
       setState("error");
       setMsg("通信に失敗しました。");
       setErrKind("unexpected");

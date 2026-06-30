@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { BadgeCheck, AlertTriangle } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface Status {
   connected: boolean;
@@ -26,7 +27,10 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
         return r.json();
       })
       .then((s: Status) => setStatus(s))
-      .catch(() => setLoadFailed(true))
+      .catch((e) => {
+        reportClientError("ebay_status_load", { action: "status_load", endpoint: "/api/ebay/status", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
+        setLoadFailed(true);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -61,7 +65,8 @@ export default function EbayConnect({ onChange }: { onChange?: () => void }) {
       setStatus((s) => (s ? { ...s, connected: false } : s));
       setFlash("disconnected");
       onChange?.(); // 親(セットアップ)へ通知して readiness を再取得し、STEP/準備完了バナーを最新化
-    } catch {
+    } catch (e) {
+      reportClientError("ebay_disconnect", { action: "disconnect", endpoint: "/api/ebay/disconnect", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
       setDisconnectFailed(true);
     } finally {
       setDisconnecting(false);

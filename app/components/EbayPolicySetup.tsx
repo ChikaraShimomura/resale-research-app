@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, AlertTriangle } from "lucide-react";
 import ReportableError from "./ReportableError";
+import { reportClientError, errToDetail } from "../lib/clientError";
 import { SHIP_TIER_USD } from "../lib/ebay/landedCost"; // 既定送料のSSOT（landedCostと一致＝利益計算の前提と揃う）
 
 interface StepResult {
@@ -92,10 +93,12 @@ export default function EbayPolicySetup({ onDone }: { onDone?: () => void }) {
       } else {
         setState("error");
         setMsg(j.error || "一部の登録に失敗しました。下の結果を確認してください。");
+        if (j?.errorKind !== "known") reportClientError("ebay_setup_policies", { action: "setup_policies", endpoint: "/api/ebay/setup-policies", status: res.status, detail: j?.errorDetail || j?.error || "(no detail)" });
       }
-    } catch {
+    } catch (e) {
       setState("error");
       setMsg("通信に失敗しました。時間をおいて再度お試しを。");
+      reportClientError("ebay_setup_policies", { action: "setup_policies", endpoint: "/api/ebay/setup-policies", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
     }
   };
 

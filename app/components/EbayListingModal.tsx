@@ -11,6 +11,7 @@ import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } fr
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
 import { computePriceModelTotal, netAtTotalJpy } from "../lib/ebay/priceModel";
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface RequiredAspect { name: string; values: string[]; free: boolean; required: boolean; value: string }
 interface ShippingChoice { fulfillmentPolicyId: string; name: string; costUsd: string }
@@ -191,13 +192,16 @@ export default function EbayListingModal({
         setPhase("setup");
         return;
       }
-      const p: PrepareData & { ok?: boolean; error?: string; connected?: boolean } = await fetch("/api/ebay/list/prepare", {
+      const p: PrepareData & { ok?: boolean; error?: string; connected?: boolean; fetchFailed?: boolean } = await fetch("/api/ebay/list/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id, onBehalfOf }),
       })
         .then((r) => r.json())
-        .catch(() => ({ ok: false }));
+        .catch((e) => {
+          reportClientError("ebay_list_prepare", { action: "list_prepare", endpoint: "/api/ebay/list/prepare", status: 0, productId: product.id, detail: `fetch例外: ${errToDetail(e)}` });
+          return { ok: false, fetchFailed: true }; // fetch例外は↑で報告済み＝下の非ok分岐で二重報告しない目印
+        });
       if (!alive) return;
       // 連携が切れていたら（読み込み中にトークン失効など）再連携へ誘導
       if (p.connected === false) {
@@ -205,6 +209,8 @@ export default function EbayListingModal({
         return;
       }
       if (!p.ok) {
+        // fetch例外(fetchFailed)は.catchで報告済み。ここはサーバが非okを返した場合だけ報告する。
+        if (!p.fetchFailed) reportClientError("ebay_list_prepare", { action: "list_prepare", endpoint: "/api/ebay/list/prepare", status: 0, productId: product.id, detail: p.error || "(no detail)" });
         setMsg(p.error || "出品準備に失敗しました。");
         setPhase("error");
         return;
@@ -334,7 +340,10 @@ export default function EbayListingModal({
       }),
     })
       .then((r) => r.json())
-      .catch(() => ({ ok: false, error: "通信に失敗しました。" }));
+      .catch((e) => {
+        reportClientError("ebay_publish_error", { action: "ebay_publish", endpoint: "/api/ebay/list/publish", status: 0, productId: product.id, detail: `fetch例外: ${errToDetail(e)}` });
+        return { ok: false, error: "通信に失敗しました。" };
+      });
   };
 
   const finishOk = (res: PublishResult) => {

@@ -7,6 +7,7 @@ import EbayListingModal from "./EbayListingModal";
 import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
 import { clearListedFlag } from "../lib/ebayListed";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; archivedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
@@ -76,9 +77,10 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
     try {
       const j = await fetch(`/api/ebay/product?id=${encodeURIComponent(productId)}`, { cache: "no-store" }).then((r) => r.json());
       if (j?.ok && j.product) setRelistProduct(j.product as ProfitProduct);
-      else window.alert("この商品の情報が見つかりませんでした。時間をおいて再度お試しください。");
-    } catch {
+      else { window.alert("この商品の情報が見つかりませんでした。時間をおいて再度お試しください。"); if (j?.errorKind !== "known") reportClientError("ebay_product_relist", { action: "relist_load", endpoint: "/api/ebay/product", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" }); }
+    } catch (e) {
       window.alert("出品の準備に失敗しました。通信環境を確認して再度お試しください。");
+      reportClientError("ebay_product_relist", { action: "relist_load", endpoint: "/api/ebay/product", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` });
     }
     setRelistBusy(null);
   };
@@ -87,7 +89,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
     fetch("/api/ebay/deals", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => { setLive(j.ok ? j.live : []); setStopped(j.ok ? (j.stopped ?? []) : []); setArchived(j.ok ? (j.archived ?? []) : []); setSold(j.ok ? j.sold : []); setPlanInfo(j.ok ? (j.planInfo ?? null) : null); })
-      .catch(() => { setLive([]); setStopped([]); setArchived([]); setSold([]); });
+      .catch((e) => { setLive([]); setStopped([]); setArchived([]); setSold([]); reportClientError("ebay_deals_load", { action: "deals_load", endpoint: "/api/ebay/deals", status: 0, detail: `fetch例外: ${errToDetail(e)}` }); });
   useEffect(() => { load(); }, []);
   // 現テンプレ版で「最適化済み」の出品を取得（ボタンのグレーアウト/「最適化済み」表示に使う）。
   useEffect(() => {
@@ -113,9 +115,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
         setOptimizedIds((s) => new Set(s).add(productId));
       } else {
         setOptErr((e) => ({ ...e, [productId]: j.error || "最適化に失敗しました。時間をおいてお試しください。" }));
+        if (j?.errorKind !== "known") reportClientError("ebay_optimize", { action: "optimize", endpoint: "/api/ebay/list/optimize", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
       }
-    } catch {
+    } catch (e) {
       setOptErr((e) => ({ ...e, [productId]: "通信エラーで最適化できませんでした。" }));
+      reportClientError("ebay_optimize", { action: "optimize", endpoint: "/api/ebay/list/optimize", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` });
     }
     setOptBusy(null);
   };
@@ -137,9 +141,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
         onChanged?.();
       } else {
         window.alert(j.error || "出品停止に失敗しました。");
+        if (j?.errorKind !== "known") reportClientError("ebay_stop_listing", { action: "stop_listing", endpoint: "/api/ebay/list/stop", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
       }
-    } catch {
+    } catch (e) {
       window.alert("通信エラーで出品停止できませんでした。");
+      reportClientError("ebay_stop_listing", { action: "stop_listing", endpoint: "/api/ebay/list/stop", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` });
     }
     setBusy(null);
   };
@@ -169,9 +175,11 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
       } else {
         // 無言(noop)をやめ、行内に赤文字でエラーを出す。
         setActErr((e) => ({ ...e, [productId]: res.error || (action === "sold" ? "記録に失敗しました。時間をおいてお試しください。" : "操作に失敗しました。時間をおいてお試しください。") }));
+        if (res?.errorKind !== "known") reportClientError("ebay_deals_action", { action, endpoint: "/api/ebay/deals", status: 0, productId, detail: res?.errorDetail || res?.error || "(no detail)" });
       }
-    } catch {
+    } catch (e) {
       setActErr((e) => ({ ...e, [productId]: "通信エラーで操作できませんでした。" }));
+      reportClientError("ebay_deals_action", { action, endpoint: "/api/ebay/deals", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` });
     }
     setBusy(null);
   };

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 通知のオン/オフ＋受け取る種類を本人が選べる設定UI。VAPID公開鍵はビルド時に埋め込まれる。
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
@@ -106,10 +107,10 @@ export default function PushSettings() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "prefs", endpoint: sub.endpoint, prefs: next }),
-        }).catch(() => {});
+        }).catch((e) => { reportClientError("push_toggle_prefs", { action: "push_prefs", endpoint: "/api/push/subscribe", status: 0, detail: `fetch例外: ${errToDetail(e)}` }); });
       }
-    } catch {
-      /* noop */
+    } catch (e) {
+      reportClientError("push_toggle_prefs", { action: "push_prefs", endpoint: "/api/push/subscribe", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
     }
   };
 

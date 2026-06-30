@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, PackageCheck, RefreshCw, AlertTriangle, Copy, ExternalLink, Ban, ShoppingBag, Check, Truck } from "lucide-react";
 import { toRakutenProductUrl, safeHttpUrl } from "../lib/utils";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface Line {
   lineItemId: string;
@@ -70,8 +71,8 @@ export default function ShipOrders() {
       const d = await r.json();
       setConnected(d.connected !== false);
       setOrders(Array.isArray(d.orders) ? d.orders : []);
-    } catch {
-      /* noop */
+    } catch (e) {
+      reportClientError("ebay_orders_load", { action: "orders_load", endpoint: "/api/ebay/orders", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,9 @@ export default function ShipOrders() {
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
-      await fetch("/api/ebay/sold", { method: "POST" }).catch(() => {});
+      await fetch("/api/ebay/sold", { method: "POST" }).catch((e) => {
+        reportClientError("ebay_orders_sync", { action: "orders_sync", endpoint: "/api/ebay/sold", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
+      });
       await load();
       try {
         localStorage.setItem(SYNC_TS_KEY, String(Date.now()));

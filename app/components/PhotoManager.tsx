@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { ArrowUp, ArrowDown, Star, Trash2, Wand2, RotateCcw, RotateCw, Crop, Eraser, ArrowLeft } from "lucide-react";
 import Spinner from "./Spinner";
 import { epsSizedUrl } from "../lib/ebay/epsUrl";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 type Op = "rotate90" | "rotate-90" | "crop" | "textremove";
 type CropRect = { x: number; y: number; w: number; h: number };
@@ -24,14 +25,20 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
 
   const post = async (payload: object): Promise<boolean> => {
     setBusy(true); setErr(null);
+    const p = payload as { action?: string; op?: string };
+    const opDetail = p.op ? ` op=${p.op}` : "";
     try {
       const j = await fetch("/api/ebay/list/photo-edit", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, ...payload }),
       }).then((r) => r.json());
       if (j?.ok && Array.isArray(j.imageUrls)) { onImagesChange(j.imageUrls); setBusy(false); return true; }
+      if (j?.errorKind !== "known") reportClientError("ebay_photos_edit", { action: "photo_edit", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: `${p.action ?? ""}${opDetail} ${j?.errorDetail || j?.error || "(no detail)"}`.trim() });
       setErr(j?.error || "操作に失敗しました。"); setBusy(false); return false;
-    } catch { setErr("通信エラーで操作に失敗しました。"); setBusy(false); return false; }
+    } catch (e) {
+      reportClientError("ebay_photos_edit", { action: "photo_edit", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: `fetch例外: ${errToDetail(e)} ${p.action ?? ""}${opDetail}`.trim() });
+      setErr("通信エラーで操作に失敗しました。"); setBusy(false); return false;
+    }
   };
 
   const setOrder = (next: string[]) => post({ action: "order", imageUrls: next });

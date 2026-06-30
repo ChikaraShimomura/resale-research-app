@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { UserPlus, X, ShieldCheck, Loader2, Search, BadgeCheck } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface AdminUser {
   email: string;
@@ -34,7 +35,7 @@ export default function MastersAdmin() {
     fetch("/api/admin/masters")
       .then((r) => r.json())
       .then((d) => { if (d.ok) apply(d); })
-      .catch(() => {})
+      .catch((e) => { reportClientError("admin_masters", { action: "masters_add_or_remove", endpoint: "/api/admin/masters", method: "GET", status: 0, detail: `fetch例外: ${errToDetail(e)}` }); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -48,10 +49,11 @@ export default function MastersAdmin() {
         body: JSON.stringify({ email }),
       });
       const d = await r.json();
-      if (!d.ok) setErr(d.error || "失敗しました。");
+      if (!d.ok) { setErr(d.error || "失敗しました。"); reportClientError("admin_masters", { action: "masters_add_or_remove", endpoint: "/api/admin/masters", method, status: r.status, detail: d?.errorDetail || d?.error || "(no detail)" }); }
       else { apply(d); if (method === "POST") setInput(""); }
-    } catch {
+    } catch (e) {
       setErr("通信に失敗しました。");
+      reportClientError("admin_masters", { action: "masters_add_or_remove", endpoint: "/api/admin/masters", method, status: 0, detail: `fetch例外: ${errToDetail(e)}` });
     } finally {
       setBusy(false);
     }

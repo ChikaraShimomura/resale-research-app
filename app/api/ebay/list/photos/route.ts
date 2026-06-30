@@ -49,11 +49,16 @@ export async function POST(req: Request) {
   }
 
   const sku = (await getListingSku(actor, productId)) ?? skuForProduct(productId);
-  const { item } = await getInventoryItem(token, sku);
+  const { item, error: getErr } = await getInventoryItem(token, sku);
   if (!item) {
+    // 在庫アイテムが無い＝eBay側で削除/別管理に移った（または自己修復SKUのズレ）＝再出品で復帰できる既知の回復可能状態。
+    // バグではないので errorKind:"known"（「開発者に報告」も自動報告も出さない）＋再出品の導線だけ見せる。
+    const f = friendlyEbayError(getErr);
     return Response.json({
       ok: false,
-      error: "この出品の商品情報を取得できませんでした（eBay側で削除/別管理の可能性）。再出品し直してください。",
+      error: f.known ? f.message : "この出品はeBay側で削除/別管理に移った可能性があります。マイページから再出品し直してください。",
+      errorKind: "known",
+      needsRelist: true,
     });
   }
   const existing = ((item.product as { imageUrls?: string[] } | undefined)?.imageUrls) ?? [];

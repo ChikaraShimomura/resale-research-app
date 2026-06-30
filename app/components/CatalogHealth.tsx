@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Spinner from "./Spinner";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 中古カタログ健康診断：配信ゲート(/catalog)が何件落としているかを表示。掲載数が急減した時に原因を即特定する「見える化」。
 interface Health {
@@ -29,8 +30,8 @@ export default function CatalogHealth() {
     try {
       const j = await fetch("/api/admin/catalog-health", { cache: "no-store" }).then((r) => r.json());
       if (j?.ok) setH(j.health);
-      else setErr("取得できませんでした。");
-    } catch { setErr("通信エラーで取得できませんでした。"); }
+      else { setErr("取得できませんでした。"); reportClientError("admin_catalog_health", { action: "catalog_health_load", endpoint: "/api/admin/catalog-health", status: 0, detail: j?.errorDetail || j?.error || "(no detail)" }); }
+    } catch (e) { setErr("通信エラーで取得できませんでした。"); reportClientError("admin_catalog_health", { action: "catalog_health_load", endpoint: "/api/admin/catalog-health", status: 0, detail: `fetch例外: ${errToDetail(e)}` }); }
     setLoading(false);
   }, []);
 

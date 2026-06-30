@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Undo2, Share2, Eye } from "lucide-react";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 // 中古カタログ各カードの小さな triage ボタン。「仕入れた」を per-actor で記録して一覧から外す＋
 // 「ライバル確認」(eBayの現行出品＝今のライバルを見る)＋「共有」でリンク共有。
@@ -60,9 +61,11 @@ export default function CatalogActionButtons({
           setDone(true); // カードはこのセッションは残し、次回読込でサーバーが非表示にする
         }
       } else {
+        if (res.errorKind !== "known") reportClientError("catalog_action", { action: `catalog_${action}`, endpoint: "/api/catalog/action", status: 0, detail: res.errorDetail || res.error || "(no detail)", productId });
         setErr(res.error || "操作に失敗しました。");
       }
-    } catch {
+    } catch (e) {
+      reportClientError("catalog_action", { action: `catalog_${action}`, endpoint: "/api/catalog/action", status: 0, detail: `fetch例外: ${errToDetail(e)}`, productId });
       setErr("通信エラーで操作できませんでした。");
     }
     setBusy(null);

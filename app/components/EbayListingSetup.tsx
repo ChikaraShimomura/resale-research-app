@@ -5,6 +5,7 @@ import { BadgeCheck, ChevronDown } from "lucide-react";
 import EbayConnect from "./EbayConnect";
 import EbayPolicySetup from "./EbayPolicySetup";
 import EbayLocationSetup from "./EbayLocationSetup";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 interface Readiness {
   connected?: boolean;
@@ -44,7 +45,9 @@ export default function EbayListingSetup() {
         setR(d);
         setOverride(null); // 登録完了で自動的に次のSTEPへ
       })
-      .catch(() => {})
+      .catch((e) => {
+        reportClientError("ebay_listing_readiness", { action: "listing_readiness", endpoint: "/api/ebay/listing-readiness", status: 0, detail: `fetch例外: ${errToDetail(e)}` });
+      })
       .finally(() => setLoading(false));
   }, []);
 
