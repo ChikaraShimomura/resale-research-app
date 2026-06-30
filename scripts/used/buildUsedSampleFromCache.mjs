@@ -80,13 +80,17 @@ async function loadCategories() {
   const catalog = [];
   // 精度極限ゲート(getUsedCatalog=確定品のみ配信)により、未確定候補は表示されず「確定待ちキュー」になる。
   // ＝候補を厚く貯めても精度は落ちない。キューを厚くするほど refine が確定できる型番の母数が増える(歩留まり↑)。
-  const TARGET = Number(process.env.TARGET) || 1200; // 候補の総上限（確定待ちキュー。env TARGET で調整可）
-  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 40; // 1カテゴリ上限（取得済みページから拾う数を増やす＝追加fetchなしで候補↑）
+  const TARGET = Number(process.env.TARGET) || 1500; // 候補の総上限（確定待ちキュー。env TARGET で調整可）。時計増量で他ジャンルを枯らさないよう+300。
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 40; // 1カテゴリ(型番系列)上限（取得済みページから拾う数を増やす＝追加fetchなしで候補↑）
+  // ⌚時計は注力ジャンル＝需要・ハードオフ在庫が深く確定率も高い。系列ごとの上限を厚くして増やす（既取得ページから拾うだけ＝追加fetch無し）。
+  const CAP_WATCH = Number(process.env.CAP_WATCH) || 100;
   const PAGES = Number(process.env.HARDOFF_PAGES) || 4; // 1カテゴリで取るハードオフ検索ページ数（深掘り。低頻度厳守で3h毎なら4は常識内）
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
     scanned++;
+    const catGenre = genreOf(c.category); // このカテゴリの表示ジャンル（時計だけ上限を厚くする・netProfit/catでも再利用）
+    const cap = catGenre === "腕時計" ? CAP_WATCH : CAP_PER_CAT; // ⌚時計は CAP_WATCH まで、他は CAP_PER_CAT
     // ページ送りで在庫を深掘り（narrowなクエリは2ページ目以降が空になり次第打ち切る）。URLで重複排除。
     let items = [];
     const seenUrl = new Set();
@@ -108,7 +112,7 @@ async function loadCategories() {
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
       if (ratio < 0.15 || ratio > 0.8) continue;
-      const net = netProfitJPY(it.price, c.ebayMedian, genreOf(c.category));
+      const net = netProfitJPY(it.price, c.ebayMedian, catGenre);
       const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
       // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
       if (roi >= 0.1) {
@@ -116,12 +120,12 @@ async function loadCategories() {
         catalog.push({
           id: `used-hardoff-${idNum}`,
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
-          cat: genreOf(c.category), ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
+          cat: catGenre, ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
           profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl,
           site: "hardoff", soldCount: c.soldCount,
         });
         added++;
-        if (added >= CAP_PER_CAT) break; // 1カテゴリ偏重を防ぐ（多様性）
+        if (added >= cap) break; // 1カテゴリ偏重を防ぐ（多様性）。時計は CAP_WATCH、他は CAP_PER_CAT。
       }
     }
     if (added) console.log(`+${String(added).padStart(2)}  ${c.category.padEnd(20)} eBay中央¥${c.ebayMedian}  (計${catalog.length})`);
