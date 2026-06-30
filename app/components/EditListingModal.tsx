@@ -9,6 +9,39 @@ import { reportClientError, errToDetail } from "../lib/clientError";
 
 type ErrInfo = { message: string; errorKind?: "known" | "unexpected"; errorDetail?: string };
 
+// アップロード前にブラウザ側で画像をJPEG縮小する。
+// 目的＝Vercelのリクエスト本文上限(約4.5MB)に iPhone の大きな写真（複数枚）で当たり、
+//       関数に到達する前に 413 FUNCTION_PAYLOAD_TOO_LARGE で即失敗していたのを根治する。
+// 長辺1600px（サーバ側のEPS縮小と整合）・各≤約480KB・EXIF向き保持。デコード不可なら原本のまま返す（サーバのsharpに委ねる）。
+async function downscaleForUpload(file: File): Promise<Blob> {
+  if (typeof document === "undefined" || typeof createImageBitmap !== "function") return file;
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    return file;
+  }
+  const maxEdge = 1600;
+  const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) { bmp.close?.(); return file; }
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
+  const toBlob = (q: number) => new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", q));
+  let q = 0.82;
+  let blob = await toBlob(q);
+  while (blob && blob.size > 480_000 && q > 0.45) {
+    q -= 0.12;
+    blob = await toBlob(q);
+  }
+  return blob ?? file;
+}
+
 // 出品中の「価格・数量」をアプリ内で編集するモーダル。
 // eBay.comを開かずに直せる＝出品の管理がeBayサイト側へ移って詰む原因を作らない。
 export default function EditListingModal({
@@ -174,7 +207,12 @@ export default function EditListingModal({
     try {
       const fd = new FormData();
       fd.append("productId", productId);
-      files.forEach((f) => fd.append("files", f));
+      // 送信前にJPEG縮小（本文上限413対策）。縮小不可だった原本はそのまま送る。
+      const prepared = await Promise.all(files.map((f) => downscaleForUpload(f)));
+      prepared.forEach((b, i) => {
+        if (b instanceof File) fd.append("files", b, b.name);
+        else fd.append("files", b, `photo-${i + 1}.jpg`);
+      });
       const res = await fetch(endpoint, { method: "POST", body: fd });
       // .json()直結だと非JSON応答(500のHTML/タイムアウト)で例外になり原因を失う→ status+本文を必ず捉える。
       const text = await res.text();
