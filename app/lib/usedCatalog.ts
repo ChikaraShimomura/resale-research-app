@@ -46,15 +46,27 @@ function watchLine(text: string): string {
 // ⚠️ eBay検索で "-" は「除外(NOT)演算子」扱い＝型番の "-" をそのまま入れると "-XXXX" 以降が除外され該当落札が出ない。
 //    そのため型番の "-" は空白に置換してから検索する（照合側 norm は元から記号無視なので整合する）。
 //    "-"空白化で型番がちゃんと効くようになったので、ライン名フォールバックより「型番」を優先＝特定型番の落札を出す。
-export function ebaySoldSearchUrl(p: { brand?: string; code?: string; name?: string; modelKey?: string }): string {
+// 落札URL/現行出品URL 共通のeBay検索クエリ。型番(ハイフン空白化)最優先→ライン名→ブランド+商品名。
+type EbaySearchInput = { brand?: string; code?: string; name?: string; modelKey?: string };
+function ebaySearchQuery(p: EbaySearchInput): string {
   const code = (p.code || "").replace(/-/g, " ").replace(/\s+/g, " ").trim(); // 型番の "-"→空白（eBayの除外演算子回避）
   const line = watchLine(`${p.name || ""} ${p.code || ""} ${p.modelKey || ""}`);
   const q =
-    [p.brand, code].filter(Boolean).join(" ").trim() ||        // 型番(ハイフン空白化)を最優先＝特定型番の落札
+    [p.brand, code].filter(Boolean).join(" ").trim() ||        // 型番(ハイフン空白化)を最優先＝特定型番
     (line ? [p.brand, line].filter(Boolean).join(" ") : "") || // 型番が無い時はライン名
     [p.brand, p.name].filter(Boolean).join(" ").trim();
-  // LH_ItemCondition=3000 ＝ 中古(Used/Pre-owned)のみ。新品が混ざるのを防ぐ。
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.replace(/\s+/g, " ").trim())}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
+  return q.replace(/\s+/g, " ").trim();
+}
+
+export function ebaySoldSearchUrl(p: EbaySearchInput): string {
+  // LH_Sold=1&LH_Complete=1＝落札(売れた)のみ。LH_ItemCondition=3000＝中古のみ。_sop=13＝終了日時の新しい順。
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebaySearchQuery(p))}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
+}
+
+// 「今出品されているライバル」＝eBayの現行(アクティブ)出品。LH_Sold/LH_Complete を付けない＝売れ残りでなく現在販売中の競合。
+// _sop=15＝価格+送料の安い順＝競合の最安が一番上＝自分がいくらで戦えるか判断しやすい。LH_ItemCondition=3000＝中古のみ。
+export function ebayActiveSearchUrl(p: EbaySearchInput): string {
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebaySearchQuery(p))}&LH_ItemCondition=3000&_sop=15`;
 }
 
 // 仕入れ元サイトの表示名。site値("hardoff"/"2ndstreet")→ユーザー向け名称。新サイト追加時はここに足す。

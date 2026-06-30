@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown, Tag } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, sourceSiteName, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, sourceSiteName, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -277,6 +277,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           teamOwner={teamOwner || undefined}
                           shareUrl={p.hardoffUrl}
                           shareTitle={`${p.brand} ${p.name}`.trim()}
+                          rivalsUrl={ebayActiveSearchUrl(p)}
                         />
                       </div>
                     ) : (

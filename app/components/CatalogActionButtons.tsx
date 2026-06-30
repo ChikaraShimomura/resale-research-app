@@ -3,38 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, X, Undo2, Share2 } from "lucide-react";
+import { Check, Undo2, Share2, Eye } from "lucide-react";
 
-// 中古カタログ各カードの小さな triage ボタン。「仕入れた」「これは無理」を per-actor で記録して一覧から外す＋「共有」でリンク共有。
+// 中古カタログ各カードの小さな triage ボタン。「仕入れた」を per-actor で記録して一覧から外す＋
+// 「ライバル確認」(eBayの現行出品＝今のライバルを見る)＋「共有」でリンク共有。
 // 「仕入れた」時はサーバーが仕入れ元の在庫を確認：まだ在庫ありなら基本は蹴る（カタログから消さない）。
 // 無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ在庫ありでも登録でき、その人の画面からのみ非表示になる。
+// ※「これは無理/非表示」(skip)ボタンは使用頻度が低く2026-06-30に撤去（unfav/再読込で代替）。
 export default function CatalogActionButtons({
   productId,
   buyJpy,
-  isAdmin = false,
   canAutoList = false,
   teamOwner,
   shareUrl,
   shareTitle,
+  rivalsUrl,
 }: {
   productId: string;
   buyJpy: number;
-  isAdmin?: boolean;
+  isAdmin?: boolean; // 旧skipボタンの文言出し分け用。skip撤去で未使用だが呼び出し側の互換のため受ける。
   canAutoList?: boolean;
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
   shareUrl?: string; // 共有するリンク（仕入れ元の商品URL）
   shareTitle?: string; // 共有時のタイトル（商品名）
+  rivalsUrl?: string; // eBayの「今出品されているライバル(現行出品)」検索URL。あれば確認ボタンを出す。
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"bought" | "skip" | "undo" | null>(null);
-  const [done, setDone] = useState<"bought" | "skip" | null>(null);
+  const [busy, setBusy] = useState<"bought" | "undo" | null>(null);
+  const [done, setDone] = useState(false); // 「仕入れ商品」に追加済み（このセッション表示）
   const [inStock, setInStock] = useState(false); // 無在庫プランの人が在庫ありを登録した＝無在庫転売
   const [blocked, setBlocked] = useState(false); // 在庫あり＋無在庫プラン無し＝蹴った（記録せずカタログに残す）
   const [shared, setShared] = useState(false); // リンクをコピーした（共有API非対応時）
   const [err, setErr] = useState<string | null>(null);
 
   // confirmedBought: 在庫ありで一度蹴られた後、本人が「もう仕入れ済み（在庫表示が古い）」と明示確認した時だけ true で再送。
-  const post = async (action: "bought" | "skip" | "undo", confirmedBought = false) => {
+  const post = async (action: "bought" | "undo", confirmedBought = false) => {
     setBusy(action);
     setErr(null);
     setBlocked(false);
@@ -42,23 +45,19 @@ export default function CatalogActionButtons({
       const res = await fetch("/api/catalog/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（skip/undoでは無視される）。teamOwner指定時はオーナーのデータへ。
+        // 「仕入れた」は仕入れ値も送って収支の累計に乗せる（undoでは無視される）。teamOwner指定時はオーナーのデータへ。
         body: JSON.stringify({ action, productId, buyJpy, teamOwner, confirmedBought }),
       }).then((r) => r.json());
       if (res.ok) {
         if (action === "undo") {
-          setDone(null);
+          setDone(false);
           setInStock(false);
           router.refresh(); // 印を消してカタログに戻す
-        } else if (action === "bought") {
-          if (res.added === false && res.needsPlan) {
-            setBlocked(true); // 在庫あり＝無在庫転売→蹴った。カタログに残す（done にしない）。
-          } else {
-            setInStock(res.availability === "in-stock"); // 在庫ありでも登録できた＝無在庫プランの人
-            setDone("bought"); // カードはこのセッションは残し、次回読込でサーバーが非表示にする
-          }
+        } else if (res.added === false && res.needsPlan) {
+          setBlocked(true); // 在庫あり＝無在庫転売→蹴った。カタログに残す（done にしない）。
         } else {
-          setDone(action); // skip（非表示）
+          setInStock(res.availability === "in-stock"); // 在庫ありでも登録できた＝無在庫プランの人
+          setDone(true); // カードはこのセッションは残し、次回読込でサーバーが非表示にする
         }
       } else {
         setErr(res.error || "操作に失敗しました。");
@@ -93,14 +92,7 @@ export default function CatalogActionButtons({
       <div className="mt-2 space-y-1.5">
         <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
           <span className="text-[11px] font-bold text-gray-600">
-            {done === "bought" ? (
-              <span className="whitespace-nowrap">✓「仕入れ商品」に追加しました</span>
-            ) : (
-              <>
-                <span className="whitespace-nowrap">非表示にしました</span><wbr />
-                <span className="whitespace-nowrap">（次回から表示されません）</span>
-              </>
-            )}
+            <span className="whitespace-nowrap">✓「仕入れ商品」に追加しました</span>
           </span>
           <button
             onClick={() => post("undo")}
@@ -111,7 +103,7 @@ export default function CatalogActionButtons({
           </button>
         </div>
         {/* 無在庫プランの人が在庫ありを登録＝無在庫転売。カタログ自体は消さず、本人/チームの画面からのみ非表示。 */}
-        {done === "bought" && inStock && (
+        {inStock && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2">
             <p className="text-[11px] font-bold text-amber-800 leading-relaxed">
               <span className="whitespace-nowrap">⚠️ 在庫ありのまま登録</span><wbr />
@@ -176,15 +168,17 @@ export default function CatalogActionButtons({
         >
           <Check size={14} /> 仕入れた
         </button>
-        {/* 管理者は「これは無理」(カタログ全体の判断用)、他ユーザーは「非表示」。動作は同じ＝そのユーザーに非表示。
-            ※ 1行に統一（旧：小さな「(無理と判断)」を2行目に折り返していて見栄えが悪かった）。 */}
-        <button
-          onClick={() => post("skip")}
-          disabled={busy !== null}
-          className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 text-[12px] font-bold disabled:opacity-40 active:bg-gray-50"
-        >
-          <X size={13} /> {isAdmin ? "これは無理" : "非表示"}
-        </button>
+        {/* 今出品されているライバル（eBay現行出品）を新規タブで確認。仕入れ前に競合の数・最安値を見て判断できる。 */}
+        {rivalsUrl && (
+          <a
+            href={rivalsUrl}
+            target="_blank"
+            rel="nofollow noopener noreferrer"
+            className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border border-gray-300 bg-white text-gray-600 text-[12px] font-bold active:bg-gray-50"
+          >
+            <Eye size={14} /> ライバル確認
+          </a>
+        )}
         {/* 共有＝この商品のリンクを共有シート/コピーで送る（仲間・チームに教える）。 */}
         <button
           onClick={share}
