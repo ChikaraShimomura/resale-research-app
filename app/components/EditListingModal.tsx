@@ -5,6 +5,7 @@ import Spinner from "./Spinner";
 import ReportableError from "./ReportableError";
 import PhotoManager from "./PhotoManager";
 import { USD_JPY } from "../lib/ebay/landedCost";
+import { reportClientError, errToDetail } from "../lib/clientError";
 
 type ErrInfo = { message: string; errorKind?: "known" | "unexpected"; errorDetail?: string };
 
@@ -127,9 +128,12 @@ export default function EditListingModal({
         setTimeout(onClose, 900);
       } else {
         setSaveError({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
+        if (j?.errorKind !== "known") reportClientError("ebay_edit", { action: "price_edit", endpoint: "/api/ebay/list/edit", productId, detail: j?.errorDetail || j?.error || "(no detail)" });
       }
-    } catch {
-      setSaveError({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" });
+    } catch (e) {
+      const detail = errToDetail(e);
+      setSaveError({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected", errorDetail: detail });
+      reportClientError("ebay_edit", { action: "price_edit", endpoint: "/api/ebay/list/edit", productId, detail: `fetch例外: ${detail}` });
     }
     setSaving(false);
   };
@@ -150,9 +154,12 @@ export default function EditListingModal({
         onSaved?.();
       } else {
         setShipErr({ message: j?.error || "送料の切替に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
+        if (j?.errorKind !== "known") reportClientError("ebay_ship_mode", { action: "ship_toggle", endpoint: "/api/ebay/list/edit", productId, detail: j?.errorDetail || j?.error || "(no detail)" });
       }
-    } catch {
-      setShipErr({ message: "通信エラーで切替できませんでした。", errorKind: "unexpected" });
+    } catch (e) {
+      const detail = errToDetail(e);
+      setShipErr({ message: "通信エラーで切替できませんでした。", errorKind: "unexpected", errorDetail: detail });
+      reportClientError("ebay_ship_mode", { action: "ship_toggle", endpoint: "/api/ebay/list/edit", productId, detail: `fetch例外: ${detail}` });
     }
     setShipBusy(false);
   };
@@ -162,12 +169,18 @@ export default function EditListingModal({
     setUploading(true);
     setPhotoError(null);
     setPhotoDone(null);
+    const endpoint = "/api/ebay/list/photos";
+    const ctx = { action: "photo_upload", endpoint, productId, fileCount: files.length };
     try {
       const fd = new FormData();
       fd.append("productId", productId);
       files.forEach((f) => fd.append("files", f));
-      const j = await fetch("/api/ebay/list/photos", { method: "POST", body: fd }).then((r) => r.json());
-      if (j?.ok) {
+      const res = await fetch(endpoint, { method: "POST", body: fd });
+      // .json()直結だと非JSON応答(500のHTML/タイムアウト)で例外になり原因を失う→ status+本文を必ず捉える。
+      const text = await res.text();
+      let j: { ok?: boolean; added?: number; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
+      try { j = text ? JSON.parse(text) : null; } catch { /* 非JSON応答 */ }
+      if (res.ok && j?.ok) {
         setPhotoDone(`実物写真を${j.added}枚 追加しました（出品に反映済み）`);
         setFiles([]);
         // 追加後の最新画像配列を取り直して写真管理(並び替え/加工)に反映。
@@ -177,10 +190,18 @@ export default function EditListingModal({
         } catch { /* noop */ }
         onSaved?.();
       } else {
-        setPhotoError({ message: j?.error || "写真の追加に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
+        const detail = j?.errorDetail || j?.error || (text ? text.slice(0, 500) : `HTTP ${res.status}（本文なし）`);
+        setPhotoError({
+          message: j?.error || `写真の追加に失敗しました（コード ${res.status}）。`,
+          errorKind: j?.errorKind || "unexpected",
+          errorDetail: detail,
+        });
+        if (j?.errorKind !== "known") reportClientError("ebay_photos", { ...ctx, status: res.status, detail });
       }
-    } catch {
-      setPhotoError({ message: "通信エラーで写真を追加できませんでした。", errorKind: "unexpected" });
+    } catch (e) {
+      const detail = errToDetail(e);
+      setPhotoError({ message: "通信エラーで写真を追加できませんでした。", errorKind: "unexpected", errorDetail: detail });
+      reportClientError("ebay_photos", { ...ctx, status: 0, detail: `fetch例外: ${detail}` });
     }
     setUploading(false);
   };
