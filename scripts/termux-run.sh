@@ -12,8 +12,8 @@
 # ※ 旧「楽天の売切検知(liveness)」「楽天ギャラリー取得(gallery)」は無在庫モデルの遺物のため撤去(2026-06-28)。
 #   売切検知はハードオフ版に置換(2026-06-28)＝事業の仕入れ元がハードオフのため。
 CYCLE_INTERVAL="${CYCLE_INTERVAL_SEC:-${LIVENESS_INTERVAL_SEC:-3600}}"  # 1サイクルの長さ(秒・既定1h)。①②の頻度カウントと③の総待ちに使う(旧LIVENESS_INTERVAL_SECも互換で受ける)。
-SOLD_EVERY="${SOLD_EVERY_CYCLES:-12}"              # 何サイクルごとにeBay落札を発掘するか(既定12≒12h・候補の多様化を速める。2026-07-01: 24→12)
-REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-720}"    # 型番リファインの小バッチ間隔(秒・既定720=12分)。1サイクル内で複数回回す(2026-07-01: 20分→12分で確定回転UP・captchaは wlog:refine の検問数で監視)。
+SOLD_EVERY="${SOLD_EVERY_CYCLES:-6}"               # 何サイクルごとにeBay落札を発掘するか(既定6≒6h・候補の多様化を速める。2026-07-01: 24→12→6)
+REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-600}"    # 型番リファインの小バッチ間隔(秒・既定600=10分)。1サイクル内で複数回回す(2026-07-01: 20分→12分→10分で確定回転UP・captchaは wlog:refine の検問数で監視し、出たら間隔を戻す)。
 cd "$HOME/resale-research-app" || exit 1
 
 # 自己更新の罠対策：走行中の bash は起動時にパースした本体を実行し続けるので、git pull で
