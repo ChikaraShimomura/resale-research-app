@@ -56,11 +56,20 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
 // eBayの中古落札タイトルは国際refで出るため、-4AJF/-7AJF等の付いた日本国内型番だと「同一型番」照合が0件→確定不能になっていた
 // ＝時計だけ確定率が極端に低い主因（同じGショックでも GA-2100 は確定、GM-2100B-4AJF は全滅）。末尾がJF/JRの接尾辞だけ外す＝別モデルは混ざらない。
 const coreCode = (code) => String(code || "").trim().replace(/-?\d{0,2}[A-Z]?J[FR]$/i, "").replace(/[-\s]+$/, "");
-// 照合/検索/確定不能キャッシュの鍵に使う型番。時計だけ国際refに寄せる（短くなり過ぎる時は生の型番に戻す）。他ジャンルは生のまま＝精度不変。
+// eBay検索は英語なので、型番に混ざる日本語の付記(※箱なし・【店頭受け取りのみ】・(箱なし)等)やCJK・全角空白を除去して国際検索できる形にする。
+// これが無いと検索クエリに日本語が入り 0件→確定不能に（楽器=名前ベース型番で多発・候補332→確定29の主因）。
+// ★matchキー(norm)は元から [a-z0-9] だけ＝ASCII化済みなので、ここで消してもキーは実質不変＝照合精度は落とさない。効くのは検索クエリの純化。
+const stripNoise = (code) => String(code || "")
+  .replace(/[【（(][^】）)]*[】）)]/g, " ") // 【..】（..）(..) の付記を丸ごと除去
+  .replace(/※.*$/g, " ")                    // ※以降の注記を除去
+  .replace(/[^\x00-\x7F]/g, " ")            // 残る全角/CJK文字を除去（ASCIIのみ残す）
+  .replace(/\s+/g, " ").trim();
+// 照合/検索/確定不能キャッシュの鍵に使う型番。全ジャンルで日本語ノイズを除去し、時計はさらにJDM接尾辞を外して国際refへ。
 const matchCodeOf = (p) => {
-  if (p.cat !== "腕時計") return String(p.code || "").trim();
-  const cc = coreCode(p.code);
-  return cc.replace(/[^a-z0-9]/gi, "").length >= 4 ? cc : String(p.code || "").trim();
+  const cleaned = stripNoise(p.code);
+  if (p.cat !== "腕時計") return cleaned;
+  const cc = coreCode(cleaned); // 時計はJDM接尾辞も外す
+  return cc.replace(/[^a-z0-9]/gi, "").length >= 4 ? cc : cleaned;
 };
 
 (async () => {
