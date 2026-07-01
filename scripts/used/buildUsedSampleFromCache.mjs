@@ -81,11 +81,11 @@ async function loadCategories() {
   const catalog = [];
   // 精度極限ゲート(getUsedCatalog=確定品のみ配信)により、未確定候補は表示されず「確定待ちキュー」になる。
   // ＝候補を厚く貯めても精度は落ちない。キューを厚くするほど refine が確定できる型番の母数が増える(歩留まり↑)。
-  const TARGET = Number(process.env.TARGET) || 1500; // 候補の総上限（確定待ちキュー。env TARGET で調整可）。時計増量で他ジャンルを枯らさないよう+300。
-  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 40; // 1カテゴリ(型番系列)上限（取得済みページから拾う数を増やす＝追加fetchなしで候補↑）
+  const TARGET = Number(process.env.TARGET) || 3000; // 候補の総上限（確定待ちキュー。env TARGET で調整可）。供給を深掘りしても頭打ちにしない余白（旧1500は候補1200で未到達＝非拘束だった）。
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 60; // 1カテゴリ(型番系列)上限。※実測で40に当たる系列は全419中2つだけ＝ほぼ非拘束。深掘り分を受ける程度に微増。
   // ⌚時計は注力ジャンル＝需要・ハードオフ在庫が深く確定率も高い。系列ごとの上限を厚くして増やす（既取得ページから拾うだけ＝追加fetch無し）。
-  const CAP_WATCH = Number(process.env.CAP_WATCH) || 100;
-  const PAGES = Number(process.env.HARDOFF_PAGES) || 4; // 1カテゴリで取るハードオフ検索ページ数（深掘り。低頻度厳守で3h毎なら4は常識内）
+  const CAP_WATCH = Number(process.env.CAP_WATCH) || 150;
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 8; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝419系列中417が「CAPでなくページ深度」で頭打ちのため、ここを最大化する。空ページで即打切りなので狭い系列は無駄打ちしない。3h毎の低頻度なので8でも常識内。
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
