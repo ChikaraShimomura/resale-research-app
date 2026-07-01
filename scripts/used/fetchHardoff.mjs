@@ -7,6 +7,8 @@
 //
 // 使い方: node scripts/used/fetchHardoff.mjs "Pioneer アンプ"
 
+import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // 検索サムネ(w=231)→原寸級(1280px)。カタログに焼く前に原寸化する。
+
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 const stripTags = (s) => (s || "").replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").trim();
@@ -20,7 +22,8 @@ export function parseHardoff(html) {
     const url = (c.match(/href="(https:\/\/netmall\.hardoff\.co\.jp\/product\/(\d+)\/)"/) || [])[1];
     if (!url) continue;
     const id = (c.match(/\/product\/(\d+)\//) || [])[1];
-    const imageUrl = (c.match(/<img[^>]+src="(https:\/\/[^"]+(?:imageflux|imageflux\.jp|media\.hardoff)[^"]+\.(?:jpg|jpeg|png|webp))"/i) || [])[1] || "";
+    // 検索カードの画像は imageFlux の小サムネ(w=231等)。カタログ/psnapに焼く前に原寸級(1280px)へ書き換える＝出品マスターのボケ/#25002を源流で断つ。
+    const imageUrl = upscaleImageflux((c.match(/<img[^>]+src="(https:\/\/[^"]+(?:imageflux|imageflux\.jp|media\.hardoff)[^"]+\.(?:jpg|jpeg|png|webp))"/i) || [])[1] || "");
     const brand = stripTags((c.match(/class="item-brand-name"[^>]*>([\s\S]*?)<\/div>/) || [])[1]);
     const name = stripTags((c.match(/class="item-name"[^>]*>([\s\S]*?)<\/div>/) || [])[1]);
     const code = stripTags((c.match(/class="item-code"[^>]*>([\s\S]*?)<\/div>/) || [])[1]); // 型番(eBay照合に強い)

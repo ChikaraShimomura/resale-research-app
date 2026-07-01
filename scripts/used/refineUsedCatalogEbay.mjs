@@ -10,6 +10,7 @@ import fs from "node:fs";
 import { get, parseSoldWithin } from "../ebaySoldWorker.mjs";
 import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
 import { ebayCompetition, hasEbayKeys } from "./ebayCompetition.mjs"; // eBay競合数(現在出品総数)。確定時に焼き込み。鍵が無ければnull(fail-open)。
+import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。古いcatalog由来の小URLもpsnapに焼く前に原寸化。
 
 const USD_JPY = 155;
 const WINDOW_DAYS = 365; // 時計は値動きが遅い＋特定型番は出来高が薄いので落札窓は1年に広げ、同一型番の件数を確保
@@ -134,7 +135,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify([["SET", "ebay_unconfirmable", JSON.stringify(unconf), "EX", String(90 * 24 * 3600)]]) });
   // 出品フロー用 psnap も同一型番相場で更新。TTL35日。
   const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
-    id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: p.imageUrl, images: p.imageUrl ? [p.imageUrl] : [],
+    id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: upscaleImageflux(p.imageUrl), images: p.imageUrl ? [upscaleImageflux(p.imageUrl)] : [],
     category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(), brand: p.brand, code: p.code,
     realAvgPrice: p.ebayMedianJpy, realMedianPrice: p.ebayMedianJpy, realProfit: p.profitJpy, realProfitRate: p.profitRate,
     realCount: p.soldCount || 1, soldBased: !!p.ebayConfirmed, soldCount30d: p.soldCount, usedCondition: p.condition,

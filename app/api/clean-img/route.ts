@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { cleanupBakedText } from "../../lib/ebay/imageCleanup";
 import { processListingImage } from "../../lib/ebay/imageProcess";
+import { upscaleImageflux } from "../../lib/usedGallery"; // ハードオフ画像CDN(imageflux)の小サムネURLを原寸級(1280px)へ書き換える
 
 // 表示用の画像プロキシ: 仕入れ元の画像を取得→焼き込み文字を背景色で消去(imageCleanup)→JPEGで返す。
 // 各画像は初回だけ処理し、以降は CDN/ブラウザキャッシュ（immutable・1年）で配るのでコスト・遅延は初回のみ。
@@ -8,8 +9,9 @@ import { processListingImage } from "../../lib/ebay/imageProcess";
 // SSRF対策で許可リストのホストのみ許可。取得失敗時は元URLへ302（壊さない）。
 export const runtime = "nodejs";
 
-// レガシー画像CDNホストのみ許可（rakuten.co.jp / r10s.jp 系・無在庫時代の画像表示に必要）。
-const ALLOW = /(^|\.)(rakuten\.co\.jp|r10s\.jp)$/i;
+// 画像CDNホストのみ許可（ハードオフ=imageflux.jp / 楽天レガシー=rakuten.co.jp・r10s.jp）。
+// ⚠️imageProcess.ts の ALLOW_HOST と必ず揃える（片方だけだと表示プレビューと実出品の文字消去/解像度がズレる）。
+const ALLOW = /(^|\.)(imageflux\.jp|rakuten\.co\.jp|r10s\.jp)$/i;
 
 function allowedTarget(u: string): string | null {
   try {
@@ -33,8 +35,10 @@ export async function GET(req: Request) {
   const listMode = sp.get("list") === "1";
   const target = allowedTarget(u);
   if (!target) return new Response("bad url", { status: 400 });
+  // ハードオフ(imageflux)は取得前に原寸級(1280px)へ書き換える＝表示も出品と同じ高解像度に揃える（楽天/他は無変更）。
+  const fetchTarget = upscaleImageflux(target);
   try {
-    const r = await fetch(target, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) });
+    const r = await fetch(fetchTarget, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) });
     if (!r.ok) return Response.redirect(target, 302); // 取得失敗 → 元画像へ
     const raw = Buffer.from(await r.arrayBuffer());
     const cleaned = await cleanupBakedText(raw); // 文字消去（キー無/失敗時は元のまま）

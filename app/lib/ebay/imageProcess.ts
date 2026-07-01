@@ -3,6 +3,7 @@ import { uploadHostedPictureFromBinary } from "./eps";
 import { epsLargeUrl } from "./epsUrl";
 import { WATERMARK_PNG_B64 } from "./watermarkAsset";
 import { cleanupBakedText } from "./imageCleanup";
+import { upscaleImageflux } from "../usedGallery"; // ハードオフ画像CDN(imageflux)の小サムネURLを原寸級(1280px)に書き換える
 
 // 出品画像の品質底上げ（無料・Node sharp）。
 // eBayのズーム(長辺800px以上で作動・1600px推奨)を解放＋検索グリッド最適化(正方1:1)＋
@@ -63,10 +64,12 @@ const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0",
 };
 
-// SSRF対策: 取得先はレガシー画像CDN(https・rakuten.co.jp / r10s.jp 系)のみ許可。
-// 旧カタログ画像の表示に必要なため許可リストとして残す。内部/プライベートIPやメタデータ宛のサーバー発リクエストを遮断。
+// SSRF対策: 取得先は画像CDN(https・ハードオフ=imageflux.jp / 楽天レガシー=rakuten.co.jp・r10s.jp)のみ許可。
+// ⚠️imageflux.jp を入れないとハードオフ画像を1枚も取得できず enhanceToEps が丸ごと不発→生の小サムネURLがeBayへ→
+//   マスター極小(#25002/ボケ)。実ホストは p1-*.imageflux.jp のサブドメイン形式なので (^|\.) で網羅（末尾$アンカーで部分一致攻撃は防ぐ）。
+// 内部/プライベートIPやメタデータ宛のサーバー発リクエストは https 限定＋FQDN完全一致で遮断。
 // ※ /api/clean-img の ALLOW と同じ。変更時は両方そろえること。
-const ALLOW_HOST = /(^|\.)(rakuten\.co\.jp|r10s\.jp)$/i;
+const ALLOW_HOST = /(^|\.)(imageflux\.jp|rakuten\.co\.jp|r10s\.jp)$/i;
 function isAllowedImageUrl(u: string): boolean {
   try {
     const url = new URL(u);
@@ -96,7 +99,9 @@ export async function enhanceToEps(token: string, urls: string[]): Promise<strin
   const wmOn = process.env.LISTING_WATERMARK === "1"; // 透かしON(既定OFF)。メイン(i=0)には付けない。
   const results = await Promise.all(
     urls.map(async (url, i) => {
-      const raw = await fetchImage(url);
+      // ハードオフ(imageflux)は取得前にURLを原寸級(1280px)へ書き換える＝検索サムネ(w=231)を掴んで1600へ拡大＝ボケるのを防ぎ、
+      // CDNが実寸1280pxを返す＝本物の高解像度でEPS再ホストできる。楽天/その他URLは upscaleImageflux が素通り(無変更)。
+      const raw = await fetchImage(upscaleImageflux(url));
       if (!raw) return null;
       let processed: Buffer;
       try {
@@ -114,8 +119,8 @@ export async function enhanceToEps(token: string, urls: string[]): Promise<strin
 }
 
 // ── 出品中の画像を1枚ずつ「加工」してEPSへ再ホストする（編集モーダルの加工ボタン用） ──
-// 既存の出品画像は EPS(ebayimg.com) か仕入れ元(rakuten/r10s) か自サイトのプロキシにある。これらだけ取得を許可（SSRF対策）。
-const LISTING_IMG_ALLOW = /(^|\.)(ebayimg\.com|rakuten\.co\.jp|r10s\.jp|yushutsu-fukugyo\.com)$/i;
+// 既存の出品画像は EPS(ebayimg.com) か仕入れ元(ハードオフ=imageflux / 楽天レガシー=rakuten・r10s) か自サイトのプロキシにある。これらだけ取得を許可（SSRF対策）。
+const LISTING_IMG_ALLOW = /(^|\.)(ebayimg\.com|imageflux\.jp|rakuten\.co\.jp|r10s\.jp|yushutsu-fukugyo\.com)$/i;
 async function fetchListingImage(url: string): Promise<Buffer | null> {
   try {
     const u = new URL(url);
@@ -138,7 +143,7 @@ export async function transformListingImage(
   op: PhotoOp,
   crop?: { x: number; y: number; w: number; h: number }
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const raw = await fetchListingImage(epsLargeUrl(srcUrl)); // EPSはフル解像度(s-l1600)の元画像を取得して加工する
+  const raw = await fetchListingImage(upscaleImageflux(epsLargeUrl(srcUrl))); // EPSはs-l1600・ハードオフ(imageflux)は1280へ書き換えてから取得して加工する
   if (!raw) return { ok: false, error: "画像を取得できませんでした。" };
   let buf: Buffer = raw;
   try {

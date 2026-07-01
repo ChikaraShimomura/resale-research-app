@@ -2,6 +2,7 @@
 // 在庫アイテム(PUT) → オファー(POST/PUT) → 公開(publishOffer) を行う。
 // カテゴリ/必須Item Specifics は Taxonomy API で取得（アプリトークン使用）。
 import { skuForProduct, isNoOpUpdate } from "./sellApi";
+import { upscaleImageflux } from "../usedGallery"; // ハードオフ画像CDN(imageflux)の小サムネURLを原寸級(1280px)へ書き換える
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)から取得＝各所のハードコード155を一本化（ドリフト防止）。
 import { USD_JPY } from "./landedCostCore.mjs";
 
@@ -12,11 +13,13 @@ export const MARKETPLACE = "EBAY_US";
 export const SHIP_LOCATION_KEY = "jp-ship-from"; // 既存の在庫ロケーション
 export { USD_JPY }; // realAvgPrice の換算レート（再エクスポート＝既存の `from "./listing"` 取り込みを維持）
 
-// レガシーのmediumImageは _ex=128x128 等の小サムネ。eBayの大きい画像枠でボケるため、出品時は最大解像度に差し替える。
-// ★ thumbnail.image.rakuten.co.jp(リサイズCDN・_ex=1200でも1200頭打ち)ではなく image.rakuten.co.jp(原寸オリジナル)を使う。
-//   高解像度をアップしている店ほど鮮明になる。元画像が小さい店はそのサイズが上限(=これ以上は鮮明化不能)。
+// 仕入れ元の小サムネURLを、eBayの大きい画像枠でボケないよう出品時に最大解像度へ差し替える（eBayへ渡す最後の砦）。
+// ★ハードオフ(imageflux.jp)＝動的CDN。検索サムネ(/c!/w=231,.../)を w=1280 に書き換えるとCDNが実寸1280pxを返す＝本物の高解像度。
+//   これが無いと enhanceToEps 失敗時のfail-openで生の w=231 URL がそのままeBayへ→マスター極小(#25002/ボケ)。
+// ★楽天レガシー: thumbnail.image.rakuten.co.jp(リサイズCDN)ではなく image.rakuten.co.jp(原寸)を使う。_ex= 形式は 1200 指定へ。
 function upscaleListingImage(url: string): string {
   if (!url) return "";
+  if (/imageflux\.jp/i.test(url)) return upscaleImageflux(url); // ハードオフを最優先で原寸級化（楽天分岐に一致しないので順序は無害）
   if (/thumbnail\.image\.rakuten\.co\.jp\/@0_mall\//.test(url)) {
     return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").replace(/\?_ex=\d+x\d+/, "");
   }

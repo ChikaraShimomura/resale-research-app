@@ -3,6 +3,7 @@
 // 除外するのは「商品が写っていない店の装飾画像（バナー/サイズ表/クーポン/全面テキスト）」と「透かしが商品全体に被った画像」。
 // ①ファイル名ヒント(無料・明白な装飾だけ事前除外) ②Haikuビジョン判定。
 import { kv } from "@vercel/kv";
+import { upscaleImageflux } from "../usedGallery"; // ハードオフ画像CDN(imageflux)の小サムネURLを原寸級(1280px)へ書き換える
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
@@ -10,8 +11,9 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const JUNK_HINT =
   /soryo|送料|free.?ship|sale|campaign|ivent|event|banner|logo|header|footer|toppage|info|setsumei|説明|guide|chart|size|サイズ|coupon|クーポン|qr|point|ポイント|review|レビュー|notice|caution|attention/i;
 
-// レガシーサムネ(リサイズCDN)→ 原寸オリジナル。出品画像のボケ低減と同じ変換。
+// サムネ(リサイズCDN)→ 原寸。出品画像のボケ低減と同じ変換。ハードオフ(imageflux)の検索サムネ(w=231)も原寸級(1280)へ。
 function toOriginal(url: string): string {
+  if (/imageflux\.jp/i.test(url)) return upscaleImageflux(url); // ハードオフを最優先で原寸級化
   if (/thumbnail\.image\.rakuten\.co\.jp\/@0_mall\//.test(url)) {
     return url.replace("thumbnail.image.rakuten.co.jp/@0_mall/", "image.rakuten.co.jp/").replace(/\?_ex=\d+x\d+/, "");
   }

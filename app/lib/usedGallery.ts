@@ -1,16 +1,11 @@
 // 仕入れ元(ハードオフ)の商品詳細ページから全画像(ギャラリー)を取得する。
 // ハードオフは Akamai 無し＝Vercel(DC-IP)からも素の fetch で取れる（eBay/2nd STは住宅IP必須なので不可）。
 // 一次ソースは詳細ページの JSON-LD schema.org Product の "image":[...]（本体商品の全画像が大きいサイズで並ぶ）。失敗時は空配列。
+import { upscaleImageflux } from "./imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。SSOTは.mjs(app/scripts共有)。
+export { upscaleImageflux }; // 従来 usedGallery からの取り込み(出品/表示/フィルタ)を維持するため再エクスポート。
+
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-
-// imageFlux(ハードオフ画像CDN)のサイズ指定を出品向けに大きく(1280・白背景余白)書き換える。検索サムネ(w=231)も原寸級へ。
-export function upscaleImageflux(url: string): string {
-  if (!url || !/imageflux\.jp/i.test(url)) return url;
-  // URL構造は /c!/{サイズ等パラメータ}/{shopId}/{file}。パラメータ区間まるごとを1280指定に差し替える
-  // （/c! の直後の "/" まで含めて置換しないと、旧パラメータが残って二重指定の壊れたURLになる）。
-  return url.replace(/\/c!\/[^/]*\//, "/c!/w=1280,h=1280,a=0,u=1,q=85/");
-}
 
 // 仕入れ元(ハードオフ)の在庫状況。詳細ページの schema.org availability で判定。
 // "in-stock"=在庫あり / "sold-out"=売切/掲載終了 / "unknown"=判定不能(2nd ST等はAkamaiでVercelから取得不可)。

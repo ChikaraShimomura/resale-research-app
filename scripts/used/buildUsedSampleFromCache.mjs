@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
 import { USED_GENRE_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
 import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
+import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。既存catalogをmergeした古い小URLもpsnapに焼く前に原寸化。
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const USD_JPY = 155;
@@ -176,7 +177,7 @@ async function loadCategories() {
   // ※2nd ST候補のpsnapは refineUsedCatalogEbay が site 込みで書く。想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
   const cmds = enriched.map((c) => {
     const snap = {
-      id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: c.imageUrl, images: c.imageUrl ? [c.imageUrl] : [],
+      id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: upscaleImageflux(c.imageUrl), images: c.imageUrl ? [upscaleImageflux(c.imageUrl)] : [],
       category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(), brand: c.brand, code: c.code,
       realAvgPrice: c.ebayMedianJpy, realMedianPrice: c.ebayMedianJpy, realProfit: c.profitJpy, realProfitRate: c.profitRate,
       realCount: c.soldCount || 1, soldBased: !!c.ebayConfirmed, usedCondition: c.condition,
