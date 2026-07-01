@@ -49,7 +49,9 @@ export async function GET(req: Request) {
   const netStr = Number.isFinite(netN) && netN !== 0 ? (netN > 0 ? `+¥${yen(String(netN))}` : `−¥${yen(String(Math.abs(netN)))}`) : "";
   const sold = (sp.get("sold") || "").replace(/\D/g, "").slice(0, 5); // 直近落札件数
   const comp = (sp.get("comp") || "").replace(/\D/g, "").slice(0, 5); // eBay競合数
-  const img = sp.get("img") || "";                      // 実物画像URL
+  const img0 = sp.get("img") || "";                     // 実物画像URL
+  // imageflux(ハードオフCDN)はサムネ(w=231等)が渡ってくる→カード用に高解像度化(w/h=440)＝ボヤけ防止。他ホストはそのまま。
+  const img = /imageflux\.jp/.test(img0) ? img0.replace(/\bw=\d+/, "w=440").replace(/\bh=\d+/, "h=440") : img0;
 
   const glyphs =
     title + name + cond + genre + code + netStr +
@@ -163,14 +165,14 @@ export async function GET(req: Request) {
             <div style={{ display: "flex", alignItems: "flex-start" }}>
               {img ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={img} width={220} height={220} style={{ width: 220, height: 220, objectFit: "cover", borderRadius: 20, marginRight: 34, border: "2px solid #eeeeee" }} alt="" />
+                <img src={img} width={188} height={188} style={{ width: 188, height: 188, objectFit: "cover", borderRadius: 20, marginRight: 30, border: "2px solid #eeeeee" }} alt="" />
               ) : null}
-              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", marginBottom: 14 }}>
                   {cond ? <span style={{ display: "flex", fontSize: 28, color: "#2D323B", background: "#A98B5C22", border: "2px solid #A98B5C66", borderRadius: 10, padding: "4px 16px", marginRight: 12 }}>{cond}</span> : null}
                   {genre ? <span style={{ display: "flex", fontSize: 28, color: "#555555", background: "#f3f3f3", borderRadius: 10, padding: "4px 16px" }}>{genre}</span> : null}
                 </div>
-                <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: "#222222", lineHeight: 1.25 }}>{name}</div>
+                <div style={{ display: "flex", fontSize: 35, fontWeight: 700, color: "#222222", lineHeight: 1.3 }}>{name}</div>
                 {code ? <div style={{ display: "flex", fontSize: 30, color: "#999999", marginTop: 8 }}>{code}</div> : null}
               </div>
             </div>
