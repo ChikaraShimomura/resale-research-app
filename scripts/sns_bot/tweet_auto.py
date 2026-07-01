@@ -237,7 +237,8 @@ def used_condition_label(c) -> str:
 
 
 # ── 中古カタログ取得（KV used_catalog）。配信ゲートは getUsedCatalog と同等＝確定品/売切除外/ROI≥10% ──
-# ⚠️ 公開して良い安全フィールドだけに正規化する。仕入れ値(buyJpy)・仕入れURL・正確な型番(code)・仕入れ元画像は載せない。
+# ⚠️ 2026-07-01 ユーザー判断：Xの投稿カードは「生データ」フル版に変更＝仕入れ値・型番・実物画像も“カード画像”に載せる方針
+#    （Askで「画像1どおりフル公開」を選択・モート露出を承知）。本文テキスト側は従来どおり伏せる（_prod_lines/PERSONA）。
 def fetch_products() -> list:
     raw = kv_get_raw("used_catalog")
     if not raw:
@@ -276,15 +277,21 @@ def fetch_products() -> list:
         pid = str(x.get("id") or x.get("modelKey") or "")
         if not pid or sold_out(pid):
             continue
+        comp = x.get("ebayActiveCount")
         out.append({
             "id": pid,
             "title": (x.get("name") or x.get("modelKey") or "").strip(),
             "brand": (x.get("brand") or "").strip(),
             "cat": (x.get("cat") or "").strip(),
+            "code": (x.get("code") or "").strip(),              # 型番（フル公開カード用）
             "conditionLabel": used_condition_label(x.get("condition")),
             "realProfitRate": round(profit / buy * 100),        # 想定純利益率(ROI・目安)
             "realAvgPrice": int(x.get("ebayMedianJpy") or 0),   # eBay落札中央値(想定売値・目安)
-            "soldCount": x.get("soldCount") or 0,               # 直近の落札件数(実需シグナル・公開可)
+            "buyJpy": int(buy),                                 # 仕入れ値（フル公開カード用）
+            "netJpy": int(profit),                              # 純利益額
+            "soldCount": x.get("soldCount") or 0,               # 直近の落札件数(実需シグナル)
+            "compCount": int(comp) if isinstance(comp, (int, float)) else None,  # eBay競合数(現在出品総数)
+            "imageUrl": (x.get("imageUrl") or "").strip(),      # 実物画像（フル公開カード用）
         })
     out.sort(key=lambda p: p["realProfitRate"], reverse=True)
     return out
@@ -322,13 +329,33 @@ def poll_options(avg) -> list:
     return [f"〜{m(e[0])}", f"{m(e[0])}〜{m(e[1])}", f"{m(e[1])}〜{m(e[2])}", f"{m(e[2])}〜"]
 
 
-# ── データカード画像のURL(/api/card?mode=used)。botがこれを直アップする ──
-# ⚠️ 仕入れ値は渡さない。出すのは 商品名/状態/想定売値(目安)/想定利益率(目安) のみ。
+# ── データカード画像のURL(/api/card?mode=full)。botがこれを直アップする ──
+# ⚠️ 2026-07-01 ユーザー判断で「生データ」フル版に変更＝仕入れ値・型番・実物画像・純益額・競合数まで“カード画像”に載せる。
+#    サイトの商品カード(画像1)に寄せる。本文テキストは従来どおりモート非公開（画像だけがフルデータ）。
 def build_card_url(title: str, product: dict) -> str:
-    return (f"{SITE_URL}/api/card?mode=used&t={quote(title)}"
-            f"&n={quote(str(product.get('title', ''))[:50])}"
-            f"&c={quote(str(product.get('conditionLabel', '')))}"
-            f"&e={product.get('realAvgPrice', 0)}&p={product.get('realProfitRate', 0)}")
+    brand = str(product.get("brand", "")).strip()
+    nm = str(product.get("title", "")).strip()
+    name = f"{brand} {nm}".strip()[:50]
+    parts = [
+        f"{SITE_URL}/api/card?mode=full",
+        f"t={quote(title)}",
+        f"n={quote(name)}",
+        f"c={quote(str(product.get('conditionLabel', '')))}",
+        f"g={quote(str(product.get('cat', '')))}",
+        f"code={quote(str(product.get('code', '')))}",
+        f"r={product.get('buyJpy', 0)}",
+        f"e={product.get('realAvgPrice', 0)}",
+        f"p={product.get('realProfitRate', 0)}",
+        f"net={product.get('netJpy', 0)}",
+        f"sold={product.get('soldCount', 0) or 0}",
+    ]
+    comp = product.get("compCount")
+    if isinstance(comp, (int, float)) and comp > 0:
+        parts.append(f"comp={int(comp)}")
+    img = str(product.get("imageUrl", "")).strip()
+    if img:
+        parts.append(f"img={quote(img, safe='')}")
+    return "&".join(parts)
 
 
 # ── ハッシュタグ: 基本0個(2026年のXはタグで伸びない)。たまに1個だけニッチタグ ──

@@ -42,13 +42,21 @@ export async function GET(req: Request) {
   // 既定(modeなし)・縦型(v=1)は従来の仕入れ→eBay表示のまま＝studioの動画素材を壊さない。
   const mode = sp.get("mode");
   const cond = (sp.get("c") || "").slice(0, 24);
+  // full版(mode=full)：サイトの商品カード(生データ)に寄せた追加パラメータ。
+  const genre = (sp.get("g") || "").slice(0, 12);       // ジャンル(バッジ)
+  const code = (sp.get("code") || "").slice(0, 40);     // 型番
+  const netN = Number(sp.get("net"));                   // 純利益額(円・符号つき)
+  const netStr = Number.isFinite(netN) && netN !== 0 ? (netN > 0 ? `+¥${yen(String(netN))}` : `−¥${yen(String(Math.abs(netN)))}`) : "";
+  const sold = (sp.get("sold") || "").replace(/\D/g, "").slice(0, 5); // 直近落札件数
+  const comp = (sp.get("comp") || "").replace(/\D/g, "").slice(0, 5); // eBay競合数
+  const img = sp.get("img") || "";                      // 実物画像URL
 
   const glyphs =
-    title + name + cond +
+    title + name + cond + genre + code + netStr +
     "輸出ラボ仕入れeBay想定利益率約円相場は現行の最安中央値ベースの目安です" +
     "今日の利益商品日本でこれが海外だと無料で登録して他の商品もプロフィールのリンクから見れますやってみた" +
-    "状態純売落札海外で想定中古※：" +
-    "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + "0123456789,%→¥〜";
+    "状態純売落札海外で想定中古※：型番一致直近件競合" +
+    "yushutsufukugyocom" + (raku ?? "") + (ebay ?? "") + rate + sold + comp + "0123456789,.%→¥〜+−-";
   const font = await loadJpFont(glyphs);
   const ff = font ? "Noto Sans JP" : "sans-serif";
   const fonts = font ? [{ name: "Noto Sans JP", data: font, weight: 700 as const, style: "normal" as const }] : [];
@@ -130,6 +138,67 @@ export async function GET(req: Request) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "30px 56px", borderTop: "2px solid #eeeeee", fontSize: 32, color: "#888888" }}>
+            <span style={{ display: "flex", fontWeight: 700, color: CRIMSON }}>輸出ラボ</span>
+            <span style={{ display: "flex" }}>yushutsu-fukugyo.com</span>
+          </div>
+        </div>
+      ),
+      { width: 1080, height: 1080, fonts }
+    );
+  }
+
+  // 中古カタログの「生データ」フル版カード（横1080x1080・サイトの商品カードに寄せる）。
+  // 仕入れ→eBay想定・想定純利益率＋純益額・eBay落札ベース(型番一致・落札件数)・競合数・状態・型番・実物画像まで出す。
+  // ⚠️ ユーザー判断2026-07-01：モート(仕入れ値/機種名/型番/仕入れ元画像)を承知の上でX公開する方針（Askで「フル公開」選択）。
+  if (mode === "full") {
+    return new ImageResponse(
+      (
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#ffffff", fontFamily: ff }}>
+          <div style={{ display: "flex", alignItems: "center", background: CRIMSON, color: "#ffffff", padding: "34px 56px", fontSize: 50, fontWeight: 700 }}>
+            {title}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "40px 56px", justifyContent: "space-between" }}>
+            {/* 商品行：実物画像＋名前/型番/状態・ジャンル */}
+            <div style={{ display: "flex", alignItems: "flex-start" }}>
+              {img ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={img} width={220} height={220} style={{ width: 220, height: 220, objectFit: "cover", borderRadius: 20, marginRight: 34, border: "2px solid #eeeeee" }} alt="" />
+              ) : null}
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                <div style={{ display: "flex", marginBottom: 14 }}>
+                  {cond ? <span style={{ display: "flex", fontSize: 28, color: "#2D323B", background: "#A98B5C22", border: "2px solid #A98B5C66", borderRadius: 10, padding: "4px 16px", marginRight: 12 }}>{cond}</span> : null}
+                  {genre ? <span style={{ display: "flex", fontSize: 28, color: "#555555", background: "#f3f3f3", borderRadius: 10, padding: "4px 16px" }}>{genre}</span> : null}
+                </div>
+                <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: "#222222", lineHeight: 1.25 }}>{name}</div>
+                {code ? <div style={{ display: "flex", fontSize: 30, color: "#999999", marginTop: 8 }}>{code}</div> : null}
+              </div>
+            </div>
+
+            {/* 仕入れ → eBay想定 */}
+            <div style={{ display: "flex", alignItems: "center", fontSize: 56, fontWeight: 700, color: "#111111" }}>
+              <span style={{ display: "flex", color: "#777777", fontSize: 32, marginRight: 14 }}>仕入れ</span>¥{yen(raku)}
+              <span style={{ display: "flex", color: CRIMSON, margin: "0 20px", fontSize: 60 }}>→</span>
+              <span style={{ display: "flex", color: "#777777", fontSize: 32, marginRight: 14 }}>eBay想定</span>¥{yen(ebay)}
+            </div>
+
+            {/* 根拠：落札ベース・型番一致・競合 */}
+            <div style={{ display: "flex", fontSize: 30, color: "#666666" }}>
+              <span style={{ display: "flex", marginRight: 28 }}>eBay落札ベース・型番一致{sold ? `・直近${sold}件` : ""}</span>
+              {comp ? <span style={{ display: "flex" }}>eBay競合 約{comp}件</span> : null}
+            </div>
+
+            {/* 想定純利益率＋純益額 */}
+            <div style={{ display: "flex", alignItems: "center", background: CRIMSON, borderRadius: 24, padding: "26px 40px" }}>
+              <span style={{ display: "flex", fontSize: 36, color: "#ffffff", marginRight: 22 }}>想定純利益率</span>
+              <span style={{ display: "flex", fontSize: 92, fontWeight: 700, color: "#A98B5C" }}>{rate || "—"}%</span>
+              {netStr ? <span style={{ display: "flex", fontSize: 50, fontWeight: 700, color: "#ffffff", marginLeft: "auto" }}>{netStr}</span> : null}
+            </div>
+
+            <div style={{ display: "flex", fontSize: 24, color: "#999999" }}>※ 想定売値はeBayの落札中央値ベースの目安です</div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "26px 56px", borderTop: "2px solid #eeeeee", fontSize: 30, color: "#888888" }}>
             <span style={{ display: "flex", fontWeight: 700, color: CRIMSON }}>輸出ラボ</span>
             <span style={{ display: "flex" }}>yushutsu-fukugyo.com</span>
           </div>
