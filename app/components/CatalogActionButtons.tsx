@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Undo2, Share2, Eye } from "lucide-react";
+import { Check, Undo2, Eye } from "lucide-react";
 import { reportClientError, errToDetail } from "../lib/clientError";
+import DropshipListButton from "./DropshipListButton";
 
 // 中古カタログ各カードの小さな triage ボタン。「仕入れた」を per-actor で記録して一覧から外す＋
-// 「ライバル確認」(eBayの現行出品＝今のライバルを見る)＋「共有」でリンク共有。
+// 「ライバル確認」(eBayの現行出品＝今のライバルを見る)＋「無在庫出品」(プロMAX以上・先に買わずeBay出品)。
 // 「仕入れた」時はサーバーが仕入れ元の在庫を確認：まだ在庫ありなら基本は蹴る（カタログから消さない）。
 // 無在庫転売プラン(canAutoList=プロMAX/身内/管理者)の人だけ在庫ありでも登録でき、その人の画面からのみ非表示になる。
 // ※「これは無理/非表示」(skip)ボタンは使用頻度が低く2026-06-30に撤去（unfav/再読込で代替）。
@@ -15,8 +16,8 @@ export default function CatalogActionButtons({
   productId,
   buyJpy,
   canAutoList = false,
+  canDropship = false,
   teamOwner,
-  shareUrl,
   shareTitle,
   rivalsUrl,
 }: {
@@ -24,9 +25,9 @@ export default function CatalogActionButtons({
   buyJpy: number;
   isAdmin?: boolean; // 旧skipボタンの文言出し分け用。skip撤去で未使用だが呼び出し側の互換のため受ける。
   canAutoList?: boolean;
+  canDropship?: boolean; // 無在庫出品（先に買わずeBay出品）を実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
-  shareUrl?: string; // 共有するリンク（仕入れ元の商品URL）
-  shareTitle?: string; // 共有時のタイトル（商品名）
+  shareTitle?: string; // 商品名（無在庫出品モーダルのタイトルに使う）
   rivalsUrl?: string; // eBayの「今出品されているライバル(現行出品)」検索URL。あれば確認ボタンを出す。
 }) {
   const router = useRouter();
@@ -34,7 +35,6 @@ export default function CatalogActionButtons({
   const [done, setDone] = useState(false); // 「仕入れ商品」に追加済み（このセッション表示）
   const [inStock, setInStock] = useState(false); // 無在庫プランの人が在庫ありを登録した＝無在庫転売
   const [blocked, setBlocked] = useState(false); // 在庫あり＋無在庫プラン無し＝蹴った（記録せずカタログに残す）
-  const [shared, setShared] = useState(false); // リンクをコピーした（共有API非対応時）
   const [err, setErr] = useState<string | null>(null);
 
   // confirmedBought: 在庫ありで一度蹴られた後、本人が「もう仕入れ済み（在庫表示が古い）」と明示確認した時だけ true で再送。
@@ -69,25 +69,6 @@ export default function CatalogActionButtons({
       setErr("通信エラーで操作できませんでした。");
     }
     setBusy(null);
-  };
-
-  // 共有：Web Share API（対応端末は標準の共有シート）→ 非対応はクリップボードへコピー。
-  const share = async () => {
-    const url = shareUrl || (typeof window !== "undefined" ? window.location.href : "");
-    const title = shareTitle || "利益が出る中古品";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title, url });
-      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        setShared(true);
-        setTimeout(() => setShared(false), 1500);
-      } else if (typeof window !== "undefined") {
-        window.prompt("このリンクをコピーして共有してください", url); // 共有API/クリップボード非対応端末のフォールバック
-      }
-    } catch {
-      /* ユーザーがキャンセル/失敗は無視 */
-    }
   };
 
   if (done) {
@@ -182,16 +163,9 @@ export default function CatalogActionButtons({
             <Eye size={14} /> ライバル確認
           </a>
         )}
-        {/* 共有＝この商品のリンクを共有シート/コピーで送る（仲間・チームに教える）。 */}
-        <button
-          onClick={share}
-          aria-label="共有（リンクを送る）"
-          className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-300 bg-white text-gray-500 active:bg-gray-50"
-        >
-          <Share2 size={16} />
-        </button>
       </div>
-      {shared && <p className="text-[10px] text-emerald-600 font-bold">リンクをコピーしました</p>}
+      {/* 無在庫出品＝先に買わずeBayへ出品（売れてから仕入れて発送）。プロMAX以上のみ実行可（未満はプラン誘導・サーバーでも再判定）。 */}
+      <DropshipListButton productId={productId} title={shareTitle || ""} canDropship={canDropship} onBehalfOf={teamOwner} />
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
     </div>
   );

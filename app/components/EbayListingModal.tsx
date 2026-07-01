@@ -117,11 +117,13 @@ export default function EbayListingModal({
   onClose,
   onListed,
   onBehalfOf,
+  dropship = false,
 }: {
   product: ProfitProduct;
   onClose: () => void;
   onListed?: () => void;
   onBehalfOf?: string; // チーム共有：オーナー名義で出品する時のオーナーactor
+  dropship?: boolean; // 無在庫出品（仕入れ前にeBay出品）＝プロMAX以上限定。publishへ dropship:true を送り、サーバーでも権限を再判定させる。
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -337,6 +339,7 @@ export default function EbayListingModal({
         onBehalfOf, // チーム共有：オーナー名義で出品
         totalUsd: Number(priceUsd || 0).toFixed(2), // 買い手総額(送料込み)＝サーバー赤字ガードが損益分岐と照合する基準
         acceptLoss, // 損益分岐未満を承知のうえで出品（チェック時のみtrue。サーバーの赤字ガードを通す）
+        dropship, // 無在庫出品＝サーバーがプロMAX以上か再判定する（未満は403）
       }),
     })
       .then((r) => r.json())
@@ -566,6 +569,22 @@ export default function EbayListingModal({
 
           {phase === "form" && data && (
             <div className="space-y-4">
+              {/* 無在庫出品の注意（先に買わずに出す＝在庫リスクを正直に開示）。仕入れ元が売切/価格変動したら欠品・赤字・eBay規約違反のリスク。 */}
+              {dropship && (
+                <div className="rounded-xl border border-[#A98B5C]/50 bg-[#A98B5C]/10 px-3 py-2.5">
+                  <p className="text-[12px] font-bold text-[#2D323B] leading-relaxed">
+                    <span className="whitespace-nowrap">📦 無在庫出品（プロMAX）</span>
+                  </p>
+                  <p className="text-[10px] text-[#6b5d3f] leading-relaxed mt-0.5">
+                    <span className="whitespace-nowrap">先に買わずに出品し、</span><wbr />
+                    <span className="whitespace-nowrap">売れてから仕入れて発送します。</span><wbr />
+                    <span className="whitespace-nowrap">仕入れ元の売切・価格変動で</span><wbr />
+                    <span className="whitespace-nowrap">欠品・赤字・eBay規約違反</span><wbr />
+                    <span className="whitespace-nowrap">（出品取消で評価低下）の</span><wbr />
+                    <span className="whitespace-nowrap">リスクがあります。自己責任でご判断ください。</span>
+                  </p>
+                </div>
+              )}
               {/* 商品画像（カタログ） */}
               <div>
                 <label className="block text-[11px] text-gray-500 mb-1">商品画像（自動取得）</label>

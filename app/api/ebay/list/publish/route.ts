@@ -12,7 +12,7 @@ import { SOLD_THRESHOLD } from "../../../../lib/sold";
 import { getPlan, isUnlimited } from "../../../../lib/auth/plan";
 import { hasPerm, markTeamListed } from "../../../../lib/team";
 import { getTeamContext } from "../../../../lib/auth/teamActor";
-import { PLANS, PAYWALL_ENABLED, planCanAutoList } from "../../../../lib/plans";
+import { PLANS, PAYWALL_ENABLED, planCanAutoList, planCanDropship } from "../../../../lib/plans";
 import { toRakutenProductUrl } from "../../../../lib/utils";
 import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
 import { estimateWeightG, USD_JPY } from "../../../../lib/ebay/landedCost";
@@ -37,6 +37,7 @@ interface Payload {
   selectedImages?: string[]; // ユーザーが出品画面で選んだ出品画像URL（先頭=メイン）。未指定なら自動選定
   totalUsd?: string; // 買い手総額(送料込み・申告価値)。サーバー側の赤字ガードで損益分岐と照合する基準（priceUsdは商品価格＝送料別だと総額未満になる）。
   acceptLoss?: boolean; // 損益分岐を下回る価格でも「承知の上で」出品する（モーダルで確認済み）。trueなら赤字ガードを通す。
+  dropship?: boolean; // 無在庫出品（仕入れ前にeBay出品）。trueならプロMAX以上(身内/管理者含む)を要求する上位ゲート。
 }
 
 export async function POST(req: Request) {
@@ -103,6 +104,13 @@ export async function POST(req: Request) {
   // ※チーム出品(teamListing)はオーナーが出品権限を付与済み＝認可なのでプラン判定はスキップ。
   if (!teamListing && !planCanAutoList(plan)) {
     return Response.json({ ok: false, needsPlan: true, error: "eBay自動出品にはプランへのご加入が必要です。ライトは30日無料でお試しいただけます。" }, { status: 403 });
+  }
+
+  // 無在庫出品（仕入れ前にeBay出品）はプロMAX以上（身内/管理者含む）に限定＝canAutoListより上位のゲート。
+  // クライアント(DropshipListButton)でも押下時に弾くが、直叩き/迂回を防ぐためサーバーでも本人のプランで再判定する。
+  // ※teamListingは対象外にしない＝「実行できるのはプロMAX以上を持っている人だけ」＝押した本人(viewer)のプランで判定する（ユーザー指示）。
+  if (body.dropship && !planCanDropship(plan)) {
+    return Response.json({ ok: false, needsPlan: true, planNeeded: "promax", error: "無在庫出品はプロMAX以上のプランでご利用いただけます。" }, { status: 403 });
   }
 
   // 満了(SOLD)チェック：1商品につき最大 SOLD_THRESHOLD 人(出品者=アカウント)まで。既に出した本人は再出品OK(冪等)。

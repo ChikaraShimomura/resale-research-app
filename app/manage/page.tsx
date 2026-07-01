@@ -7,7 +7,7 @@ import { getValidAccessToken } from "../lib/ebay/tokens";
 import { getOfferForSku, listFulfillmentPolicies } from "../lib/ebay/listing";
 import { skuForProduct } from "../lib/ebay/sellApi";
 import { getTeamContext } from "../lib/auth/teamActor";
-import { canAutoList, getCurrentUserEmail } from "../lib/auth/plan";
+import { canAutoList, canDropship, getCurrentUserEmail } from "../lib/auth/plan";
 import { isAdmin } from "../lib/auth/admin";
 import { kvReadOnly } from "../lib/kv";
 import { estimateWeightG, USD_JPY } from "../lib/ebay/landedCost";
@@ -61,11 +61,12 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   // チーム参加中は「共有データ＝オーナー名前空間」を読む（全員で同じ在庫/お気に入り/出品/収益）。
   const { dataActor: actor, ebayActor } = await getTeamContext();
 
-  const [favItems, boughtItems, deals, canList, isAdminUser] = await Promise.all([
+  const [favItems, boughtItems, deals, canList, canDrop, isAdminUser] = await Promise.all([
     getFavoriteItems(actor),
     getBoughtItems(actor),
     listDealsForUser(actor ?? ""),
     canAutoList(),
+    canDropship(),
     getCurrentUserEmail().then((e) => isAdmin(e)),
   ]);
   // 出品中（live）＝出品中の商品タブ。停止中／過去（stopped/archived）＝終了商品タブ。
@@ -163,7 +164,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         <ManageTabs active={tab} counts={counts} />
 
         {tab === "fav" && (
-          <FavoritesTab items={favItems} canList={canList} isAdminUser={isAdminUser} />
+          <FavoritesTab items={favItems} canList={canList} canDrop={canDrop} isAdminUser={isAdminUser} />
         )}
         {tab === "bought" && (
           <BoughtTab items={boughtNotListed} canList={canList} />
@@ -185,7 +186,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
 }
 
 // ── お気に入り ─────────────────────────────────────────────
-function FavoritesTab({ items, canList, isAdminUser }: { items: Awaited<ReturnType<typeof getFavoriteItems>>; canList: boolean; isAdminUser: boolean }) {
+function FavoritesTab({ items, canList, canDrop, isAdminUser }: { items: Awaited<ReturnType<typeof getFavoriteItems>>; canList: boolean; canDrop: boolean; isAdminUser: boolean }) {
   if (items.length === 0) {
     return (
       <Empty Icon={Heart} title="まだお気に入りはありません" body={<><span className="whitespace-nowrap">利益カタログでカード右上の</span><wbr /><span className="whitespace-nowrap">♡を押すと、</span><wbr /><span className="whitespace-nowrap">ここに入ります。</span></>} />
@@ -218,7 +219,7 @@ function FavoritesTab({ items, canList, isAdminUser }: { items: Awaited<ReturnTy
                     {sourceSiteName(p.source?.site)}で見る <ExternalLink size={13} />
                   </a>
                 )}
-                <CatalogActionButtons productId={p.id} buyJpy={buyJpy} isAdmin={isAdminUser} canAutoList={canList} shareUrl={p.source?.url} shareTitle={p.title} />
+                <CatalogActionButtons productId={p.id} buyJpy={buyJpy} isAdmin={isAdminUser} canAutoList={canList} canDropship={canDrop} shareTitle={p.title} />
               </div>
             </div>
           </li>
