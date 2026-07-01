@@ -52,6 +52,16 @@ const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponen
 const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); // 型番照合用の正規化（記号/大小無視）
 // 新品(retail)を除外＝中古の落札だけで相場を出す。状態(cond)とタイトルの両方を見る。
 const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品|未使用|未開封|dead\s?stock|デッドストック/i.test((s || "").trim());
+// JDM(日本仕様)パッケージの接尾辞を外して国際リファレンスに寄せる（例 CASIO GM-2100B-4AJF → GM-2100B / OCW-70J-7AJF → OCW-70J）。
+// eBayの中古落札タイトルは国際refで出るため、-4AJF/-7AJF等の付いた日本国内型番だと「同一型番」照合が0件→確定不能になっていた
+// ＝時計だけ確定率が極端に低い主因（同じGショックでも GA-2100 は確定、GM-2100B-4AJF は全滅）。末尾がJF/JRの接尾辞だけ外す＝別モデルは混ざらない。
+const coreCode = (code) => String(code || "").trim().replace(/-?\d{0,2}[A-Z]?J[FR]$/i, "").replace(/[-\s]+$/, "");
+// 照合/検索/確定不能キャッシュの鍵に使う型番。時計だけ国際refに寄せる（短くなり過ぎる時は生の型番に戻す）。他ジャンルは生のまま＝精度不変。
+const matchCodeOf = (p) => {
+  if (p.cat !== "腕時計") return String(p.code || "").trim();
+  const cc = coreCode(p.code);
+  return cc.replace(/[^a-z0-9]/gi, "").length >= 4 ? cc : String(p.code || "").trim();
+};
 
 (async () => {
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
@@ -77,7 +87,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   const pri = (p) => (p.ebayConfirmed ? 2 : p.ebayChecked ? 1 : 0); // 0=未確認 を最優先
   // 確定不能キャッシュに載ってる型番(TTL内)はスキップ＝バッチ枠を新規候補に集中(確定済みは再確認のため残す)。
   const order = [...catalog]
-    .filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(p.code)))
+    .filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(matchCodeOf(p))))
     .sort((a, b) => pri(a) - pri(b) || (b.profitJpy || 0) - (a.profitJpy || 0));
   const pending = order.filter((p) => !p.ebayConfirmed).length;
   console.log(`対象 ${Math.min(order.length, LIMIT)} / ${order.length}件（未確定 ${pending}件・未確認優先・1回${LIMIT}件で確定${MIN_SAME}件以上）`);
@@ -89,7 +99,7 @@ const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品
   for (const p of order) {
     if (n >= LIMIT) break;
     n++;
-    const code = (p.code || "").trim();
+    const code = matchCodeOf(p); // 時計はJDM接尾辞を外した国際refで検索/照合（他ジャンルは生の型番）
     // ⚠️ eBayは "-" を除外(NOT)演算子として扱う＝型番の "-" をそのまま検索すると "-XXXX" 以降が除外され落札が出ない。
     //    検索クエリは "-"→空白に置換（照合 norm は元から記号無視なので整合）。これで実際の型番落札がヒットし確認精度も上がる。
     const codeQ = code.replace(/-/g, " ").replace(/\s+/g, " ").trim();
