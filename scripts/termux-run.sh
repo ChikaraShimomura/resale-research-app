@@ -12,8 +12,8 @@
 # ※ 旧「楽天の売切検知(liveness)」「楽天ギャラリー取得(gallery)」は無在庫モデルの遺物のため撤去(2026-06-28)。
 #   売切検知はハードオフ版に置換(2026-06-28)＝事業の仕入れ元がハードオフのため。
 CYCLE_INTERVAL="${CYCLE_INTERVAL_SEC:-${LIVENESS_INTERVAL_SEC:-3600}}"  # 1サイクルの長さ(秒・既定1h)。①②の頻度カウントと③の総待ちに使う(旧LIVENESS_INTERVAL_SECも互換で受ける)。
-SOLD_EVERY="${SOLD_EVERY_CYCLES:-24}"              # 何サイクルごとにeBay落札を発掘するか(既定24≒1日)
-REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-1200}"   # 型番リファインの小バッチ間隔(秒・既定1200=20分)。1サイクル内で複数回回す。
+SOLD_EVERY="${SOLD_EVERY_CYCLES:-12}"              # 何サイクルごとにeBay落札を発掘するか(既定12≒12h・候補の多様化を速める。2026-07-01: 24→12)
+REFINE_SUBINTERVAL="${REFINE_SUBINTERVAL:-720}"    # 型番リファインの小バッチ間隔(秒・既定720=12分)。1サイクル内で複数回回す(2026-07-01: 20分→12分で確定回転UP・captchaは wlog:refine の検問数で監視)。
 cd "$HOME/resale-research-app" || exit 1
 
 # 自己更新の罠対策：走行中の bash は起動時にパースした本体を実行し続けるので、git pull で
@@ -27,7 +27,7 @@ termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て�
 # 各ジョブの結果(時刻/終了コード/gitコミット/ログ末尾)を KV に push＝PC側から遠隔でログを見られるようにする。
 wl() { node scripts/workerLog.mjs "$1" "$2" "$3" >/dev/null 2>&1 || true; }  # wl <key> <logfile> <exit>
 
-echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=3サイクルごと / ハードオフ売切検知=毎サイクル / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log ~/hardoff.log"
+echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=2サイクルごと / ハードオフ売切検知=毎サイクル / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log ~/hardoff.log"
 cycle=0
 while true; do
   # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)。pull結果＋現在のgitコミットをKVに記録＝旧コードで止まってないか遠隔で分かる。
@@ -59,9 +59,9 @@ while true; do
     wl discover "$HOME/ebaysold.log" "$rc"
   fi
 
-  # ③ 中古カタログの候補構築(build)を【3時間ごと】に更新（Anthropic不使用＝無料）。
+  # ③ 中古カタログの候補構築(build)を【2時間ごと】に更新（Anthropic不使用＝無料。2026-07-01: 3h→2hで候補取得を速める）。
   #    キャッシュ ebay_sold_seed × ハードオフ現在庫 から利益候補を作る。確定相場は build が型番単位で引き継ぐ(崩落しない)。
-  if [ $(( cycle % 3 )) -eq 0 ]; then
+  if [ $(( cycle % 2 )) -eq 0 ]; then
     echo "---- $(date) used-catalog build ----" >> "$HOME/usedcatalog.log"
     node scripts/used/buildUsedSampleFromCache.mjs >> "$HOME/usedcatalog.log" 2>&1; brc=$?
     wl build "$HOME/usedcatalog.log" "$brc"

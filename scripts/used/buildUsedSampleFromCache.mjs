@@ -81,16 +81,21 @@ async function loadCategories() {
   const catalog = [];
   // 精度極限ゲート(getUsedCatalog=確定品のみ配信)により、未確定候補は表示されず「確定待ちキュー」になる。
   // ＝候補を厚く貯めても精度は落ちない。キューを厚くするほど refine が確定できる型番の母数が増える(歩留まり↑)。
-  const TARGET = Number(process.env.TARGET) || 3000; // 候補の総上限（確定待ちキュー。env TARGET で調整可）。供給を深掘りしても頭打ちにしない余白（旧1500は候補1200で未到達＝非拘束だった）。
+  const TARGET = Number(process.env.TARGET) || 5000; // 候補の総上限（確定待ちキュー）。実際の配分は per-genre 上限が主で、これは全体の安全弁。
   const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 60; // 1カテゴリ(型番系列)上限。※実測で40に当たる系列は全419中2つだけ＝ほぼ非拘束。深掘り分を受ける程度に微増。
   // ⌚時計は注力ジャンル＝需要・ハードオフ在庫が深く確定率も高い。系列ごとの上限を厚くして増やす（既取得ページから拾うだけ＝追加fetch無し）。
   const CAP_WATCH = Number(process.env.CAP_WATCH) || 150;
+  // ★ジャンルあたりの候補上限（ユーザー指示2026-07-01：全ジャンルを~1000件ずつ・ゲーム偏重を防ぐ）。
+  //   カテゴリはsoldCount順に処理するため、上限が無いと歩留まり・需要の高いゲームが TARGET を食い尽くし他ジャンルが枯れる。ジャンルごとに均等配分する。
+  const CAP_PER_GENRE = Number(process.env.CAP_PER_GENRE) || 1000;
   const PAGES = Number(process.env.HARDOFF_PAGES) || 8; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝419系列中417が「CAPでなくページ深度」で頭打ちのため、ここを最大化する。空ページで即打切りなので狭い系列は無駄打ちしない。3h毎の低頻度なので8でも常識内。
+  const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
     scanned++;
     const catGenre = genreOf(c.category); // このカテゴリの表示ジャンル（時計だけ上限を厚くする・netProfit/catでも再利用）
+    if ((genreCount[catGenre] || 0) >= CAP_PER_GENRE) continue; // このジャンルは充足＝枠を他ジャンルへ回す（均等化）
     const cap = catGenre === "腕時計" ? CAP_WATCH : CAP_PER_CAT; // ⌚時計は CAP_WATCH まで、他は CAP_PER_CAT
     // ページ送りで在庫を深掘り（narrowなクエリは2ページ目以降が空になり次第打ち切る）。URLで重複排除。
     let items = [];
@@ -126,7 +131,8 @@ async function loadCategories() {
           site: "hardoff", soldCount: c.soldCount,
         });
         added++;
-        if (added >= cap) break; // 1カテゴリ偏重を防ぐ（多様性）。時計は CAP_WATCH、他は CAP_PER_CAT。
+        genreCount[catGenre] = (genreCount[catGenre] || 0) + 1; // ジャンル別カウント（per-genre 上限の判定用）
+        if (added >= cap || (genreCount[catGenre] || 0) >= CAP_PER_GENRE) break; // カテゴリ偏重＋ジャンル偏重の両方を防ぐ
       }
     }
     if (added) console.log(`+${String(added).padStart(2)}  ${c.category.padEnd(20)} eBay中央¥${c.ebayMedian}  (計${catalog.length})`);

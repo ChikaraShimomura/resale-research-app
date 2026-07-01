@@ -85,10 +85,25 @@ const matchCodeOf = (p) => {
   // ＝確定済みの上位ばかり再チェックして未確認が永遠に残るのを防ぐ。同ランク内は利益額の高い順。
   //   ※ catalog と同じオブジェクト参照を並べ替えるだけ（書き戻しは元の catalog ベースなので不変条件は保たれる）。
   const pri = (p) => (p.ebayConfirmed ? 2 : p.ebayChecked ? 1 : 0); // 0=未確認 を最優先
+  // ★ジャンル横断ラウンドロビン（ユーザー指示2026-07-01：ゲームばかり増やさず全ジャンルを均等に伸ばす）。
+  //   従来は利益額順＝歩留まりの高いゲームが枠を独占し確定がゲーム偏重に。→ 各バッチでジャンルを1件ずつ交互に取り、
+  //   全ジャンルを同じ速度で確定していく。ランク(未確認→未確定→確定)は維持し、各ランク内でジャンル交互＋同ジャンル内は利益順。
+  const roundRobinByGenre = (items) => {
+    const g = {};
+    for (const p of items) { const k = p.cat || "中古"; (g[k] = g[k] || []).push(p); }
+    for (const k of Object.keys(g)) g[k].sort((a, b) => (b.profitJpy || 0) - (a.profitJpy || 0));
+    const genres = Object.keys(g);
+    const out = [];
+    for (let any = true; any; ) { any = false; for (const k of genres) { const a = g[k]; if (a.length) { out.push(a.shift()); any = true; } } }
+    return out;
+  };
   // 確定不能キャッシュに載ってる型番(TTL内)はスキップ＝バッチ枠を新規候補に集中(確定済みは再確認のため残す)。
-  const order = [...catalog]
-    .filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(matchCodeOf(p))))
-    .sort((a, b) => pri(a) - pri(b) || (b.profitJpy || 0) - (a.profitJpy || 0));
+  const eligible = [...catalog].filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(matchCodeOf(p))));
+  const order = [
+    ...roundRobinByGenre(eligible.filter((p) => pri(p) === 0)), // 未確認（ジャンル交互で均等に）
+    ...roundRobinByGenre(eligible.filter((p) => pri(p) === 1)), // 未確定の再挑戦（ジャンル交互）
+    ...eligible.filter((p) => pri(p) === 2).sort((a, b) => (b.profitJpy || 0) - (a.profitJpy || 0)), // 確定済みの再確認（利益順）
+  ];
   const pending = order.filter((p) => !p.ebayConfirmed).length;
   console.log(`対象 ${Math.min(order.length, LIMIT)} / ${order.length}件（未確定 ${pending}件・未確認優先・1回${LIMIT}件で確定${MIN_SAME}件以上）`);
 
