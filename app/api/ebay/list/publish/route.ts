@@ -243,6 +243,17 @@ export async function POST(req: Request) {
     } catch {
       /* noop */
     }
+    // 無在庫出品した品は、出品した本人(チーム=共有名前空間)のカタログから隠す＝もう自分は仕入れ検討しない品を二重表示しない。
+    // getHiddenCatalogKeys が used_dropship を読んで /catalog・/ranking から差し引く（他ユーザーのカタログには影響しない）。
+    // 有在庫(仕入れた)は used_bought で既に隠れる。停止/取消(catalog undo・stop)で解除＝再びカタログに戻る。
+    if (body.dropship) {
+      try {
+        await kv.sadd(`used_dropship:${actor}`, product.id);
+        await kv.expire(`used_dropship:${actor}`, 365 * 24 * 60 * 60);
+      } catch {
+        /* 非表示の焼き込み失敗は致命でない（出品自体は成功） */
+      }
+    }
     // チーム出品：deal は共有名前空間(オーナー)に記録済みなので全員の「出品中」に出るが、
     // 「誰が出品したか(byActor)」を残すため team_listed にも焼く（個別モードで各自のeBayに出した分の追跡も兼ねる）。
     if (teamListing && owner) {

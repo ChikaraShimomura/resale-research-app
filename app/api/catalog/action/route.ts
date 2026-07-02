@@ -99,9 +99,10 @@ export async function POST(req: Request) {
       return Response.json({ ok: true });
     }
     if (body.action === "undo") {
-      // どちらの印も解除＝カタログに戻す。送料設定も消す。
+      // どの印も解除＝カタログに戻す。仕入れ/skip/無在庫出品の非表示・送料設定を消す。
       await kv.hdel(BOUGHT_KEY(actor), productId);
       await kv.srem(SKIP_KEY(actor), productId);
+      try { await kv.srem(`used_dropship:${actor}`, productId); } catch { /* noop */ } // 無在庫出品の非表示も解除
       try { await kv.hdel(`used_ship:${actor}`, productId); } catch { /* noop */ }
       return Response.json({ ok: true });
     }

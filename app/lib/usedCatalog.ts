@@ -116,16 +116,18 @@ export function catalogItemKey(p: { id?: string; hardoffUrl: string }): string {
   return p.id || p.hardoffUrl;
 }
 
-// このアクターが「仕入れた」or「これは無理」で外した商品キーの集合。カタログ/ランキングの表示から差し引く。
-// 書き込みは /api/catalog/action（used_bought:{actor}=id→仕入れ値ハッシュ / used_skip:{actor}=id集合）。読みは read-only。
+// このアクターが「仕入れた」or「これは無理」or「無在庫出品した」で外した商品キーの集合。カタログ/ランキングの表示から差し引く。
+// 書き込みは /api/catalog/action（used_bought=id→仕入れ値ハッシュ / used_skip=id集合）＋ publish（used_dropship=無在庫出品したid集合）。読みは read-only。
+// used_dropship＝無在庫出品した本人(チーム)にだけ隠す＝もう自分は仕入れ検討しない品をカタログに二重表示しない（ユーザー指示2026-07-02）。
 export async function getHiddenCatalogKeys(actor: string | undefined | null): Promise<Set<string>> {
   if (!actor) return new Set();
   try {
-    const [boughtIds, skip] = await Promise.all([
+    const [boughtIds, skip, dropship] = await Promise.all([
       kvReadOnly.hkeys(`used_bought:${actor}`),
       kvReadOnly.smembers(`used_skip:${actor}`),
+      kvReadOnly.smembers(`used_dropship:${actor}`),
     ]);
-    return new Set<string>([...(boughtIds ?? []), ...(skip ?? [])] as string[]);
+    return new Set<string>([...(boughtIds ?? []), ...(skip ?? []), ...(dropship ?? [])] as string[]);
   } catch {
     return new Set();
   }

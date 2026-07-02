@@ -281,6 +281,8 @@ export async function deleteDealsWithSku(actor: string, ids: string[]): Promise<
   for (const id of ids) {
     await releaseListingSlot(actor, id);
   }
+  // 無在庫出品のカタログ非表示も解除（完全削除＝もう出品していないのでカタログに戻す）。srem は非メンバーに no-op。
+  try { await kv.srem(`used_dropship:${actor}`, ...ids); } catch { /* noop */ }
 }
 
 // cron用：出品停止中に入って24時間を過ぎた取引をまとめて「アーカイブ（既定で隠す）」へ移す。アーカイブしたIDを返す。

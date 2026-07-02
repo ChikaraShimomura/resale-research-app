@@ -1,3 +1,4 @@
+import { kv } from "@vercel/kv";
 import { getTeamContext } from "../../../../lib/auth/teamActor";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { withdrawListingForSku } from "../../../../lib/ebay/listing";
@@ -29,5 +30,8 @@ export async function POST(req: Request) {
 
   // 出品停止中一覧へ移す（共有dealに停止フラグ stoppedAt を付与。dealが無ければ何もしない）。
   await markStopped(dataActor ?? ebayActor, body.productId);
+  // 無在庫出品を停止したら、その品はカタログの非表示から戻す（もう出品していない＝再び仕入れ検討/他者が買える）。
+  // 有在庫や非無在庫の停止では used_dropship に載っていないので srem は no-op（無害）。
+  try { await kv.srem(`used_dropship:${dataActor ?? ebayActor}`, body.productId); } catch { /* noop */ }
   return Response.json({ ok: true, ended: r.ended });
 }
