@@ -235,6 +235,7 @@ export async function POST(req: Request) {
       listedAt: new Date().toISOString(),
       listingId: result.listingId, // 「写真追加」でその出品へ直リンクするため公開IDを保存（再出品で変わったら更新）
       sku: result.sku, // アプリ内編集(価格/数量)の対象オファー特定に使う
+      dropship: !!body.dropship, // 無在庫出品なら台帳に記録＝「無在庫」ラベル＋売り切れ検知→自動停止の対象。false明示で有在庫再出品時に確実に解除。
     });
     // 出品できたら「仕入れ中」からは外す（→ 出品中一覧へ移る）。
     try {

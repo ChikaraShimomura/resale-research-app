@@ -8,12 +8,16 @@ import { reportClientError, errToDetail } from "../lib/clientError";
 type Op = "rotate90" | "rotate-90" | "crop" | "textremove";
 type CropRect = { x: number; y: number; w: number; h: number };
 
-// 出品中の写真を「並び替え・メイン設定・削除・加工(回転/トリミング/文字消去)」する。
-// 反映は即時（/api/ebay/list/photo-edit）。先頭=メイン画像。加工はサーバーでEPS再ホスト→配列の同じ位置に差し替え。
-export default function PhotoManager({ productId, images, onImagesChange }: {
+// 出品中の写真を「並び替え・メイン設定・削除・加工(回転/トリミング/文字消去)」する。先頭=メイン画像。
+// staged=true（既定）：この画面の変更は「保存」を押すまでeBayに反映しない。並び替え/削除/メインはローカル配列のみ更新し、
+//   加工(回転/切り抜き/文字消去)はサーバーでEPS再ホストするが出品には書かず新URLを配列に差し替えるだけ（stage:true）。
+//   → 最後の「保存」で写真配列ごとeBayへ書く（写真も価格も同じタイミングで有効化）。
+// staged=false：従来どおり各操作を即時に出品へ反映する（他画面から使う場合の後方互換）。
+export default function PhotoManager({ productId, images, onImagesChange, staged = true }: {
   productId: string;
   images: string[];
   onImagesChange: (imgs: string[]) => void;
+  staged?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -41,7 +45,11 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
     }
   };
 
-  const setOrder = (next: string[]) => post({ action: "order", imageUrls: next });
+  // staged：並び替え/削除/メインは即時に出品へ書かず、ローカル配列だけ更新（保存時にまとめて反映）。
+  const setOrder = (next: string[]): Promise<boolean> => {
+    if (staged) { onImagesChange(next); return Promise.resolve(true); }
+    return post({ action: "order", imageUrls: next });
+  };
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir; if (j < 0 || j >= images.length) return;
     const next = images.slice(); [next[i], next[j]] = [next[j], next[i]]; setOrder(next);
@@ -55,7 +63,8 @@ export default function PhotoManager({ productId, images, onImagesChange }: {
   const transform = async (op: Op, cropArg?: CropRect) => {
     if (edit == null) return;
     // クライアントが今表示している配列(=正)とindexを送る＝サーバーで取り直し/突合しない（順番・枚数のズレで詰まらない）。
-    const ok = await post({ action: "transform", imageUrls: images, index: edit, op, crop: cropArg });
+    // staged時は stage:true＝加工画像をEPSに載せて新URLを配列に差し替えるだけ（出品への書き込みは保存時）。
+    const ok = await post({ action: "transform", imageUrls: images, index: edit, op, crop: cropArg, stage: staged });
     if (ok) { setCropMode(false); setCrop(null); }
   };
 

@@ -48,7 +48,35 @@ export async function POST(req: Request) {
     }
   }
 
+  // stage=1：「保存」でまとめて反映する方式。ここではEPSに載せて新URLを返すだけ＝出品(imageUrls)には書き込まない。
+  // クライアントが受け取ったURLをローカルの写真配列に足し、最後の「保存」で写真配列ごとeBayへ書く（写真も価格も同じタイミングで有効化）。
+  const stage = String(form.get("stage") ?? "") === "1";
   const sku = (await getListingSku(actor, productId)) ?? skuForProduct(productId);
+
+  // 実物写真をEPSへアップロード（並列）。sharpで長辺1600px/JPEGへ縮小してから上げる(12MB超対策＋規格統一)。
+  const uploaded = await Promise.all(
+    files.map(async (f) => {
+      const raw = Buffer.from(await f.arrayBuffer());
+      let bytes: Buffer = raw;
+      try { bytes = await processRealPhoto(raw); } catch { bytes = raw; } // 加工失敗は原本で続行
+      const r = await uploadHostedPictureFromBinary(token, bytes, "image/jpeg", `rr-${productId}`);
+      return r.ok && r.fullUrl ? r.fullUrl : { error: r.error };
+    })
+  );
+  const newEps: string[] = [];
+  let firstErr: string | undefined;
+  for (const u of uploaded) {
+    if (typeof u === "string") newEps.push(u);
+    else if (!firstErr) firstErr = u.error;
+  }
+  if (!newEps.length) {
+    const f = friendlyEbayError(firstErr);
+    return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: firstErr });
+  }
+
+  // ステージング：EPSに載せたURLだけ返す（出品への反映は「保存」時の写真配列書き込みに任せる）。
+  if (stage) return Response.json({ ok: true, added: newEps.length, urls: newEps });
+
   const { item, error: getErr } = await getInventoryItem(token, sku);
   if (!item) {
     // 在庫アイテムが無い＝eBay側で削除/別管理に移った（または自己修復SKUのズレ）＝再出品で復帰できる既知の回復可能状態。
@@ -74,27 +102,6 @@ export async function POST(req: Request) {
       })
     )
   ).filter((u): u is string => !!u);
-
-  // 実物写真をアップロード（並列）。sharpで長辺1600px/JPEGへ縮小してから上げる(12MB超対策＋規格統一)。
-  const uploaded = await Promise.all(
-    files.map(async (f) => {
-      const raw = Buffer.from(await f.arrayBuffer());
-      let bytes: Buffer = raw;
-      try { bytes = await processRealPhoto(raw); } catch { bytes = raw; } // 加工失敗は原本で続行
-      const r = await uploadHostedPictureFromBinary(token, bytes, "image/jpeg", `rr-${productId}`);
-      return r.ok && r.fullUrl ? r.fullUrl : { error: r.error };
-    })
-  );
-  const newEps: string[] = [];
-  let firstErr: string | undefined;
-  for (const u of uploaded) {
-    if (typeof u === "string") newEps.push(u);
-    else if (!firstErr) firstErr = u.error;
-  }
-  if (!newEps.length) {
-    const f = friendlyEbayError(firstErr);
-    return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: firstErr });
-  }
 
   // 仕入れ元画像(EPS化済) → 実物 の順で統一（全EPS・最大24枚）。
   const merged = [...existingEps, ...newEps].slice(0, 24);

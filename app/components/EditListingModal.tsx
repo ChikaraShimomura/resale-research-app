@@ -65,35 +65,29 @@ export default function EditListingModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ErrInfo | null>(null);
   const [done, setDone] = useState(false);
-  const [files, setFiles] = useState<File[]>([]); // 追加する実物写真
-  const [uploading, setUploading] = useState(false);
-  const [photoError, setPhotoError] = useState<ErrInfo | null>(null);
-  const [photoDone, setPhotoDone] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]); // 追加する実物写真（保存時にまとめてEPS→出品へ）
   const [refImages, setRefImages] = useState<string[]>([]); // 撮影の参考用：自宅ワーカーが取得したカタログ画像
-  const [images, setImages] = useState<string[]>([]); // 出品中の画像（並び替え/加工の対象）
+  const [images, setImages] = useState<string[]>([]); // 出品中の画像（並び替え/加工の対象・ステージング）
+  const [initialImages, setInitialImages] = useState<string[]>([]); // 読込時の画像配列。保存時に変化があった時だけ書き込む。
   const [formTitle, setFormTitle] = useState(""); // 件名（タイトル）の編集
   const [formDesc, setFormDesc] = useState("");    // 説明文の編集
+  const [initial, setInitial] = useState({ priceUsd: "", quantity: "1", title: "", desc: "", shipMode: "" as "" | "free" | "paid" }); // 読込時の値。保存時に「変わったものだけ」eBayへ書く。
+  const [pendingShipMode, setPendingShipMode] = useState<"free" | "paid" | null>(null); // 送料の出し方の変更予約（保存時に反映）
   const [showAdvanced, setShowAdvanced] = useState(false); // 件名・説明＝詳細オプション（既定で閉じる）
-  const [savingContent, setSavingContent] = useState(false);
-  const [contentErr, setContentErr] = useState<ErrInfo | null>(null);
-  const [contentDone, setContentDone] = useState(false);
-  // 送料の出し方（送料込み/別）の現在状態と切替プレビュー。
+  // 送料の出し方（送料込み/別）の現在状態と切替プレビュー。切替は保存時に反映（表示だけ即時反転）。
   const [ship, setShip] = useState<{ mode: "free" | "paid"; canFree: boolean; foldUsd: number; unfoldUsd: number } | null>(null);
-  const [shipBusy, setShipBusy] = useState(false);
-  const [shipMsg, setShipMsg] = useState<string | null>(null);
-  const [shipErr, setShipErr] = useState<ErrInfo | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null); // フォーカストラップ＆初期フォーカス用のダイアログ本体
 
-  // Escで閉じる（保存/アップロード中は実行を取りこぼさないため無視）。
+  // Escで閉じる（保存中は実行を取りこぼさないため無視）。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (saving || uploading || shipBusy) return;
+      if (saving) return;
       onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [saving, uploading, shipBusy, onClose]);
+  }, [saving, onClose]);
 
   // 開いた時にダイアログ先頭へフォーカス＋Tabをダイアログ内でループする簡易フォーカストラップ。
   useEffect(() => {
@@ -127,14 +121,20 @@ export default function EditListingModal({
       .then((j) => {
         if (!alive) return;
         if (j?.ok) {
-          if (j.priceUsd != null) { setPriceUsd(String(j.priceUsd)); setPriceYen(Number(j.priceUsd) > 0 ? String(Math.round(Number(j.priceUsd) * USD_JPY)) : ""); }
-          if (j.quantity != null) setQuantity(String(j.quantity));
+          const pUsd = j.priceUsd != null ? String(j.priceUsd) : "";
+          if (j.priceUsd != null) { setPriceUsd(pUsd); setPriceYen(Number(j.priceUsd) > 0 ? String(Math.round(Number(j.priceUsd) * USD_JPY)) : ""); }
+          const qty = j.quantity != null ? String(j.quantity) : "1";
+          if (j.quantity != null) setQuantity(qty);
           if (typeof j.floorUsd === "number") setFloorUsd(j.floorUsd);
           if (Array.isArray(j.refImages)) setRefImages(j.refImages);
-          if (Array.isArray(j.images)) setImages(j.images);
-          if (typeof j.title === "string") setFormTitle(j.title);
-          if (typeof j.description === "string") setFormDesc(j.description);
+          const imgs = Array.isArray(j.images) ? j.images : [];
+          setImages(imgs); setInitialImages(imgs);
+          const t = typeof j.title === "string" ? j.title : "";
+          const dsc = typeof j.description === "string" ? j.description : "";
+          setFormTitle(t); setFormDesc(dsc);
           if (j.ship) setShip(j.ship);
+          // 読込時の値をスナップショット＝保存時に「変わった項目だけ」書き込むための基準。
+          setInitial({ priceUsd: pUsd, quantity: qty, title: t, desc: dsc, shipMode: j.ship?.mode ?? "" });
         } else {
           setLoadError(j?.error || "出品情報を取得できませんでした。");
           if (j?.errorKind !== "known") reportClientError("ebay_list_edit_load", { action: "list_edit_load", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
@@ -147,116 +147,110 @@ export default function EditListingModal({
     };
   }, [productId]);
 
+  // 失敗時に ErrInfo を throw して save() に集約表示させるヘルパ。
+  const throwErr = (j: { error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null, fallback: string): never => {
+    throw { message: j?.error || fallback, errorKind: j?.errorKind, errorDetail: j?.errorDetail } as ErrInfo;
+  };
+
+  // 追加する実物写真をEPSへ載せる（stage=1＝出品には書かない）。新URL配列を返す。反映は最後の写真配列書き込みで。
+  const stageUploadPhotos = async (): Promise<string[]> => {
+    const endpoint = "/api/ebay/list/photos";
+    const fd = new FormData();
+    fd.append("productId", productId);
+    fd.append("stage", "1");
+    const prepared = await Promise.all(files.map((f) => downscaleForUpload(f))); // 送信前にJPEG縮小（本文上限413対策）
+    prepared.forEach((b, i) => { if (b instanceof File) fd.append("files", b, b.name); else fd.append("files", b, `photo-${i + 1}.jpg`); });
+    const res = await fetch(endpoint, { method: "POST", body: fd });
+    const text = await res.text();
+    let j: { ok?: boolean; urls?: string[]; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
+    try { j = text ? JSON.parse(text) : null; } catch { /* 非JSON応答 */ }
+    if (res.ok && j?.ok && Array.isArray(j.urls)) return j.urls;
+    const detail = j?.errorDetail || j?.error || (text ? text.slice(0, 500) : `HTTP ${res.status}（本文なし）`);
+    if (j?.errorKind !== "known") reportClientError("ebay_photos", { action: "photo_upload", endpoint, productId, status: res.status, detail });
+    return throwErr({ error: j?.error || `写真の追加に失敗しました（コード ${res.status}）。`, errorKind: j?.errorKind || "unexpected", errorDetail: detail }, "写真の追加に失敗しました。");
+  };
+
+  // /api/ebay/list/edit へ1項目ぶんPOST（件名説明 / 送料 / 価格数量）。失敗は throw。
+  const postEdit = async (payload: object, where: string, action: string): Promise<void> => {
+    let j: { ok?: boolean; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
+    try {
+      j = await fetch("/api/ebay/list/edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId, ...payload }) }).then((r) => r.json());
+    } catch (e) {
+      const detail = errToDetail(e);
+      reportClientError(where, { action, endpoint: "/api/ebay/list/edit", status: 0, productId, detail: `fetch例外: ${detail}` });
+      return throwErr({ error: "通信エラーで更新できませんでした。", errorKind: "unexpected", errorDetail: detail }, "通信エラー");
+    }
+    if (j?.ok) return;
+    if (j?.errorKind !== "known") reportClientError(where, { action, endpoint: "/api/ebay/list/edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
+    return throwErr(j, "更新に失敗しました。");
+  };
+
+  // 写真配列を出品へ反映（並び替え/削除/加工/追加を最終配列でまとめて書く＝保存時に一度だけ）。
+  const writeImages = async (imgs: string[]): Promise<void> => {
+    let j: { ok?: boolean; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
+    try {
+      j = await fetch("/api/ebay/list/photo-edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId, action: "order", imageUrls: imgs }) }).then((r) => r.json());
+    } catch (e) {
+      const detail = errToDetail(e);
+      reportClientError("ebay_photos_edit", { action: "photo_order_save", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: `fetch例外: ${detail}` });
+      return throwErr({ error: "通信エラーで写真を保存できませんでした。", errorKind: "unexpected", errorDetail: detail }, "通信エラー");
+    }
+    if (j?.ok) return;
+    if (j?.errorKind !== "known") reportClientError("ebay_photos_edit", { action: "photo_order_save", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
+    return throwErr(j, "写真の保存に失敗しました。");
+  };
+
+  // 「保存」＝この画面の変更（写真・価格・数量・件名・説明・送料）を、押した時にまとめてeBayへ反映する。
+  // 変わった項目だけ順に書く。送料は価格より先（送料切替が商品価格を再計算するため）。価格は最後＝入力した総額が最終権威。
   const save = async () => {
+    // 追加写真がeBay上限(24枚)を超える時は、EPS往復させる前にここで止めて案内（黙って切り捨てない）。
+    if (files.length) {
+      const room = Math.max(0, 24 - images.length);
+      if (files.length > room) {
+        setSaveError({ message: room > 0 ? `写真は合計24枚までです。追加できるのはあと${room}枚。選択枚数を減らすか、上の写真を削除してください。` : "写真は最大24枚です。上の写真を削除してから追加してください。", errorKind: "known" });
+        return;
+      }
+    }
     setSaving(true);
     setSaveError(null);
     try {
-      const j = await fetch("/api/ebay/list/edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, priceUsd, quantity: Number(quantity), acceptLoss }),
-      }).then((r) => r.json());
-      if (j?.ok) {
+      let wrote = false; // 1つでもeBayへ書いたか。何も変えていない保存で「反映しました」と誤表示しないための判定。
+      let finalImages = images;
+      if (files.length) {
+        const uploaded = await stageUploadPhotos();
+        finalImages = [...images, ...uploaded].slice(0, 24);
+        setImages(finalImages);
+        setFiles([]);
+      }
+      if (JSON.stringify(finalImages) !== JSON.stringify(initialImages)) { await writeImages(finalImages); wrote = true; }
+      // 件名・説明は「変わった項目だけ」送る＝件名だけ変えた時に未編集の説明文をhtml往復させて微改変しない。
+      if (formTitle !== initial.title || formDesc !== initial.desc) {
+        const cp: { title?: string; description?: string } = {};
+        if (formTitle !== initial.title) cp.title = formTitle;
+        if (formDesc !== initial.desc) cp.description = formDesc;
+        await postEdit(cp, "ebay_edit_content", "content_save");
+        wrote = true;
+      }
+      if (pendingShipMode && pendingShipMode !== initial.shipMode) { await postEdit({ shipMode: pendingShipMode }, "ebay_ship_mode", "ship_toggle"); wrote = true; }
+      if (priceUsd !== initial.priceUsd || quantity !== initial.quantity) { await postEdit({ priceUsd, quantity: Number(quantity), acceptLoss }, "ebay_edit", "price_edit"); wrote = true; }
+      if (wrote) {
         setDone(true);
         onSaved?.();
         setTimeout(onClose, 900);
       } else {
-        setSaveError({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
-        if (j?.errorKind !== "known") reportClientError("ebay_edit", { action: "price_edit", endpoint: "/api/ebay/list/edit", productId, detail: j?.errorDetail || j?.error || "(no detail)" });
+        onClose(); // 変更ゼロ＝何も書いていないので「反映しました」を出さずそのまま閉じる。
       }
     } catch (e) {
-      const detail = errToDetail(e);
-      setSaveError({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected", errorDetail: detail });
-      reportClientError("ebay_edit", { action: "price_edit", endpoint: "/api/ebay/list/edit", productId, detail: `fetch例外: ${detail}` });
+      const info = e as ErrInfo;
+      setSaveError(info && info.message ? info : { message: "保存に失敗しました。", errorKind: "unexpected", errorDetail: errToDetail(e) });
     }
     setSaving(false);
   };
 
-  // 送料の出し方を切替（送料込み⇄送料別）。価格と配送ポリシーをサーバー側で同時更新する。
-  const toggleShip = async (mode: "free" | "paid") => {
-    setShipBusy(true); setShipMsg(null); setShipErr(null);
-    try {
-      const j = await fetch("/api/ebay/list/edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, shipMode: mode }),
-      }).then((r) => r.json());
-      if (j?.ok) {
-        if (j.priceUsd != null) setPriceUsd(String(j.priceUsd));
-        setShip((p) => (p ? { ...p, mode } : p)); // 表示状態を反転（プレビュー額は次回開き直しで正確化）
-        setShipMsg(mode === "free" ? "送料込み（送料無料）に切替えました" : "送料別に戻しました");
-        onSaved?.();
-      } else {
-        setShipErr({ message: j?.error || "送料の切替に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail });
-        if (j?.errorKind !== "known") reportClientError("ebay_ship_mode", { action: "ship_toggle", endpoint: "/api/ebay/list/edit", productId, detail: j?.errorDetail || j?.error || "(no detail)" });
-      }
-    } catch (e) {
-      const detail = errToDetail(e);
-      setShipErr({ message: "通信エラーで切替できませんでした。", errorKind: "unexpected", errorDetail: detail });
-      reportClientError("ebay_ship_mode", { action: "ship_toggle", endpoint: "/api/ebay/list/edit", productId, detail: `fetch例外: ${detail}` });
-    }
-    setShipBusy(false);
-  };
-
-  const uploadPhotos = async () => {
-    if (!files.length) return;
-    setUploading(true);
-    setPhotoError(null);
-    setPhotoDone(null);
-    const endpoint = "/api/ebay/list/photos";
-    const ctx = { action: "photo_upload", endpoint, productId, fileCount: files.length };
-    try {
-      const fd = new FormData();
-      fd.append("productId", productId);
-      // 送信前にJPEG縮小（本文上限413対策）。縮小不可だった原本はそのまま送る。
-      const prepared = await Promise.all(files.map((f) => downscaleForUpload(f)));
-      prepared.forEach((b, i) => {
-        if (b instanceof File) fd.append("files", b, b.name);
-        else fd.append("files", b, `photo-${i + 1}.jpg`);
-      });
-      const res = await fetch(endpoint, { method: "POST", body: fd });
-      // .json()直結だと非JSON応答(500のHTML/タイムアウト)で例外になり原因を失う→ status+本文を必ず捉える。
-      const text = await res.text();
-      let j: { ok?: boolean; added?: number; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
-      try { j = text ? JSON.parse(text) : null; } catch { /* 非JSON応答 */ }
-      if (res.ok && j?.ok) {
-        setPhotoDone(`実物写真を${j.added}枚 追加しました（出品に反映済み）`);
-        setFiles([]);
-        // 追加後の最新画像配列を取り直して写真管理(並び替え/加工)に反映。
-        try {
-          const r = await fetch(`/api/ebay/list/edit?id=${encodeURIComponent(productId)}`, { cache: "no-store" }).then((x) => x.json());
-          if (r?.ok && Array.isArray(r.images)) setImages(r.images);
-        } catch { /* noop */ }
-        onSaved?.();
-      } else {
-        const detail = j?.errorDetail || j?.error || (text ? text.slice(0, 500) : `HTTP ${res.status}（本文なし）`);
-        setPhotoError({
-          message: j?.error || `写真の追加に失敗しました（コード ${res.status}）。`,
-          errorKind: j?.errorKind || "unexpected",
-          errorDetail: detail,
-        });
-        if (j?.errorKind !== "known") reportClientError("ebay_photos", { ...ctx, status: res.status, detail });
-      }
-    } catch (e) {
-      const detail = errToDetail(e);
-      setPhotoError({ message: "通信エラーで写真を追加できませんでした。", errorKind: "unexpected", errorDetail: detail });
-      reportClientError("ebay_photos", { ...ctx, status: 0, detail: `fetch例外: ${detail}` });
-    }
-    setUploading(false);
-  };
-
-  // 件名・説明文を保存（在庫アイテム＋公開オファーの両方に反映）。
-  const saveContent = async () => {
-    setSavingContent(true); setContentErr(null); setContentDone(false);
-    try {
-      const j = await fetch("/api/ebay/list/edit", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, title: formTitle, description: formDesc }),
-      }).then((r) => r.json());
-      if (j?.ok) { setContentDone(true); onSaved?.(); }
-      else { setContentErr({ message: j?.error || "更新に失敗しました。", errorKind: j?.errorKind, errorDetail: j?.errorDetail }); if (j?.errorKind !== "known") reportClientError("ebay_edit_content", { action: "content_save", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" }); }
-    } catch (e) { setContentErr({ message: "通信エラーで更新できませんでした。", errorKind: "unexpected" }); reportClientError("ebay_edit_content", { action: "content_save", endpoint: "/api/ebay/list/edit", status: 0, productId, detail: `fetch例外: ${errToDetail(e)}` }); }
-    setSavingContent(false);
+  // 送料の出し方の切替＝予約のみ（保存で反映）。表示は即時に反転する。
+  const toggleShip = (mode: "free" | "paid") => {
+    setPendingShipMode(mode);
+    setShip((p) => (p ? { ...p, mode } : p));
   };
 
   const priceOk = Number(priceUsd) >= 0.01;
@@ -339,44 +333,30 @@ export default function EditListingModal({
                 <span className="text-[12px] font-bold text-gray-700">送料の出し方</span>
                 {ship.mode === "free" ? (
                   <>
-                    <p className="text-[11px] text-emerald-600 mt-0.5 mb-2">現在：送料込み（送料無料で出品中）</p>
+                    <p className="text-[11px] text-emerald-600 mt-0.5 mb-2">送料込み（送料無料）</p>
                     <button
                       onClick={() => toggleShip("paid")}
-                      disabled={shipBusy}
-                      className="w-full min-h-[44px] py-1.5 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex flex-col items-center justify-center leading-tight"
+                      className="w-full min-h-[44px] py-1.5 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold flex flex-col items-center justify-center leading-tight"
                     >
-                      {shipBusy ? (
-                        <span className="inline-flex items-center gap-2"><Spinner size={14} /> 切替中…</span>
-                      ) : (
-                        <>
-                          <span>送料別に戻す</span>
-                          {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums whitespace-nowrap">価格 −約¥{Math.round(ship.unfoldUsd * 155).toLocaleString("ja-JP")}</span>}
-                        </>
-                      )}
+                      <span>送料別に戻す</span>
+                      {ship.unfoldUsd > 0 && <span className="text-[11px] font-normal opacity-80 tabular-nums whitespace-nowrap">価格 −約¥{Math.round(ship.unfoldUsd * 155).toLocaleString("ja-JP")}</span>}
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2"><span className="whitespace-nowrap">現在：送料別（購入者負担）。</span><wbr /><span className="whitespace-nowrap">送料無料の方が検索・転換に強い。</span></p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 mb-2"><span className="whitespace-nowrap">送料別（購入者負担）。</span><wbr /><span className="whitespace-nowrap">送料無料の方が検索・転換に強い。</span></p>
                     <button
                       onClick={() => toggleShip("free")}
-                      disabled={shipBusy || !ship.canFree}
+                      disabled={!ship.canFree}
                       className="w-full min-h-[44px] py-1.5 rounded-lg bg-violet-500 text-white text-sm font-bold disabled:opacity-50 flex flex-col items-center justify-center leading-tight"
                     >
-                      {shipBusy ? (
-                        <span className="inline-flex items-center gap-2"><Spinner size={14} /> 切替中…</span>
-                      ) : (
-                        <>
-                          <span>送料込み（送料無料）に切替</span>
-                          {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums whitespace-nowrap">価格 +約¥{Math.round(ship.foldUsd * 155).toLocaleString("ja-JP")}</span>}
-                        </>
-                      )}
+                      <span>送料込み（送料無料）に切替</span>
+                      {ship.foldUsd > 0 && <span className="text-[11px] font-normal opacity-90 tabular-nums whitespace-nowrap">価格 +約¥{Math.round(ship.foldUsd * 155).toLocaleString("ja-JP")}</span>}
                     </button>
                     {!ship.canFree && <p className="text-[10px] text-orange-600 mt-1 leading-relaxed"><span className="whitespace-nowrap">※eBayに「送料無料」の配送ポリシーが必要</span><wbr /><span className="whitespace-nowrap">（eBayで一度作れば切替可）。</span></p>}
                   </>
                 )}
-                {shipErr && <ReportableError message={shipErr.message} errorKind={shipErr.errorKind} errorDetail={shipErr.errorDetail} where="ebay_ship_mode" context={{ productId }} className="mt-1" />}
-                {shipMsg && <p className="text-[12px] text-emerald-600 mt-1">✓ {shipMsg}</p>}
+                {pendingShipMode && pendingShipMode !== initial.shipMode && <p className="text-[11px] text-[#A98B5C] font-bold mt-1">下の「保存」で反映します</p>}
               </div>
             )}
 
@@ -418,27 +398,15 @@ export default function EditListingModal({
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff"
                 multiple
-                onChange={(e) => { setFiles(Array.from(e.target.files ?? []).slice(0, 6)); setPhotoDone(null); setPhotoError(null); }}
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 6))}
                 className="block w-full text-[11px] text-gray-600 file:mr-2 file:h-8 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:text-[11px] file:font-bold"
               />
-              {files.length > 0 && <p className="text-[11px] text-gray-500 mt-1">{files.length}枚 選択中</p>}
-              {photoError && <ReportableError message={photoError.message} errorKind={photoError.errorKind} errorDetail={photoError.errorDetail} where="ebay_photos" context={{ productId }} className="mt-1" />}
-              {photoDone && <p className="text-[12px] text-emerald-600 mt-1 leading-relaxed">✓ {photoDone}</p>}
-              <button
-                onClick={uploadPhotos}
-                disabled={uploading || files.length === 0}
-                className="mt-2 w-full h-10 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <Spinner size={14} /> アップロード中…（少し時間がかかります）
-                  </>
-                ) : (
-                  <>
-                    <ImagePlus size={15} /> 実物写真を追加
-                  </>
-                )}
-              </button>
+              {files.length > 0 && (
+                <p className="text-[11px] text-[#A98B5C] font-bold mt-1 leading-relaxed">
+                  <ImagePlus size={12} className="inline -mt-0.5 mr-0.5" />
+                  <span className="whitespace-nowrap">{files.length}枚 選択中</span><wbr /><span className="whitespace-nowrap">（下の「保存」で追加されます）</span>
+                </p>
+              )}
             </div>
 
             {/* 件名・説明文の編集＝詳細オプション（既定で閉じる・必要な人だけ開く）。在庫＋公開オファーに反映。 */}
@@ -451,19 +419,14 @@ export default function EditListingModal({
                 <div className="mt-2 space-y-2">
                   <label className="block">
                     <span className="text-[11px] font-bold text-gray-600">件名（英語・80字まで）</span>
-                    <input type="text" maxLength={80} value={formTitle} onChange={(e) => { setFormTitle(e.target.value); setContentDone(false); }} className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
+                    <input type="text" maxLength={80} value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="mt-1 w-full h-10 px-3 rounded-lg border border-[#A98B5C]/45 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
                     <span className="block text-[10px] text-gray-400 mt-0.5 text-right tabular-nums">{formTitle.length}/80</span>
                   </label>
                   <label className="block">
                     <span className="text-[11px] font-bold text-gray-600">説明文</span>
-                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => { setFormDesc(e.target.value); setContentDone(false); }} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
-                    <span className="block text-[10px] text-gray-400 mt-0.5">改行はそのまま反映。英語推奨。</span>
+                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
+                    <span className="block text-[10px] text-gray-400 mt-0.5">改行はそのまま反映。英語推奨。下の「保存」で反映されます。</span>
                   </label>
-                  {contentErr && <ReportableError message={contentErr.message} errorKind={contentErr.errorKind} errorDetail={contentErr.errorDetail} where="ebay_edit_content" context={{ productId }} className="mt-1" />}
-                  {contentDone && <p className="text-[12px] text-emerald-600">✓ 件名・説明を反映しました</p>}
-                  <button type="button" onClick={saveContent} disabled={savingContent || formTitle.trim().length < 1} className="w-full h-10 rounded-lg border border-[#2D323B] text-[#2D323B] text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
-                    {savingContent ? (<><Spinner size={14} /> 保存中…</>) : ("件名・説明を保存")}
-                  </button>
                 </div>
               )}
             </div>
@@ -483,10 +446,11 @@ export default function EditListingModal({
 
             {saveError && <ReportableError message={saveError.message} errorKind={saveError.errorKind} errorDetail={saveError.errorDetail} where="ebay_edit" context={{ productId }} className="mt-1" />}
 
+            {/* 「保存」＝この画面の変更（写真・価格・数量・件名・説明・送料）を押した時にまとめてeBayへ反映する主アクション。 */}
             <div className="pt-3 mt-1 border-t border-[#A98B5C]/25">
               <button
                 onClick={save}
-                disabled={saving || !priceOk || !qtyOk || (belowFloor && !acceptLoss)}
+                disabled={saving || !priceOk || !qtyOk || formTitle.trim().length < 1 || (belowFloor && !acceptLoss)}
                 className="w-full h-11 rounded-lg bg-[#2D323B] text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving ? (
@@ -494,7 +458,7 @@ export default function EditListingModal({
                     <Spinner size={14} /> 保存中…
                   </>
                 ) : (
-                  "価格・数量を保存"
+                  "保存"
                 )}
               </button>
             </div>

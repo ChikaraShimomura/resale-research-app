@@ -56,6 +56,7 @@ export interface Deal {
   listedAt: string;
   listingId?: string; // eBayの公開ID（https://www.ebay.com/itm/{listingId}）。出品成功時に保存。マイページの「写真追加」で当該出品へ直リンクするのに使う
   sku?: string; // 実際に公開に使ったSKU（自己修復で rr-{id}-{乱数} になり得る）。アプリ内編集(価格/数量)の対象オファー特定に使う
+  dropship?: boolean; // 無在庫出品（仕入れ前にeBay出品）。trueの出品だけ「売り切れ検知→自動停止」の対象にする（有在庫=所有済みは対象外）。
   stoppedAt?: string; // 「出品停止」を押した日時(ISO)。出品停止中一覧に表示。再出品で解除。
   archivedAt?: string; // 出品停止のまま24時間を過ぎて「過去の出品(アーカイブ)」へ移した日時(ISO)。既定の出品停止中一覧からは外すがレコード/成績は残す。再出品で解除。完全削除は手動のみ。
   sourceStatus?: "dead" | "soldout"; // 仕入れ元が掲載終了/売り切れの時に立つ（checkListings cronが~30分毎に更新）
@@ -71,7 +72,7 @@ export interface Deal {
 export async function recordListed(
   actor: string,
   productId: string,
-  d: { purchase: number; points: number; title: string; imageUrl?: string; sourceUrl?: string; listedAt: string; listingId?: string; sku?: string }
+  d: { purchase: number; points: number; title: string; imageUrl?: string; sourceUrl?: string; listedAt: string; listingId?: string; sku?: string; dropship?: boolean }
 ): Promise<void> {
   try {
     const existing = (await kv.hget<Deal>(DEALS_KEY(actor), productId)) ?? null;
@@ -91,6 +92,10 @@ export async function recordListed(
         ...(d.listingId ? { listingId: d.listingId } : {}),
         ...(d.sku ? { sku: d.sku } : {}),
       };
+      // 無在庫フラグは再出品ペイロードで明示的に上書き：true=対象化 / false=有在庫化＝自動停止対象から確実に外す
+      // （無在庫→仕入れて所有→有在庫で出し直した時に、古い dropship:true が残って誤自動停止されるのを防ぐ）。
+      if (d.dropship === true) next.dropship = true;
+      else if (d.dropship === false) delete next.dropship;
       delete next.stoppedAt;
       delete next.archivedAt;
       await kv.hset(DEALS_KEY(actor), { [productId]: next });
@@ -136,6 +141,7 @@ export interface LiveDeal {
   sourceStatus?: "dead" | "soldout"; // 仕入れ元が掲載終了/売り切れの時に⚠️表示するためのフラグ
   priceDrift?: { nowJpy: number; pct: number; at: string }; // ④ 仕入れ元の値上がり警告（出品時原価を閾値超過）
   stopFailedCount?: number; // 自動取り下げが繰り返し失敗（一定超で「手動でeBayから取り下げを」と表示）
+  dropship?: boolean; // 無在庫出品＝一覧に「無在庫」ラベルを出す＋売り切れ検知→自動停止の対象
 }
 export interface SoldDeal {
   id: string;
@@ -398,6 +404,7 @@ export async function listDealsForUser(
       sourceStatus: d.sourceStatus, // 仕入れ元が売り切れ/リンク切れなら⚠️
       priceDrift: d.priceDrift, // ④ 仕入れ元の値上がり警告
       stopFailedCount: d.stopFailedCount, // 自動取り下げ連続失敗（手動対応を促す）
+      dropship: d.dropship, // 無在庫ラベル表示用
     }))
     .sort((a, b) => (b.listedAt || "").localeCompare(a.listedAt || "")); // 新しい順
 
@@ -412,6 +419,7 @@ export async function listDealsForUser(
       listingId: d.listingId,
       stoppedAt: d.stoppedAt,
       sourceStatus: d.sourceStatus, // 自動停止の理由(売切/リンク切れ)を停止中一覧でも表示
+      dropship: d.dropship, // 無在庫ラベル表示用
     }))
     .sort((a, b) => (b.stoppedAt || "").localeCompare(a.stoppedAt || "")); // 停止が新しい順
 

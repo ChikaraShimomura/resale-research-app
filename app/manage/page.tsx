@@ -380,6 +380,12 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
         <div className="flex items-start gap-3">
           <Thumb src={d.imageUrl} />
           <div className="flex-1 min-w-0">
+            {/* 無在庫出品はひと目で分かるラベル。これが付いた出品だけ「売り切れ検知→自動停止」の対象になる。 */}
+            {d.dropship && (
+              <span className="inline-flex items-center gap-1 mb-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D323B] text-[#A98B5C] border border-[#A98B5C]/50">
+                📦 無在庫出品
+              </span>
+            )}
             <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
             <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
             {/* いま実際にeBayに出している価格（取得できた時のみ）。¥は概算（×155）。 */}
@@ -443,6 +449,12 @@ function RelistCard({ d, snap, canList }: { d: ListedItem; snap?: ProfitProduct;
         <div className="flex items-start gap-3">
           <Thumb src={d.imageUrl} />
           <div className="flex-1 min-w-0">
+            {/* 無在庫出品はひと目で分かるラベル。これが付いた出品だけ「売り切れ検知→自動停止」の対象になる。 */}
+            {d.dropship && (
+              <span className="inline-flex items-center gap-1 mb-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D323B] text-[#A98B5C] border border-[#A98B5C]/50">
+                📦 無在庫出品
+              </span>
+            )}
             <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">{d.title}</p>
             <p className="text-[11px] text-gray-500 mt-1 tabular-nums">仕入れ {yen(d.purchase)}</p>
             {d.sourceStatus && (

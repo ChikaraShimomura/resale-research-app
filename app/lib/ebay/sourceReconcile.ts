@@ -55,18 +55,37 @@ export async function reconcileActorStops(actor: string, overpricedIds?: Set<str
     /* 逆引き不能でも d.sku/固定SKU で続行 */
   }
   const overpriced = overpricedIds ?? (await fetchOverpricedIds());
+  // ハードオフ実ページ売切マップ(hardoffLivenessWorker が used_source_status に書く。productId→{status:"soldout"|"dead"})。
+  // 無在庫出品の「売り切れ検知」はこれを権威にする＝毎時の実ページ判定を使い、仕入れ元が売り切れたら自動停止する。
+  let usedStatus: Record<string, { status?: string } | null> = {};
+  try {
+    usedStatus = (await kv.hgetall<Record<string, { status?: string } | null>>("used_source_status")) ?? {};
+  } catch {
+    /* 取得失敗時は deal.sourceStatus / overpriced のみで判定 */
+  }
   const stopped: AutoStopEntry[] = [];
   for (const [productId, d] of Object.entries(deals)) {
     if (!d || typeof d !== "object") continue;
     if (d.soldUsd != null || d.stoppedAt != null) continue; // 売却済み/停止済みは対象外
-    // 停止理由：仕入れ元の死活(dead/soldout・実ページ権威)＞箱価格不採算(overpriced・refresh判定)。
-    const reason: AutoStopEntry["reason"] | null =
+    // ★売り切れ検知→自動停止は「無在庫出品(dropship)」だけが対象。有在庫は自分で先に買って所有済み＝仕入れ元が
+    //   売り切れても手元に在庫があり出品は正当なので、絶対に自動停止しない（過去に有在庫を誤停止した回帰の再発防止）。
+    if (!d.dropship) continue;
+    // 仕入れ元の売切/掲載終了シグナル＝deal.sourceStatus か used_source_status(実ページ毎時判定)のどちらか。
+    const srcStatus =
       d.sourceStatus === "dead" || d.sourceStatus === "soldout"
         ? d.sourceStatus
-        : overpriced.has(productId)
-        ? "overpriced"
+        : usedStatus[productId]?.status === "dead" || usedStatus[productId]?.status === "soldout"
+        ? (usedStatus[productId]!.status as "dead" | "soldout")
         : null;
+    // 停止理由：仕入れ元の死活(dead/soldout・実ページ権威)＞箱価格不採算(overpriced・refresh判定)。
+    const reason: AutoStopEntry["reason"] | null = srcStatus ?? (overpriced.has(productId) ? "overpriced" : null);
     if (!reason) continue; // 検知フラグが立っているものだけ
+    // used_source_status 由来の売切は deal 側にも焼いて、停止中一覧で「⚠️仕入れ元が売り切れ」の理由を出せるようにする。
+    // ローカルの d も同期＝この後の取り下げ失敗ブランチが {...d} を書き戻す時に、焼いた sourceStatus を消さない。
+    if ((reason === "dead" || reason === "soldout") && d.sourceStatus !== reason) {
+      d.sourceStatus = reason;
+      try { await kv.hset(`ebay_deals:${actor}`, { [productId]: { ...d } }); } catch { /* 表示用の焼き込み失敗は致命でない */ }
+    }
     // SKU解決：deal保存値 ＞ SKU対応表の逆引き(自己修復SKUもここで拾う) ＞ 固定SKU(rr-{id})。
     const mappedSku = d.sku ?? skuByProduct.get(productId) ?? null;
     const sku = mappedSku ?? skuForProduct(productId);

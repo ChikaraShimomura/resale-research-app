@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     index?: number;
     op?: PhotoOp;
     crop?: { x: number; y: number; w: number; h: number };
+    stage?: boolean; // true＝加工後の画像をEPSに載せて新URLを返すだけ（出品には書かない）。反映は「保存」時の写真配列書き込みに任せる。
   };
   if (!body.productId) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
   const sku = await skuFor(actor, body.productId);
@@ -74,6 +75,8 @@ export async function POST(req: Request) {
     }
     const next = imgs.slice();
     next[idx] = t.url; // 加工後の1枚を差し替え（並び順はクライアントのまま保持）
+    // ステージング：加工URLは載せ済み。出品への書き込みは「保存」時にまとめて行うので、ここでは配列だけ返す。
+    if (body.stage) return Response.json({ ok: true, imageUrls: next, newUrl: t.url });
     const upd = await updateInventoryItemImages(token, sku, next);
     if (!upd.ok) {
       await diag("transform_save", upd.error, { op: body.op, productId: body.productId });
