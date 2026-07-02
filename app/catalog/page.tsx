@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, ArrowRight, Lock, ExternalLink, ArrowUpDown, Tag } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, sourceSiteName, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
+import { Flame, ArrowRight, Lock, ArrowUpDown, Tag } from "lucide-react";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList, canDropship } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -246,30 +246,10 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                       </div>
                     </div>
 
-                    {/* 仕入れ先＋eBay落札の根拠＋自分でeBay自動出品（actionable＝有料のみ）。1点物なので個別URLへ直接。 */}
+                    {/* 仕入れ元確認/仕入れた（上段）＋eBay落札確認/eBayライバル確認/無在庫出品（下段）を1コンポーネントに集約。
+                        eBay落札URLは型番(ハイフン空白化)で毎回生成（古い保存URLは "-"入りで該当が出ないため使わない）。 */}
                     {!locked ? (
-                      <div className="mt-2.5 space-y-2">
-                        <div className="flex gap-2">
-                          <a
-                            href={p.hardoffUrl}
-                            target="_blank"
-                            rel="nofollow noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-[#2D323B] text-white font-bold text-[13px] rounded-xl active:bg-[#1A1D23]"
-                          >
-                            {sourceSiteName(p.site)}で見る <ExternalLink size={14} />
-                          </a>
-                          {/* eBay落札の根拠。型番(ハイフン空白化)で検索＝特定型番の落札。古い保存URL(p.ebaySoldUrl)は "-"入りで該当が出ないので使わず、毎回 ebaySoldSearchUrl で生成する。 */}
-                          <a
-                            href={ebaySoldSearchUrl(p)}
-                            target="_blank"
-                            rel="nofollow noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-1.5 h-10 bg-white border border-[#0064D2] text-[#0064D2] font-bold text-[13px] rounded-xl active:bg-[#0064D2]/5"
-                          >
-                            eBay落札を確認 <ExternalLink size={14} />
-                          </a>
-                        </div>
-                        {/* triage：仕入れたら / 無理なら 印を付ける（per-actor）＋共有でリンクを送る。「仕入れた」を押すと「仕入れ商品」へ入り、そこでeBay出品する。
-                            チームモード（teamOwner）の時はオーナーの一覧へ入る。 */}
+                      <div className="mt-2.5">
                         <CatalogActionButtons
                           productId={catalogItemKey(p)}
                           buyJpy={p.buyJpy}
@@ -278,6 +258,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           canDropship={canDrop}
                           teamOwner={teamOwner || undefined}
                           shareTitle={`${p.brand} ${p.name}`.trim()}
+                          sourceUrl={p.hardoffUrl}
+                          soldUrl={ebaySoldSearchUrl(p)}
                           rivalsUrl={ebayActiveSearchUrl(p)}
                         />
                       </div>

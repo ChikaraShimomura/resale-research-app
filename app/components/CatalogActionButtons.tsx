@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Undo2, Eye } from "lucide-react";
+import { Check, Undo2, Eye, ExternalLink } from "lucide-react";
 import { reportClientError, errToDetail } from "../lib/clientError";
 import DropshipListButton from "./DropshipListButton";
 
@@ -19,6 +19,8 @@ export default function CatalogActionButtons({
   canDropship = false,
   teamOwner,
   shareTitle,
+  sourceUrl,
+  soldUrl,
   rivalsUrl,
 }: {
   productId: string;
@@ -28,7 +30,9 @@ export default function CatalogActionButtons({
   canDropship?: boolean; // 無在庫出品（先に買わずeBay出品）を実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
   shareTitle?: string; // 商品名（無在庫出品モーダルのタイトルに使う）
-  rivalsUrl?: string; // eBayの「今出品されているライバル(現行出品)」検索URL。あれば確認ボタンを出す。
+  sourceUrl?: string; // 仕入れ元の商品ページURL（「仕入れ元確認」ボタン）。上段左。
+  soldUrl?: string; // eBayの落札検索URL（「eBay落札確認」ボタン）。下段左。
+  rivalsUrl?: string; // eBayの「今出品されているライバル(現行出品)」検索URL（「eBayライバル確認」ボタン）。下段中。
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"bought" | "undo" | null>(null);
@@ -106,6 +110,10 @@ export default function CatalogActionButtons({
     );
   }
 
+  // 下段の列数＝eBay落札確認(任意)＋eBayライバル確認(任意)＋無在庫出品(常設) の個数に合わせる。
+  const row2n = (soldUrl ? 1 : 0) + (rivalsUrl ? 1 : 0) + 1;
+  const row2Cols = row2n >= 3 ? "grid-cols-3" : row2n === 2 ? "grid-cols-2" : "grid-cols-1";
+
   return (
     <div className="mt-2 space-y-1.5">
       {/* 在庫ありを「仕入れた」＝無在庫転売で蹴られた時の案内＋無在庫転売プラン誘導。 */}
@@ -144,28 +152,52 @@ export default function CatalogActionButtons({
         </div>
       )}
 
-      <div className="flex gap-1.5">
+      {/* 上段：仕入れ元確認・仕入れた */}
+      <div className={`grid ${sourceUrl ? "grid-cols-2" : "grid-cols-1"} gap-1.5`}>
+        {sourceUrl && (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="nofollow noopener noreferrer"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-[#2D323B] text-white text-[11px] font-bold leading-tight active:bg-[#1A1D23]"
+          >
+            <ExternalLink size={15} /> <span>仕入れ元確認</span>
+          </a>
+        )}
         <button
           onClick={() => post("bought")}
           disabled={busy !== null}
-          className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg bg-emerald-600 text-white text-[12px] font-bold disabled:opacity-40 active:bg-emerald-700"
+          className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 active:bg-emerald-700 leading-tight"
         >
-          <Check size={14} /> 仕入れた
+          <Check size={16} /> <span>仕入れた</span>
         </button>
+      </div>
+      {/* 下段：eBay落札確認・eBayライバル確認・無在庫出品 */}
+      <div className={`grid ${row2Cols} gap-1.5`}>
+        {soldUrl && (
+          <a
+            href={soldUrl}
+            target="_blank"
+            rel="nofollow noopener noreferrer"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#0064D2] bg-white text-[#0064D2] text-[10px] font-bold leading-tight active:bg-[#0064D2]/5"
+          >
+            <ExternalLink size={14} /> <span>eBay落札確認</span>
+          </a>
+        )}
         {/* 今出品されているライバル（eBay現行出品）を新規タブで確認。仕入れ前に競合の数・最安値を見て判断できる。 */}
         {rivalsUrl && (
           <a
             href={rivalsUrl}
             target="_blank"
             rel="nofollow noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border border-gray-300 bg-white text-gray-600 text-[12px] font-bold active:bg-gray-50"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-gray-300 bg-white text-gray-600 text-[10px] font-bold leading-tight active:bg-gray-50"
           >
-            <Eye size={14} /> ライバル確認
+            <Eye size={14} /> <span>eBayライバル確認</span>
           </a>
         )}
+        {/* 無在庫出品＝先に買わずeBayへ出品（売れてから仕入れて発送）。プロMAX以上のみ実行可（未満はプラン誘導・サーバーでも再判定）。 */}
+        <DropshipListButton productId={productId} title={shareTitle || ""} canDropship={canDropship} onBehalfOf={teamOwner} />
       </div>
-      {/* 無在庫出品＝先に買わずeBayへ出品（売れてから仕入れて発送）。プロMAX以上のみ実行可（未満はプラン誘導・サーバーでも再判定）。 */}
-      <DropshipListButton productId={productId} title={shareTitle || ""} canDropship={canDropship} onBehalfOf={teamOwner} />
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
     </div>
   );

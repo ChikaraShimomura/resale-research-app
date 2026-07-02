@@ -40,10 +40,10 @@ export default function DropshipListButton({
         type="button"
         onClick={onClick}
         aria-label="無在庫出品する"
-        className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-xl bg-[#2D323B] text-white text-[13px] font-bold ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
+        className="w-full inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-[#2D323B] text-white text-[10px] font-bold leading-tight ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
       >
-        <PackageX size={15} className="text-[#A98B5C]" /> 無在庫出品
-        {!canDropship && <span className="text-[10px] font-bold text-[#A98B5C]">（プロMAX）</span>}
+        <PackageX size={15} className="text-[#A98B5C]" />
+        <span>無在庫出品{!canDropship && <span className="text-[#A98B5C]">（プロMAX）</span>}</span>
       </button>
       {open && (
         <EbayListingModal product={product} onClose={() => setOpen(false)} onBehalfOf={onBehalfOf} dropship />
