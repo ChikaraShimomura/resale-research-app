@@ -128,12 +128,11 @@ const matchCodeOf = (p) => {
     // ⚠️ eBayは "-" を除外(NOT)演算子として扱う＝型番の "-" をそのまま検索すると "-XXXX" 以降が除外され落札が出ない。
     //    検索クエリは "-"→空白に置換（照合 norm は元から記号無視なので整合）。これで実際の型番落札がヒットし確認精度も上がる。
     const codeQ = code.replace(/-/g, " ").replace(/\s+/g, " ").trim();
-    // ★時計は「ブランド名がタイトルに無い出品(例: "Attesa E610-T018505")」で落札を取りこぼすことがある。
-    //   型番が十分ユニーク(norm≥6)な時計はブランドを外して型番だけで検索し、落札のrecall(拾える件数)を上げる。
-    //   照合は従来どおり norm(title).includes(型番) の完全一致なので、検索を広げても別モデルは混ざらない＝精度は不変。
-    const brandless = p.cat === "腕時計" && norm(code).length >= 6;
-    const q = (brandless ? codeQ : [p.brand, codeQ].filter(Boolean).join(" ")).replace(/\s+/g, " ").trim();
-    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝(時計の一意な型番はブランド無し)型番の落札検索(ハイフン空白化)
+    // ★「ブランド無し検索」は撤回(2026-07-02)：短い時計型番(例 "H38511")をブランド無しで検索すると
+    //   eBayが無関係な商品(ノートPC等)を返し、Hamilton等の落札を拾うどころかゴミを引いて逆効果だった(診断で確認)。
+    //   ブランド+型番に戻す＝結果がそのブランドに絞られる。eBayの「-」→空白化(NOT演算子回避)は下のcodeQで従来どおり適用。
+    const q = [p.brand, codeQ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番(ハイフン空白化)の落札検索
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
     if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; if (codeN) unconf[codeN] = nowIso; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }
