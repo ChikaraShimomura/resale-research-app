@@ -88,7 +88,7 @@ async function loadCategories() {
   // ★ジャンルあたりの候補上限（ユーザー指示2026-07-01：全ジャンルを~1000件ずつ・ゲーム偏重を防ぐ）。
   //   カテゴリはsoldCount順に処理するため、上限が無いと歩留まり・需要の高いゲームが TARGET を食い尽くし他ジャンルが枯れる。ジャンルごとに均等配分する。
   const CAP_PER_GENRE = Number(process.env.CAP_PER_GENRE) || 1000;
-  const PAGES = Number(process.env.HARDOFF_PAGES) || 8; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝419系列中417が「CAPでなくページ深度」で頭打ちのため、ここを最大化する。空ページで即打切りなので狭い系列は無駄打ちしない。3h毎の低頻度なので8でも常識内。
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 12; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため最大化（2026-07-02: 8→12で候補の母数UP）。空ページで即打切りなので狭い系列(時計等)は無駄打ちしない＝主に広いカテゴリ(ゲーム/カメラ/オーディオ)の候補が増える。2h毎の低頻度なので12でも常識内。
   const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
   let scanned = 0;
   for (const c of all) {
