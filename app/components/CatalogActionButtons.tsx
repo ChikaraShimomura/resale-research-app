@@ -159,7 +159,7 @@ export default function CatalogActionButtons({
             href={sourceUrl}
             target="_blank"
             rel="nofollow noopener noreferrer"
-            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-[#2D323B] text-white text-[11px] font-bold leading-tight active:bg-[#1A1D23]"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg bg-[#2D323B] text-white text-[11px] font-bold leading-tight active:bg-[#1A1D23]"
           >
             <ExternalLink size={15} /> <span>仕入れ元確認</span>
           </a>
@@ -167,7 +167,7 @@ export default function CatalogActionButtons({
         <button
           onClick={() => post("bought")}
           disabled={busy !== null}
-          className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 active:bg-emerald-700 leading-tight"
+          className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 active:bg-emerald-700 leading-tight"
         >
           <Check size={16} /> <span>仕入れた</span>
         </button>
@@ -179,7 +179,7 @@ export default function CatalogActionButtons({
             href={soldUrl}
             target="_blank"
             rel="nofollow noopener noreferrer"
-            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-[#0064D2] bg-white text-[#0064D2] text-[10px] font-bold leading-tight active:bg-[#0064D2]/5"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-[#0064D2] bg-white text-[#0064D2] text-[10px] font-bold leading-tight active:bg-[#0064D2]/5"
           >
             <ExternalLink size={14} /> <span>eBay落札確認</span>
           </a>
@@ -190,7 +190,7 @@ export default function CatalogActionButtons({
             href={rivalsUrl}
             target="_blank"
             rel="nofollow noopener noreferrer"
-            className="inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg border border-gray-300 bg-white text-gray-600 text-[10px] font-bold leading-tight active:bg-gray-50"
+            className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-gray-300 bg-white text-gray-600 text-[10px] font-bold leading-tight active:bg-gray-50"
           >
             <Eye size={14} /> <span>eBayライバル確認</span>
           </a>

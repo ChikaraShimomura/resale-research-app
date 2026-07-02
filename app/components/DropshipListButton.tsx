@@ -40,7 +40,7 @@ export default function DropshipListButton({
         type="button"
         onClick={onClick}
         aria-label="無在庫出品する"
-        className="w-full inline-flex flex-col items-center justify-center gap-0.5 h-14 rounded-lg bg-[#2D323B] text-white text-[10px] font-bold leading-tight ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
+        className="w-full inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg bg-[#2D323B] text-white text-[10px] font-bold leading-tight ring-1 ring-[#A98B5C]/60 active:bg-[#1A1D23]"
       >
         <PackageX size={15} className="text-[#A98B5C]" />
         <span>無在庫出品{!canDropship && <span className="text-[#A98B5C]">（プロMAX）</span>}</span>
