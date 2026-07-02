@@ -6,8 +6,10 @@
 #      「売れた出品(Sold)」をキーワード別にスクレイプ→KV ebay_sold_seed。中古カタログ(build)がハードオフ照合で
 #      「実際に売れた実績つき」の利益商品を作る＝現在出品でなく実売起点で発掘（ユーザー指摘2026-06-23）。
 #  - 中古カタログ構築(build): 3サイクルごと(≒3h)。seed × ハードオフ現在庫 から利益候補。Anthropic不使用＝無料。
-#  - ハードオフ売切検知(hardoff-liveness): 毎サイクル(既定1h)。出品中(ebay_deals)＋used_catalog のハードオフ実ページを叩いて
-#      売切(schema.org)/削除(404)なら deal.sourceStatus＋used_source_status を立てる→reconcileがeBay停止/getUsedCatalogが非表示。
+#  - ハードオフ売切検知(hardoff-liveness): 毎サイクル(既定1h)。used_catalog のハードオフ実ページを叩いて
+#      売切(schema.org)/削除(404)なら used_source_status を立てる→getUsedCatalogが一覧から非表示(カタログ隠しのみ・dealには触れない)。
+#  - 無在庫売切→自動停止(dropship-stop): 毎サイクル。ebay_deals の「無在庫の出品中(deal.dropship=true)」品のハードオフ実ページを叩いて
+#      売切/削除なら deal.sourceStatus を立てる→reconcile/auto-stopがeBay出品を自動停止。dropship以外は絶対に触らない(有在庫保護)。
 #  - 型番リファイン(refine): 1サイクル(既定1h)内に REFINE_SUBINTERVAL(既定20分)ごとの小バッチ。型番確定＋競合数焼き込み。
 # ※ 旧「楽天の売切検知(liveness)」「楽天ギャラリー取得(gallery)」は無在庫モデルの遺物のため撤去(2026-06-28)。
 #   売切検知はハードオフ版に置換(2026-06-28)＝事業の仕入れ元がハードオフのため。
@@ -27,7 +29,7 @@ termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て�
 # 各ジョブの結果(時刻/終了コード/gitコミット/ログ末尾)を KV に push＝PC側から遠隔でログを見られるようにする。
 wl() { node scripts/workerLog.mjs "$1" "$2" "$3" >/dev/null 2>&1 || true; }  # wl <key> <logfile> <exit>
 
-echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=2サイクルごと / ハードオフ売切検知=毎サイクル / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log ~/hardoff.log"
+echo "中古カタログ・ワーカー常駐開始: eBay落札発掘=${SOLD_EVERY}サイクルごと / カタログ構築=2サイクルごと / ハードオフ売切検知=毎サイクル / 無在庫売切→自動停止=毎サイクル / 型番リファイン=${REFINE_SUBINTERVAL}秒ごと（1サイクル=${CYCLE_INTERVAL}秒）。ログ: ~/ebaysold.log ~/usedcatalog.log ~/hardoff.log"
 cycle=0
 while true; do
   # 最新のワーカーコードへ毎回自動更新(PCで直せば次サイクルで反映)。pull結果＋現在のgitコミットをKVに記録＝旧コードで止まってないか遠隔で分かる。
@@ -49,6 +51,15 @@ while true; do
   HARDOFF_LIVENESS_DRY=0 node scripts/used/hardoffLivenessWorker.mjs >> "$HOME/hardoff.log" 2>&1; hrc=$?
   [ "$hrc" -ne 0 ] && echo "  (hardoff-liveness失敗・次回再試行)" >> "$HOME/hardoff.log"
   wl hardoff "$HOME/hardoff.log" "$hrc"
+
+  # ①b 無在庫(dropship)出品の売切検知(毎サイクル・本番書込)。ebay_deals の「無在庫の出品中(deal.dropship=true)」品のハードオフ実ページを
+  #    照合し、売切/掲載終了なら deal.sourceStatus を立てる→reconcile/auto-stop が eBay 出品を自動停止（欠品キャンセル防止）。
+  #    ①(カタログ照合)を補完＝カタログから外れた無在庫出品の売切も取りこぼさない。dropship 以外の deal は絶対に触らない（有在庫保護）。
+  #    対象0件(無在庫の出品が無い)なら即終了＝軽い。有在庫のみ運用なら実質no-op。
+  echo "---- $(date) dropship-stop ----" >> "$HOME/hardoff.log"
+  MUKAIKO_STOP_ENABLED=1 MUKAIKO_STOP_DRY=0 node scripts/used/mukaikoStopWorker.mjs >> "$HOME/hardoff.log" 2>&1; drc=$?
+  [ "$drc" -ne 0 ] && echo "  (dropship-stop失敗・次回再試行)" >> "$HOME/hardoff.log"
+  wl dropship "$HOME/hardoff.log" "$drc"
 
   # ② eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
   #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→中古カタログ(build)がハードオフ照合。実売起点の発掘。

@@ -1,28 +1,30 @@
 #!/usr/bin/env node
 // scripts/used/mukaikoStopWorker.mjs
-// 【将来の"無在庫"出品ツール用・休眠／未配線】仕入れ元(ハードオフ)が売切/掲載終了になった
-// 「無在庫の出品中(ebay_deals)」を検知して deal.sourceStatus を立てる→ reconcile/auto-stop が eBay を自動停止する。
+// 【無在庫(dropship)出品の売り切れ検知ワーカー・稼働中／termux-run.sh に配線】仕入れ元(ハードオフ)が売切/掲載終了になった
+// 「無在庫の出品中(ebay_deals)」を実ページ照合で検知して deal.sourceStatus を立てる→ reconcile/auto-stop が eBay を自動停止する。
+// ＝2026-07-01 の無在庫出品機能(EbayListingModal の dropship・publish が deal.dropship=true を立てる)の売切検知の本体。
 //
 // 【なぜこれが"無在庫"でだけ正しいか】
 //   ・無在庫＝eBayに先に出品し、売れてから仕入れ元で買う。だから「仕入れ元が(eBay落札より先に)売切」=もう仕入れられない
-//     ＝欠品キャンセルになる→eBay出品を止めるのが正しい(楽天版 sourceLivenessWorker と同じ考え方)。
-//   ・⚠️有在庫(現行のハードオフ中古)では真逆＝ユーザーが先に買って手元に持ってから出すので、仕入れ元の売切は「買った証拠」。
-//     止めたら手元在庫の正当な出品を潰す(2026-06-28に実害を出した)。だからこのワーカーは有在庫deals を絶対に触らない。
+//     ＝欠品キャンセルになる→eBay出品を止めるのが正しい。
+//   ・⚠️有在庫(通常のハードオフ中古)では真逆＝ユーザーが先に買って手元に持ってから出すので、仕入れ元の売切は「買った証拠」。
+//     止めたら手元在庫の正当な出品を潰す(2026-06-28に実害を出した)。だからこのワーカーは dropship 以外の deal を絶対に触らない。
 //
-// 【二重ロック(誤発火防止)】このファイルは termux-run.sh に配線していない＋下記2条件を両方満たさないと何もしない:
-//   1) env `MUKAIKO_STOP_ENABLED=1`（明示的に有効化）
-//   2) deal.mukaiko === true（無在庫ツールが「無在庫で出した」出品にだけ立てる印・有在庫dealには付かない）
-//   ＝将来 無在庫ツールを作る時に (1)(2) を満たして初めて動く。今は走らせても即終了する安全な置き土産。
+// 【二重ロック(誤発火防止)】下記2条件を両方満たさないと何もしない:
+//   1) env `MUKAIKO_STOP_ENABLED=1`（住宅IP機=Pixel の termux-run.sh でだけ有効化＝クラウドで暴発させない）
+//   2) deal.dropship === true（publish が「無在庫で出した」出品にだけ立てる印・有在庫dealには付かない）
+//   ＝reconcile 側も `if(!d.dropship)continue` で二重に有在庫を保護（sourceReconcile.ts）。
 //
-// 実ページ判定/安全則は現行の有在庫版 scripts/used/hardoffLivenessWorker.mjs と同一(schema.org availability+404・
-// fail-open・1回再確認・ブレーキ・DRY既定)。無在庫ツール実装時に probe を共通モジュールへ寄せるなら両者を揃えること。
+// 【カタログ隠し版(hardoffLivenessWorker)との違い】あちらは used_catalog の品を見て used_source_status(カタログ非表示)を立てるだけ。
+//   こちらは ebay_deals の"出品中の無在庫品"を見て deal.sourceStatus を立てる＝カタログから外れた無在庫出品の売切も取りこぼさない。
+//   実ページ判定/安全則は両者同一(schema.org availability+404・fail-open・1回再確認・ブレーキ・DRY既定)。
 //
-// env: KV_REST_API_URL / KV_REST_API_TOKEN / MUKAIKO_STOP_ENABLED / MUKAIKO_STOP_DRY
+// env: KV_REST_API_URL / KV_REST_API_TOKEN / MUKAIKO_STOP_ENABLED / MUKAIKO_STOP_DRY（本番書込は MUKAIKO_STOP_DRY=0）
 import fs from "node:fs";
 
-// ── 二重ロック①：明示有効化されていなければ即終了（休眠） ──
+// ── 二重ロック①：明示有効化(=住宅IP機で MUKAIKO_STOP_ENABLED=1)されていなければ即終了（クラウド/手元での暴発防止） ──
 if (process.env.MUKAIKO_STOP_ENABLED !== "1") {
-  console.log("[mukaikoStopWorker] 休眠中: MUKAIKO_STOP_ENABLED=1 でない＝何もしません（将来の無在庫ツール用の置き土産）。");
+  console.log("[mukaikoStopWorker] 休眠中: MUKAIKO_STOP_ENABLED=1 でない＝何もしません（termux-run.sh からのみ有効化）。");
   process.exit(0);
 }
 
@@ -121,19 +123,19 @@ async function probeConfirmed(url) {
   return "unknown";
 }
 
-// ── メイン：無在庫(mukaiko=true)の出品中dealだけを対象に、売切→sourceStatus ──
+// ── メイン：無在庫(dropship=true)の出品中dealだけを対象に、売切→sourceStatus ──
 async function main() {
   if (!KV_URL || !KV_TOKEN) { console.error("KV env 未設定。中止。"); process.exit(1); }
   const startedAt = Date.now();
 
-  // 二重ロック②：deal.mukaiko===true（無在庫で出した印）の出品中dealだけ。有在庫dealは対象外。
+  // 二重ロック②：deal.dropship===true（無在庫で出した印・publishが立てる）の出品中dealだけ。有在庫dealは対象外。
   const byCode = new Map(); // productId -> { url, locations:[{key,field}] }
   const dealKeys = await kvScan("ebay_deals:*");
   for (const key of dealKeys) {
     const deals = await kvHgetallParsed(key);
     for (const [productId, d] of Object.entries(deals)) {
       if (!d || typeof d !== "object") continue;
-      if (d.mukaiko !== true) continue;                  // ★無在庫の印が無いものは絶対に触らない（有在庫の保護）
+      if (d.dropship !== true) continue;                 // ★無在庫の印が無いものは絶対に触らない（有在庫の保護）
       if (d.soldUsd != null || d.stoppedAt != null) continue;
       const url = hardoffUrlOf(d.sourceUrl);
       if (!url) continue;
@@ -142,7 +144,7 @@ async function main() {
       e.locations.push({ key, field: productId });
     }
   }
-  if (byCode.size === 0) { console.log("対象なし(無在庫mukaiko=trueの出品中dealが無い)。終了。"); return; }
+  if (byCode.size === 0) { console.log("対象なし(無在庫dropship=trueの出品中dealが無い)。終了。"); return; }
 
   const work = [...byCode.keys()].slice(0, MAX_ITEMS);
   console.log(`[無在庫] 出品中deal照合: ${work.length}件${DRY ? "  [DRY]" : ""}`);
@@ -174,15 +176,15 @@ async function main() {
     if (v === "unknown") continue;
     for (const { key, field } of byCode.get(code).locations) {
       const fresh = await kvHget(key, field);
-      if (!fresh || typeof fresh !== "object" || fresh.mukaiko !== true) continue;
+      if (!fresh || typeof fresh !== "object" || fresh.dropship !== true) continue;
       if (fresh.soldUsd != null || fresh.stoppedAt != null) continue;
       const cur = fresh.sourceStatus ?? null;
       if (v === "soldout" || v === "dead") {
         if (cur === v) continue;
-        if (!DRY) await kvHset(key, field, { ...fresh, sourceStatus: v, sourceCheckedAt: nowIso(), sourceCheckedBy: "mukaiko-hardoff" });
+        if (!DRY) await kvHset(key, field, { ...fresh, sourceStatus: v, sourceCheckedAt: nowIso(), sourceCheckedBy: "dropship-hardoff" });
         if (v === "soldout") setSold++; else setDead++;
       } else if (v === "alive" && cur != null) {
-        if (!DRY) { const next = { ...fresh, sourceCheckedAt: nowIso(), sourceCheckedBy: "mukaiko-hardoff" }; delete next.sourceStatus; await kvHset(key, field, next); }
+        if (!DRY) { const next = { ...fresh, sourceCheckedAt: nowIso(), sourceCheckedBy: "dropship-hardoff" }; delete next.sourceStatus; await kvHset(key, field, next); }
         cleared++;
       }
     }
