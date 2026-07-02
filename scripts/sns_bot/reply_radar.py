@@ -18,9 +18,9 @@ from urllib.parse import quote
 import tweepy
 import anthropic
 
-# 同ディレクトリの tweet_auto からメール/KV/JST を再利用(DRY)
+# 同ディレクトリの tweet_auto からメール/KV＋人格/絵文字指針を再利用(DRY・投稿本文とリプの声を揃える)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tweet_auto import send_alert_email, kv_set_raw, _load_list  # noqa: E402
+from tweet_auto import send_alert_email, kv_set_raw, _load_list, PERSONA, HUMAN_EMOJI  # noqa: E402
 
 SEEN_KEY = "reply_radar_seen"   # 通知済みtweet id(重複通知を防ぐ)
 SEEN_CAP = 400
@@ -41,14 +41,16 @@ QUERY = ('(eBay輸出 OR 越境EC OR 輸出転売 OR 物販副業 OR "eBay 出�
 def gen_draft(text: str, ai: anthropic.Anthropic) -> str:
     try:
         msg = ai.messages.create(
-            model="claude-haiku-4-5", max_tokens=180,
+            model="claude-haiku-4-5", max_tokens=240,
             messages=[{"role": "user", "content": (
-                "あなたは『輸出ラボ』運営者(大阪出身・30歳くらいのITコンサルで、自然体でラフな人柄。楽天→eBay輸出も自分でやっている)。"
-                "次のXの投稿に対する“価値あるリプライ”の下書きを1つ作る。\n"
-                f"投稿:「{text[:280]}」\n"
-                "方針: 相手の投稿を主役に立てる。共感・具体的な質問・役立つ情報の付加 のいずれかで自然に。"
-                "自分の宣伝は一切しない(URLや『うちのアプリ』等は書かない)。ラフでカジュアルな口調だが相手を立てる(『ぶっちゃけ』等は使わない)。"
-                "絵文字なし。100字以内。本文のみ出力。")}])
+                f"{PERSONA}\n\n"
+                "次のXの投稿への“価値あるリプライ”の下書きを1つ作る。あくまで相手の投稿が主役。\n"
+                f"投稿:「{text[:280]}」\n\n"
+                "【狙い】共感・具体的な質問・役立つ情報の付加 のどれかで、自然に会話をつなぐ。相手を立てる。\n"
+                "【絶対NG】自分の宣伝・売り込みは一切しない(URL・『うちのアプリ/ツール』・フォロー誘導は書かない)。上から目線・説教もしない。\n"
+                f"{HUMAN_EMOJI}\n"
+                "※リプは短いので、絵文字は0〜2個に抑えて“ここぞ”で。改行は0〜2回まで(短い時は無理に入れない・長い時だけ文の切れ目で)。\n"
+                "【ルール】本文のみ出力(前置き不要)。100字以内。相手が思わず返したくなる、体温のある一言に。")}])
         return msg.content[0].text.strip()
     except Exception as e:
         return f"(下書き生成失敗: {e})"
