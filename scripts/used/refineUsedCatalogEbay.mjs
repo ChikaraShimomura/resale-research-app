@@ -120,6 +120,7 @@ const matchCodeOf = (p) => {
   await sleep(1500);
 
   let confirmed = 0, dropped = 0, blocked = 0, n = 0;
+  const failDiag = {}; // 診断：確定失敗を「落札0件(薄い)」/「落札有るが型番がタイトルに無い」でジャンル別集計
   for (const p of order) {
     if (n >= LIMIT) break;
     n++;
@@ -127,8 +128,12 @@ const matchCodeOf = (p) => {
     // ⚠️ eBayは "-" を除外(NOT)演算子として扱う＝型番の "-" をそのまま検索すると "-XXXX" 以降が除外され落札が出ない。
     //    検索クエリは "-"→空白に置換（照合 norm は元から記号無視なので整合）。これで実際の型番落札がヒットし確認精度も上がる。
     const codeQ = code.replace(/-/g, " ").replace(/\s+/g, " ").trim();
-    const q = [p.brand, codeQ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番(ハイフン空白化)の落札検索
+    // ★時計は「ブランド名がタイトルに無い出品(例: "Attesa E610-T018505")」で落札を取りこぼすことがある。
+    //   型番が十分ユニーク(norm≥6)な時計はブランドを外して型番だけで検索し、落札のrecall(拾える件数)を上げる。
+    //   照合は従来どおり norm(title).includes(型番) の完全一致なので、検索を広げても別モデルは混ざらない＝精度は不変。
+    const brandless = p.cat === "腕時計" && norm(code).length >= 6;
+    const q = (brandless ? codeQ : [p.brand, codeQ].filter(Boolean).join(" ")).replace(/\s+/g, " ").trim();
+    p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝(時計の一意な型番はブランド無し)型番の落札検索(ハイフン空白化)
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
     if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; if (codeN) unconf[codeN] = nowIso; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }
@@ -152,7 +157,12 @@ const matchCodeOf = (p) => {
     } else {
       p.ebayConfirmed = false;
       unconf[codeN] = nowIso; // eBay落札0件＝確定不能としてTTL記録＝次回以降スキップ(30日後に再挑戦)
-      console.log(`  ・ ${q.padEnd(30)} 同一型番${same.length}件（不足→相場確定せず・除外）`);
+      // 診断：落札0件(薄い) か / 落札は有るが型番がタイトルに無い か を仕分けてジャンル別集計（時計が伸びない原因の切り分け）。
+      const gk = p.cat || "中古";
+      const fd = (failDiag[gk] = failDiag[gk] || { noSold: 0, noRef: 0, samples: [] });
+      if (cards.length === 0) fd.noSold++;
+      else { fd.noRef++; if (fd.samples.length < 6) fd.samples.push(`${q} || ${(cards[0].title || "").slice(0, 46)}`); }
+      console.log(`  ・ ${q.padEnd(28)} 落札${cards.length}件中 型番一致${same.length}件（除外・${cards.length && !same.length ? "落札有=型番がﾀｲﾄﾙに無い" : cards.length ? "" : "落札0=薄い"}）`);
     }
     await jitter();
   }
@@ -167,6 +177,13 @@ const matchCodeOf = (p) => {
   // 確定不能キャッシュを掃除(期限切れ削除)して書き戻し(TTL90日でKV側も自然失効)。次バッチはここに載った型番をスキップ。
   for (const k of Object.keys(unconf)) { const t = Date.parse(unconf[k]); if (!t || (Date.now() - t) >= UNCONF_TTL_MS) delete unconf[k]; }
   await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify([["SET", "ebay_unconfirmable", JSON.stringify(unconf), "EX", String(90 * 24 * 3600)]]) });
+  // 診断集計を KV に蓄積（複数run分をマージ）＝PC側から「確定できない原因(薄い/型番タイトル無)」を数値で確認できる。TTL7日。best-effort。
+  try {
+    const prevD = (await (await fetch(`${KV_URL}/get/diag:refinefail`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result;
+    const acc = (prevD ? JSON.parse(prevD).byGenre : null) || {};
+    for (const [g, v] of Object.entries(failDiag)) { const m = (acc[g] = acc[g] || { noSold: 0, noRef: 0, samples: [] }); m.noSold += v.noSold; m.noRef += v.noRef; for (const s of v.samples) if (m.samples.length < 12) m.samples.push(s); }
+    await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify([["SET", "diag:refinefail", JSON.stringify({ at: nowIso, byGenre: acc }), "EX", String(7 * 24 * 3600)]]) });
+  } catch { /* 診断はbest-effort */ }
   // 出品フロー用 psnap も同一型番相場で更新。TTL35日。
   const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
     id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: upscaleImageflux(p.imageUrl), images: p.imageUrl ? [upscaleImageflux(p.imageUrl)] : [],
