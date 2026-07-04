@@ -968,6 +968,47 @@ export const EBAY_JP_QUERIES = [
   { q: 'Makita TD173D impact driver body only'          , name: 'マキタ TD173D インパクトドライバー' },
   { q: 'HiKOKI WH36DA impact driver body only'          , name: 'ハイコーキ WH36DA インパクトドライバー' },
   { q: 'Makita DDF485 driver drill body only'           , name: 'マキタ DDF485 ドライバドリル' },
+
+  // ===== 【時計・供給拡大 2026-07-04・②】OFFモール時計2.5万件に対しカタログ88件＝母数を厚くする（既存174クエリと非重複）。
+  //   q=eBay英語(国際refで落札タイトルに出る型番) / name=ハードオフ検索語(腕時計含む)。型番がeBayに出る＝確定できるモデルを優先。=====
+  // --- セイコー5スポーツ SRPD 色番（SKX後継・eBayで人気＝確定しやすい） ---
+  { q: 'Seiko 5 Sports SRPD51 black gold automatic japan'   , name: 'セイコー5スポーツ 腕時計 SRPD51' },
+  { q: 'Seiko 5 Sports SRPD53 blue automatic japan'         , name: 'セイコー5スポーツ 腕時計 SRPD53' },
+  { q: 'Seiko 5 Sports SRPD55 silver blue automatic japan'  , name: 'セイコー5スポーツ 腕時計 SRPD55' },
+  { q: 'Seiko 5 Sports SRPD65 blue automatic japan'         , name: 'セイコー5スポーツ 腕時計 SRPD65' },
+  { q: 'Seiko 5 Sports SRPD85 orange automatic japan'       , name: 'セイコー5スポーツ 腕時計 SRPD85' },
+  // --- セイコー プロスペックス（ダイバー・確定強い） ---
+  { q: 'Seiko Prospex 62MAS SPB149 blue automatic japan'    , name: 'セイコー プロスペックス 腕時計 SPB149' },
+  { q: 'Seiko Prospex 62MAS SPB147 automatic japan'         , name: 'セイコー プロスペックス 腕時計 SPB147' },
+  { q: 'Seiko Prospex Sumo SPB185 automatic japan'          , name: 'セイコー プロスペックス スモウ 腕時計 SPB185' },
+  { q: 'Seiko Prospex Sumo SPB187 blue automatic japan'     , name: 'セイコー プロスペックス スモウ 腕時計 SPB187' },
+  { q: 'Seiko Prospex 62MAS SPB317 automatic japan'         , name: 'セイコー プロスペックス 腕時計 SPB317' },
+  { q: 'Seiko Prospex Turtle SRPE93 blue automatic japan'   , name: 'セイコー プロスペックス タートル 腕時計 SRPE93' },
+  { q: 'Seiko Prospex Solar Diver SNE573'                   , name: 'セイコー プロスペックス 腕時計 SNE573' },
+  { q: 'Seiko King Seiko SPB285 automatic japan'            , name: 'キングセイコー 腕時計 SPB285' },
+  // --- グランドセイコー（未収録・高額かつ型番がeBayに出る＝確定しやすい） ---
+  { q: 'Grand Seiko SBGA211 Snowflake Spring Drive'         , name: 'グランドセイコー 腕時計 SBGA211' },
+  { q: 'Grand Seiko SBGX261 quartz'                         , name: 'グランドセイコー 腕時計 SBGX261' },
+  { q: 'Grand Seiko SBGA413 Spring Drive Shunbun'           , name: 'グランドセイコー 腕時計 SBGA413' },
+  { q: 'Grand Seiko SBGN005 GMT quartz'                     , name: 'グランドセイコー 腕時計 SBGN005' },
+  // --- G-SHOCK 新ライン（既存と非重複） ---
+  { q: 'Casio G-Shock GBD-200 running black'                , name: 'カシオ Gショック 腕時計 GBD-200' },
+  { q: 'Casio G-Shock GBA-900 mobile link'                  , name: 'カシオ Gショック 腕時計 GBA-900' },
+  { q: 'Casio G-Shock DW-6900'                              , name: 'カシオ Gショック 腕時計 DW-6900' },
+  { q: 'Casio G-Shock GA-B001'                              , name: 'カシオ Gショック 腕時計 GA-B001' },
+  { q: 'Casio G-Shock GA-2200'                              , name: 'カシオ Gショック 腕時計 GA-2200' },
+  { q: 'Casio G-Steel GST-B500 solar'                       , name: 'カシオ Gショック Gスチール 腕時計 GST-B500' },
+  { q: 'Casio G-Shock Mudmaster GWG-2000 carbon'            , name: 'カシオ Gショック マッドマスター 腕時計 GWG-2000' },
+  // --- シチズン（国際的に型番が出るモデル＝FUGU/ECOZILLA等） ---
+  { q: 'Citizen Promaster Fugu NY0040 automatic diver'      , name: 'シチズン プロマスター フグ 腕時計 NY0040' },
+  { q: 'Citizen Promaster BN0151 eco-drive diver'           , name: 'シチズン プロマスター 腕時計 BN0151' },
+  { q: 'Citizen Promaster Ecozilla BJ8050 eco-drive'        , name: 'シチズン プロマスター エコジラ 腕時計 BJ8050' },
+  // --- カシオ クラシック/レディース（回転が速い定番） ---
+  { q: 'Casio vintage LA670WA gold digital'                 , name: 'カシオ 腕時計 LA670' },
+  { q: 'Casio MQ-24 analog'                                 , name: 'カシオ 腕時計 MQ-24' },
+  { q: 'Casio W-800H digital'                               , name: 'カシオ 腕時計 W-800' },
+  // --- ティソ（既存と非重複） ---
+  { q: 'Tissot Supersport Chrono'                           , name: 'ティソ スーパースポーツ 腕時計' },
 ];
 
 // 【SSOT】ハードオフ中古カタログ対象ジャンル（発掘フィルタ＝ebaySoldWorker と build＝buildUsedSampleFromCache の双方が使う）。

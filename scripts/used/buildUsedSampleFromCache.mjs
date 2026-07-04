@@ -89,6 +89,10 @@ async function loadCategories() {
   //   カテゴリはsoldCount順に処理するため、上限が無いと歩留まり・需要の高いゲームが TARGET を食い尽くし他ジャンルが枯れる。ジャンルごとに均等配分する。
   const CAP_PER_GENRE = Number(process.env.CAP_PER_GENRE) || 1000;
   const PAGES = Number(process.env.HARDOFF_PAGES) || 12; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため最大化（2026-07-02: 8→12で候補の母数UP）。空ページで即打切りなので狭い系列(時計等)は無駄打ちしない＝主に広いカテゴリ(ゲーム/カメラ/オーディオ)の候補が増える。2h毎の低頻度なので12でも常識内。
+  // ⌚時計は OFFモールの在庫が桁違いに厚い(腕時計だけで約2.5万件)＋確定headroom大(CAP_WATCH150/genre1000に対し実数~88)。
+  //   広い時計クエリ(セイコー/カシオ/シチズン/オリエント等)はページ深度で頭打ちなので、時計だけ深く掘る(既定24)。
+  //   狭い型番クエリは空ページで即打切りなので無駄打ちしない＝増えるのは広い時計クエリぶんだけ(build時間の増分は限定的)。ユーザー指示2026-07-04。
+  const PAGES_WATCH = Number(process.env.HARDOFF_PAGES_WATCH) || 24;
   const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
   let scanned = 0;
   for (const c of all) {
@@ -98,9 +102,11 @@ async function loadCategories() {
     if ((genreCount[catGenre] || 0) >= CAP_PER_GENRE) continue; // このジャンルは充足＝枠を他ジャンルへ回す（均等化）
     const cap = catGenre === "腕時計" ? CAP_WATCH : CAP_PER_CAT; // ⌚時計は CAP_WATCH まで、他は CAP_PER_CAT
     // ページ送りで在庫を深掘り（narrowなクエリは2ページ目以降が空になり次第打ち切る）。URLで重複排除。
+    // 時計は在庫が厚くheadroomも大きいので深く掘る（PAGES_WATCH）。他ジャンルは PAGES。
+    const maxPages = catGenre === "腕時計" ? PAGES_WATCH : PAGES;
     let items = [];
     const seenUrl = new Set();
-    for (let page = 1; page <= PAGES; page++) {
+    for (let page = 1; page <= maxPages; page++) {
       let pageItems = [];
       try { pageItems = await fetchHardoff(c.query, { page }); } catch { /* skip */ }
       await sleep(1600);
