@@ -119,7 +119,7 @@ const matchCodeOf = (p) => {
   await get("https://www.ebay.com/"); // warmup（毎バッチ新セッション＝captcha回避）
   await sleep(1500);
 
-  let confirmed = 0, dropped = 0, blocked = 0, n = 0;
+  let confirmed = 0, dropped = 0, blocked = 0, stale = 0, n = 0; // stale=確定済みだが今回0件→降格せず維持した数
   const failDiag = {}; // 診断：確定失敗を「落札0件(薄い)」/「落札有るが型番がタイトルに無い」でジャンル別集計
   for (const p of order) {
     if (n >= LIMIT) break;
@@ -153,6 +153,16 @@ const matchCodeOf = (p) => {
       delete unconf[codeN]; // 確定できた＝もう不能ではない(再挑戦キャッシュから外す)
       confirmed++;
       console.log(`  ✓ ${q.padEnd(30)} 同一型番${same.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
+    } else if (p.ebayConfirmed === true) {
+      // ★既に確定済み(過去にeBay実落札で型番一致を検証済み)の品が、今回だけ0件だった＝一過性の可能性が高い
+      //   (落札が365日窓から抜けた/eBay検索結果のゆらぎ/クエリ感度)。中古型番は落札履歴が薄く再照会0件が起きやすいので、
+      //   ここで降格・削除するとカタログが枯れる(実際に1154→0件に全滅した)。**確定は維持**し、unconfにも入れない(再照会は続ける)。
+      //   本当に不採算になった品は「今回 同一型番の落札が取れて profitRate<10」の成功側で kept フィルタが落とす＝正しいシグナルの時だけ外す。
+      stale++;
+      const gk = p.cat || "中古";
+      const fd = (failDiag[gk] = failDiag[gk] || { noSold: 0, noRef: 0, samples: [] });
+      if (cards.length === 0) fd.noSold++; else fd.noRef++;
+      console.log(`  ~ ${q.padEnd(28)} 今回0/薄い→確定維持(降格しない)`);
     } else {
       p.ebayConfirmed = false;
       unconf[codeN] = nowIso; // eBay落札0件＝確定不能としてTTL記録＝次回以降スキップ(30日後に再挑戦)
@@ -194,6 +204,6 @@ const matchCodeOf = (p) => {
   }), "EX", String(35 * 24 * 3600)]);
   if (snapCmds.length) await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(snapCmds) });
 
-  console.log(`\n=== 同一型番で確定 ${confirmed}件 / 検問 ${blocked}件 ===`);
+  console.log(`\n=== 同一型番で確定 ${confirmed}件 / 確定維持(今回0件だが降格せず) ${stale}件 / 検問 ${blocked}件 ===`);
   console.log(`相場確定せず/赤字で除外 ${before - kept.length}件 → used_catalog 計 ${kept.length}件（全て型番一致）`);
 })();
