@@ -86,6 +86,12 @@ while true; do
   #    この内側ループが1サイクル(=$CYCLE_INTERVAL秒)ぶんの待ちを兼ねる＝①②のスケジュールは1サイクル単位で進む。
   spent=0
   while [ "$spent" -lt "$CYCLE_INTERVAL" ]; do
+    # ★無在庫の売切→自動停止の「検知」を小刻みに回す（軽い=対象数件・~20s）。サイクル先頭の1回だけだと
+    #   1サイクル実時間(~2h)ぶん検知が遅れ、その間に売れると欠品する。refineの各小バッチと同間隔(~10-20分)で
+    #   sourceStatus を立て直し、検知遅延を詰める（実停止は auto-stop-cron が15分毎に実行）。KVのみ・eBay不使用で安全。
+    echo "---- $(date) dropship-stop (subloop) ----" >> "$HOME/hardoff.log"
+    MUKAIKO_STOP_ENABLED=1 MUKAIKO_STOP_DRY=0 node scripts/used/mukaikoStopWorker.mjs >> "$HOME/hardoff.log" 2>&1; dsc=$?
+    wl dropship "$HOME/hardoff.log" "$dsc"
     echo "---- $(date) used-catalog refine batch ----" >> "$HOME/usedcatalog.log"
     REFINE_LIMIT="${REFINE_BATCH:-30}" node scripts/used/refineUsedCatalogEbay.mjs >> "$HOME/usedcatalog.log" 2>&1; rrc=$?
     [ "$rrc" -ne 0 ] && echo "  (型番リファイン失敗・次バッチ再試行)" >> "$HOME/usedcatalog.log"
