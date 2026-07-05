@@ -187,7 +187,7 @@ export default function EditListingModal({
 
   // 写真配列を出品へ反映（並び替え/削除/加工/追加を最終配列でまとめて書く＝保存時に一度だけ）。
   const writeImages = async (imgs: string[]): Promise<void> => {
-    let j: { ok?: boolean; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string } | null = null;
+    let j: { ok?: boolean; error?: string; errorKind?: "known" | "unexpected"; errorDetail?: string; imageUrls?: string[] } | null = null;
     try {
       j = await fetch("/api/ebay/list/photo-edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId, action: "order", imageUrls: imgs }) }).then((r) => r.json());
     } catch (e) {
@@ -195,7 +195,8 @@ export default function EditListingModal({
       reportClientError("ebay_photos_edit", { action: "photo_order_save", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: `fetch例外: ${detail}` });
       return throwErr({ error: "通信エラーで写真を保存できませんでした。", errorKind: "unexpected", errorDetail: detail }, "通信エラー");
     }
-    if (j?.ok) return;
+    // 保存成功時は、サーバーが全EPS化した実配列で state を更新＝再度の並び替えで自前URLを再アップロードしない＋eBayと表示を一致させる。
+    if (j?.ok) { if (Array.isArray(j.imageUrls) && j.imageUrls.length) setImages(j.imageUrls); return; }
     if (j?.errorKind !== "known") reportClientError("ebay_photos_edit", { action: "photo_order_save", endpoint: "/api/ebay/list/photo-edit", status: 0, productId, detail: j?.errorDetail || j?.error || "(no detail)" });
     return throwErr(j, "写真の保存に失敗しました。");
   };

@@ -3,8 +3,10 @@ import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getListingSku } from "../../../../lib/ebay/stats";
 import { skuForProduct } from "../../../../lib/ebay/sellApi";
 import { updateInventoryItemImages } from "../../../../lib/ebay/listing";
+import { uploadHostedPictureFromUrl } from "../../../../lib/ebay/eps";
 import { transformListingImage, type PhotoOp } from "../../../../lib/ebay/imageProcess";
 import { epsLargeUrl } from "../../../../lib/ebay/epsUrl";
+import { upscaleImageflux } from "../../../../lib/usedGallery";
 import { friendlyEbayError } from "../../../../lib/ebay/errorMessages";
 import { recordAutoError } from "../../../../lib/errorReport";
 import { kv } from "@vercel/kv";
@@ -24,6 +26,22 @@ export const maxDuration = 60; // 画像のEPS往復で時間がかかるため�
 
 const skuFor = async (actor: string, productId: string): Promise<string> =>
   (await getListingSku(actor, productId)) ?? skuForProduct(productId);
+
+// 出品画像を「全EPS(ebayimg.com)」に統一してからeBayへ反映する。
+// ⚠️自前ホストURL(imageflux/ハードオフ等)とEPSが混在すると eBay #25014「A mixture of Self Hosted and EPS pictures are
+//   not allowed」で並び替え/加工の保存が丸ごと失敗する（写真“追加”の /photos は元から全EPS化しているが、こちらは未対応だった）。
+// EPS(ebayimg.com)は s-l1600 に揃えるだけ。自前URLは ExternalPictureURL でEPSへ載せ替える（imageflux は載せる前に原寸級へ）。
+// 並び順は保持（Promise.all は入力順を保つ）。載せ替え失敗した自前URLは混在を避けるため落とす。
+async function toAllEps(token: string, urls: string[]): Promise<string[]> {
+  const out = await Promise.all(
+    urls.map(async (u) => {
+      if (/ebayimg\.com/i.test(u)) return epsLargeUrl(u); // 既にEPS＝フル解像度に揃えるだけ（アップロード不要）
+      const r = await uploadHostedPictureFromUrl(token, upscaleImageflux(u));
+      return r.ok && r.fullUrl ? r.fullUrl : null;
+    })
+  );
+  return out.filter((u): u is string => !!u);
+}
 
 export async function POST(req: Request) {
   const auth = await resolveEditAuth(); // 出品中の編集は出品に使ったeBayアカウント基準＋チームメンバーは'list'権限必須
@@ -46,9 +64,11 @@ export async function POST(req: Request) {
 
   // ── 並び替え/削除/メイン設定：クライアントが作った配列をそのまま反映 ──
   if (body.action === "order") {
-    // 並び順をそのまま反映。ついでにEPS画像はフル解像度(s-l1600)に揃える＝旧来の縮小URL(s-l500等)で出ていた品も鮮明化。
-    const urls = (body.imageUrls || []).filter((u) => typeof u === "string" && u).map(epsLargeUrl).slice(0, 24);
-    if (!urls.length) return Response.json({ ok: false, error: "画像を1枚以上残してください。" }, { status: 400 });
+    const raw = (body.imageUrls || []).filter((u) => typeof u === "string" && u).slice(0, 24);
+    if (!raw.length) return Response.json({ ok: false, error: "画像を1枚以上残してください。" }, { status: 400 });
+    // 並び順を保ちつつ「全EPS」に統一（自前URLとEPSの混在=eBay #25014 を防ぐ）。EPSはs-l1600に揃え、自前URLはEPSへ載せ替え。
+    const urls = await toAllEps(token, raw);
+    if (!urls.length) return Response.json({ ok: false, error: "画像をeBayに反映できませんでした。時間をおいて再度お試しください。" });
     const upd = await updateInventoryItemImages(token, sku, urls);
     if (!upd.ok) {
       await diag("order", upd.error, { productId: body.productId });
@@ -76,15 +96,19 @@ export async function POST(req: Request) {
     const next = imgs.slice();
     next[idx] = t.url; // 加工後の1枚を差し替え（並び順はクライアントのまま保持）
     // ステージング：加工URLは載せ済み。出品への書き込みは「保存」時にまとめて行うので、ここでは配列だけ返す。
+    // （保存時は "order" が toAllEps で全EPS化するので、staged配列に自前URLが残っていても混在#25014にはならない）
     if (body.stage) return Response.json({ ok: true, imageUrls: next, newUrl: t.url });
-    const upd = await updateInventoryItemImages(token, sku, next);
+    // 直接保存：加工でindexの1枚だけEPS化されるので、残りの自前URLと混在(#25014)しないよう全EPSに統一してから反映。
+    const epsNext = await toAllEps(token, next);
+    if (!epsNext.length) return Response.json({ ok: false, error: "画像をeBayに反映できませんでした。時間をおいて再度お試しください。" });
+    const upd = await updateInventoryItemImages(token, sku, epsNext);
     if (!upd.ok) {
       await diag("transform_save", upd.error, { op: body.op, productId: body.productId });
       const f = friendlyEbayError(upd.error);
       if (!f.known) await recordAutoError({ where: "ebay_photo_transform_save", message: f.message, errorDetail: upd.error, productId: body.productId, actor });
       return Response.json({ ok: false, error: f.message, errorKind: f.known ? "known" : "unexpected", errorDetail: upd.error });
     }
-    return Response.json({ ok: true, imageUrls: next, newUrl: t.url });
+    return Response.json({ ok: true, imageUrls: epsNext, newUrl: t.url }); // 実際に保存した全EPS配列を返す（クライアントの表示と一致）
   }
 
   return Response.json({ ok: false, error: "操作が指定されていません。" }, { status: 400 });
