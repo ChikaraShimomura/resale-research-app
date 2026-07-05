@@ -366,7 +366,7 @@ export async function POST(req: Request) {
   // ※ ポイントは利益に含めない方針なので原価から引かない＝ポイント頼みで赤字ラインを下げない（安全側）。
   const effBuyJpy = product.source.price + (product.source.shippingJpy ?? 0);
   // 着地コストの内訳表示用（モーダルに渡す）＝推奨価格(priceUsd)時点の送料/関税の目安。
-  const landed = landedCostForWeight(weightG, Number(priceUsd));
+  const landed = landedCostForWeight(weightG, Number(priceUsd), product.category);
   // 損益分岐(±0)は SSOT(breakevenTotalUsd)で算出＝モーダル/商品管理と完全一致。総額(eBay掲載価格)基準で
   // 関税$100/EMS$120を総額で評価＝閾値跨ぎでも矛盾せず絶対に赤字にならない。重量は推定実重量(weightG)。
   const floorUsd = breakevenTotalUsd(effBuyJpy, weightG, product.category).toFixed(2);

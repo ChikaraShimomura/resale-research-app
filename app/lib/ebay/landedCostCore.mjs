@@ -12,6 +12,9 @@ export const EMS_VALUE_USD = Number(process.env.LANDED_EMS_VALUE_USD ?? 120);
 // eBay手数料(2026・日本セラーの実態)。従来は一律13.25%で「国際手数料/Payoneer為替/時計15%」を計上せず利益を過大表示していた。
 // ユーザー指示2026-07-05(A=実態に正確化)：落札手数料(カテゴリ別FVF)＋海外決済手数料(1.35%)＋Payoneer為替(~2%)を合算した「実効手数料率」にする。
 // ※合算(fvf+intl+fx)は厳密な合成 (1-fvf-intl)(1-fx) の近似だが、無視する差の項(≒fvf×fx≈0.3%)は手数料を僅かに高めに見積る＝安全側(赤字を出さない)。
+// ⚠️クライアント(EbayListingModal/ProductCard)もこの率を import する。LANDED_EBAY_* は NEXT_PUBLIC_ でないためクライアントでは
+//   undefined→既定値に解決される（＝サーバーで env 上書きしてもクライアントは既定のまま食い違う）。既定運用ではサーバーもクライアントも既定値で一致し問題ない。
+//   料率を変える時は既定値(下記の ?? の値)自体を変えるか、モーダルはサーバー算出の floorUsd を正とし publish が最終ゲート(赤字はサーバーで必ず弾く)であることに留意。
 export const EBAY_FVF_DEFAULT   = Number(process.env.LANDED_EBAY_FVF ?? 0.136);        // 多くのカテゴリの落札手数料(2026標準13.6%)
 export const EBAY_FVF_WATCH     = Number(process.env.LANDED_EBAY_FVF_WATCH ?? 0.15);   // 時計/ジュエリー/貴金属は15%
 export const EBAY_INTL_FEE_RATE = Number(process.env.LANDED_EBAY_INTL_FEE ?? 0.0135);  // 海外決済手数料(小規模セラー基準1.35%・大口はボリューム割で下がる)

@@ -20,7 +20,7 @@ import {
   intlShippingJpy,
   usDutyJpy,
   USD_JPY,
-  EBAY_FEE_RATE,
+  ebayFeeRate,
   DUTY_FREE_USD,
   recommendShippingTier,
   SHIP_TIER_USD,
@@ -44,12 +44,14 @@ export interface LandedCost {
 }
 
 // 着地コスト一式（重量を直接指定）。ユーザーが「重さ(任意)」を入力したらこちらで再計算する。
-export function landedCostForWeight(weightG: number, valueUsd: number): LandedCost {
+// category=手数料率(時計/ジュエリー15%等)用。省略時は既定の実効率(landedSubtractJpy/priceModel と揃える)。
+export function landedCostForWeight(weightG: number, valueUsd: number, category?: string): LandedCost {
   const ship = intlShippingJpy(weightG, valueUsd);
   const dutyJpy = usDutyJpy(valueUsd);
   // 送料そのものは購入者負担(配送ポリシーで請求)。出品者がかぶるのは(1)その送料にかかるeBay手数料
   // (2)$100超の関税(前払い) (3)定額送料では実費に届かない不足(shortfall)。重量帯別の定額が実費に届けば(3)は0。
-  const shippingFeeJpy = Math.round(ship.jpy * EBAY_FEE_RATE);
+  // 送料へのeBay手数料もカテゴリ別実効率で計算＝displayProfit/カタログ(landedSubtractJpy)と一致し、時計の利益を過大表示しない。
+  const shippingFeeJpy = Math.round(ship.jpy * ebayFeeRate(category));
   const shortfallJpy = shipShortfallJpy(weightG, valueUsd);
   return {
     weightG,
@@ -65,7 +67,7 @@ export function landedCostForWeight(weightG: number, valueUsd: number): LandedCo
 
 // 着地コスト一式（カテゴリから重量を概算）。valueUsd は eBay想定売価(申告価格)。
 export function landedCost(category: string | undefined, valueUsd: number): LandedCost {
-  return landedCostForWeight(estimateWeightG(category), valueUsd);
+  return landedCostForWeight(estimateWeightG(category), valueUsd, category);
 }
 
 // ====== 配送ポリシー(small/medium/large)の選択 ======

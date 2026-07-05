@@ -465,7 +465,7 @@ export default function EbayListingModal({
   // ★価格は全て「総額(eBay掲載価格=買い手の支払=申告価値・priceUsd)」基準。関税/EMS/送料の閾値も総額で評価する
   //   ＝実際の送料method($120EMS)/米国関税($100)/eBay手数料と一致＝閾値を跨ぐ品も損益分岐に正しく織り込み、絶対に赤字にならない。
   const dutyValueUsd = Number(priceUsd) || Number(data?.priceUsd) || (data ? data.product.ebayAvgJpy / USD_JPY : 0);
-  const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
+  const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd, data?.feeCategory) : null;
   // 価格モデル(SSOT・総額基準)＝±0/最安/中央/高値を一括算出。各段は自身の総額で損益分岐を割らないクランプ済み＝赤字にならない。
   const priceModel = data?.effBuyJpy != null
     ? computePriceModelTotal(data.effBuyJpy, effWeightG, medianUsd, data.feeCategory)

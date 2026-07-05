@@ -5,8 +5,8 @@ import { toRakutenProductUrl } from "../utils";
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)に一本化（旧:ハードコード155）。再エクスポートで既存consumer維持。
 import { USD_JPY, ebayFeeRate, ebayFeeFixedJpy } from "./landedCostCore.mjs";
 export { USD_JPY };
-// 売却実績P&Lの手数料。dealにカテゴリが無いので既定の実効率(FVF+海外決済+為替・国際手数料/為替込み)を使う。
-// ＝従来の一律13.25%より実態に近い（時計だけは既定13.6%扱いで僅かに甘いが、実績P&Lは過去実績の表示用）。
+// 売却実績P&Lの手数料。dealにカテゴリが無いので既定の実効率 ebayFeeRate(null)=約16.95%(FVF13.6%+海外決済1.35%+為替2%)を使う。
+// ＝従来の一律13.25%より実態に近い（時計は本来18.35%だが deal にカテゴリ非保持のため既定16.95%扱い＝実績P&Lは過去実績の表示用で許容）。
 const EBAY_FEE_RATE = ebayFeeRate(null);
 const EBAY_FEE_FIXED = ebayFeeFixedJpy();
 

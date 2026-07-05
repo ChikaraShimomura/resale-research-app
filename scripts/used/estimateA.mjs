@@ -3,6 +3,7 @@
 // 【A(ハードオフ)の商品数を実測】中古に強いカテゴリで「eBay中古落札相場 × ハードオフ現在庫」を突合し、
 // 送料/関税/手数料後に利益が出るハードオフ出品が何件あるかを数える。住宅IP・低頻度(逐次+待ち)。
 import { fetchHardoff } from "./fetchHardoff.mjs";
+import { ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs"; // 手数料SSOT(実効率・国際/為替込み)
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -54,8 +55,9 @@ async function ebaySoldMedianJPY(kw) {
 
 // 送料/関税/eBay手数料後の純利益(JPY)。買い=ハードオフ価格、売り=eBay落札中央値。重量500g想定。
 function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;            // eBay最終手数料
-  const shipFee = 2040 * 0.1325;                // 国際送料(エアパケ500g)にかかる手数料(送料自体は買い手負担)
+  const rate = ebayFeeRate();                   // 実効手数料率(FVF+海外決済+為替・カテゴリ不明時の既定)
+  const fee = sellJpy * rate + ebayFeeFixedJpy();// eBay手数料(固定$0.40込み)
+  const shipFee = 2040 * rate;                  // 国際送料(エアパケ500g)にかかる手数料(送料自体は買い手負担)
   const dutyJpy = sellJpy / USD_JPY > 100 ? sellJpy * 0.1 + 230 : 0; // $100超はDDP前払い
   return sellJpy - fee - shipFee - dutyJpy - buyJpy;
 }
