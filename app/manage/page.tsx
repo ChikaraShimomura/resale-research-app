@@ -44,9 +44,9 @@ const yen = (n: number) => "¥" + Math.round(n || 0).toLocaleString("ja-JP");
 function priceTiers(medianJpy: number, costJpy: number, category?: string, weightG?: number) {
   const medianUsd = medianJpy > 0 ? medianJpy / USD_JPY : 0;
   const w = weightG && weightG > 0 ? weightG : estimateWeightG(category);
-  const m = computePriceModelTotal(costJpy, w, medianUsd); // 総額(eBay掲載価格)基準。±0/最安/中央/高値とも総額で損益分岐を割らない。
+  const m = computePriceModelTotal(costJpy, w, medianUsd, category); // 総額(eBay掲載価格)基準。手数料率はカテゴリ別(時計15%)。±0/最安/中央/高値とも総額で損益分岐を割らない。
   // 各段の純利益(円)＝その総額での着地後利益(SSOT netAtTotalJpy)。価格変更ボタンに併記する。
-  const prof = (usd: number) => netAtTotalJpy(costJpy, w, usd);
+  const prof = (usd: number) => netAtTotalJpy(costJpy, w, usd, undefined, category);
   return {
     breakeven: m.breakevenUsd, low: m.lowUsd, median: m.medianUsd, high: m.highUsd,
     profit: { breakeven: prof(m.breakevenUsd), low: prof(m.lowUsd), median: prof(m.medianUsd), high: prof(m.highUsd) },
@@ -59,7 +59,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const tab: Tab = sp.tab === "fav" || sp.tab === "listed" || sp.tab === "sold" || sp.tab === "ended" ? sp.tab : "bought";
   // チーム参加中は「共有データ＝オーナー名前空間」を読む（全員で同じ在庫/お気に入り/出品/収益）。
-  const { dataActor: actor, ebayActor } = await getTeamContext();
+  const { dataActor: actor, ebayActor, isMember } = await getTeamContext();
 
   const [favItems, boughtItems, deals, canList, canDrop, isAdminUser] = await Promise.all([
     getFavoriteItems(actor),
@@ -69,6 +69,8 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
     canDropship(),
     getCurrentUserEmail().then((e) => isAdmin(e)),
   ]);
+  // 無在庫ボタンの表示可否＝チーム参加メンバー or プロMAX以上のみ（ユーザー指示2026-07-05）。
+  const showDrop = canDrop || isMember;
   // 出品中（live）＝出品中の商品タブ。停止中／過去（stopped/archived）＝終了商品タブ。
   // いずれも「出品済み」なので仕入れ商品(未出品)からは必ず外す＝出品済みなのに二重出品するのを防ぐ。
   const live = deals.live.map((d) => ({ ...d, _status: "live" as const }));
@@ -164,7 +166,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         <ManageTabs active={tab} counts={counts} />
 
         {tab === "fav" && (
-          <FavoritesTab items={favItems} canList={canList} canDrop={canDrop} isAdminUser={isAdminUser} />
+          <FavoritesTab items={favItems} canList={canList} canDrop={canDrop} showDrop={showDrop} isAdminUser={isAdminUser} />
         )}
         {tab === "bought" && (
           <BoughtTab items={boughtNotListed} canList={canList} />
@@ -186,7 +188,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
 }
 
 // ── お気に入り ─────────────────────────────────────────────
-function FavoritesTab({ items, canList, canDrop, isAdminUser }: { items: Awaited<ReturnType<typeof getFavoriteItems>>; canList: boolean; canDrop: boolean; isAdminUser: boolean }) {
+function FavoritesTab({ items, canList, canDrop, showDrop, isAdminUser }: { items: Awaited<ReturnType<typeof getFavoriteItems>>; canList: boolean; canDrop: boolean; showDrop: boolean; isAdminUser: boolean }) {
   if (items.length === 0) {
     return (
       <Empty Icon={Heart} title="まだお気に入りはありません" body={<><span className="whitespace-nowrap">利益カタログでカード右上の</span><wbr /><span className="whitespace-nowrap">♡を押すと、</span><wbr /><span className="whitespace-nowrap">ここに入ります。</span></>} />
@@ -219,7 +221,7 @@ function FavoritesTab({ items, canList, canDrop, isAdminUser }: { items: Awaited
                     {sourceSiteName(p.source?.site)}で見る <ExternalLink size={13} />
                   </a>
                 )}
-                <CatalogActionButtons productId={p.id} buyJpy={buyJpy} isAdmin={isAdminUser} canAutoList={canList} canDropship={canDrop} shareTitle={p.title} />
+                <CatalogActionButtons productId={p.id} buyJpy={buyJpy} isAdmin={isAdminUser} canAutoList={canList} canDropship={canDrop} showDropship={showDrop} shareTitle={p.title} />
               </div>
             </div>
           </li>

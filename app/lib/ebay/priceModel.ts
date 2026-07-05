@@ -10,9 +10,12 @@
 //  - 各段(最安/中央/高値)も「その価格自身の損益分岐」を絶対に割らないようクランプ＝しきい値直上の
 //    “損失帯”(関税が乗るのに値上げが追いつかない区間)にも価格が落ちない。
 import { landedCostForWeight, USD_JPY, intlShippingJpy, usDutyJpy } from "./landedCost";
+import { ebayFeeRate, ebayFeeFixedJpy } from "./landedCostCore.mjs";
 
-export const FEE_RATE = 0.1325; // eBay最終手数料率
-export const FEE_FIXED_JPY = 47; // eBay固定手数料
+// eBay実効手数料(2026・カテゴリ別FVF＋海外決済＋為替)は SSOT(landedCostCore.ebayFeeRate)。時計/ジュエリーは15%。
+// 総額系の損益分岐/純利益は category を受けて正しい率で計算＝カタログ(build/refine)と食い違わず、時計でも赤字を出さない。
+export const FEE_RATE = ebayFeeRate(null); // 後方互換：カテゴリ不明時の実効率(国際手数料/為替込み)。body基準の旧関数が使う。
+export const FEE_FIXED_JPY = ebayFeeFixedJpy(); // 注文ごと固定手数料($0.40×為替)
 export const FAST_DISCOUNT = 0.08; // 「最安」＝中央値から8%安く
 export const HIGH_MARKUP = 0.1; // 「高値」＝中央値から10%高く
 // 損益分岐の重量に乗せる安全係数。重量はAI推定で誤差があり、実物が重いと実EMS送料が想定を超え赤字化する。
@@ -90,46 +93,47 @@ export function computePriceModel(costJpy: number, weightG: number, marketMedian
 // 全段 net≥0 を確認済(scratch proveNeverLossTotal.mjs)。返り値・入力は全て「総額USD」。
 
 // 総額 totalUsd で売る時の純利益(JPY)。weightMul=floor見積りの安全係数(既定 WEIGHT_SAFETY_FLOOR=重め)。実重量評価は 1.0 を渡す。
-export function netAtTotalJpy(costJpy: number, weightG: number, totalUsd: number, weightMul: number = WEIGHT_SAFETY_FLOOR): number {
+// category=日本語ジャンル(例"腕時計")。実効手数料率をカテゴリ別に解決＝時計は15%で計算(赤字を出さない)。未指定は既定率。
+export function netAtTotalJpy(costJpy: number, weightG: number, totalUsd: number, weightMul: number = WEIGHT_SAFETY_FLOOR, category?: string): number {
   const Tj = Math.round(totalUsd * USD_JPY);
-  const fee = Math.round(Tj * FEE_RATE) + FEE_FIXED_JPY;
+  const fee = Math.round(Tj * ebayFeeRate(category)) + ebayFeeFixedJpy();
   const ship = intlShippingJpy(Math.round(weightG * weightMul), Math.max(0, totalUsd)).jpy; // EMS閾値=総額
   const duty = usDutyJpy(Math.max(0, totalUsd));                                            // 関税閾値=総額
   return Tj - fee - costJpy - ship - duty;
 }
-// 「現在の総額 atUsd の関税/EMS regime」で損益分岐となる総額(USD)。net=0 を T について解いた式。
-function requiredTotalUsd(costJpy: number, weightG: number, atUsd: number): number {
+// 「現在の総額 atUsd の関税/EMS regime」で損益分岐となる総額(USD)。net=0 を T について解いた式。手数料率はカテゴリ別。
+function requiredTotalUsd(costJpy: number, weightG: number, atUsd: number, category?: string): number {
   const ship = intlShippingJpy(Math.round(weightG * WEIGHT_SAFETY_FLOOR), Math.max(0, atUsd)).jpy;
   const duty = usDutyJpy(Math.max(0, atUsd));
-  return (costJpy + FEE_FIXED_JPY + ship + duty) / (1 - FEE_RATE) / USD_JPY;
+  return (costJpy + ebayFeeFixedJpy() + ship + duty) / (1 - ebayFeeRate(category)) / USD_JPY;
 }
-// 総額の損益分岐(±0)。不動点反復＋閾値跨ぎの安全押し上げ(net≥0 を厳密保証)。
-export function breakevenTotalUsd(costJpy: number, weightG: number): number {
+// 総額の損益分岐(±0)。不動点反復＋閾値跨ぎの安全押し上げ(net≥0 を厳密保証)。手数料率はカテゴリ別(時計15%)。
+export function breakevenTotalUsd(costJpy: number, weightG: number, category?: string): number {
   if (!(costJpy > 0) || !(weightG > 0)) return 0;
   let T = costJpy / USD_JPY;
-  for (let i = 0; i < 60; i++) { const nt = requiredTotalUsd(costJpy, weightG, T); if (Math.abs(nt - T) < 1e-7) { T = nt; break; } T = nt; }
-  let out = Math.ceil(Math.max(T, requiredTotalUsd(costJpy, weightG, T)) * 100) / 100;
-  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, out) < 0; i++) out = Math.ceil((requiredTotalUsd(costJpy, weightG, out) + 0.01) * 100) / 100;
+  for (let i = 0; i < 60; i++) { const nt = requiredTotalUsd(costJpy, weightG, T, category); if (Math.abs(nt - T) < 1e-7) { T = nt; break; } T = nt; }
+  let out = Math.ceil(Math.max(T, requiredTotalUsd(costJpy, weightG, T, category)) * 100) / 100;
+  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, out, WEIGHT_SAFETY_FLOOR, category) < 0; i++) out = Math.ceil((requiredTotalUsd(costJpy, weightG, out, category) + 0.01) * 100) / 100;
   return out;
 }
 // 候補総額を「自身の regime で赤字にならない最小総額」へ押し上げる(±0未満は±0へ)。閾値直上の損失帯も net≥0 まで上げる。
-function safeTotalUsd(candUsd: number, costJpy: number, weightG: number, be: number): number {
+function safeTotalUsd(candUsd: number, costJpy: number, weightG: number, be: number, category?: string): number {
   let p = Math.max(candUsd, be);
-  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, p) < 0; i++) p = Math.ceil((requiredTotalUsd(costJpy, weightG, p) + 0.01) * 100) / 100;
+  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, p, WEIGHT_SAFETY_FLOOR, category) < 0; i++) p = Math.ceil((requiredTotalUsd(costJpy, weightG, p, category) + 0.01) * 100) / 100;
   let out = Math.ceil(p * 100) / 100;
-  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, out) < 0; i++) out = Math.ceil((requiredTotalUsd(costJpy, weightG, out) + 0.01) * 100) / 100;
+  for (let i = 0; i < 40 && netAtTotalJpy(costJpy, weightG, out, WEIGHT_SAFETY_FLOOR, category) < 0; i++) out = Math.ceil((requiredTotalUsd(costJpy, weightG, out, category) + 0.01) * 100) / 100;
   return out;
 }
-// 総額基準の価格モデル。返り値は全て「総額(eBay掲載価格=買い手の支払)」。marketMedianUsd=eBay落札中央値(=商品価格≒総額相当)。
-export function computePriceModelTotal(costJpy: number, weightG: number, marketMedianUsd: number): PriceModel {
+// 総額基準の価格モデル。返り値は全て「総額(eBay掲載価格=買い手の支払)」。marketMedianUsd=eBay落札中央値(=商品価格≒総額相当)。category=手数料率(時計15%)用。
+export function computePriceModelTotal(costJpy: number, weightG: number, marketMedianUsd: number, category?: string): PriceModel {
   if (!(costJpy > 0) || !(weightG > 0)) return { breakevenUsd: 0, lowUsd: 0, medianUsd: 0, highUsd: 0 };
-  const be = breakevenTotalUsd(costJpy, weightG);
+  const be = breakevenTotalUsd(costJpy, weightG, category);
   const m = marketMedianUsd > 0 ? marketMedianUsd : 0;
   if (!(m > 0)) return { breakevenUsd: be, lowUsd: 0, medianUsd: 0, highUsd: 0 };
   return {
     breakevenUsd: be,
-    lowUsd: safeTotalUsd(m * (1 - FAST_DISCOUNT), costJpy, weightG, be),
-    medianUsd: safeTotalUsd(m, costJpy, weightG, be),
-    highUsd: safeTotalUsd(m * (1 + HIGH_MARKUP), costJpy, weightG, be),
+    lowUsd: safeTotalUsd(m * (1 - FAST_DISCOUNT), costJpy, weightG, be, category),
+    medianUsd: safeTotalUsd(m, costJpy, weightG, be, category),
+    highUsd: safeTotalUsd(m * (1 + HIGH_MARKUP), costJpy, weightG, be, category),
   };
 }

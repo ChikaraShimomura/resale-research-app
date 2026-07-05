@@ -34,7 +34,7 @@ async function breakevenUsdFor(id: string): Promise<number> {
     // weight:{id}キャッシュ優先→無ければカテゴリ概算。ただしカテゴリ不明だと概算が軽め(~805g)に出て、重い品(オーディオ/カメラ/工具)で
     // EMS/関税が過小評価＝floorが甘くなり赤字を通す。カテゴリ不明時は安全側(1800g)を使い floor を甘くしない。
     const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : (category ? estimateWeightG(category) : 1800);
-    if (costJpy > 0 && weightG > 0) return Math.round(breakevenTotalUsd(costJpy, weightG) * 100) / 100;
+    if (costJpy > 0 && weightG > 0) return Math.round(breakevenTotalUsd(costJpy, weightG, category) * 100) / 100;
   } catch { /* floor不明でも編集自体は使える（警告が出ないだけ） */ }
   return 0;
 }

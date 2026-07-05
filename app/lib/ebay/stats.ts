@@ -3,10 +3,12 @@
 import { kv } from "@vercel/kv";
 import { toRakutenProductUrl } from "../utils";
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)に一本化（旧:ハードコード155）。再エクスポートで既存consumer維持。
-import { USD_JPY } from "./landedCostCore.mjs";
+import { USD_JPY, ebayFeeRate, ebayFeeFixedJpy } from "./landedCostCore.mjs";
 export { USD_JPY };
-const EBAY_FEE_RATE = 0.1325;
-const EBAY_FEE_FIXED = 47;
+// 売却実績P&Lの手数料。dealにカテゴリが無いので既定の実効率(FVF+海外決済+為替・国際手数料/為替込み)を使う。
+// ＝従来の一律13.25%より実態に近い（時計だけは既定13.6%扱いで僅かに甘いが、実績P&Lは過去実績の表示用）。
+const EBAY_FEE_RATE = ebayFeeRate(null);
+const EBAY_FEE_FIXED = ebayFeeFixedJpy();
 
 const DEALS_KEY = (actor: string) => `ebay_deals:${actor}`;
 // SKU対応表。eBayに「公開できた(result.ok)」時だけ書かれる＝実際に出品できた証跡。listing.ts と一致。

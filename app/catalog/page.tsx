@@ -54,7 +54,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const canView = await canViewCatalog();
   const actor = await getActorId();
   // チーム参加中は共有データ名前空間（オーナー）で triage（仕入れた/非表示/お気に入り）を見る＝全員で同じカタログ状態。
-  const { dataActor } = await getTeamContext();
+  const { dataActor, isMember } = await getTeamContext();
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
   const canList = await canAutoList(); // 自動出品=有料プラン(ライト以上)。在庫ありの無在庫はサーバーで別途プロMAXゲート(canDropship)
   const canDrop = await canDropship(); // 無在庫出品ボタンを実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
@@ -256,6 +256,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           isAdmin={isAdminUser}
                           canAutoList={canList}
                           canDropship={canDrop}
+                          showDropship={canDrop || isMember}
                           teamOwner={teamOwner || undefined}
                           shareTitle={`${p.brand} ${p.name}`.trim()}
                           sourceUrl={p.hardoffUrl}

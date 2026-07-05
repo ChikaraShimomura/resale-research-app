@@ -5,6 +5,7 @@
 // 住宅IP・低頻度厳守：eBayは warmup1回＋長め間隔、失敗はスキップして貯める(再実行で埋まる)。
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
+import { ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs"; // 手数料SSOT(カテゴリ別FVF+海外決済+為替)
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -52,9 +53,10 @@ async function ebaySoldMedianJPY(kw) {
 }
 
 // 送料/関税/eBay手数料後の純利益(JPY)。重量500g想定・送料は買い手負担(手数料分のみ計上)。
-function netProfitJPY(buyJpy, sellJpy) {
-  const fee = sellJpy * 0.1325 + 47;
-  const shipFee = 2040 * 0.1325;
+function netProfitJPY(buyJpy, sellJpy, category) {
+  const rate = ebayFeeRate(category); // カテゴリ別実効手数料(FVF+海外決済+為替)。時計は15%。
+  const fee = sellJpy * rate + ebayFeeFixedJpy();
+  const shipFee = 2040 * rate;
   const dutyJpy = sellJpy / USD_JPY > 100 ? sellJpy * 0.1 + 230 : 0;
   return Math.round(sellJpy - fee - shipFee - dutyJpy - buyJpy);
 }
@@ -89,7 +91,7 @@ function kvCreds() {
     let prof = 0;
     for (const it of items) {
       if (!it.price) continue;
-      const net = netProfitJPY(it.price, er.median);
+      const net = netProfitJPY(it.price, er.median, q.cat);
       const rate = net / er.median;
       if (net > 1000 && rate > 0.1) {
         prof++;

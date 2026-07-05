@@ -6,7 +6,7 @@
 // （キャッシュに該当カテゴリが無ければスキップ＝Pixelの落札発掘が回るまでは0件。回れば自動で古着が乗る）。
 import fs from "node:fs";
 import { fetch2ndStreetMany } from "./fetch2ndStreet.mjs";
-import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
+import { landedSubtractJpy, ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs";
 
 const USD_JPY = 155;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,7 +37,7 @@ const KOFUKU = [
 
 // 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログ表示が実態と一致。2nd STは古着のみ。
 function netProfitJPY(buyJpy, sellJpy, category) {
-  const fee = sellJpy * EBAY_FEE_RATE + 47;
+  const fee = sellJpy * ebayFeeRate(category) + ebayFeeFixedJpy(); // カテゴリ別実効手数料(FVF+海外決済+為替)＋固定$0.40
   const subtract = landedSubtractJpy(category, sellJpy / USD_JPY);
   return Math.round(sellJpy - fee - subtract - buyJpy);
 }

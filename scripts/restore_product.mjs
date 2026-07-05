@@ -17,9 +17,11 @@ const RESTORE_KEYWORD = (process.env.RESTORE_KEYWORD || "").trim();            /
 const RESTORE_RAKUTEN_KEYWORD = (process.env.RESTORE_RAKUTEN_KEYWORD || "").trim(); // 楽天検索語(日本語・任意)
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+import { EBAY_FEE_RATE as SS_FEE_RATE, ebayFeeFixedJpy } from "../app/lib/ebay/landedCostCore.mjs"; // 手数料SSOT(FVF+海外決済+為替)
+
 const USD_TO_JPY = 155;
-const EBAY_FEE_RATE = 0.1325;
-const EBAY_FEE_FIXED_JPY = 47;
+const EBAY_FEE_RATE = SS_FEE_RATE;          // 実効手数料率。SSOT。楽天レガシー手動復活ツール(カテゴリ非対応で既定率)。
+const EBAY_FEE_FIXED_JPY = ebayFeeFixedJpy(); // 注文ごと固定($0.40×為替)
 const SHIPPING_COST_JPY = 0;
 const DOMESTIC_SHIP_JPY = {
   'トレカ': 350, 'コスメ': 500, 'ゲーム': 400, 'フィギュア': 800, 'ガンプラ': 800,

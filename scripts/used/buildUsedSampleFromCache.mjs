@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
 import { USED_GENRE_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
-import { landedSubtractJpy, EBAY_FEE_RATE } from "../../app/lib/ebay/landedCostCore.mjs";
+import { landedSubtractJpy, ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs";
 import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。既存catalogをmergeした古い小URLもpsnapに焼く前に原寸化。
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -28,7 +28,7 @@ const RESEND = env("RESEND_API_KEY");
 // 純利益(JPY)。着地コストは配信/出品時と同じ SSOT(landedCostCore) で算出＝カタログの利益表示が実態(出品時の損益分岐)と一致する。
 // category=ジャンル(WEIGHT_Gのキー)で重量を概算。出品者負担＝送料へのeBay手数料＋米国関税($100超)＋定額送料の不足。送料自体は買い手負担。
 function netProfitJPY(buyJpy, sellJpy, category) {
-  const fee = sellJpy * EBAY_FEE_RATE + 47;
+  const fee = sellJpy * ebayFeeRate(category) + ebayFeeFixedJpy(); // カテゴリ別実効手数料(FVF+海外決済+為替)＋固定$0.40。時計は15%。
   const subtract = landedSubtractJpy(category, sellJpy / USD_JPY);
   return Math.round(sellJpy - fee - subtract - buyJpy);
 }

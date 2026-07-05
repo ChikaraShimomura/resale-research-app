@@ -9,7 +9,24 @@ export const US_DUTY_RATE = Number(process.env.LANDED_US_DUTY_RATE ?? 0.1);
 export const ZONOS_FEE_USD = Number(process.env.LANDED_ZONOS_FEE_USD ?? 1.5);
 export const DUTY_FREE_USD = Number(process.env.LANDED_DUTY_FREE_USD ?? 100);
 export const EMS_VALUE_USD = Number(process.env.LANDED_EMS_VALUE_USD ?? 120);
-export const EBAY_FEE_RATE = Number(process.env.LANDED_EBAY_FEE_RATE ?? 0.1325);
+// eBay手数料(2026・日本セラーの実態)。従来は一律13.25%で「国際手数料/Payoneer為替/時計15%」を計上せず利益を過大表示していた。
+// ユーザー指示2026-07-05(A=実態に正確化)：落札手数料(カテゴリ別FVF)＋海外決済手数料(1.35%)＋Payoneer為替(~2%)を合算した「実効手数料率」にする。
+// ※合算(fvf+intl+fx)は厳密な合成 (1-fvf-intl)(1-fx) の近似だが、無視する差の項(≒fvf×fx≈0.3%)は手数料を僅かに高めに見積る＝安全側(赤字を出さない)。
+export const EBAY_FVF_DEFAULT   = Number(process.env.LANDED_EBAY_FVF ?? 0.136);        // 多くのカテゴリの落札手数料(2026標準13.6%)
+export const EBAY_FVF_WATCH     = Number(process.env.LANDED_EBAY_FVF_WATCH ?? 0.15);   // 時計/ジュエリー/貴金属は15%
+export const EBAY_INTL_FEE_RATE = Number(process.env.LANDED_EBAY_INTL_FEE ?? 0.0135);  // 海外決済手数料(小規模セラー基準1.35%・大口はボリューム割で下がる)
+export const EBAY_FX_RATE       = Number(process.env.LANDED_EBAY_FX ?? 0.02);          // Payoneer USD→JPY 為替コスト(~2%)
+export const EBAY_FEE_FIXED_USD = Number(process.env.LANDED_EBAY_FEE_FIXED_USD ?? 0.40); // 注文ごと固定手数料($10超=$0.40)
+// カテゴリ(日本語ジャンル文字列)→実効手数料率。時計/ジュエリーだけ高FVF、他は標準。国際手数料＋為替は全カテゴリ共通で加算。
+export function ebayFeeRate(category) {
+  const c = String(category ?? "");
+  const fvf = /腕時計|時計|ジュエリー|貴金属|watch|jewel/i.test(c) ? EBAY_FVF_WATCH : EBAY_FVF_DEFAULT;
+  return fvf + EBAY_INTL_FEE_RATE + EBAY_FX_RATE;
+}
+// 注文ごと固定手数料(円)。$0.40 × 為替。
+export function ebayFeeFixedJpy() { return Math.round(EBAY_FEE_FIXED_USD * USD_JPY); }
+// 後方互換：EBAY_FEE_RATE = カテゴリ不明時の実効率(国際手数料/為替込み)。この定数を import している既存経路(landedCost/profitCore等)が自動で実態化される。
+export const EBAY_FEE_RATE = ebayFeeRate(null);
 export const WEIGHT_SAFETY = Number(process.env.LANDED_WEIGHT_SAFETY) || 1.15;
 // 配送サイズ別の既定送料(USD・買い手への請求額)。EbayPolicySetup の既定とここをSSOTで一致させる(env上書き可)。
 // 利益計算が「請求でどこまで実費を相殺できるか」を見積もるのにも使う(定額では届かない不足を正直に引くため)。
@@ -92,5 +109,6 @@ export function shipShortfallJpy(weightG, valueUsd) {
 export function landedSubtractJpy(category, valueUsd) {
   const weightG = estimateWeightG(category);
   const ship = intlShippingJpy(weightG, valueUsd);
-  return Math.round(ship.jpy * EBAY_FEE_RATE) + usDutyJpy(valueUsd) + shipShortfallJpy(weightG, valueUsd);
+  // 送料にもeBay手数料(FVFは商品+送料の合計にかかる)＋国際手数料＋為替＝実効率をカテゴリ別で適用。
+  return Math.round(ship.jpy * ebayFeeRate(category)) + usDutyJpy(valueUsd) + shipShortfallJpy(weightG, valueUsd);
 }

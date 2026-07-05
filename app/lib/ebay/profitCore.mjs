@@ -3,9 +3,9 @@
 // ⚠️同期必須：scripts/refresh.mjs と scripts/restore_product.mjs に同式の calcProfit がミラーで存在する
 //   （高コストなマッチング処理への巻き込み回避で今回は据え置き）。式や定数を変えるときは3箇所揃えること。
 //   将来この profitCore へ統合してミラーを削除するのが望ましい。
-import { EBAY_FEE_RATE } from "./landedCostCore.mjs";
+import { EBAY_FEE_RATE, ebayFeeFixedJpy } from "./landedCostCore.mjs";
 
-export const EBAY_FEE_FIXED_JPY = Number(process.env.LANDED_EBAY_FEE_FIXED_JPY ?? 47);
+export const EBAY_FEE_FIXED_JPY = ebayFeeFixedJpy(); // 注文ごと固定($0.40×為替)。SSOT。
 export const SHIPPING_COST_JPY = Number(process.env.LANDED_SHIPPING_COST_JPY ?? 0); // 国際送料は買い手負担。国内→自分の着地コストは displayProfit/landedCost で別途。
 
 // 粗利 = eBay価格 -（仕入れ価格 + 国内送料 - 獲得ポイント）- eBay手数料 - 国際送料(0)。

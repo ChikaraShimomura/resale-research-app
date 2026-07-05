@@ -8,8 +8,7 @@ import { track, logEvent } from "../lib/analytics";
 import { cleanImg } from "../lib/cleanImg";
 import { sellThroughPct } from "./SortSelect";
 
-const EBAY_FEE_RATE = 0.1325;
-const EBAY_FEE_FIXED = 47;
+import { ebayFeeRate, ebayFeeFixedJpy } from "../lib/ebay/landedCostCore.mjs"; // 実効手数料(FVF+海外決済+為替・時計15%)
 
 function PointBadge({ rate }: { rate: number }) {
   if (rate <= 1) return null;
@@ -149,7 +148,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
   const isHot = product.realProfitRate >= 50;
   const pointAmount = source.pointAmount ?? 0;
   const shippingJpy = source.shippingJpy ?? 0; // 国内送料概算（利益計算に算入済み）
-  const ebayFee = Math.round(product.realAvgPrice * EBAY_FEE_RATE) + EBAY_FEE_FIXED;
+  const ebayFee = Math.round(product.realAvgPrice * ebayFeeRate(product.category)) + ebayFeeFixedJpy();
   // 内訳が realProfit（現金純利益＝ポイント抜き・国際送料/米国関税の控除後）に必ず一致するよう、
   // 差分を「国際発送まわりの目安（送料のeBay手数料＋関税）」として1行に束ねる。
   const intlAndDuty = Math.max(0, Math.round(product.realAvgPrice - source.price - shippingJpy - ebayFee - product.realProfit));
@@ -373,7 +372,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               )}
             </div>
             <div className="flex justify-between text-[#2D323B]">
-              <span>eBay手数料<span className="whitespace-nowrap">（13.25% + ¥47）</span></span>
+              <span>eBay手数料<span className="whitespace-nowrap">（{(ebayFeeRate(product.category) * 100).toFixed(1)}% + 海外決済・為替込み）</span></span>
               <span>- {formatJpy(ebayFee)}</span>
             </div>
             {intlAndDuty > 0 && (

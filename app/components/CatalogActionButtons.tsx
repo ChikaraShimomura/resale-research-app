@@ -17,6 +17,7 @@ export default function CatalogActionButtons({
   buyJpy,
   canAutoList = false,
   canDropship = false,
+  showDropship = false,
   teamOwner,
   shareTitle,
   sourceUrl,
@@ -28,6 +29,7 @@ export default function CatalogActionButtons({
   isAdmin?: boolean; // 旧skipボタンの文言出し分け用。skip撤去で未使用だが呼び出し側の互換のため受ける。
   canAutoList?: boolean;
   canDropship?: boolean; // 無在庫出品（先に買わずeBay出品）を実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
+  showDropship?: boolean; // 無在庫ボタンを「表示」するか。チーム参加メンバー or プロMAX以上のみ表示（それ以外には出さない・ユーザー指示2026-07-05）。既定false=非表示。
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
   shareTitle?: string; // 商品名（無在庫出品モーダルのタイトルに使う）
   sourceUrl?: string; // 仕入れ元の商品ページURL（「仕入れ元確認」ボタン）。上段左。
@@ -110,8 +112,8 @@ export default function CatalogActionButtons({
     );
   }
 
-  // 下段の列数＝eBay落札確認(任意)＋eBayライバル確認(任意)＋無在庫出品(常設) の個数に合わせる。
-  const row2n = (soldUrl ? 1 : 0) + (rivalsUrl ? 1 : 0) + 1;
+  // 下段の列数＝eBay落札確認(任意)＋eBayライバル確認(任意)＋無在庫出品(showDropship時のみ) の個数に合わせる。
+  const row2n = (soldUrl ? 1 : 0) + (rivalsUrl ? 1 : 0) + (showDropship ? 1 : 0);
   const row2Cols = row2n >= 3 ? "grid-cols-3" : row2n === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
@@ -172,32 +174,36 @@ export default function CatalogActionButtons({
           <Check size={16} /> <span>仕入れた</span>
         </button>
       </div>
-      {/* 下段：eBay落札確認・eBayライバル確認・無在庫出品 */}
-      <div className={`grid ${row2Cols} gap-1.5`}>
-        {soldUrl && (
-          <a
-            href={soldUrl}
-            target="_blank"
-            rel="nofollow noopener noreferrer"
-            className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-[#0064D2] bg-white text-[#0064D2] text-[10px] font-bold leading-tight active:bg-[#0064D2]/5"
-          >
-            <ExternalLink size={14} /> <span>eBay落札確認</span>
-          </a>
-        )}
-        {/* 今出品されているライバル（eBay現行出品）を新規タブで確認。仕入れ前に競合の数・最安値を見て判断できる。 */}
-        {rivalsUrl && (
-          <a
-            href={rivalsUrl}
-            target="_blank"
-            rel="nofollow noopener noreferrer"
-            className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-gray-300 bg-white text-gray-600 text-[10px] font-bold leading-tight active:bg-gray-50"
-          >
-            <Eye size={14} /> <span>eBayライバル確認</span>
-          </a>
-        )}
-        {/* 無在庫出品＝先に買わずeBayへ出品（売れてから仕入れて発送）。プロMAX以上のみ実行可（未満はプラン誘導・サーバーでも再判定）。 */}
-        <DropshipListButton productId={productId} title={shareTitle || ""} canDropship={canDropship} onBehalfOf={teamOwner} />
-      </div>
+      {/* 下段：eBay落札確認・eBayライバル確認・無在庫出品（下段の要素が1つも無ければ描画しない） */}
+      {row2n > 0 && (
+        <div className={`grid ${row2Cols} gap-1.5`}>
+          {soldUrl && (
+            <a
+              href={soldUrl}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-[#0064D2] bg-white text-[#0064D2] text-[10px] font-bold leading-tight active:bg-[#0064D2]/5"
+            >
+              <ExternalLink size={14} /> <span>eBay落札確認</span>
+            </a>
+          )}
+          {/* 今出品されているライバル（eBay現行出品）を新規タブで確認。仕入れ前に競合の数・最安値を見て判断できる。 */}
+          {rivalsUrl && (
+            <a
+              href={rivalsUrl}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="inline-flex flex-col items-center justify-center gap-0.5 h-10 rounded-lg border border-gray-300 bg-white text-gray-600 text-[10px] font-bold leading-tight active:bg-gray-50"
+            >
+              <Eye size={14} /> <span>eBayライバル確認</span>
+            </a>
+          )}
+          {/* 無在庫出品＝先に買わずeBayへ出品。⚠️表示はチーム参加メンバー or プロMAX以上のみ(showDropship)。実行可否は canDropship でサーバーでも再判定。 */}
+          {showDropship && (
+            <DropshipListButton productId={productId} title={shareTitle || ""} canDropship={canDropship} onBehalfOf={teamOwner} />
+          )}
+        </div>
+      )}
       {err && <p className="mt-1 text-[10px] text-rose-600">{err}</p>}
     </div>
   );

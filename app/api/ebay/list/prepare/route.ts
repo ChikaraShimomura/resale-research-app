@@ -369,7 +369,7 @@ export async function POST(req: Request) {
   const landed = landedCostForWeight(weightG, Number(priceUsd));
   // 損益分岐(±0)は SSOT(breakevenTotalUsd)で算出＝モーダル/商品管理と完全一致。総額(eBay掲載価格)基準で
   // 関税$100/EMS$120を総額で評価＝閾値跨ぎでも矛盾せず絶対に赤字にならない。重量は推定実重量(weightG)。
-  const floorUsd = breakevenTotalUsd(effBuyJpy, weightG).toFixed(2);
+  const floorUsd = breakevenTotalUsd(effBuyJpy, weightG, product.category).toFixed(2);
   const lowestUsd =
     lowestComparable && lowestComparable > 0 ? (Math.round(lowestComparable * 100) / 100).toFixed(2) : null;
 
@@ -485,6 +485,7 @@ export async function POST(req: Request) {
       competitionCount, // eBay現在出品総数＝競合の目安（概算・null=取得できず）。出品判断の参考に表示。
       floorUsd,  // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
       effBuyJpy: Math.round(effBuyJpy), // 実質仕入れ原価。モーダルで「重さ(任意)」入力時に損益分岐を再計算するのに使う
+      feeCategory: product.category, // 手数料率(時計15%等)をモーダルのクライアント再計算でも正しく使うためのジャンル
       landed: {  // 損益分岐に織り込んだ着地コストの内訳（モーダルで内訳と$100超の前払い注意を出す）
         weightG: landed.weightG,
         shippingJpy: landed.shippingJpy,

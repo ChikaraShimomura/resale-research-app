@@ -3,7 +3,7 @@
 // フロー: eBay日本発送売れ済み → 日本語KW変換 → 楽天検索 → 画像マッチ → 利益計算
 
 // 着地コスト(国際送料手数料＋米国関税)の計算式は app と共有の SSOT を import（二重在＝ドリフトの罠を解消）。
-import { landedSubtractJpy, USD_JPY as L_USD_JPY } from "../app/lib/ebay/landedCostCore.mjs";
+import { landedSubtractJpy, USD_JPY as L_USD_JPY, EBAY_FEE_RATE as SS_FEE_RATE, ebayFeeFixedJpy } from "../app/lib/ebay/landedCostCore.mjs";
 // 危険物除外(SSOT)。発掘キーワード(EBAY_JP_QUERIES)はPixel発掘worker専用になったのでrefreshでは読まない（Phase0はebay_sold_seedを読む）。
 import { PROHIBITED_EXCLUDE } from "./ebayQueries.mjs";
 
@@ -19,8 +19,8 @@ const KV_TOKEN            = process.env.KV_REST_API_TOKEN;
 const USD_TO_JPY          = 155;
 const GBP_TO_JPY          = 197;
 const AUD_TO_JPY          = 100;
-const EBAY_FEE_RATE       = 0.1325;
-const EBAY_FEE_FIXED_JPY  = 47;
+const EBAY_FEE_RATE       = SS_FEE_RATE;        // 実効手数料率(FVF+海外決済+為替)。SSOT(landedCostCore)。楽天レガシーはカテゴリ非対応で既定率。
+const EBAY_FEE_FIXED_JPY  = ebayFeeFixedJpy();  // 注文ごと固定($0.40×為替)
 const SHIPPING_COST_JPY   = 0; // 送料は購入者負担
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

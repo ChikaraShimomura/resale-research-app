@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         // weight:{id}キャッシュ(prepare が保存)優先→無ければカテゴリ概算。カテゴリ不明は安全側(1800g)でfloorを甘くしない（editルートと同基準）。
         const weightG = typeof wRaw === "number" && wRaw > 0 ? wRaw : (category ? estimateWeightG(category) : 1800);
         if (effBuyJpy > 0 && weightG > 0) {
-          const floor = Math.round(breakevenTotalUsd(effBuyJpy, weightG) * 100) / 100;
+          const floor = Math.round(breakevenTotalUsd(effBuyJpy, weightG, category) * 100) / 100;
           if (floor > 0 && totalUsd < floor) {
             return Response.json({ ok: false, belowFloor: true, floorUsd: floor, error: `この価格は損益分岐（約¥${Math.round(floor * USD_JPY).toLocaleString("ja-JP")}）を下回り、赤字になります。` }, { status: 400 });
           }

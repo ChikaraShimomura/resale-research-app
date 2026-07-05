@@ -10,6 +10,7 @@ import CopyKeyword from "./CopyKeyword";
 import { X, BadgeCheck, AlertTriangle, ExternalLink, Settings, Clock, Crown } from "lucide-react";
 import { landedCostForWeight, recommendShippingTier, pickShippingPolicyId, USD_JPY } from "../lib/ebay/landedCost";
 import { computePriceModelTotal, netAtTotalJpy } from "../lib/ebay/priceModel";
+import { ebayFeeRate, ebayFeeFixedJpy } from "../lib/ebay/landedCostCore.mjs"; // 手数料内訳表示用の実効率(時計15%等)
 import { readListingDefaults } from "../lib/prefs"; // 出品の既定値（Best Offer・発送までの日数）
 import { reportClientError, errToDetail } from "../lib/clientError";
 
@@ -25,6 +26,7 @@ interface PrepareData {
   competitionCount?: number | null; // eBay現在出品総数＝競合の目安（概算・null=取得不可）
   floorUsd?: string;         // 損益分岐USD（これ未満は赤字・国際送料/関税の目安を織り込み済み）
   effBuyJpy?: number;        // 実質仕入れ原価。重さ(任意)入力時に損益分岐をクライアントで再計算するのに使う
+  feeCategory?: string;      // 手数料率(時計15%等)をクライアント再計算でも正しく使うためのジャンル
   landed?: {                 // 損益分岐に織り込んだ着地コスト（国際送料・米国関税）の内訳
     weightG: number;
     shippingJpy: number;
@@ -466,7 +468,7 @@ export default function EbayListingModal({
   const liveLanded = data?.landed ? landedCostForWeight(effWeightG, dutyValueUsd) : null;
   // 価格モデル(SSOT・総額基準)＝±0/最安/中央/高値を一括算出。各段は自身の総額で損益分岐を割らないクランプ済み＝赤字にならない。
   const priceModel = data?.effBuyJpy != null
-    ? computePriceModelTotal(data.effBuyJpy, effWeightG, medianUsd)
+    ? computePriceModelTotal(data.effBuyJpy, effWeightG, medianUsd, data.feeCategory)
     : { breakevenUsd: Number(data?.floorUsd) || 0, lowUsd: 0, medianUsd: 0, highUsd: 0 };
   const floorStableUsd = priceModel.breakevenUsd; // 総額の損益分岐(±0)。表示/クランプ/警告の基準を総額で統一。
   const floorUsd = floorStableUsd;
@@ -475,7 +477,7 @@ export default function EbayListingModal({
   const belowFloor =
     Number(priceUsd) > 0 &&
     (data?.effBuyJpy != null
-      ? netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd)) < 0
+      ? netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd), undefined, data.feeCategory) < 0
       : floorUsd > 0 && Number(priceUsd) < floorUsd);
   // 価格が floor 以上に戻ったら確認をリセット＝再び下回ったら必ず再チェックさせる（確認の使い回し防止）。
   useEffect(() => { if (!belowFloor) setAcceptLoss(false); }, [belowFloor]);
@@ -861,10 +863,10 @@ export default function EbayListingModal({
                 {Number(priceUsd) > 0 && data?.effBuyJpy != null && liveLanded && (() => {
                   const totalJpy = Math.round(Number(priceUsd) * USD_JPY); // priceUsd=総額(買い手の支払)＝eBay掲載価格
                   const costJ = Math.round(data.effBuyJpy);
-                  const feeJ = Math.round(totalJpy * 0.1325) + 47;
+                  const feeJ = Math.round(totalJpy * ebayFeeRate(data.feeCategory)) + ebayFeeFixedJpy(); // 実効手数料(FVF+海外決済+為替・時計15%)＋固定$0.40
                   // 利益は損益分岐(belowFloor)と同じ式(netAtTotalJpy=安全係数込み)で出す＝緑/赤の表示が赤字警告と必ず一致する。
                   // 内訳の送料/関税は実費の目安(liveLanded)を表示するため、安全係数ぶん利益と僅差が出るが、判定の正は利益(=net)。
-                  const profitJ = netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd));
+                  const profitJ = netAtTotalJpy(data.effBuyJpy, effWeightG, Number(priceUsd), undefined, data.feeCategory);
                   const j = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
                   return (
                     <p className="text-[10px] text-gray-500 mt-1 leading-snug">
