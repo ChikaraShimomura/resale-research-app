@@ -9,7 +9,7 @@ import Spinner from "./Spinner";
 import { clearListedFlag } from "../lib/ebayListed";
 import { reportClientError, errToDetail } from "../lib/clientError";
 
-interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; archivedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number }
+interface LiveDeal { id: string; title: string; listedAt: string; purchase: number; imageUrl: string; sourceUrl?: string; listingId?: string; stoppedAt?: string; archivedAt?: string; sourceStatus?: "dead" | "soldout"; priceDrift?: { nowJpy: number; pct: number; at: string }; stopFailedCount?: number; dropship?: boolean }
 interface SoldDeal { id: string; title: string; imageUrl: string; soldAt: string; soldJpy: number; profitJpy: number; purchase: number }
 
 const yen = (n: number) => "¥" + Math.round(n).toLocaleString("ja-JP");
@@ -319,7 +319,12 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                       <div className="flex items-center gap-2">
                         <Thumb url={d.imageUrl} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                          <div className="flex items-center gap-1">
+                            {d.dropship && (
+                              <span className="shrink-0 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-px whitespace-nowrap">無在庫</span>
+                            )}
+                            <p className="text-[12px] text-gray-700 truncate leading-tight">{d.title || "（無題の商品）"}</p>
+                          </div>
                           <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                             {shortDate(d.listedAt) && `${shortDate(d.listedAt)}・`}仕入れ {yen(d.purchase)}
                           </p>
@@ -402,7 +407,7 @@ export default function MyListings({ onChanged, show = ["live", "stopped", "sold
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-[#2D323B] text-white text-[11px] font-bold active:bg-[#1A1D23]"
                         >
-                          <ShoppingCart size={13} /> 追加仕入れ
+                          <ShoppingCart size={13} /> {d.dropship ? "仕入れ先" : "追加仕入れ"}
                         </a>
                         <button
                           disabled={busy === d.id}
