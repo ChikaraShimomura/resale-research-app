@@ -421,7 +421,7 @@ export default function MyDashboard() {
 
       <p className="text-[10px] leading-relaxed text-gray-400 px-1">
         <span className="whitespace-nowrap">※ 利益（現金）＝ 売上</span><wbr />
-        <span className="whitespace-nowrap">− eBay手数料(13.25%+¥47)</span><wbr />
+        <span className="whitespace-nowrap">− eBay手数料(約17%・海外決済/為替込み)</span><wbr />
         <span className="whitespace-nowrap">− 仕入れ値（為替 $1=¥155）。</span><wbr />
         <span className="whitespace-nowrap">ポイントは利益に含めず</span><wbr />
         <span className="whitespace-nowrap">「( + ○○ポイント )」で別表示</span><wbr />

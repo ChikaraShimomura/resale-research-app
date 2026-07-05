@@ -101,7 +101,7 @@ export default async function PricingPage({
             <p className="text-[12px] text-gray-400 leading-relaxed mb-7">
               <span className="whitespace-nowrap">※ かかるのは中古の仕入れ費用と、</span><wbr />
               <span className="whitespace-nowrap">売れたときのeBay手数料</span><wbr />
-              <span className="whitespace-nowrap">（落札価格の13.25%＋¥47）だけ。</span>
+              <span className="whitespace-nowrap">（海外決済・為替込みで約17%）だけ。</span>
             </p>
             <Link
               href="/catalog"

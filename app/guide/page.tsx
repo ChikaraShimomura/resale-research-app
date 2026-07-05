@@ -63,7 +63,7 @@ const STEPS: Step[] = [
     Icon: Wallet,
     title: "利益を受け取る",
     desc: "売上はeBayからPayoneer（受け取り口座）に入り、そこから日本の銀行口座へ出金。",
-    tips: ["eBay手数料は落札価格の13.25%＋¥47", "売上→Payoneer→銀行の順。反映に数日のラグあり", "想定利益は手数料・送料などを差し引いた手取りベースの目安"],
+    tips: ["eBay手数料は約17%（落札手数料＋海外決済＋為替・時計等は約18%）＋固定約¥62", "売上→Payoneer→銀行の順。反映に数日のラグあり", "想定利益は手数料・送料などを差し引いた手取りベースの目安"],
     warn: "新規セラーは最初のうち売上が保留（追跡ありは配達確認の数日後／追跡なしは支払いから約1か月）。「売れたのにお金が来ない」は正常。実績がつくと早く受け取れる。",
     link: { label: "売上の受け取り方（出金ガイド）", href: "/guide/payoneer-withdraw" },
   },
@@ -83,7 +83,7 @@ const FAQS = [
   { q: "出品できる数が少ない・増やせません。", a: "新規セラーには出品上限（目安：月10品・合計500ドル）があります。実績がつくと自動で引き上げられ、マイeBayから引き上げ申請も可能（30日に1回）。" },
   { q: "海外に送れない商品はありますか？", a: "モバイルバッテリー・リチウム電池単体・香水・アルコール・スプレー・ライターなどは航空危険物で、国際郵便では送れません。仕入れ前に確認を。" },
   { q: "返品不可にすれば返金リスクはありませんか？", a: "いいえ。返品不可でも、未着や「説明と違う」商品はeBayの保証（Money Back Guarantee）で返金・返品の対象になります。追跡付きで発送し、正直な商品説明で身を守りましょう。" },
-  { q: "eBayの手数料はいくらですか？", a: "落札価格の13.25%＋固定47円。このサイトの利益計算には算入済みです。" },
+  { q: "eBayの手数料はいくらですか？", a: "落札手数料（多くのカテゴリで約13.6%・時計やジュエリーは15%）に、海外決済手数料（約1.35%）とPayoneer為替（約2%）が乗って実質約17%（時計等は約18%）、さらに1注文あたり固定約¥62。このサイトの利益計算には海外決済・為替まで算入済みです。" },
   { q: "中古は1点物ですか？在庫はどうなりますか？", a: "はい。中古は基本1点限りです。売り切れたら別の在庫を探します。カタログは在庫を随時入れ替えています。気になった型番は早めの仕入れがおすすめです。" },
 ];
 
@@ -301,7 +301,7 @@ export default function GuidePage() {
             <div className="bg-[#F5F7FA] rounded-xl p-3 text-xs text-gray-600 space-y-1.5 font-mono">
               <div className="flex justify-between"><span>eBay想定売値（直近の落札）</span><span className="text-blue-600">+ ¥XX,XXX</span></div>
               <div className="flex justify-between"><span>中古の仕入れ価格</span><span className="text-[#2D323B]">- ¥XX,XXX</span></div>
-              <div className="flex justify-between"><span>eBay手数料（13.25%＋¥47）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
+              <div className="flex justify-between"><span>eBay手数料（約17%・海外決済/為替込み）</span><span className="text-[#2D323B]">- ¥XXX</span></div>
               <div className="flex justify-between"><span>国際送料</span><span className="text-[#2D323B]">- 目安を差引</span></div>
               <div className="flex justify-between"><span>米国関税（$100超）</span><span className="text-[#2D323B]">- 目安を差引</span></div>
               <div className="flex justify-between font-black text-emerald-600 pt-1.5 border-t border-[#A98B5C]/35 text-sm">
