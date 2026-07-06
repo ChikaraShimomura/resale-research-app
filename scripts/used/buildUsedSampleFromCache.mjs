@@ -152,10 +152,14 @@ async function loadCategories() {
   // ★重要：buildはハードオフ品を ebayConfirmed 無しの素の状態で作る。そのまま上書きすると、
   //   refineUsedCatalogEbay が型番一致でつけた ebayConfirmed/相場が毎build消え、カタログが「確定分だけ」に崩落する。
   //   → 既存の確定結果(型番=code 単位)を新規build品へ引き継ぐ。同一型番なら eBay落札中央値は同じなので妥当。
+  // ★psnapは「新規 or 変化した商品」だけ書く＝毎buildで全件(~1300)を再書込していたのをやめKV書込を激減（無料枠500k/月を焼き切っていた根治）。
+  const psnapSig = (p) => [p.ebayMedianJpy, p.buyJpy, p.profitJpy, p.profitRate, p.imageUrl, p.ebayActiveCount, p.condition, p.soldCount, p.ebayConfirmed ? 1 : 0, p.brand, p.name].join("|");
+  const prevById = new Map(); // 既存カタログの id→signature（変化判定用）
   let enriched = catalog;
   let merged = catalog;
   try {
     const existing = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
+    for (const p of existing) if (p && p.id) prevById.set(p.id, psnapSig(p));
     const normCode = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     // 型番→確定相場（refine済み・ebayConfirmed）の対応表。同一型番は最初の確定を採用。
     const refinedByCode = new Map();
@@ -187,7 +191,7 @@ async function loadCategories() {
   // 出品フロー用に psnap:{id} へ ProfitProduct を保存（prepare/publish が getProductById で引く）。TTL35日。
   // 仕入れ先サイトは c.site から導出（ここで作る catalog はハードオフのみだが、将来 merged を回しても誤ラベルしないよう堅牢化）。
   // ※2nd ST候補のpsnapは refineUsedCatalogEbay が site 込みで書く。想定売値=eBay落札中央値。実物写真は出品時に本人が差し替える前提。
-  const cmds = enriched.map((c) => {
+  const cmds = enriched.filter((c) => c.id && (!prevById.has(c.id) || prevById.get(c.id) !== psnapSig(c))).map((c) => {
     const snap = {
       id: c.id, title: `${c.brand} ${c.name}`.trim(), imageUrl: upscaleImageflux(c.imageUrl), images: c.imageUrl ? [upscaleImageflux(c.imageUrl)] : [],
       category: c.cat || "腕時計", coreKeyword: [c.brand, c.code].filter(Boolean).join(" ").trim(), brand: c.brand, code: c.code,
@@ -196,7 +200,7 @@ async function loadCategories() {
       ebayActiveCount: c.ebayActiveCount, // 競合数(STR/競合バッジ用)。引き継いだ確定品なら入る。未取得は undefined(中立)。
       source: { site: c.site || "hardoff", siteName: c.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: c.buyJpy, url: c.hardoffUrl },
     };
-    return ["SET", `psnap:${c.id}`, JSON.stringify(snap), "EX", String(35 * 24 * 3600)];
+    return ["SET", `psnap:${c.id}`, JSON.stringify(snap), "EX", String(90 * 24 * 3600)];
   });
   if (cmds.length) {
     await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(cmds) });

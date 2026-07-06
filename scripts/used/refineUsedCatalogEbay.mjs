@@ -121,6 +121,7 @@ const matchCodeOf = (p) => {
 
   let confirmed = 0, dropped = 0, blocked = 0, stale = 0, n = 0; // stale=確定済みだが今回0件→降格せず維持した数
   const failDiag = {}; // 診断：確定失敗を「落札0件(薄い)」/「落札有るが型番がタイトルに無い」でジャンル別集計
+  const changedIds = new Set(); // ★psnapは「今回確定/変化した商品」だけ書く＝全カタログ再書込を避けKV書込を激減（無料枠500k/月を焼き切っていた根治）。TTL更新はbuild(2h毎の新規/変化分)＋長TTLで担保。
   for (const p of order) {
     if (n >= LIMIT) break;
     n++;
@@ -151,7 +152,7 @@ const matchCodeOf = (p) => {
       const comp = await ebayCompetition(q);
       if (comp != null) p.ebayActiveCount = comp;
       delete unconf[codeN]; // 確定できた＝もう不能ではない(再挑戦キャッシュから外す)
-      confirmed++;
+      confirmed++; changedIds.add(p.id); // この商品はpsnap更新対象（相場/利益が変わった）
       console.log(`  ✓ ${q.padEnd(30)} 同一型番${same.length}件 中央¥${med} → 益¥${p.profitJpy}(${p.profitRate}%)`);
     } else if (p.ebayConfirmed === true) {
       // ★既に確定済み(過去にeBay実落札で型番一致を検証済み)の品が、今回だけ0件だった＝一過性の可能性が高い
@@ -193,15 +194,15 @@ const matchCodeOf = (p) => {
     for (const [g, v] of Object.entries(failDiag)) { const m = (acc[g] = acc[g] || { noSold: 0, noRef: 0, samples: [] }); m.noSold += v.noSold; m.noRef += v.noRef; for (const s of v.samples) if (m.samples.length < 12) m.samples.push(s); }
     await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify([["SET", "diag:refinefail", JSON.stringify({ at: nowIso, byGenre: acc }), "EX", String(7 * 24 * 3600)]]) });
   } catch { /* 診断はbest-effort */ }
-  // 出品フロー用 psnap も同一型番相場で更新。TTL35日。
-  const snapCmds = kept.filter((p) => p.id).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
+  // 出品フロー用 psnap を更新。★今回確定/変化した商品だけ書く（全カタログ再書込を廃止＝KV書込を激減）。TTL90日。
+  const snapCmds = kept.filter((p) => p.id && changedIds.has(p.id)).map((p) => ["SET", `psnap:${p.id}`, JSON.stringify({
     id: p.id, title: `${p.brand} ${p.name}`.trim(), imageUrl: upscaleImageflux(p.imageUrl), images: p.imageUrl ? [upscaleImageflux(p.imageUrl)] : [],
     category: p.cat || "腕時計", coreKeyword: [p.brand, p.code].filter(Boolean).join(" ").trim(), brand: p.brand, code: p.code,
     realAvgPrice: p.ebayMedianJpy, realMedianPrice: p.ebayMedianJpy, realProfit: p.profitJpy, realProfitRate: p.profitRate,
     realCount: p.soldCount || 1, soldBased: !!p.ebayConfirmed, soldCount30d: p.soldCount, usedCondition: p.condition,
     ebayActiveCount: p.ebayActiveCount, // 競合数(現在出品総数)＝STR/競合バッジ用。未取得は undefined(中立)。
     source: { site: p.site || "hardoff", siteName: p.site === "2ndstreet" ? "2nd STREET" : "ハードオフ", price: p.buyJpy, url: p.hardoffUrl },
-  }), "EX", String(35 * 24 * 3600)]);
+  }), "EX", String(90 * 24 * 3600)]);
   if (snapCmds.length) await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { Authorization: `Bearer ${KV_TOK}`, "Content-Type": "application/json" }, body: JSON.stringify(snapCmds) });
 
   console.log(`\n=== 同一型番で確定 ${confirmed}件 / 確定維持(今回0件だが降格せず) ${stale}件 / 検問 ${blocked}件 ===`);
