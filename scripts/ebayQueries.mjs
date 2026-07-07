@@ -1,4 +1,4 @@
-// eBay発掘キーワード（366本）。refresh.mjs(楽天マッチ) と ebaySoldWorker.mjs(Pixel落札発掘) で共有。
+// eBay発掘キーワード（時計/カメラ/オーディオ/ゲーム/楽器/工具/ブランド品など）。refresh.mjs(楽天マッチ) と ebaySoldWorker.mjs(Pixel落札発掘) で共有。
 // {q: eBay検索語(英), name: 表示/ジャンルキー}。name は guessCategory/EXPECTED_GENRE と対応（refresh.mjs参照）。
 
 // 【ユーザー厳命】関税問題/国際郵便で送れない航空危険物等は絶対にカタログ対象にしない。発掘(worker)と取込(refresh)の双方で除外＝SSOT。
@@ -20,6 +20,47 @@ export const EBAY_JP_QUERIES = [
   { q: 'comme des garcons used jacket',                name: 'コムデギャルソン' },
   { q: 'yohji yamamoto used jacket',                   name: 'ヨウジヤマモト' },
   { q: 'polo ralph lauren vintage 90s used',           name: 'ラルフローレンヴィンテージ' },
+
+  // 【ブランド品(2026-07-07追加・時計/バッグ/ジュエリー)】ハードオフの item-code(品番/ref番号)を持つブランド中古を対象化。
+  //   確定は refine が「品番→eBay落札タイトル一致」で行う＝型番を持つ個体だけ通り、無地/型番なしは自動で落ちる（既存レールに乗る）。
+  //   ⚠️高額ラグジュアリー(ロレックス/エルメス/シャネルのバッグ等)は落札額が SEED_MAX_JPY(¥130k≒$840) を超え種にならない＝
+  //     中価格帯の回転品(コーチ/LV小物/グッチ/ファッション時計/シルバー系ジュエリー)が主。name は BRAND_USED_KW に当たり中古落札もseed化する。
+  //   時計は国産(セイコー/カシオ/シチズン/オリエント/グランドセイコー)は別途既出。ここは海外ファッション/エントリー機械式＝上限内で型番がタイトルに出るもの。
+  { q: 'gucci watch mens',                 name: 'グッチ 腕時計' },
+  { q: 'tag heuer watch',                  name: 'タグホイヤー 腕時計' },
+  { q: 'omega watch vintage',              name: 'オメガ 腕時計' },
+  { q: 'tissot watch',                     name: 'ティソ 腕時計' },
+  { q: 'emporio armani watch',             name: 'アルマーニ 腕時計' },
+  { q: 'fossil watch',                     name: 'フォッシル 腕時計' },
+  { q: 'bulova watch',                     name: 'ブローバ 腕時計' },
+  { q: 'movado watch',                     name: 'モバード 腕時計' },
+  // ブランドバッグ・財布(LVのM番号/コーチのF番号等の品番が item-code とeBayタイトル双方に出る中価格帯)
+  { q: 'coach bag',                        name: 'コーチ バッグ' },
+  { q: 'coach wallet',                     name: 'コーチ 財布' },
+  { q: 'louis vuitton bag pre-owned',      name: 'ルイヴィトン バッグ' },
+  { q: 'louis vuitton wallet',             name: 'ルイヴィトン 財布' },
+  { q: 'gucci bag pre-owned',              name: 'グッチ バッグ' },
+  { q: 'gucci wallet',                     name: 'グッチ 財布' },
+  { q: 'prada bag pre-owned',              name: 'プラダ バッグ' },
+  { q: 'saint laurent bag',                name: 'サンローラン バッグ' },
+  { q: 'celine bag pre-owned',             name: 'セリーヌ バッグ' },
+  { q: 'loewe bag',                        name: 'ロエベ バッグ' },
+  { q: 'fendi bag pre-owned',              name: 'フェンディ バッグ' },
+  { q: 'bottega veneta bag',               name: 'ボッテガヴェネタ バッグ' },
+  { q: 'balenciaga bag',                   name: 'バレンシアガ バッグ' },
+  { q: 'miu miu bag',                      name: 'ミュウミュウ バッグ' },
+  { q: 'michael kors bag',                 name: 'マイケルコース バッグ' },
+  { q: 'christian dior bag pre-owned',     name: 'ディオール バッグ' },
+  { q: 'chanel wallet pre-owned',          name: 'シャネル 財布' },
+  // ブランドジュエリー(ライン名/ref がタイトルに出る中価格帯。無地/型番なしは refine で自動除外)
+  { q: 'tiffany necklace',                 name: 'ティファニー ネックレス' },
+  { q: 'tiffany ring',                     name: 'ティファニー 指輪' },
+  { q: 'tiffany bracelet',                 name: 'ティファニー ブレスレット' },
+  { q: 'cartier ring',                     name: 'カルティエ 指輪' },
+  { q: 'gucci ring silver',                name: 'グッチ 指輪' },
+  { q: 'bvlgari necklace',                 name: 'ブルガリ ネックレス' },
+  { q: 'georg jensen necklace silver',     name: 'ジョージジェンセン ネックレス' },
+  { q: 'vivienne westwood necklace',       name: 'ヴィヴィアン ネックレス' },
 
   // 【CASIO時計 拡充(2026-06-26・①)】型番がeBayタイトルに出る＝同一型番照合が効く＝中古カタログ(時計)の本命供給。
   { q: 'casio gshock GMW-B5000 full metal',  name: 'GショックフルメタルB5000' },
@@ -1014,8 +1055,16 @@ export const EBAY_JP_QUERIES = [
 // 【SSOT】ハードオフ中古カタログ対象ジャンル（発掘フィルタ＝ebaySoldWorker と build＝buildUsedSampleFromCache の双方が使う）。
 //   「型番がeBayタイトルに出る×ハードオフが中古で扱う×輸出できる」ジャンルだけを通す。
 //   新品sealed系(TCG/フィギュア/ゲームソフト/コスメ/プラモ/ぬいぐるみ等)は中古×型番照合と相性が悪いので含めない。
+// 【ブランド品(2026-07-07)】型番(ハードオフ item-code=品番/ref)を持つブランド中古カテゴリの判定＝単一の真実(SSOT)。
+//   ・発掘/build の「対象ジャンル」ゲートで USED_GENRE_KW と OR で使う（巨大な USED_GENRE_KW を触らず追加ジャンルを開く）。
+//   ・ブランド品は中古(pre-owned)主体＋新品は SEED_MAX_JPY(¥130k) 超で弾かれるため、これに当たるカテゴリは seed に中古落札も採る
+//     （ebaySoldWorker が newOnly を外す）＝新品限定だと種が枯れるのを防ぐ。
+//   ※腕時計の genre語(腕時計/ウォッチ)は入れない＝国産時計(セイコー/カシオ等)を中古seedに切替えないため。海外時計はブランド名で当てる。
+export const BRAND_USED_KW =
+  /バッグ|ハンドバッグ|トートバッグ|ショルダーバッグ|ボストンバッグ|財布|長財布|ウォレット|ジュエリー|ネックレス|指輪|ブレスレット|ピアス|イヤリング|ルイヴィトン|ヴィトン|グッチ|シャネル|エルメス|コーチ|プラダ|セリーヌ|ロエベ|ボッテガ|フェンディ|ディオール|バレンシアガ|サンローラン|ミュウミュウ|マイケルコース|ティファニー|カルティエ|ブルガリ|ヴィヴィアン|ジョージジェンセン|オメガ|タグホイヤー|ティソ|フォッシル|ブローバ|モバード|アルマーニ/i;
+
 // ハードオフ中古の本領＝「型番がeBayタイトルに出る×ハードオフが中古で扱う×輸出可(非危険物)」ジャンル。
 // 2026-06-28 供給拡大のため時計/オーディオ中心→カメラ・レンズ/レトロゲーム/楽器・エフェクター/電動工具へ大幅拡張。
-// カテゴリ名(ebayQueries の name)はこのどれかに必ず当たること＝当たらないと loadCategories で捨てられる。
+// カテゴリ名(ebayQueries の name)はこのどれかに必ず当たること＝当たらないと loadCategories で捨てられる（ブランド品は BRAND_USED_KW でも可）。
 export const USED_GENRE_KW =
   /腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch|ハミルトン|タイメックス|スウォッチ|ウォークマン|ヘッドホン|ヘッドフォン|イヤホン|アンプ|スピーカー|ターンテーブル|レコードプレーヤー|カセットデッキ|MDプレーヤー|カートリッジ|iPod|オーディオ|テクニクス|パイオニア|マランツ|サンスイ|デノン|オンキヨー|オーディオテクニカ|ゼンハイザー|レンズ|フィルムカメラ|一眼|カメラ|デジカメ|ミラーレス|キヤノン|キャノン|ニコン|フジフイルム|富士フイルム|オリンパス|ペンタックス|ライカ|コンタックス|本体|ファミコン|スーパーファミコン|ニンテンドー|任天堂|ゲームボーイ|ゲームキューブ|セガ|サターン|ドリームキャスト|メガドライブ|プレイステーション|プレステ|PSP|Vita|ゲーム機|コントローラー|エフェクター|ギター|ベース|シンセ|シンセサイザー|キーボード|オーディオインターフェース|ドラムマシン|電動工具|インパクトドライバー|ドリル|マキタ|HiKOKI|ハイコーキ|ソニー|パナソニック|LUMIX|シグマ|タムロン|ボディ|チューナー|オープンリール|ティアック|ケンウッド|アキュフェーズ|ラックスマン|デッキ|SONY|Panasonic|AIWA|アイワ|ディスクマン|カセット|Hi-MD|Electro-Harmonix|Focusrite|インターフェース|Roland|Korg|Ibanez|Strymon|NINTENDO|メモリー拡張/i;

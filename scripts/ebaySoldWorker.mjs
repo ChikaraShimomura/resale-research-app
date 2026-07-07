@@ -22,7 +22,7 @@
 //   EBAY_SOLD_DRY=0 node scripts/ebaySoldWorker.mjs                    # 本書込
 
 import fs from "node:fs";
-import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE, USED_GENRE_KW } from "./ebayQueries.mjs";
+import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE, USED_GENRE_KW, BRAND_USED_KW } from "./ebayQueries.mjs";
 import { decodeHtmlEntities } from "../app/lib/htmlEntities.mjs";
 try {
   const envPath = new URL("../.env.local", import.meta.url);
@@ -165,7 +165,7 @@ async function discoverSeeds() {
   const WATCH_KW = /セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|腕時計|ウォッチ|watch/i;
   let queries = EBAY_JP_QUERIES;
   let mode = "";
-  if (process.env.EBAY_USED_GENRES === "1") { queries = queries.filter((x) => USED_GENRE_KW.test(x.name) || USED_GENRE_KW.test(x.q)); mode = "（中古ジャンルのみ）"; }
+  if (process.env.EBAY_USED_GENRES === "1") { queries = queries.filter((x) => USED_GENRE_KW.test(x.name) || USED_GENRE_KW.test(x.q) || BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q)); mode = "（中古ジャンル＋ブランド品）"; }
   else if (process.env.EBAY_WATCH_ONLY === "1") { queries = queries.filter((x) => WATCH_KW.test(x.name) || WATCH_KW.test(x.q)); mode = "（時計のみ）"; }
   // 毎回シャッフル：検問(captcha)で途中停止しても、複数回の実行で全キーワード(末尾の新ジャンル含む)に取得機会が回る＝飢餓防止。
   queries = [...queries];
@@ -177,6 +177,9 @@ async function discoverSeeds() {
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {
     done++;
+    // ブランド品は中古(pre-owned)主体＋新品は SEED_MAX_JPY 超で弾かれる＝新品限定だと種が枯れる→中古落札もseedに採る。
+    // 他ジャンル(新品sealed主体)は従来どおり新品落札のみ（新品単品が輸出の主）。
+    const brandUsed = BRAND_USED_KW.test(name) || BRAND_USED_KW.test(q);
     // ページ送り（_pgn）で1キーワードから複数ページの落札を集める＝種を増やす。窓内カードを全ページ分ためてからまとめる。
     const allCards = []; let blockedThis = false, anyItems = false;
     for (let pg = 1; pg <= DISCOVER_PAGES; pg++) {
@@ -185,7 +188,7 @@ async function discoverSeeds() {
       catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
       if (typeof r.status !== "number" || r.status >= 400) { blockedThis = true; console.log(`  ⛔ ${r.status} : ${name} p${pg}`); await sleep(Math.round(rnd(15000, 30000))); break; }
       if (isBlocked(r.html)) { blockedThis = true; console.log(`  ⛔ 検問ページ : ${name} p${pg}`); await sleep(Math.round(rnd(30000, 60000))); break; }
-      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, true); // 輸出は新品単品が主→新品落札のみ採用
+      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, !brandUsed); // 新品sealed主体は新品のみ／ブランド品は中古も採用(中古主体のため)
       if (parsed.items > 0) anyItems = true;
       allCards.push(...parsed.cards);
       if (parsed.items < 50) break; // ページが埋まってない＝最終ページ（これ以上のページは無い）。窓外で落札0のページもここで止まる

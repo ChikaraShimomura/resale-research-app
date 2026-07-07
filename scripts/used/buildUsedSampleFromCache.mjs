@@ -6,7 +6,7 @@
 // 住宅IP・低頻度（ハードオフのみ・逐次+待ち）。サンプル件数とカタログをKV used_catalog に書き、Resendでメール送信する。
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
-import { USED_GENRE_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
+import { USED_GENRE_KW, BRAND_USED_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
 import { landedSubtractJpy, ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs";
 import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。既存catalogをmergeした古い小URLもpsnapに焼く前に原寸化。
 
@@ -52,6 +52,9 @@ function genreOf(category) {
   if (/エフェクター|ギター|ベース|シンセ|シンセサイザー|キーボード|インターフェース|ドラムマシン|BOSS|Roland|Korg|Electro-Harmonix|Focusrite|Ibanez|Strymon|MXR/i.test(c)) return "楽器";
   if (/電動工具|インパクトドライバー|ドリル|マキタ|HiKOKI|ハイコーキ|工具/i.test(c)) return "工具";
   if (/ウォークマン|ヘッドホン|ヘッドフォン|イヤホン|iPod|ターンテーブル|アンプ|スピーカー|カセットデッキ|デッキ|レコードプレーヤー|MDプレーヤー|カートリッジ|交換針|チューナー|オープンリール|ディスクマン|カセット|Hi-MD|\bMD\b|アイワ|AIWA|オーディオ|テクニクス|パイオニア|マランツ|サンスイ|デノン|オンキヨー|ティアック|ケンウッド|アキュフェーズ|ラックスマン|オーディオテクニカ|ゼンハイザー/i.test(c)) return "オーディオ";
+  // ブランド品(2026-07-07)。時計は上の腕時計バケツで拾う（海外ファッション時計も name に「腕時計」を含む）。ここはバッグ/財布・ジュエリー。
+  if (/バッグ|ハンドバッグ|トートバッグ|ショルダーバッグ|ボストンバッグ|財布|長財布|ウォレット/i.test(c)) return "バッグ";
+  if (/ジュエリー|ネックレス|指輪|ブレスレット|ピアス|イヤリング|貴金属/i.test(c)) return "ジュエリー";
   return "中古";
 }
 
@@ -71,7 +74,7 @@ async function loadCategories() {
   });
   // ハードオフ中古の本領ジャンル＋値ごろ（中央¥6000以上）＋非除外。需要(soldCount)順。
   return cats
-    .filter((c) => c.ebayMedian >= 6000 && USED_GENRE_KW.test(c.category) && !EXCLUDE.test(c.category))
+    .filter((c) => c.ebayMedian >= 6000 && (USED_GENRE_KW.test(c.category) || BRAND_USED_KW.test(c.category)) && !EXCLUDE.test(c.category))
     .sort((a, b) => b.soldCount - a.soldCount);
 }
 
