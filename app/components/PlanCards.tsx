@@ -6,6 +6,7 @@ import { logEvent } from "../lib/analytics";
 
 // 各プランの「誰向け」位置づけ（文言のみ・新Priceは作らない）。アンカリングでスタンダードを推す。
 const PLAN_PERSONA: Record<string, string> = {
+  viewer: "情報だけ見たい人に",
   amateur: "まずは試す人に",
   veteran: "副業を伸ばす人に",
   pro: "本格的に取り組む人に",
@@ -22,7 +23,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
   const [busy, setBusy] = useState<PlanId | "portal" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const isSubscriber = currentPlan === "amateur" || currentPlan === "veteran" || currentPlan === "pro" || currentPlan === "promax";
+  const isSubscriber = currentPlan === "viewer" || currentPlan === "amateur" || currentPlan === "veteran" || currentPlan === "pro" || currentPlan === "promax";
 
   // 未購読 → 新規申込（Checkout）。未ログイン(401)なら /login?from=checkout&plan=<id> へ送り、
   // ログイン成功後に /pricing?resume=<id> へ戻して Checkout を自動再開する（申込導線を切らさない）。
@@ -82,7 +83,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
           無制限プラン（{PLANS[currentPlan].name}）をご利用中。
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PAID_PLAN_IDS.map((id) => {
           const p = PLANS[id];
           const trial = id === "amateur";
@@ -138,14 +139,30 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
                 <p className="text-[11px] font-bold text-emerald-600 mt-0.5 whitespace-nowrap">最初の{TRIAL_DAYS}日間無料</p>
               )}
               <ul className="mt-3 space-y-1.5 text-[12px] text-gray-600 flex-1">
-                <li className="flex items-center gap-1.5">
-                  <Check size={13} className="text-emerald-500 shrink-0" />
-                  <span className="whitespace-nowrap">同時出品 {p.listingLimit}件まで</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <Check size={13} className="text-emerald-500 shrink-0" />
-                  利益リサーチ・写真だけ自動出品
-                </li>
+                {id === "viewer" ? (
+                  <>
+                    <li className="flex items-center gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0" />
+                      儲かる中古カタログを全部閲覧
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0" />
+                      <span className="whitespace-nowrap">仕入れ値・利益率・仕入れ先まで</span>
+                    </li>
+                    <li className="text-[11px] text-gray-400 pl-5 leading-relaxed">※ 出品・管理などの操作機能は使えません（見るだけ）</li>
+                  </>
+                ) : (
+                  <>
+                    <li className="flex items-center gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0" />
+                      <span className="whitespace-nowrap">同時出品 {p.listingLimit}件まで</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0" />
+                      利益リサーチ・写真だけ自動出品
+                    </li>
+                  </>
+                )}
               </ul>
               <button
                 onClick={onClick}

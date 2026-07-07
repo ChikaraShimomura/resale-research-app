@@ -5,8 +5,9 @@ import type { PlanId } from "./plans";
 
 // 有料プランごとの Stripe Price ID（Vercel env）。料金変更時はStripeで新Priceを作り env を差し替えるだけ。
 // ⚠️ プロMAXを課金で出すには Vercel に STRIPE_PRICE_PROMAX を投入すること（未設定だと申込で 503）。
-const PAID_KEYS = ["amateur", "veteran", "pro", "promax"] as const;
+const PAID_KEYS = ["viewer", "amateur", "veteran", "pro", "promax"] as const;
 const PRICE_ENV: Record<(typeof PAID_KEYS)[number], string | undefined> = {
+  viewer: process.env.STRIPE_PRICE_VIEWER, // ¥1,000 カタログ閲覧専用（Vercelに要投入・未設定だと申込で503）
   amateur: process.env.STRIPE_PRICE_AMATEUR,
   veteran: process.env.STRIPE_PRICE_VETERAN,
   pro: process.env.STRIPE_PRICE_PRO,

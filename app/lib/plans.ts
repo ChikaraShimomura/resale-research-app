@@ -10,7 +10,9 @@
 //  - master  : 身内（管理者が管理画面で指定）。無料・無制限。
 //  - admin   : 管理者（ADMIN_EMAILS）。無料・無制限＋/admin＋身内の指定。
 // promax(プロMAX) = 自動出品(eBay)が使える最上位プラン。価格は仮(¥100,000)・見直し予定。
-export type PlanId = "free" | "amateur" | "veteran" | "pro" | "promax" | "master" | "admin";
+//  - viewer(表示=カタログ閲覧) : ¥1,000/月。カタログを全情報(仕入れ値/仕入れ先/型番/利益率)で見れるが、
+//    出品・管理・「仕入れた」など操作系は一切使えない＝「情報だけ見たい人」向けの入口。
+export type PlanId = "free" | "viewer" | "amateur" | "veteran" | "pro" | "promax" | "master" | "admin";
 
 export interface Plan {
   id: PlanId;
@@ -22,6 +24,7 @@ export interface Plan {
 
 export const PLANS: Record<PlanId, Plan> = {
   free:    { id: "free",    name: "無料",       priceJpy: 0,    listingLimit: 0,        paid: false },
+  viewer:  { id: "viewer",  name: "カタログ閲覧", priceJpy: 1000, listingLimit: 0,      paid: true  },
   amateur: { id: "amateur", name: "ライト",     priceJpy: 5000,  listingLimit: 10,      paid: true  },
   veteran: { id: "veteran", name: "スタンダード", priceJpy: 20000, listingLimit: 50,    paid: true  },
   pro:     { id: "pro",     name: "プロ",       priceJpy: 30000, listingLimit: 100,     paid: true  },
@@ -35,10 +38,10 @@ export const PLANS: Record<PlanId, Plan> = {
 // ⚠️プロMAX(promax)は当面ここから外す＝料金カード非表示＋checkoutでも弾く。理由＝STRIPE_PRICE_PROMAX未設定で
 //   押すと「No such price」になる／無在庫(dropship)は規約グレー([[resale-app-mukaiko-ebay-policy]])で今は売り込まない。
 //   再掲載する時は "promax" を戻し、Stripeで¥100,000のPrice作成＋STRIPE_PRICE_PROMAX env を設定すること。
-export const PAID_PLAN_IDS: PlanId[] = ["amateur", "veteran", "pro"];
+export const PAID_PLAN_IDS: PlanId[] = ["viewer", "amateur", "veteran", "pro"];
 
 // プランの序列（アップグレード/ダウングレード判定用）。free<ライト<スタンダード<プロ<プロMAX。身内/管理者は無制限=最上位扱い。
-const PLAN_RANK: Record<PlanId, number> = { free: 0, amateur: 1, veteran: 2, pro: 3, promax: 4, master: 9, admin: 9 };
+const PLAN_RANK: Record<PlanId, number> = { free: 0, viewer: 1, amateur: 2, veteran: 3, pro: 4, promax: 5, master: 9, admin: 9 };
 export function planRank(id: PlanId): number {
   return PLAN_RANK[id] ?? 0;
 }
@@ -46,7 +49,14 @@ export function planRank(id: PlanId): number {
 // eBay自動出品(写真だけで出品)を使えるプランか＝有料プラン全て（ライト以上）＋身内/管理者。
 // ユーザー指示2026-06-27（リリース監査）：訴求「写真だけ自動出品」と整合させ、ライト以上に開放。free は不可（閲覧のみ）。
 export function planCanAutoList(plan: PlanId): boolean {
+  if (plan === "viewer") return false; // カタログ閲覧専用＝出品はできない
   return PLANS[plan]?.paid === true || plan === "master" || plan === "admin";
+}
+
+// 「仕入れた」等の操作を使えるプランか。★閲覧専用(viewer)だけ不可＝カタログは全情報見れるが操作系は使わせない。
+// free含めそれ以外は従来どおり可（未購読の funnel/オンボーディングやPAYWALL OFF時の「仕入れた」挙動を壊さない）。
+export function planCanBuy(plan: PlanId): boolean {
+  return plan !== "viewer";
 }
 
 // 「在庫ありのまま＝無在庫転売」を登録できるプランか＝最上位(プロMAX)＋身内/管理者に限定。

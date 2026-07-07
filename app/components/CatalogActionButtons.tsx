@@ -16,6 +16,7 @@ export default function CatalogActionButtons({
   productId,
   buyJpy,
   canAutoList = false,
+  canBuy = true,
   canDropship = false,
   showDropship = false,
   teamOwner,
@@ -28,6 +29,7 @@ export default function CatalogActionButtons({
   buyJpy: number;
   isAdmin?: boolean; // 旧skipボタンの文言出し分け用。skip撤去で未使用だが呼び出し側の互換のため受ける。
   canAutoList?: boolean;
+  canBuy?: boolean; // 「仕入れた」等の操作を出すか。★閲覧専用(viewer)プランだけ false＝仕入れた非表示。既定true(後方互換)。
   canDropship?: boolean; // 無在庫出品（先に買わずeBay出品）を実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
   showDropship?: boolean; // 無在庫ボタンを「表示」するか。チーム参加メンバー or プロMAX以上のみ表示（それ以外には出さない・ユーザー指示2026-07-05）。既定false=非表示。
   teamOwner?: string; // チーム共有モードで「オーナーのデータ」に仕入れる時のオーナーactor
@@ -154,8 +156,9 @@ export default function CatalogActionButtons({
         </div>
       )}
 
-      {/* 上段：仕入れ元確認・仕入れた */}
-      <div className={`grid ${sourceUrl ? "grid-cols-2" : "grid-cols-1"} gap-1.5`}>
+      {/* 上段：仕入れ元確認・仕入れた（「仕入れた」は閲覧専用 canBuy=false では非表示。仕入れ元確認は¥1,000で買った情報の一部なので残す） */}
+      {(sourceUrl || canBuy) && (
+      <div className={`grid ${sourceUrl && canBuy ? "grid-cols-2" : "grid-cols-1"} gap-1.5`}>
         {sourceUrl && (
           <a
             href={sourceUrl}
@@ -166,6 +169,7 @@ export default function CatalogActionButtons({
             <ExternalLink size={15} /> <span>仕入れ元確認</span>
           </a>
         )}
+        {canBuy && (
         <button
           onClick={() => post("bought")}
           disabled={busy !== null}
@@ -173,7 +177,9 @@ export default function CatalogActionButtons({
         >
           <Check size={16} /> <span>仕入れた</span>
         </button>
+        )}
       </div>
+      )}
       {/* 下段：eBay落札確認・eBayライバル確認・無在庫出品（下段の要素が1つも無ければ描画しない） */}
       {row2n > 0 && (
         <div className={`grid ${row2Cols} gap-1.5`}>

@@ -31,7 +31,7 @@ export default async function PricingPage({
   // ログイン後の申込自動再開：/pricing?resume=<plan> で戻ってきたら、その有料プランの Checkout を再開する。
   const resumeRaw = typeof sp.resume === "string" ? sp.resume : undefined;
   const resumePlan =
-    resumeRaw === "amateur" || resumeRaw === "veteran" || resumeRaw === "pro" ? resumeRaw : undefined;
+    resumeRaw === "viewer" || resumeRaw === "amateur" || resumeRaw === "veteran" || resumeRaw === "pro" ? resumeRaw : undefined;
   const gateHeading =
     from === "product"
       ? "この商品の詳細はプランで解放"

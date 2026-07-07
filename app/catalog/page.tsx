@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Flame, ArrowRight, Lock, ArrowUpDown, Tag } from "lucide-react";
 import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
-import { canViewCatalog, getCurrentUserEmail, canAutoList, canDropship } from "../lib/auth/plan";
+import { canViewCatalog, getCurrentUserEmail, canAutoList, canDropship, canBuy } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
 import { getTeamContext } from "../lib/auth/teamActor";
 import { isAdmin } from "../lib/auth/admin";
@@ -58,6 +58,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const isAdminUser = isAdmin(await getCurrentUserEmail()); // 管理者だけ「これは無理」表記、他は「非表示(無理と判断)」表記
   const canList = await canAutoList(); // 自動出品=有料プラン(ライト以上)。在庫ありの無在庫はサーバーで別途プロMAXゲート(canDropship)
   const canDrop = await canDropship(); // 無在庫出品ボタンを実行できるか＝プロMAX以上（身内/管理者含む）。未満はボタン押下でプラン誘導。
+  const canBuyBtn = await canBuy(); // 「仕入れた」を出すか＝閲覧専用(viewer)プランだけ false（カタログは見れるが操作不可）。
   // チーム共有：?team=オーナーactor。仕入れ権限を持つメンバーが押すと「仕入れた」がオーナーの一覧に入る。
   //   サーバーで権限を必ず再確認（URL改ざん対策）。権限がなければ通常モード（自分の一覧）に落とす。
   const teamReq = sp.team ? decodeURIComponent(sp.team) : "";
@@ -255,6 +256,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                           buyJpy={p.buyJpy}
                           isAdmin={isAdminUser}
                           canAutoList={canList}
+                          canBuy={canBuyBtn}
                           canDropship={canDrop}
                           showDropship={canDrop || isMember}
                           teamOwner={teamOwner || undefined}

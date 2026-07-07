@@ -3,7 +3,7 @@
 // 決済(Stripe)が未設定/未購読なら自然に free に落ちる＝既存挙動は壊さない。
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../supabase/server";
-import { PlanId, PAYWALL_ENABLED, planCanAutoList, planCanDropship } from "../plans";
+import { PlanId, PAYWALL_ENABLED, planCanAutoList, planCanDropship, planCanBuy } from "../plans";
 import { isAdmin, isMaster } from "./admin";
 import { billingPlanFor } from "../billing";
 
@@ -52,4 +52,10 @@ export async function canAutoList(): Promise<boolean> {
 // 「在庫ありのまま登録＝無在庫転売」を許すか＝プロMAX限定（＋身内/管理者）。canAutoListより厳しい上位ゲート。
 export async function canDropship(): Promise<boolean> {
   return planCanDropship(await getPlan());
+}
+
+// カタログの「仕入れた」等の操作を使えるか。★閲覧専用(viewer)だけ false＝カタログは全情報見れるが「仕入れた」は非表示。
+// free/未購読は従来どおり true（PAYWALL OFF時やオンボーディングの挙動を壊さない）。
+export async function canBuy(): Promise<boolean> {
+  return planCanBuy(await getPlan());
 }
