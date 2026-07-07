@@ -2,6 +2,7 @@
 // 取引は端末(アクター)単位で KV のハッシュ ebay_deals:{actor} に蓄積する。
 import { kv } from "@vercel/kv";
 import { toRakutenProductUrl } from "../utils";
+import { SKU_MAP_TTL } from "./listing";
 // USD_JPY は SSOT(landedCostCore・env駆動/既定155)に一本化（旧:ハードコード155）。再エクスポートで既存consumer維持。
 import { USD_JPY, ebayFeeRate, ebayFeeFixedJpy } from "./landedCostCore.mjs";
 export { USD_JPY };
@@ -127,6 +128,47 @@ export async function recordSold(
   } catch {
     /* noop */
   }
+}
+
+// 「売れた商品」集合(表示側 GET /api/ebay/sold が読む)。dataActor 単位。
+const SOLD_SET_KEY = (actor: string) => `ebay_sold:${actor}`;
+const SOLD_SET_TTL = 180 * 24 * 60 * 60;
+
+// getSoldItems の items(売れた rr-* SKU＋売値) を、SKU対応表(ebayActor)で商品IDへ逆引きして
+// 売却記録(deal.soldUsd＝売却タブへ移動・dataActor)＋「売れた集合」(dataActor)へ反映する。
+// ★API POST(/api/ebay/sold・クライアントが開いた時)と サーバーcron(auto-stop-cron)の共通処理＝
+//   ユーザーが画面を開かなくてもサーバー側で自動的に売却を検知・記録する（従来はクライアントPOST頼みで取りこぼしていた）。
+// 返り値: { productIds: 逆引きできた全商品ID, added: 今回はじめて集合に入った件数(ファネル/通知用) }
+export async function syncSoldItems(
+  dataActor: string,
+  ebayActor: string,
+  items: { sku: string; soldUsd: number; soldAt: string }[]
+): Promise<{ productIds: string[]; added: number }> {
+  if (!items.length) return { productIds: [], added: 0 };
+  let map: Record<string, string> = {};
+  try {
+    map = (await kv.hgetall<Record<string, string>>(SKU_MAP_KEY(ebayActor))) ?? {};
+    // 同期のたびに逆引き表のTTLを再延長（活動があれば実質失効させない）。
+    if (Object.keys(map).length > 0) { try { await kv.expire(SKU_MAP_KEY(ebayActor), SKU_MAP_TTL); } catch { /* noop */ } }
+  } catch {
+    return { productIds: [], added: 0 };
+  }
+  const productIds: string[] = [];
+  for (const it of items) {
+    const pid = map[it.sku];
+    if (!pid) continue; // SKUが対応表に無い＝この出品アカウントの品でない/古い（取りこぼさないが記録もしない）
+    productIds.push(pid);
+    await recordSold(dataActor, pid, it.soldUsd, it.soldAt); // 既に売却記録済みなら no-op（冪等）
+  }
+  if (!productIds.length) return { productIds: [], added: 0 };
+  let added = 0;
+  try {
+    added = await kv.sadd(SOLD_SET_KEY(dataActor), productIds[0], ...productIds.slice(1)); // 戻り値=新規追加数
+    await kv.expire(SOLD_SET_KEY(dataActor), SOLD_SET_TTL);
+  } catch {
+    /* noop */
+  }
+  return { productIds, added };
 }
 
 // 出品中（未売却）の取引一覧。マイページで個別に「やめた/売れた」を手動調整するため。

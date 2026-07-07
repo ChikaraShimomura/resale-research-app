@@ -1,6 +1,6 @@
 import { kv } from "@vercel/kv";
 import { reconcileActorStops } from "../../../../lib/ebay/sourceReconcile";
-import { pruneExpiredArchived } from "../../../../lib/ebay/stats";
+import { pruneExpiredArchived, syncSoldItems } from "../../../../lib/ebay/stats";
 import { notifyShipDue, recordOrders } from "../../../../lib/ebay/orders";
 import { getValidAccessToken, loadTokens } from "../../../../lib/ebay/tokens";
 import { getSoldItems } from "../../../../lib/ebay/sellApi";
@@ -50,6 +50,7 @@ export async function POST(req: Request) {
   let totalArchived = 0;
   let totalDueNotified = 0;
   let totalOrdersIngested = 0;
+  let totalSoldDetected = 0;
   for (const actor of actors) {
     try {
       const s = await reconcileActorStops(actor, overpricedIds);
@@ -73,9 +74,18 @@ export async function POST(req: Request) {
         const token = await getValidAccessToken(actor);
         if (token) {
           const res = await getSoldItems(token);
-          if (!res.needsReconnect && res.orders.length > 0) {
-            await recordOrders(actor, res.orders);
-            totalOrdersIngested += res.orders.length;
+          if (!res.needsReconnect) {
+            if (res.orders.length > 0) {
+              await recordOrders(actor, res.orders);
+              totalOrdersIngested += res.orders.length;
+            }
+            // ★売却検知もサーバー側で実行＝クライアント(/api/ebay/sold)を開かなくても「売れた商品」タブへ自動反映。
+            //   売れた rr-* SKU を商品IDへ逆引きして deal.soldUsd を立て(売却タブへ移動)＋満了枠解放。
+            //   solo/共有チームは actor が dataActor=ebayActor 兼用（SKU対応表・売れた集合とも actor 名前空間）。
+            if (res.items.length > 0) {
+              const { added } = await syncSoldItems(actor, actor, res.items);
+              totalSoldDetected += added;
+            }
           }
         }
       }
@@ -89,5 +99,5 @@ export async function POST(req: Request) {
       /* 通知失敗は次回リトライ */
     }
   }
-  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalArchived, ordersIngested: totalOrdersIngested, dueNotified: totalDueNotified });
+  return Response.json({ ok: true, actors: actors.length, stopped: totalStopped, pruned: totalArchived, ordersIngested: totalOrdersIngested, soldDetected: totalSoldDetected, dueNotified: totalDueNotified });
 }
