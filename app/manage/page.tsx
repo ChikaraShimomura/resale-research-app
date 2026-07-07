@@ -378,6 +378,9 @@ function Section({ title, count, dot, note, children }: { title: string; count: 
 // 出品中：現在の出品価格＋価格4段変更＋最適化＋出品終了。
 function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<typeof priceTiers>; priceUsd?: string }) {
   const priceNum = Number(priceUsd) || 0;
+  // ボタン数＝編集/最適化/出品停止(3)＋(無在庫なら)仕入れ＋(listingIdあれば)eBay。列数を動的に（Tailwindは静的文字列で認識）。
+  const btnCount = 3 + (d.dropship ? 1 : 0) + (d.listingId ? 1 : 0);
+  const gridColsClass = btnCount >= 5 ? "grid-cols-5" : btnCount === 4 ? "grid-cols-4" : "grid-cols-3";
   return (
     <li>
       <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-3 shadow-sm overflow-hidden">
@@ -407,10 +410,16 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
         </div>
         <div className="mt-2.5 space-y-2">
           {tiers && <PriceTierEdit productId={d.id} tiers={tiers} currentPriceUsd={priceNum} />}
-          {/* 編集／最適化／出品終了／eBayで見る を横並び（アイコン＋短ラベルのチップ）。編集＝価格・数量・送料・実物写真の追加。 */}
-          <div className={`grid ${d.listingId ? "grid-cols-4" : "grid-cols-3"} gap-2`}>
+          {/* 編集／最適化／(無在庫のみ)仕入れ／出品停止／eBayで見る を横並び（アイコン＋短ラベルのチップ）。編集＝価格・数量・送料・実物写真の追加。 */}
+          <div className={`grid ${gridColsClass} gap-2`}>
             <EditListingButton productId={d.id} title={d.title} compact />
             <OptimizeButton productId={d.id} compact />
+            {/* 無在庫は「売れてから仕入れる」＝仕入れ先(ハードオフ)へ飛ぶ「仕入れ」を最適化と出品停止の間に。sourceUrlはstats.tsで正規化済・無い旧dealは商品名検索にフォールバック。 */}
+            {d.dropship && (
+              <a href={d.sourceUrl || `https://netmall.hardoff.co.jp/search/?q=${encodeURIComponent(d.title || "")}`} target="_blank" rel="nofollow noopener noreferrer" className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl bg-[#2D323B] text-white font-bold text-[11px] leading-none active:bg-[#1A1D23]">
+                <ShoppingBag size={15} /> <span>仕入れ</span>
+              </a>
+            )}
             <StopListingButton productId={d.id} compact />
             {d.listingId && (
               <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-[#0064D2] bg-white text-[#0064D2] font-bold text-[11px] leading-none active:bg-[#0064D2]/5">
@@ -418,18 +427,6 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
               </a>
             )}
           </div>
-          {/* 無在庫出品は「売れてから仕入れる」ので、仕入れ先(ハードオフ)へすぐ飛べるボタンを出品停止の直下に出す。
-              sourceUrl はstats.tsで正規化済み。無い旧dealは商品名でハードオフ検索にフォールバック。 */}
-          {d.dropship && (
-            <a
-              href={d.sourceUrl || `https://netmall.hardoff.co.jp/search/?q=${encodeURIComponent(d.title || "")}`}
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-xl bg-[#2D323B] text-white font-bold text-[12px] active:bg-[#1A1D23]"
-            >
-              <ExternalLink size={15} /> <span className="whitespace-nowrap">仕入れ先（売れたら仕入れる）</span>
-            </a>
-          )}
         </div>
       </div>
     </li>
