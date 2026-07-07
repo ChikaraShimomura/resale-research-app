@@ -42,10 +42,11 @@ export default function FaqPage() {
       <main className="max-w-2xl mx-auto p-3 space-y-2.5">
         <QA q="料金プランは？">
           <p>
-            <span className="whitespace-nowrap">使う量に合わせて3プラン</span><wbr />
+            <span className="whitespace-nowrap">使う量に合わせて4プラン</span><wbr />
             <span className="whitespace-nowrap">（いずれも月額・税込）。</span>
           </p>
           <ul className="list-disc pl-4 space-y-0.5">
+            <li>カタログ閲覧：{yen(PLANS.viewer.priceJpy)}（カタログ閲覧のみ・出品/操作は不可）</li>
             <li>ライト：{yen(PLANS.amateur.priceJpy)}（同時出品 {PLANS.amateur.listingLimit}件まで）</li>
             <li>スタンダード：{yen(PLANS.veteran.priceJpy)}（同時出品 {PLANS.veteran.listingLimit}件まで）</li>
             <li>プロ：{yen(PLANS.pro.priceJpy)}（同時出品 {PLANS.pro.listingLimit}件まで）</li>

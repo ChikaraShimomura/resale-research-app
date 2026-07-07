@@ -3,6 +3,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { getTeamContext } from "../../../lib/auth/teamActor";
 import { listSourcingForUser, recordSourcing, markPurchased, removeSourcing } from "../../../lib/ebay/sourcing";
 import { listListedProductIds } from "../../../lib/ebay/stats";
+import { canBuy } from "../../../lib/auth/plan";
 
 // マイページ「仕入れ中の商品」一覧と、その記録/印付け/取消。アカウント単位の KV ハッシュ ebay_sourcing を読み書きする。
 // eBay もカタログも叩かない。ログイン時は actor=acct:{uuid} なので別端末でも同じ仕入れ中が返る。
@@ -45,6 +46,11 @@ export async function POST(req: Request) {
   const productId = (body.productId || "").trim();
   // 非空＋妥当長のみ受理（巨大な productId をキーにして肥大化させるのを防ぐ）。
   if (!productId || productId.length > 256) return Response.json({ ok: false, error: "商品が指定されていません。" }, { status: 400 });
+
+  // ★閲覧専用(viewer)は仕入れ管理(仕入れ中への追加/購入印/削除)を使えない。UIで隠すが直叩き防止でサーバーでも弾く。
+  if (["add", "purchased", "remove"].includes(body.action || "") && !(await canBuy())) {
+    return Response.json({ ok: false, needsPlan: true, error: "この操作は閲覧プランではご利用いただけません。上位プランが必要です。" }, { status: 403 });
+  }
 
   // 「仕入れる」押下時に仕入れ中として記録（表示用スナップショット付き）。
   if (body.action === "add") {

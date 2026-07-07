@@ -13,7 +13,7 @@ const field =
 //  - from        : どのナッジ経由で来たか（登録コンバージョンの帰属用）
 //  - next        : ログイン後の遷移先。from=checkout&plan=<id> なら /pricing?resume=<id> で Checkout を自動再開
 //  - registerHref: 新規登録へも from/plan を引き継ぎ、帰属を切らさない
-const PAID_PLAN_IDS = ["amateur", "veteran", "pro"];
+const PAID_PLAN_IDS = ["viewer", "amateur", "veteran", "pro"]; // ※app/lib/plans.ts の PAID_PLAN_IDS と一致（viewer を含む）
 function deriveFromQuery() {
   const empty = { from: "", next: "/search", fromCheckout: false, registerHref: "/register", confirmExpired: false };
   if (typeof window === "undefined") return empty; // SSR/プリレンダ時は既定（クライアントで再評価される）

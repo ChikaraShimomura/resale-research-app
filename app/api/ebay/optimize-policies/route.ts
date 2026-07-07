@@ -1,5 +1,6 @@
 import { getActorId } from "../../../lib/auth/actor";
 import { getValidAccessToken } from "../../../lib/ebay/tokens";
+import { canAutoList } from "../../../lib/auth/plan";
 import { optimizeFulfillmentPolicies } from "../../../lib/ebay/sellApi";
 import { friendlyStepResults } from "../../../lib/ebay/errorMessages";
 
@@ -17,6 +18,11 @@ export async function POST() {
 
   const token = await getValidAccessToken(conn);
   if (!token) return Response.json({ ok: false, error: "eBay未連携です。先に連携してください。" }, { status: 401 });
+
+  // ★配送ポリシーの検査/修正も出品セットアップ＝有料プラン(ライト以上)限定。
+  if (!(await canAutoList())) {
+    return Response.json({ ok: false, needsPlan: true, error: "この操作にはeBay出品プラン（ライト以上）が必要です。" }, { status: 403 });
+  }
 
   const result = await optimizeFulfillmentPolicies(token, MARKETPLACE);
 

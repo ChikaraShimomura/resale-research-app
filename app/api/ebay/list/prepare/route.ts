@@ -19,6 +19,7 @@ import { getUsedCategoryId } from "../../../../lib/ebay/usedCategoryMap";
 import { decodeHtmlEntities } from "../../../../lib/htmlEntities.mjs";
 import { fetchHardoffGallery } from "../../../../lib/usedGallery";
 import { hasPerm } from "../../../../lib/team";
+import { canAutoList } from "../../../../lib/auth/plan";
 import { breakevenTotalUsd } from "../../../../lib/ebay/priceModel";
 
 // 「eBay出品画面」の確認用データを返す（読み取りのみ・eBayへの書き込みなし）。
@@ -279,6 +280,11 @@ export async function POST(req: Request) {
   // メンバーがチームの共有在庫を準備するには "list" 権限が要る。
   if (isMember && owner && owner !== viewer && !(await hasPerm(owner, viewer, "list"))) {
     return Response.json({ ok: false, error: "出品権限がありません。" }, { status: 403 });
+  }
+  // ★出品準備(AI/eBay呼び出し)も出品操作＝有料プラン(ライト以上)限定。チーム(権限付与済み)は対象外(publishと同軸)。
+  const teamOp = isMember && !!owner && owner !== viewer;
+  if (!teamOp && !(await canAutoList())) {
+    return Response.json({ ok: false, needsPlan: true, error: "eBay自動出品にはプランへのご加入が必要です。ライトは30日無料でお試しいただけます。" }, { status: 403 });
   }
   const token = await getValidAccessToken(ebayActor ?? viewer);
   if (!token) return Response.json({ ok: false, connected: false });

@@ -1,6 +1,8 @@
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
-import { getEbayActor } from "../../../../lib/auth/teamActor";
+import { getEbayActor, getTeamContext } from "../../../../lib/auth/teamActor";
+import { hasPerm } from "../../../../lib/team";
+import { canAutoList } from "../../../../lib/auth/plan";
 import { getProductById } from "../../../../lib/ebay/productStore";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { getListingSku } from "../../../../lib/ebay/stats";
@@ -49,8 +51,17 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const actor = await getEbayActor(); // 出品の改訂は出品に使ったeBayアカウント基準
+  // 出品の改訂は出品に使ったeBayアカウント(ebayActor=共有はオーナー)基準。権限/プランは本人(viewer)で再判定＝直叩き防止。
+  const { viewer, ebayActor, owner, isMember } = await getTeamContext();
+  const actor = ebayActor;
   if (!actor) return Response.json({ ok: false, connected: false });
+  const teamOp = isMember && !!owner && owner !== viewer;
+  if (teamOp && owner && !(await hasPerm(owner, viewer, "list"))) {
+    return Response.json({ ok: false, error: "このチームでの最適化の権限がありません。" }, { status: 403 });
+  }
+  if (!teamOp && !(await canAutoList())) {
+    return Response.json({ ok: false, needsPlan: true, error: "この操作にはeBay出品プラン（ライト以上）が必要です。" }, { status: 403 });
+  }
   const token = await getValidAccessToken(actor);
   if (!token) return Response.json({ ok: false, connected: false });
 

@@ -59,6 +59,7 @@ export default function LegalPage() {
               <Row label="メールアドレス">{CONTACT}</Row>
               <Row label="販売URL">https://www.yushutsu-fukugyo.com</Row>
               <Row label="販売価格">
+                カタログ閲覧：{yen(PLANS.viewer.priceJpy)}（カタログ閲覧のみ・出品/操作は不可）<br />
                 ライト：{yen(PLANS.amateur.priceJpy)}（同時出品 {PLANS.amateur.listingLimit}件まで）<br />
                 スタンダード：{yen(PLANS.veteran.priceJpy)}（同時出品 {PLANS.veteran.listingLimit}件まで）<br />
                 プロ：{yen(PLANS.pro.priceJpy)}（同時出品 {PLANS.pro.listingLimit}件まで）

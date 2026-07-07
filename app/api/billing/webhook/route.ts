@@ -32,11 +32,15 @@ export async function POST(req: Request) {
       const customerId = obj.customer ? String(obj.customer) : undefined;
       const planId = (meta.planId as PlanId | undefined) ?? "free";
       if (email) {
+        // 後続の subscription.* が正確な状態で上書きするが、順序逆転/同時刻でトライアルを潰さないよう前状態を尊重する。
+        //（trialing を active に上書き＋currentPeriodEnd 消去で TrialBanner が消える不具合の防止）。
+        const prev = await getBillingState(email);
         const state: BillingState = {
           planId,
-          status: "active", // 後続の subscription.updated が正確な状態で上書きする
+          status: prev && prev.status === "trialing" ? "trialing" : "active",
           customerId,
           subscriptionId: obj.subscription ? String(obj.subscription) : undefined,
+          currentPeriodEnd: prev?.currentPeriodEnd,
           updatedAt: eventTs,
         };
         await setBillingState(email, state);

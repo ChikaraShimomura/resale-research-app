@@ -27,7 +27,7 @@ export default async function SettingsPage({
   const justSubscribed = sp.billing === "success"; // Checkout完了の戻り先(/settings?billing=success)＝直後の次アクションを出す
   const plan = await getPlan();
   const isAdminUser = plan === "admin";
-  const isPaid = plan === "amateur" || plan === "veteran" || plan === "pro";
+  const isPaid = PLANS[plan].paid === true; // viewer/amateur/veteran/pro/promax を有料として扱う（ハードコード列挙の漏れ防止）
   // 使用量メーター（同時出品数 / 上限）。購読者のみ・eBay未連携なら0。
   const limit = PLANS[plan].listingLimit;
   let liveCount = 0;
@@ -60,7 +60,7 @@ export default async function SettingsPage({
           <section className="bg-gradient-to-br from-[#2D323B] to-[#1A1D23] text-white rounded-2xl p-5 shadow-md text-center">
             <p className="text-base font-black mb-1.5">ご加入ありがとうございます</p>
             <p className="text-[12px] text-white/85 leading-relaxed mb-4">
-              {plan === "amateur"
+              {plan === "amateur" || plan === "viewer"
                 ? "30日間の無料期間がスタートしました（期間中はいつでも解約OK）。"
                 : "ご利用ありがとうございます。"}
               <wbr />さっそく、いま儲かる中古を探しましょう。
@@ -95,7 +95,7 @@ export default async function SettingsPage({
             </p>
 
             {/* 使用量メーター（同時出品 X / 上限）。上限が近い/到達ならアップグレードを促す。 */}
-            {PAYWALL_ENABLED && isPaid && Number.isFinite(limit) && (
+            {PAYWALL_ENABLED && isPaid && Number.isFinite(limit) && limit > 0 && (
               <div className="mb-3">
                 <div className="flex items-center justify-between text-[12px] text-gray-600 mb-1">
                   <span>同時出品</span>

@@ -1,5 +1,7 @@
 import { kv } from "@vercel/kv";
 import { getTeamContext } from "../../../../lib/auth/teamActor";
+import { hasPerm } from "../../../../lib/team";
+import { canAutoList } from "../../../../lib/auth/plan";
 import { getValidAccessToken } from "../../../../lib/ebay/tokens";
 import { withdrawListingForSku } from "../../../../lib/ebay/listing";
 import { getListingSku, markStopped } from "../../../../lib/ebay/stats";
@@ -13,8 +15,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const { dataActor, ebayActor } = await getTeamContext();
+  const { viewer, dataActor, ebayActor, owner, isMember } = await getTeamContext();
   if (!ebayActor) return Response.json({ ok: false, connected: false });
+  // ★停止も出品操作＝権限とプランを再判定(直叩き防止)。チームメンバーは'list'権限、非チームは本人のプラン(ライト以上)。
+  const teamOp = isMember && !!owner && owner !== viewer;
+  if (teamOp && owner && !(await hasPerm(owner, viewer, "list"))) {
+    return Response.json({ ok: false, error: "このチームでの出品停止の権限がありません。" }, { status: 403 });
+  }
+  if (!teamOp && !(await canAutoList())) {
+    return Response.json({ ok: false, needsPlan: true, error: "この操作にはeBay出品プラン（ライト以上）が必要です。" }, { status: 403 });
+  }
   const token = await getValidAccessToken(ebayActor);
   if (!token) return Response.json({ ok: false, connected: false });
 

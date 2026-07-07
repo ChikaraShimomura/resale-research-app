@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
 import { getActorId } from "../../../lib/auth/actor";
 import { getTeamContext } from "../../../lib/auth/teamActor";
-import { canDropship } from "../../../lib/auth/plan";
+import { canDropship, canBuy } from "../../../lib/auth/plan";
 import { fetchSourceAvailability } from "../../../lib/usedGallery";
 import { hasPerm, type TeamPerm } from "../../../lib/team";
 
@@ -51,6 +51,12 @@ export async function POST(req: Request) {
     if (!need || !(await hasPerm(owner, viewer, need))) {
       return Response.json({ ok: false, error: "この操作の権限がありません。" }, { status: 403 });
     }
+  }
+
+  // ★閲覧専用(viewer)は操作系(仕入れた/skip/送料)を使えない。UIで隠すだけだと直叩きで迂回できるためサーバーでも弾く。
+  //   自分の名前空間(actor===viewer)への操作のみ対象＝チーム操作はオーナー付与の権限(上のhasPerm)で判定済み。fav/unfav/undoは許可。
+  if (["bought", "skip", "shipping"].includes(body.action || "") && actor === viewer && !(await canBuy())) {
+    return Response.json({ ok: false, needsPlan: true, error: "この操作は閲覧プランではご利用いただけません。出品・仕入れ管理には上位プランが必要です。" }, { status: 403 });
   }
 
   try {

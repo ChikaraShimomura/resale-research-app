@@ -206,7 +206,7 @@ export default async function RankingPage({
               <p className="mt-1.5 text-center text-[11px] text-gray-400 leading-relaxed">
                 <span className="whitespace-nowrap">ランキングは無料。</span><wbr />
                 <span className="whitespace-nowrap"><b className="text-gray-500">各商品の詳細・仕入れ先は</b></span><wbr />
-                <span className="whitespace-nowrap"><b className="text-gray-500">プラン（月¥5,000〜・30日無料）で解放</b>されます。</span>
+                <span className="whitespace-nowrap"><b className="text-gray-500">プラン（月¥1,000〜・30日無料）で解放</b>されます。</span>
               </p>
             </div>
           )}
