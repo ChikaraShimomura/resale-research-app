@@ -266,7 +266,9 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
     //   目安品も出して一覧を絶対に空にしない。復旧で確定が MIN_CONFIRMED 以上に戻れば自動で確定のみへ戻る。
     //   ＝2026-07-04 カタログ全消え(refineが確定を一過性0件でdrop→確定0件)の再発を配信側でも二度と起こさない担保。
     const MIN_CONFIRMED = 300;
-    const serve = confirmedOnly && confirmed.length >= MIN_CONFIRMED ? confirmed : base;
+    // ★確定の"広さ"はユニーク型番数で測る(2026-07-08)：重複ID/同一モデルの多数在庫でrow数が水増し/変動し足切りがブレるため、行数でなくdistinct codeで判定。
+    const confirmedCodes = new Set(confirmed.map((x) => String(x.code || "").toLowerCase().replace(/[^a-z0-9]/g, "")).filter(Boolean)).size;
+    const serve = confirmedOnly && confirmedCodes >= MIN_CONFIRMED ? confirmed : base;
     return serve.sort((a, b) => b.profitJpy - a.profitJpy); // 利益額の高い順（書込側でソート済みだが配信時も保証）
   } catch {
     return [];

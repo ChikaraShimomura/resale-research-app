@@ -97,6 +97,9 @@ async function loadCategories() {
   //   狭い型番クエリは空ページで即打切りなので無駄打ちしない＝増えるのは広い時計クエリぶんだけ(build時間の増分は限定的)。ユーザー指示2026-07-04。
   const PAGES_WATCH = Number(process.env.HARDOFF_PAGES_WATCH) || 24;
   const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
+  const seenId = new Set();  // ★グローバル重複排除：同じハードオフ品が別カテゴリ検索で複数回ヒットするのを1回に(重複ID 57件の根治)。
+  const modelCount = {};     // ★同一モデル上限：BOSS BD2 が25件…等の1モデル偏重で一覧が埋まるのを防ぐ。
+  const MODEL_CAP = Number(process.env.USED_MODEL_CAP) || 4;
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
@@ -121,6 +124,7 @@ async function loadCategories() {
     let added = 0;
     for (const it of items) {
       if (!it.price) continue;
+      if (!it.imageUrl) continue; // ★画像なしは掲載しない（空カード＆出品時に写真ゼロを防ぐ）
       if (NONWATCH.test(`${it.brand} ${it.name}`)) continue; // 釣具等の非時計を除外
       if (PROHIBITED_EXCLUDE.test(`${it.brand} ${it.name}`)) continue; // 【厳命】航空危険物/国際発送不可は絶対に対象外
       // ※ジャンク(動作未確認/部品取り)も掲載対象にする（ユーザー指示2026-06-27）。出品時に状態を説明文で明示してクレーム回避。
@@ -132,13 +136,18 @@ async function loadCategories() {
       // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
       if (roi >= 0.1) {
         const idNum = (it.url.match(/\/(?:product|goodsId)\/(\d+)/) || [])[1] || it.url.replace(/\D+/g, "").slice(-12);
+        const id = `used-hardoff-${idNum}`;
+        if (seenId.has(id)) continue; // ★別カテゴリ検索で既出＝重複IDを作らない（同一商品が別価格で2〜3回出るのを防ぐ）
+        const mkey = `${(it.brand || "").toLowerCase()}|${(it.code || it.name || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24)}`;
+        if ((modelCount[mkey] || 0) >= MODEL_CAP) continue; // ★同一モデルは MODEL_CAP 件まで（1モデル偏重で一覧が埋まるのを防ぐ）
         catalog.push({
-          id: `used-hardoff-${idNum}`,
+          id,
           modelKey: (it.code || it.name || "").slice(0, 60), brand: it.brand, name: it.name, code: it.code,
           cat: catGenre, ebayMedianJpy: c.ebayMedian, buyJpy: it.price, condition: it.condition,
           profitJpy: net, profitRate: it.price > 0 ? Math.round((net / it.price) * 100) : 0, hardoffUrl: it.url, imageUrl: it.imageUrl,
           site: "hardoff", soldCount: c.soldCount,
         });
+        seenId.add(id); modelCount[mkey] = (modelCount[mkey] || 0) + 1;
         added++;
         genreCount[catGenre] = (genreCount[catGenre] || 0) + 1; // ジャンル別カウント（per-genre 上限の判定用）
         if (added >= cap || (genreCount[catGenre] || 0) >= CAP_PER_GENRE) break; // カテゴリ偏重＋ジャンル偏重の両方を防ぐ
