@@ -423,7 +423,7 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
             <StopListingButton productId={d.id} compact />
             {d.listingId && (
               <a href={`https://www.ebay.com/itm/${d.listingId}`} target="_blank" rel="nofollow noopener noreferrer" className="flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border border-[#0064D2] bg-white text-[#0064D2] font-bold text-[11px] leading-none active:bg-[#0064D2]/5">
-                <ExternalLink size={15} /> <span>eBayで見る</span>
+                <ExternalLink size={15} /> <span>eBay確認</span>
               </a>
             )}
           </div>
