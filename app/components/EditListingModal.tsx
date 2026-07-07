@@ -89,6 +89,13 @@ export default function EditListingModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [saving, onClose]);
 
+  // モーダル表示中は背景(body)のスクロールをロック＝説明文/内容をスクロールしても後ろの画面が動かない。閉じたら元に戻す。
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   // 開いた時にダイアログ先頭へフォーカス＋Tabをダイアログ内でループする簡易フォーカストラップ。
   useEffect(() => {
     const el = dialogRef.current;
@@ -282,7 +289,7 @@ export default function EditListingModal({
           </button>
         </div>
         {/* 本文＝ここだけスクロール（内容が縦長でもヘッダーは残る・✕に届く） */}
-        <div className="overflow-y-auto px-4 py-3">
+        <div className="overflow-y-auto overscroll-contain px-4 py-3">
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-gray-400 text-[12px]">
@@ -425,7 +432,7 @@ export default function EditListingModal({
                   </label>
                   <label className="block">
                     <span className="text-[11px] font-bold text-gray-600">説明文</span>
-                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
+                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed overscroll-contain focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
                     <span className="block text-[10px] text-gray-400 mt-0.5">改行はそのまま反映。英語推奨。下の「保存」で反映されます。</span>
                   </label>
                 </div>
