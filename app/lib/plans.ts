@@ -65,10 +65,12 @@ export function planCanDropship(plan: PlanId): boolean {
   return plan === "promax" || plan === "master" || plan === "admin";
 }
 
-// ライト(amateur)の無料トライアル日数（最初の30日＝約1ヶ月）。スタンダード/プロ はトライアルなし。
+// 無料トライアル日数（最初の30日＝約1ヶ月）。ライト(amateur)とカタログ閲覧(viewer)に付与。スタンダード/プロ はなし。
+// ※トライアルは期間終了で自動課金へ移行する（Stripe標準）。⚠️特商法(定期購入規制)遵守のため、解約導線・
+//   終了前メール通知(TrialBanner/getTrialInfo)・「自動継続/金額/解約方法」の明示は必ず残すこと（消すのはダークパターンで違法）。
 export const TRIAL_DAYS = 30;
 export function trialDaysFor(plan: PlanId): number {
-  return plan === "amateur" ? TRIAL_DAYS : 0;
+  return plan === "amateur" || plan === "viewer" ? TRIAL_DAYS : 0;
 }
 
 // ペイウォールの有効化スイッチ。Stripe決済が稼働するまでは OFF（=上限ゲートを掛けない＝既存挙動を壊さない）。

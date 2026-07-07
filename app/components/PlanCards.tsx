@@ -86,7 +86,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PAID_PLAN_IDS.map((id) => {
           const p = PLANS[id];
-          const trial = id === "amateur";
+          const trial = id === "amateur" || id === "viewer";
           const isCurrent = id === currentPlan;
           const isUpgrade = planRank(id) > planRank(currentPlan);
           const popular = id === "veteran"; // 推奨＝スタンダード（アンカリング）。表示のみ。
@@ -182,7 +182,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               )}
               {!isSubscriber && !trial && (
                 <p className="text-[10.5px] text-gray-400 mt-2 leading-relaxed text-center">
-                  <span className="whitespace-nowrap">無料はライトのみ・</span><wbr />
+                  <span className="whitespace-nowrap">無料はライト/閲覧のみ・</span><wbr />
                   <span className="whitespace-nowrap">後からアップグレード可</span>
                 </p>
               )}
