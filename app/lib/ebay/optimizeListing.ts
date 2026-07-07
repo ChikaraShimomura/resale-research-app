@@ -5,7 +5,7 @@
 import { ProfitProduct } from "../profitFilter";
 
 // テンプレの版。改良したら上げる。同版で最適化済みの出品は no-op（route が版で判定）＝版を上げた時だけ再実行できる。
-export const OPTIMIZE_VERSION = "1";
+export const OPTIMIZE_VERSION = "2"; // 2: 関税文言を「Import duties & taxes」独立見出し＋中立で安全な表現に更新（既存最適化品も再最適化で反映）
 
 // タイトル/和文からブランドを推定する（prepare の brandFor と同じ語彙）。
 // 確信できる時だけブランド名を返し、不明は "Unbranded"（＝既存のItem Specificsを尊重し上書きしない）。
@@ -93,7 +93,12 @@ export function buildOptimizedDescription(product: ProfitProduct): string {
   L.push("");
   L.push("■ Shipping");
   L.push(
-    "Ships from Japan with tracking, carefully and securely packaged. Estimated delivery is about 1–3 weeks depending on your country and customs. Any import duties or taxes are the buyer's responsibility."
+    "Ships from Japan with tracking, carefully and securely packaged. Estimated delivery is about 1–3 weeks depending on your country and customs."
+  );
+  L.push("");
+  L.push("■ Import duties & taxes");
+  L.push(
+    "Import duties, taxes, and customs fees (if any) are the buyer's responsibility and are not included in the item price or shipping cost. Please check your country's import regulations before purchasing."
   );
   L.push("");
   L.push("■ Please note");

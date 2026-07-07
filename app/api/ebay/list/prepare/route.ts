@@ -209,7 +209,7 @@ function buildDescription(enTitle: string, condition: string, category?: string,
   L.push("");
   L.push("Q. Will I be charged customs or import duties?");
   L.push(
-    "A. I try to choose items that usually do not trigger customs duties. However, if any import duties, taxes, or customs fees ARE charged by your country, they are the buyer's responsibility and are NOT included in the item price or shipping. Please check your country's import rules before buying."
+    "A. Import duties, taxes, and customs fees (if any) are the buyer's responsibility and are not included in the item price or shipping cost. Please check your country's import regulations before purchasing."
   );
   L.push("");
   L.push("Q. How will it be packaged?");
