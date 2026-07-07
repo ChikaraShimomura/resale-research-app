@@ -77,8 +77,10 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
   const stopped = deals.stopped.map((d) => ({ ...d, _status: "stopped" as const }));
   const archived = deals.archived.map((d) => ({ ...d, _status: "archived" as const }));
   const endedAll = [...stopped, ...archived]; // 終了商品タブの中身
-  const listedIds = new Set([...live, ...stopped, ...archived].map((d) => d.id));
-  // 仕入れ商品＝「仕入れた」のうち、まだ一度も出品していないもの（出品/停止/過去はすべて除外）。
+  // 出品済み(live/stopped/archived)＋売却済み(sold)は「仕入れ商品(未出品)」から必ず外す。
+  // ★sold を含め忘れると、売れた商品が「売れた商品」と「仕入れ商品」の両方に二重表示される（実バグ修正）。
+  const listedIds = new Set([...live, ...stopped, ...archived, ...deals.sold].map((d) => d.id));
+  // 仕入れ商品＝「仕入れた」のうち、まだ一度も出品していないもの（出品/停止/過去/売却はすべて除外）。
   const boughtNotListed = boughtItems.filter((p) => !listedIds.has(p.id));
   const counts = {
     fav: favItems.length,

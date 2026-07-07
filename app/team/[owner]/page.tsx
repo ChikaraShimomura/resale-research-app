@@ -78,11 +78,13 @@ export default async function TeamOwnerPage({ params }: { params: Promise<{ owne
   const listedArr = [...listedMap.values()].sort((a, b) => (b.at || "").localeCompare(a.at || ""));
   // 終了商品（チーム）＝停止中＋過去の出品（オーナーのeBay分）。
   const endedArr = [...teamDeals.stopped, ...teamDeals.archived];
-  // 仕入れ商品＝「仕入れた」のうち、出品中/終了/team_listed のどれにも入っていない（未出品）もの。
+  // 仕入れ商品＝「仕入れた」のうち、出品中/終了/売却済み/team_listed のどれにも入っていない（未出品）もの。
+  // ★sold を含め忘れると、売れた商品が仕入れ商品に二重表示される（/manage と同じ実バグ修正）。
   const listedExcludeIds = new Set<string>([
     ...listedMap.keys(),
     ...teamDeals.stopped.map((d) => d.id),
     ...teamDeals.archived.map((d) => d.id),
+    ...teamDeals.sold.map((d) => d.id),
   ]);
   const items = allItems.filter((p) => !listedExcludeIds.has(p.id));
   // 操作可否は権限のみで決まる（どちらの方式でもメンバーは権限に応じて操作できる）。方式は出品に使うeBayアカウントの違いだけ。
