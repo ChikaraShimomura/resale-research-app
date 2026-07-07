@@ -350,4 +350,11 @@ async function main() {
   console.log(DRY ? "→ DRYなのでKV未書込。本番は LIVENESS_DRY=0 で実行。" : "→ 出品中はreconcile/auto-stopがeBay停止、カタログは/api/productsが一覧から非表示。");
 }
 
-main().catch((e) => { console.error("sourceLivenessWorker fatal:", e); process.exit(1); });
+// ★2026-07-08 無効化(safe-off)：本ワーカー(楽天時代の汎用source liveness)は dropshipゲート無しで全dealのsourceStatusを立てる
+//   ＝有在庫を誤停止する危険がある。仕入れ元検知は hardoffLivenessWorker(カタログ隠し) + mukaikoStopWorker(無在庫のみ停止) に置換済み。
+//   pi-setup.sh が cron で本番実行(LIVENESS_DRY=0)する配線が残っていたため、暴発防止に既定で即終了する。旧挙動が要る時だけ SOURCE_LIVENESS_LEGACY=1。
+if (process.env.SOURCE_LIVENESS_LEGACY === "1") {
+  main().catch((e) => { console.error("sourceLivenessWorker fatal:", e); process.exit(1); });
+} else {
+  console.log("⏸ sourceLivenessWorker は無効化されています（hardoffLivenessWorker/mukaikoStopWorker に置換済み・有在庫誤停止の防止）。強制実行は SOURCE_LIVENESS_LEGACY=1。");
+}

@@ -63,6 +63,13 @@ async function kvGet(key) {
     try { return JSON.parse(r); } catch { return r; }
   } catch { return null; }
 }
+async function kvSet(key, value, exSec) {
+  try {
+    const cmd = exSec ? ["SET", key, String(value), "EX", String(exSec)] : ["SET", key, String(value)];
+    await fetch(`${KV_URL}/pipeline`, { method: "POST", headers: { ...H, "Content-Type": "application/json" }, body: JSON.stringify([cmd]) });
+    return true;
+  } catch (e) { console.error("kvSet error:", e.message); return false; }
+}
 async function kvHgetallParsed(key) {
   try {
     const res = await fetch(`${KV_URL}/hgetall/${encodeURIComponent(key)}`, { headers: H });
@@ -145,14 +152,24 @@ async function main() {
   const catalog = await kvGet("used_catalog");
   if (!Array.isArray(catalog) || catalog.length === 0) { console.log("used_catalog が空。終了。"); return; }
 
-  // 利益カタログの各品 → ハードオフ実ページURL。
+  // 利益カタログの各品 → ハードオフ実ページURL。★id重複排除（同一商品の二重照合＝hide/show不整合を防ぐ）。
+  const seenT = new Set();
   const targets = [];
   for (const it of catalog) {
     const u = hardoffUrlOf(it?.hardoffUrl);
-    if (it?.id && u) targets.push({ id: it.id, url: u });
+    if (it?.id && u && !seenT.has(it.id)) { seenT.add(it.id); targets.push({ id: it.id, url: u }); }
   }
-  const work = targets.slice(0, MAX_ITEMS);
-  console.log(`ハードオフ実ページ照合(カタログ売切隠し): カタログ ${catalog.length}件 / 照合 ${work.length}件${DRY ? "  [DRY]" : ""}`);
+  // ★ローテーションカーソル(2026-07-08)：MAX_ITEMS で全カタログ(~1120)を一度に照合すると重い＆穴が出る（旧: 先頭300件だけ→残りの売切が隠れない）。
+  //   毎サイクル カーソルを進めて次の MAX_ITEMS 件を見る＝数サイクル(毎時)で全件を必ず網羅。カーソルはKVに保存(TTL30日・DRY時は進めない)。
+  let cursor = 0;
+  try { cursor = Number(await kvGet("hardoff_liveness_cursor")) || 0; } catch { /* noop */ }
+  if (!Number.isFinite(cursor) || cursor < 0 || cursor >= targets.length) cursor = 0;
+  const work = targets.length <= MAX_ITEMS
+    ? targets
+    : [...targets.slice(cursor), ...targets.slice(0)].slice(0, MAX_ITEMS); // カーソルから MAX_ITEMS 件（末尾は先頭へ回り込む）
+  const nextCursor = targets.length <= MAX_ITEMS ? 0 : (cursor + MAX_ITEMS) % targets.length;
+  if (!DRY) { await kvSet("hardoff_liveness_cursor", nextCursor, 30 * 24 * 3600); }
+  console.log(`ハードオフ実ページ照合(カタログ売切隠し): カタログ ${catalog.length}件 / 対象 ${targets.length}件 / 今回 ${work.length}件 (cursor ${cursor}→${nextCursor})${DRY ? "  [DRY]" : ""}`);
 
   // 既存の used_source_status を1回読む＝在庫復活時に「フラグがある品だけ」HDEL（無駄打ち回避）。
   const existing = await kvHgetallParsed("used_source_status");

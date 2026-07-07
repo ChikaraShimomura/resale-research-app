@@ -243,11 +243,17 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
     const flagged: Record<string, unknown> = srcStatus || {};
     // 値は通常オブジェクト{status,at}。KVクライアント差で文字列で返る場合に備え string なら JSON.parse する
     // （/api/products の catalog_source_status と同じ防御＝消費側の挙動を揃える）。
+    const FLAG_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 売切/削除フラグの有効期限＝これ超は「不明」扱いで再表示(fail-open)。
     const isSoldOut = (id?: string) => {
       let f: unknown = id ? flagged[id] : null;
       if (typeof f === "string") { try { f = JSON.parse(f); } catch { return false; } }
-      const st = (f as { status?: string } | null)?.status;
-      return st === "soldout" || st === "dead";
+      const rec = f as { status?: string; at?: string } | null;
+      const st = rec?.status;
+      if (st !== "soldout" && st !== "dead") return false;
+      // ★古いフラグは再表示(2026-07-08)：在庫復活/再入荷や、ワーカー停止中に立てっぱなしのフラグで
+      //   買える利益商品を永久に隠さない。ワーカーが再確認して本当に売切なら立て直す(fail-open)。
+      if (rec?.at) { const age = Date.now() - Date.parse(rec.at); if (Number.isFinite(age) && age > FLAG_MAX_AGE_MS) return false; }
+      return true;
     };
     // ★精度極限ゲート：確定品(ebayConfirmed=同一型番でeBay実落札を照合済＝精密な想定売値)を優先配信する。
     //   build直後の未確定候補は「カテゴリ系列の中央値＝目安」で精度が落ちるため、確定品が十分ある時はそれだけ出す。
