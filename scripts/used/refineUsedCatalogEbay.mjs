@@ -136,7 +136,14 @@ const matchCodeOf = (p) => {
     p.ebaySoldUrl = soldUrl(q); // 根拠ボタン＝ブランド+型番(ハイフン空白化)の落札検索
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
-    if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; if (codeN) unconf[codeN] = nowIso; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; }
+    if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; } // ★短コードは unconf に記録しない(断片キーが他型番と衝突し正当な品を誤スキップするため)
+    // ★時計のキャリバー+ケース製番(例 "U600 T012531"/"E660 S118298")はeBayタイトルに出ず、ブランド+全コード検索は無関係品(Lenovo/Ford等)を
+    //   引いてeBay枠を浪費するだけ→検索せずスキップ(枠温存＝captcha回避)。誤スキップ防止：2トークン目が長い製番(≥6字・英数字混在)の時だけ＝短い実ref(T1000等)は救う。
+    if (p.cat === "腕時計" && /^[A-Za-z0-9]{2,5}\s+(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6,}$/.test(stripNoise(p.code || ""))) {
+      p.ebayConfirmed = false; p.ebayChecked = true;
+      console.log(`  ・ ${q} 時計のキャリバー+製番→検索スキップ(タイトルに出ない・枠温存)`);
+      continue;
+    }
     let r;
     try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
     if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}（再確認待ち・残す）`); await jitter(); continue; }
@@ -166,7 +173,7 @@ const matchCodeOf = (p) => {
       console.log(`  ~ ${q.padEnd(28)} 今回0/薄い→確定維持(降格しない)`);
     } else {
       p.ebayConfirmed = false;
-      unconf[codeN] = nowIso; // eBay落札0件＝確定不能としてTTL記録＝次回以降スキップ(30日後に再挑戦)
+      if (codeN.length >= 5) unconf[codeN] = nowIso; // eBay落札0件＝確定不能としてTTL記録(次回以降スキップ・30日後に再挑戦)。★短い断片コードは記録しない(他型番と衝突し正当な品を誤スキップするため・2026-07-08)
       // 診断：落札0件(薄い) か / 落札は有るが型番がタイトルに無い か を仕分けてジャンル別集計（時計が伸びない原因の切り分け）。
       const gk = p.cat || "中古";
       const fd = (failDiag[gk] = failDiag[gk] || { noSold: 0, noRef: 0, samples: [] });
