@@ -61,13 +61,18 @@ while true; do
   [ "$drc" -ne 0 ] && echo "  (dropship-stop失敗・次回再試行)" >> "$HOME/hardoff.log"
   wl dropship "$HOME/hardoff.log" "$drc"
 
-  # ② eBay落札発掘(起動直後＝cycle0＋24サイクルごと≒1日・本番書込)。住宅IPのPixelだから403を避けられる。
-  #    「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→中古カタログ(build)がハードオフ照合。実売起点の発掘。
-  if [ $(( cycle % SOLD_EVERY )) -eq 0 ]; then
+  # ② eBay落札発掘（本番書込）。住宅IPのPixelだから403を避けられる。「売れた出品」をキーワード別に集めて種(ebay_sold_seed)を作る→build がハードオフ照合。
+  #    ★スケジュールを壁時計に変更(2026-07-08)：cycle%SOLD_EVERY だと exec自己再起動(cycle=0リセット)や長い内側refineループで実行間隔がブレ、実際37h空いて発掘が止まった。
+  #      「前回からSOLD_INTERVAL_SEC(既定6h)経過」で判定＝安定間隔。小分けKW(45)×毎回シャッフル×マージ蓄積で数日かけ全クエリを網羅。初回(ファイル無)は即実行。
+  SOLD_INTERVAL_SEC="${SOLD_INTERVAL_SEC:-21600}"
+  LAST_DISC="$HOME/.last_discover"
+  nowsec=$(date +%s); lastsec=$(cat "$LAST_DISC" 2>/dev/null || echo 0)
+  if [ $(( nowsec - lastsec )) -ge "$SOLD_INTERVAL_SEC" ]; then
     echo "---- $(date) ebay-discover ----" >> "$HOME/ebaysold.log"
     EBAY_SOLD_DISCOVER=1 EBAY_SOLD_DRY=0 EBAY_USED_GENRES=1 node scripts/ebaySoldWorker.mjs >> "$HOME/ebaysold.log" 2>&1; rc=$?
     [ "$rc" -ne 0 ] && echo "  (ebay-discover失敗・次回再試行)" >> "$HOME/ebaysold.log"
     wl discover "$HOME/ebaysold.log" "$rc"
+    date +%s > "$LAST_DISC"
   fi
 
   # ③ 中古カタログの候補構築(build)を【2時間ごと】に更新（Anthropic不使用＝無料。2026-07-01: 3h→2hで候補取得を速める）。

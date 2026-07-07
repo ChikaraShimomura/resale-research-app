@@ -38,13 +38,14 @@ const H = { Authorization: `Bearer ${KV_TOKEN}` };
 const USD_JPY = Number(process.env.LANDED_USD_JPY) || 155;
 
 const DRY = process.env.EBAY_SOLD_DRY !== "0";
-const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 4000);
+const GAP_MS = Number(process.env.EBAY_SOLD_GAP_MS ?? 6000); // ★4000→6000(2026-07-08)：discoverのSRP連射でeBayにソフトブロックされ種0になった対策。refineの8-16s帯に寄せる。
 const WINDOW_DAYS = Number(process.env.EBAY_SOLD_WINDOW_DAYS ?? 30); // 直近この日数の落札だけ採用（既定30日）
 const BRAKE_MIN = Number(process.env.EBAY_SOLD_BRAKE_MIN ?? 5);
 const BRAKE_RATIO = Number(process.env.EBAY_SOLD_BRAKE_RATIO ?? 0.6); // 失敗率これ超で全書込中止
 const SEED_PER_KW = Number(process.env.EBAY_SOLD_SEED_PER_KW ?? 20); // 発掘：1キーワードあたり拾う"ユニーク落札商品"上限
 const SEED_TTL_S = Number(process.env.EBAY_SOLD_SEED_TTL_H ?? 168) * 3600; // ebay_sold_seed のTTL（既定7日。毎回マージ再書込でTTL更新＝ワーカー停止7日で自然失効）
-const DISCOVER_KW_MAX = Number(process.env.EBAY_SOLD_DISCOVER_KW_MAX) || 150; // 1回で回すキーワード数（既定150＝captcha安全圏。毎回シャッフル＋マージ蓄積で数日かけ全クエリを網羅）
+const DISCOVER_KW_MAX = Number(process.env.EBAY_SOLD_DISCOVER_KW_MAX) || 45; // 1回で回すキーワード数。★150→45(2026-07-08)：150連射でeBayにセッション単位ソフトブロックされ「器を抜いた200ページ」を返され種0に(refineは30件warmupで正常)。小分け＋壁時計スケジュール(termux)＋毎回シャッフル/マージ蓄積で数日かけ全クエリ網羅。
+const REWARM_EVERY = Math.max(1, Number(process.env.EBAY_SOLD_REWARM_EVERY) || 15); // このキーワード数ごとにeBayトップを再warmup＝1セッションの連射bot臭を薄めソフトブロックを回避。
 const DISCOVER_PAGES = Math.max(1, Number(process.env.EBAY_SOLD_DISCOVER_PAGES) || 1); // 1キーワードで取得する落札ページ数（_pgn）。種を増やす時に上げる（既定1=Pixel常駐は軽く）
 const SEED_MIN_JPY = Number(process.env.EBAY_SOLD_SEED_MIN_JPY ?? 1000); // 発掘：この落札額未満は種にしない（単パック等の安物が枠を食うのを防ぐ。refresh Phase0の下限と一致）
 const SEED_MAX_JPY = Number(process.env.EBAY_SOLD_SEED_MAX_JPY ?? 130000); // 発掘：この落札額超は種にしない（$800≒¥124k=serveの申告上限。バルクロット/高額別物を除外）
@@ -150,6 +151,9 @@ export async function get(url, referer) {
   storeCookies(res); return { status: res.status, html: await res.text() };
 }
 const isBlocked = (html) => /Pardon Our Interruption|Checking your browser|verify you are a human|to continue, please|captcha/i.test(html.slice(0, 4000));
+// ★SRPの"器"(検索結果コンテナ/件数/0件表示)が有るか。status200・非captchaでも器が無い応答＝中身を抜いたソフトブロック。
+//   これを「落札なし」と誤カウントすると(1)ブレーキが鳴らず(2)processedCatsに入り旧種を上書き消去(データ欠損)する。
+const hasSrpShell = (html) => /srp-river|srp-controls|s-card|srp-save-null-search|s-no-result|該当する商品|no exact match|\d[\d,]*\s*results?/i.test(html);
 
 // ★発掘モード：EBAY_JP_QUERIES のキーワード別に「売れた出品(Sold)」をスクレイプし、楽天マッチ用の種を KV ebay_sold_seed に格納。
 //   各 seed = {title, priceJpy(=同一商品の落札中央値), category, imageUrl, itemUrl(代表=直近落札), rank, soldCount, soldWindowDays}。
@@ -177,9 +181,12 @@ async function discoverSeeds() {
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
   for (const { q, name } of queries) {
     done++;
-    // ブランド品は中古(pre-owned)主体＋新品は SEED_MAX_JPY 超で弾かれる＝新品限定だと種が枯れる→中古落札もseedに採る。
-    // 他ジャンル(新品sealed主体)は従来どおり新品落札のみ（新品単品が輸出の主）。
+    // ★数キーワードごとにeBayトップを再warmup＝1セッションでSRPを連射する"bot臭"を薄めソフトブロックを避ける(2026-07-08)。
+    if (done > 1 && (done - 1) % REWARM_EVERY === 0) { try { await get("https://www.ebay.com", null); } catch { /* noop */ } await sleep(Math.round(rnd(2500, 5000))); }
+    // 種に採る落札の状態：中古ジャンル(EBAY_USED_GENRES=1)＋ブランド品は中古(pre-owned)も採る＝新品限定だと種が枯れる(中古主体のため)。
+    //   sealed-new主体ジャンル(TCG/フィギュア等)を回す通常モードだけ新品落札に限定。
     const brandUsed = BRAND_USED_KW.test(name) || BRAND_USED_KW.test(q);
+    const wantNew = (process.env.EBAY_USED_GENRES === "1") ? false : !brandUsed;
     // ページ送り（_pgn）で1キーワードから複数ページの落札を集める＝種を増やす。窓内カードを全ページ分ためてからまとめる。
     const allCards = []; let blockedThis = false, anyItems = false;
     for (let pg = 1; pg <= DISCOVER_PAGES; pg++) {
@@ -188,7 +195,9 @@ async function discoverSeeds() {
       catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
       if (typeof r.status !== "number" || r.status >= 400) { blockedThis = true; console.log(`  ⛔ ${r.status} : ${name} p${pg}`); await sleep(Math.round(rnd(15000, 30000))); break; }
       if (isBlocked(r.html)) { blockedThis = true; console.log(`  ⛔ 検問ページ : ${name} p${pg}`); await sleep(Math.round(rnd(30000, 60000))); break; }
-      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, !brandUsed); // 新品sealed主体は新品のみ／ブランド品は中古も採用(中古主体のため)
+      // ★status200・非captchaでも"器"が無い＝ソフトブロック(中身抜き)。落札なしと誤カウントせずブロック扱い(旧種を温存)。
+      if (!hasSrpShell(r.html)) { blockedThis = true; console.log(`  ⛔ 器なし(ソフトブロック疑い) : ${name} p${pg}`); await sleep(Math.round(rnd(20000, 40000))); break; }
+      const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, wantNew); // 中古ジャンル/ブランドは中古も採用(中古主体)／sealed-new主体ジャンルのみ新品限定
       if (parsed.items > 0) anyItems = true;
       allCards.push(...parsed.cards);
       if (parsed.items < 50) break; // ページが埋まってない＝最終ページ（これ以上のページは無い）。窓外で落札0のページもここで止まる
@@ -242,7 +251,9 @@ async function discoverSeeds() {
   }
 
   // 系統的失敗ブレーキ：ほとんどのキーワードでカード0/検問＝UI変更 or IPブロックの疑い→何も書かない（旧種を温存）。
-  const cardBreak = done >= BRAKE_MIN && okKw === 0 && noCardKw / done > 0.8;
+  // ★拡張(2026-07-08)：「カード0語」だけでなく「到達したのに使える種を1つも作れなかった(okKw===0)」全般を不健全に。
+  //   ソフトブロックの空応答/新品フィルタ全滅でも旧種を温存し、部分ブロックでの上書き消去も防ぐ(カード0語+落札なしの合算で判定)。
+  const cardBreak = done >= BRAKE_MIN && okKw === 0 && (noCardKw + emptyKw) / done > 0.8;
   const healthy = !(cardBreak || (done >= BRAKE_MIN && blocked / done > BRAKE_RATIO));
   // マージ蓄積：今回到達できたカテゴリ(processedCats)だけ新seedで差し替え、未到達(検問/今回バッチ外)カテゴリは旧seedを持ち越す。
   //   ＝1回のバッチ(既定150語)では全クエリを回せない/captchaで途中停止しても、毎回シャッフル＋持ち越しで数日かけ全921クエリを網羅し蓄積する。
@@ -250,7 +261,15 @@ async function discoverSeeds() {
   const SEED_CAP = Number(process.env.EBAY_SOLD_SEED_CAP) || 5000; // KV値サイズ/処理負荷の保護。超過時は実需(soldCount)の高い順に残す。
   let wrote = 0;
   if (!healthy) {
-    console.error(`🚨 発掘異常（OK${okKw}/カード0語${noCardKw}/検問${blocked} of ${done}）＝UI変更 or IPブロック疑い。ebay_sold_seed は更新せず旧種を温存。`);
+    console.error(`🚨 発掘異常（OK${okKw}/カード0語${noCardKw}/落札なし${emptyKw}/検問${blocked} of ${done}）＝ソフトブロック/UI変更疑い。新種は書かず旧種を温存。`);
+    // ★時限爆弾対策(2026-07-08)：発掘が壊れている間、ebay_sold_seed のTTL(既定7日)が切れると種プール全体が失効しカタログが全滅する。
+    //   中身は変えずTTLだけ延長(touch)＝発掘復旧までプールを延命する。
+    if (!DRY) {
+      const prev = await kvGetJson("ebay_sold_seed");
+      if (Array.isArray(prev) && prev.length && await kvSetJson("ebay_sold_seed", prev, SEED_TTL_S)) {
+        console.log(`  ♻️ 種プール${prev.length}件のTTLを延長(touch)＝失効防止`);
+      }
+    }
   } else if (DRY) {
     console.log(`  [DRY] 今回${seeds.length}件・到達${processedCats.size}カテゴリ（マージ書込なし）。先頭3件: ${JSON.stringify(seeds.slice(0, 3))}`);
   } else {
