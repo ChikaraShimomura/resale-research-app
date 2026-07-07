@@ -83,7 +83,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
           無制限プラン（{PLANS[currentPlan].name}）をご利用中。
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         {PAID_PLAN_IDS.map((id) => {
           const p = PLANS[id];
           const trial = id === "amateur" || id === "viewer";
@@ -141,13 +141,13 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               <ul className="mt-3 space-y-1.5 text-[12px] text-gray-600 flex-1">
                 {id === "viewer" ? (
                   <>
-                    <li className="flex items-center gap-1.5">
-                      <Check size={13} className="text-emerald-500 shrink-0" />
-                      儲かる中古カタログを全部閲覧
+                    <li className="flex items-start gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <span>儲かる中古カタログを全部閲覧</span>
                     </li>
-                    <li className="flex items-center gap-1.5">
-                      <Check size={13} className="text-emerald-500 shrink-0" />
-                      <span className="whitespace-nowrap">仕入れ値・利益率・仕入れ先まで</span>
+                    <li className="flex items-start gap-1.5">
+                      <Check size={13} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <span>仕入れ値・利益率・仕入れ先まで見れる</span>
                     </li>
                     <li className="text-[11px] text-gray-400 pl-5 leading-relaxed">※ 出品・管理などの操作機能は使えません（見るだけ）</li>
                   </>
