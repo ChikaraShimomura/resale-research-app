@@ -1,4 +1,5 @@
 import { kv } from "@vercel/kv";
+import { createHash } from "crypto";
 import { sendEmail, REPORT_TO, emailConfigured } from "./email";
 
 // サーバー側で「予期せぬエラー」を自動記録する共通ハンドラ。
@@ -33,6 +34,15 @@ export async function recordAutoError(input: AutoErrorReport): Promise<void> {
     /* KV障害でもメール通知は試みる */
   }
   if (!input.silent && emailConfigured()) {
+    // ★同一エラーの連投抑制(2026-07-08)：where+message のハッシュで1時間に1通だけメール。
+    //   再試行ループ等で同じ「⚠️自動エラー検知」が何十通も運用者に飛ぶ("止まらないメール")のを防ぐ。KV(error_reports)には毎回残す。
+    let firstInWindow = true;
+    try {
+      const sig = createHash("sha1").update(`${input.where}|${(input.message || "").slice(0, 80)}`).digest("hex").slice(0, 16);
+      const set = await kv.set(`autoerr:sent:${sig}`, report.ts, { nx: true, ex: 3600 });
+      firstInWindow = set !== null; // nx: 既に同じエラーが1時間以内に送信済みなら null → 抑制
+    } catch { /* KV障害時はメールを止めない(fail-open) */ }
+    if (!firstInWindow) return;
     try {
       await sendEmail({
         to: REPORT_TO,

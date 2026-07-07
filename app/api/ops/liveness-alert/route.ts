@@ -13,7 +13,7 @@ const STALE_H = Number(process.env.LIVENESS_STALE_HOURS) || 3; // refineは20分
 const REMIND_H = Number(process.env.LIVENESS_REMIND_HOURS) || 24;
 
 type Wlog = { at?: string; exit?: number | null; git?: string };
-type AlertState = { down?: boolean; since?: string | null; lastEmailAt?: string | null };
+type AlertState = { down?: boolean; since?: string | null; lastEmailAt?: string | null; seenDownAt?: string | null };
 
 const fmtAge = (ms: number) => {
   if (!Number.isFinite(ms)) return "記録なし";
@@ -67,32 +67,45 @@ export async function GET(req: Request) {
 
   const reasons: string[] = [];
   if (age > STALE_H * 3600000) reasons.push(`ワーカーが止まっています（最終 ${fmtAge(age)}）`);
-  const down = reasons.length > 0;
-  const prev = (await kv.get<AlertState>("liveness_alert_state")) || { down: false, since: null, lastEmailAt: null };
+  const stale = reasons.length > 0;
+  const prev = (await kv.get<AlertState>("liveness_alert_state")) || { down: false, since: null, lastEmailAt: null, seenDownAt: null };
+  const iso = new Date(now).toISOString();
+  // ★フラッピング対策(2026-07-08)：一過性の途切れ(電波/wake-lock)で即通知しない＝2回連続でstaleを観測した時だけ"down"扱い。
+  //   さらに、どの2通の間も最低 FLAP_MIN 空ける＝down→復活→down の往復連投を防ぐ。
+  const FLAP_MIN_MS = (Number(process.env.LIVENESS_FLAP_MIN_MIN) || 30) * 60000;
+  const sinceLastEmail = prev.lastEmailAt ? now - Date.parse(prev.lastEmailAt) : Infinity;
+  const flapOk = sinceLastEmail > FLAP_MIN_MS;
 
   let action = "none";
-  if (down) {
-    const firstTime = !prev.down;
-    const remindDue = prev.lastEmailAt ? now - Date.parse(prev.lastEmailAt) > REMIND_H * 3600000 : true;
-    if (firstTime || remindDue) {
-      await sendEmail({ to: REPORT_TO, subject: "⚠️ 輸出ラボ 住宅IPワーカーが止まっています", html: downHtml(reasons) });
-      await kv.set("liveness_alert_state", {
-        down: true,
-        since: firstTime ? new Date(now).toISOString() : prev.since || new Date(now).toISOString(),
-        lastEmailAt: new Date(now).toISOString(),
-      });
-      action = firstTime ? "down-alert" : "down-remind";
+  if (stale) {
+    if (!prev.seenDownAt) {
+      // 初回staleは記録だけ・通知しない（次ポールも継続していれば通知＝一瞬の途切れを無視）。
+      await kv.set("liveness_alert_state", { ...prev, seenDownAt: iso });
+      action = "down-pending";
     } else {
-      action = "down-suppressed";
+      const firstTime = !prev.down;
+      const remindDue = prev.lastEmailAt ? sinceLastEmail > REMIND_H * 3600000 : true;
+      if ((firstTime || remindDue) && flapOk) {
+        await sendEmail({ to: REPORT_TO, subject: "⚠️ 輸出ラボ 住宅IPワーカーが止まっています", html: downHtml(reasons) });
+        await kv.set("liveness_alert_state", { down: true, since: prev.since || prev.seenDownAt || iso, lastEmailAt: iso, seenDownAt: prev.seenDownAt });
+        action = firstTime ? "down-alert" : "down-remind";
+      } else {
+        action = "down-suppressed";
+      }
     }
-  } else if (prev.down) {
+  } else if (prev.down && flapOk) {
+    // 実際に down 通知を送っていた時だけ復活メール（pendingで未通知なら黙って戻す）。
     await sendEmail({ to: REPORT_TO, subject: "✅ 輸出ラボ 住宅IPワーカーが復活しました", html: upHtml(freshest) });
-    await kv.set("liveness_alert_state", { down: false, since: null, lastEmailAt: new Date(now).toISOString() });
+    await kv.set("liveness_alert_state", { down: false, since: null, lastEmailAt: iso, seenDownAt: null });
     action = "recovered";
+  } else if (prev.down || prev.seenDownAt) {
+    // 未通知pendingのクリア、またはFLAP_MIN内の回復＝復活メールは送らず状態だけ戻す（往復連投を止める）。
+    await kv.set("liveness_alert_state", { down: false, since: null, lastEmailAt: prev.lastEmailAt ?? null, seenDownAt: null });
+    action = prev.down ? "recover-suppressed" : "cleared";
   }
 
   return Response.json({
-    ok: true, down, reasons, action,
+    ok: true, down: stale, reasons, action,
     ageH: Math.round((age / 3600000) * 10) / 10,
   });
 }
