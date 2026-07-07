@@ -72,7 +72,8 @@ export default function LegalPage() {
                 <span className="whitespace-nowrap">（本サービス料金には含まれません）。</span>
               </Row>
               <Row label="無料トライアル">
-                <span className="whitespace-nowrap">ライトプランは初回 {TRIAL_DAYS} 日間無料。</span><wbr />
+                <span className="whitespace-nowrap">ライト・カタログ閲覧の各プランは</span><wbr />
+                <span className="whitespace-nowrap">初回 {TRIAL_DAYS} 日間無料。</span><wbr />
                 <span className="whitespace-nowrap">期間内の解約なら</span><wbr />
                 <span className="whitespace-nowrap">料金は一切発生しません。</span>
               </Row>
@@ -80,7 +81,8 @@ export default function LegalPage() {
               <Row label="お支払い時期">
                 <span className="whitespace-nowrap">お申し込み時に課金、</span><wbr />
                 <span className="whitespace-nowrap">以降は毎月同日に自動更新</span><wbr />
-                <span className="whitespace-nowrap">（ライトは無料期間の終了後に初回課金）。</span>
+                <span className="whitespace-nowrap">（ライト・カタログ閲覧は</span><wbr />
+                <span className="whitespace-nowrap">無料期間の終了後に初回課金）。</span>
               </Row>
               <Row label="サービスの提供時期">決済完了後、ただちにご利用いただけます。</Row>
               <Row label="解約・自動更新の停止">

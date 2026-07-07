@@ -55,7 +55,8 @@ export default function FaqPage() {
 
         <QA q="無料で試せますか？">
           <p>
-            <span className="whitespace-nowrap">ライトプランは最初の {TRIAL_DAYS} 日間無料。</span><wbr />
+            <span className="whitespace-nowrap">ライトとカタログ閲覧は</span><wbr />
+            <span className="whitespace-nowrap">最初の {TRIAL_DAYS} 日間無料。</span><wbr />
             <span className="whitespace-nowrap">期間内に解約すれば</span><wbr />
             <span className="whitespace-nowrap">料金は一切発生しません。</span>
           </p>

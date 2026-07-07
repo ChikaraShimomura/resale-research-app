@@ -66,8 +66,12 @@ export function planCanDropship(plan: PlanId): boolean {
 }
 
 // 無料トライアル日数（最初の30日＝約1ヶ月）。ライト(amateur)とカタログ閲覧(viewer)に付与。スタンダード/プロ はなし。
-// ※トライアルは期間終了で自動課金へ移行する（Stripe標準）。⚠️特商法(定期購入規制)遵守のため、解約導線・
-//   終了前メール通知(TrialBanner/getTrialInfo)・「自動継続/金額/解約方法」の明示は必ず残すこと（消すのはダークパターンで違法）。
+// ※トライアルは期間終了で自動課金へ移行する（Stripe標準）。
+// ⚠️特商法(定期購入規制)で必須なのは①申込み時の明示（自動継続・金額・時期・解約方法＝Stripeチェックアウトが表示）
+//   ②いつでも使える解約導線（Stripe管理画面/PortalButton）③特商法表記(/legal)・FAQでの明示。この3つは必ず維持（消すと違法）。
+//   ┗「終了前リマインドメール」は法的義務ではないため送っていない（trial_will_end 未実装）。約束すると不当表示になるので
+//     UIの“メール通知します”予告文言は撤去済み。アプリ内 TrialBanner（あと◯日/自動継続の予告）は任意告知として残す
+//     ＝不意打ち課金→返金要求/チャージバックの予防。⚠️復活させるなら「送る実装」とセットでのみ（文言だけ戻すの禁止）。
 export const TRIAL_DAYS = 30;
 export function trialDaysFor(plan: PlanId): number {
   return plan === "amateur" || plan === "viewer" ? TRIAL_DAYS : 0;

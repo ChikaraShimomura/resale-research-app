@@ -177,7 +177,7 @@ export default function PlanCards({ currentPlan = "free", resumePlan }: { curren
               {/* 申込ボタン直下の不安解消（未購読のみ）。ライト=無料期間の安心、上位=トライアルはライトのみ。 */}
               {!isSubscriber && trial && (
                 <p className="text-[10.5px] text-gray-500 mt-2 leading-relaxed text-center">
-                  <span className="whitespace-nowrap">無料期間中は0円</span>・<span className="whitespace-nowrap">終了前にメール通知</span>
+                  <span className="whitespace-nowrap">無料期間中は0円</span>
                 </p>
               )}
               {!isSubscriber && !trial && (
