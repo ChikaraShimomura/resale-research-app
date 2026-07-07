@@ -1,8 +1,11 @@
 name: Link Liveness Check (楽天リンク死活)
 
 on:
-  schedule:
-    - cron: '45 18 * * *'   # 毎日 18:45 UTC = 03:45 JST（6hごとの refresh は 18:00 UTC=03:00 JST。被らないよう45分ずらす）
+  # ⏸ 2026-07-08 スケジュール停止：楽天モデルは撤去済み(中古ハードオフへピボット)。楽天リンク死活の毎日実行は
+  #   楽天APIの無駄打ち＋将来のメール/枠浪費の芽なので停止。手動(workflow_dispatch)だけ残す。
+  #   ※ /api/products が profitable_products(楽天)を配信している間はワークフロー自体は残置（付替えは別途）。
+  # schedule:
+  #   - cron: '45 18 * * *'
   workflow_dispatch:          # 手動実行ボタン
 
 jobs:
