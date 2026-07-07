@@ -418,6 +418,18 @@ function LiveCard({ d, tiers, priceUsd }: { d: ListedItem; tiers?: ReturnType<ty
               </a>
             )}
           </div>
+          {/* 無在庫出品は「売れてから仕入れる」ので、仕入れ先(ハードオフ)へすぐ飛べるボタンを出品停止の直下に出す。
+              sourceUrl はstats.tsで正規化済み。無い旧dealは商品名でハードオフ検索にフォールバック。 */}
+          {d.dropship && (
+            <a
+              href={d.sourceUrl || `https://netmall.hardoff.co.jp/search/?q=${encodeURIComponent(d.title || "")}`}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-xl bg-[#2D323B] text-white font-bold text-[12px] active:bg-[#1A1D23]"
+            >
+              <ExternalLink size={15} /> <span className="whitespace-nowrap">仕入れ先（売れたら仕入れる）</span>
+            </a>
+          )}
         </div>
       </div>
     </li>
