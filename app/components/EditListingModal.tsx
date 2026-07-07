@@ -288,8 +288,9 @@ export default function EditListingModal({
             <X size={18} />
           </button>
         </div>
-        {/* 本文＝ここだけスクロール（内容が縦長でもヘッダーは残る・✕に届く） */}
-        <div className="overflow-y-auto overscroll-contain px-4 py-3">
+        {/* 本文＝ここだけスクロール（内容が縦長でもヘッダーは残る・✕に届く）。
+            ★flex-1 min-h-0 が必須：max-h+flex-col の中でこれが無いと子が縮まず内側スクロールが成立せず「モーダル全体が動く」。 */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3">
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-gray-400 text-[12px]">
