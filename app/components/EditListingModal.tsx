@@ -77,6 +77,7 @@ export default function EditListingModal({
   // 送料の出し方（送料込み/別）の現在状態と切替プレビュー。切替は保存時に反映（表示だけ即時反転）。
   const [ship, setShip] = useState<{ mode: "free" | "paid"; canFree: boolean; foldUsd: number; unfoldUsd: number } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null); // フォーカストラップ＆初期フォーカス用のダイアログ本体
+  const descRef = useRef<HTMLTextAreaElement>(null); // 説明文欄。内容の高さに自動拡張＝欄内スクロールを無くしモーダルのスクロールと競合させない
 
   // Escで閉じる（保存中は実行を取りこぼさないため無視）。
   useEffect(() => {
@@ -95,6 +96,15 @@ export default function EditListingModal({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
+
+  // 説明文欄を内容の高さに自動拡張＝欄内スクロールを無くし、モーダルのスクロールだけで全文読める（スクロール競合の解消）。
+  // 内容(formDesc)が変わった時＋詳細オプションを開いた時(textareaがマウントされる)に高さを合わせ直す。
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [formDesc, showAdvanced]);
 
   // 開いた時にダイアログ先頭へフォーカス＋Tabをダイアログ内でループする簡易フォーカストラップ。
   useEffect(() => {
@@ -433,7 +443,7 @@ export default function EditListingModal({
                   </label>
                   <label className="block">
                     <span className="text-[11px] font-bold text-gray-600">説明文</span>
-                    <textarea rows={6} maxLength={4000} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed overscroll-contain focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
+                    <textarea ref={descRef} rows={4} maxLength={4000} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A98B5C]/45 text-sm leading-relaxed resize-none overflow-hidden min-h-[6rem] focus:outline-none focus:ring-2 focus:ring-[#2D323B]/30 focus:border-[#2D323B]" />
                     <span className="block text-[10px] text-gray-400 mt-0.5">改行はそのまま反映。英語推奨。下の「保存」で反映されます。</span>
                   </label>
                 </div>
