@@ -179,6 +179,7 @@ async function discoverSeeds() {
   const seeds = [];
   const processedCats = new Set(); // 今回eBayに到達できた(検問でない)カテゴリ＝seedを差し替える対象。未到達は旧seedを持ち越す＝蓄積。
   let done = 0, blocked = 0, emptyKw = 0, noCardKw = 0, okKw = 0;
+  let debugCaptured = false; // ★0件だった最初の1ページのeBay実HTML抜粋をKVに保存(診断用・1回/run)。
   for (const { q, name } of queries) {
     done++;
     // ★数キーワードごとにeBayトップを再warmup＝1セッションでSRPを連射する"bot臭"を薄めソフトブロックを避ける(2026-07-08)。
@@ -191,13 +192,24 @@ async function discoverSeeds() {
     const allCards = []; let blockedThis = false, anyItems = false;
     for (let pg = 1; pg <= DISCOVER_PAGES; pg++) {
       let r;
-      try { r = await get(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.slice(0, 120))}&LH_Sold=1&LH_Complete=1&_sop=13&_ipg=60&_pgn=${pg}`, "https://www.ebay.com/"); }
+      // ★SRPのURL形をrefine(soldUrl)の"効く形"に合わせる(2026-07-08)：_ipg=60 はeBayの正規値(25/50/100/200)に無く0件ページを返す一因の疑い→除去。
+      //   中古ジャンル(wantNew=false)はrefineと同じ LH_ItemCondition=3000(中古限定)を付ける。同IPのrefineは正常に落札を取れているため、差はこのURL形。
+      const condQ = wantNew ? "" : "&LH_ItemCondition=3000";
+      const soldSrp = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q.slice(0, 120))}&LH_Sold=1&LH_Complete=1${condQ}&_sop=13${pg > 1 ? `&_pgn=${pg}` : ""}`;
+      try { r = await get(soldSrp, "https://www.ebay.com/"); }
       catch (e) { r = { status: "err:" + (e?.name || e?.message), html: "" }; }
       if (typeof r.status !== "number" || r.status >= 400) { blockedThis = true; console.log(`  ⛔ ${r.status} : ${name} p${pg}`); await sleep(Math.round(rnd(15000, 30000))); break; }
       if (isBlocked(r.html)) { blockedThis = true; console.log(`  ⛔ 検問ページ : ${name} p${pg}`); await sleep(Math.round(rnd(30000, 60000))); break; }
       // ★status200・非captchaでも"器"が無い＝ソフトブロック(中身抜き)。落札なしと誤カウントせずブロック扱い(旧種を温存)。
       if (!hasSrpShell(r.html)) { blockedThis = true; console.log(`  ⛔ 器なし(ソフトブロック疑い) : ${name} p${pg}`); await sleep(Math.round(rnd(20000, 40000))); break; }
       const parsed = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, wantNew); // 中古ジャンル/ブランドは中古も採用(中古主体)／sealed-new主体ジャンルのみ新品限定
+      // ★診断：0件だった最初の1ページだけ、eBay実HTMLの抜粋をKVに保存＝「本当に0件」か「カード構造変化のパース漏れ」かをPC側から確定する。TTL3日。
+      if (parsed.items === 0 && !debugCaptured && r.status === 200 && !DRY) {
+        debugCaptured = true;
+        const idx = r.html.search(/srp-river|srp-controls|s-card|result/i);
+        const snippet = idx >= 0 ? r.html.slice(Math.max(0, idx - 250), idx + 2200) : r.html.slice(0, 2500);
+        try { await kvSetJson("ebay_sold_debug", { at: new Date().toISOString(), q, name, url: soldSrp, status: r.status, htmlLen: r.html.length, snippet }, 3 * 24 * 3600); } catch { /* noop */ }
+      }
       if (parsed.items > 0) anyItems = true;
       allCards.push(...parsed.cards);
       if (parsed.items < 50) break; // ページが埋まってない＝最終ページ（これ以上のページは無い）。窓外で落札0のページもここで止まる
