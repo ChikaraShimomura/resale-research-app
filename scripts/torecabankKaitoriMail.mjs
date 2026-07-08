@@ -15,6 +15,7 @@
 //   MAIL_TO            宛先（既定: chikara0323@gmail.com・カンマ区切りで複数可）
 //   MAIL_BCC           追加宛先（Bcc＝お互い非表示・カンマ区切りで複数可）
 //   MIN_REMAINING      残り点数の下限（既定: 10）
+//   MAX_PRICE          買取額の上限・円（既定: 300000＝30万円以下のみ・高額品は仕入れ非現実的なので除外）
 //   EXCLUDE_BOX        "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
 //   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴＋本日送信済みガードに使用）
 //   KV_REST_API_TOKEN  同トークン（両方揃った時だけ履歴/ガードON）
@@ -29,6 +30,7 @@ const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 10);
+const MAX_PRICE = Number(process.env.MAX_PRICE || 300000); // 買取額の上限（既定30万円）。高額品は仕入れ非現実的なので除外
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外(BOX以外のみ・ユーザー指示)。BOXも含めるなら EXCLUDE_BOX=0
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -108,7 +110,7 @@ function buildHtml(rows, meta, prevMap, weekMap) {
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取ウォッチ（残り${MIN_REMAINING}点以上）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date} 時点 ／ 対象 <b>${rows.length}件</b>${EXCLUDE_BOX ? "（未開封BOXは除外）" : `（うち未開封BOX ${boxCount}件）`}<br>
+        ${meta.date} 時点 ／ 対象 <b>${rows.length}件</b>（買取${yen(MAX_PRICE)}以下${EXCLUDE_BOX ? "・未開封BOX除外" : `・BOX含む(${boxCount})`}）<br>
         ${histNote}<br>
         ※ グレード品(PSA10等)の買取額は鑑定済み前提です。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
@@ -170,14 +172,14 @@ async function main() {
   }
 
   const rows = all
-    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && Number(p.buy_price) <= MAX_PRICE && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .sort((a, b) => Number(b.buy_price) - Number(a.buy_price));
 
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
-  const boxCount = all.filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && /BOX/i.test(p.product_type_name)).length;
-  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（除外した未開封BOX ${boxCount}件）／履歴 前日:${prevMap ? "有" : "無"} 前週:${weekMap ? "有" : "無"}`);
+  const boxCount = all.filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && Number(p.buy_price) <= MAX_PRICE && /BOX/i.test(p.product_type_name)).length;
+  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上・${yen(MAX_PRICE)}以下${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（除外BOX ${boxCount}件）／履歴 前日:${prevMap ? "有" : "無"} 前週:${weekMap ? "有" : "無"}`);
   const html2 = buildHtml(rows, { date, kvOn: KV_ON }, prevMap, weekMap);
-  const subject = `【トレカバンク買取】残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（${date}）`;
+  const subject = `【トレカバンク買取】${rows.length}件（残り${MIN_REMAINING}点↑・${yen(MAX_PRICE)}以下${EXCLUDE_BOX ? "・BOX除外" : ""}・${date}）`;
 
   // 今日のスナップショットを保存（本番のみ・1日1キー＝書き込み1回）。次回以降の前日/前週比に使う。
   if (KV_ON && !DRY) {
