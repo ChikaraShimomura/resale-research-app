@@ -1,0 +1,31 @@
+name: トレカバンク買取ウォッチ メール
+
+# store.torecabank.com/kaitori_list を取得し、残り点数が MIN_REMAINING(既定10)以上の買取商品を
+# 商品名＋残り点数＋サムネ＋買取額でメールする個人用cron。取得は公開HTMLのみ・データはページ埋め込み
+# JSON(allProducts)なのでブラウザ/APIキー不要。送信は既存のResend(自社ドメイン)。
+# 毎朝8:00 JST(23:00 UTC)自動。手動は workflow_dispatch か scripts/.torecabank-trigger のpushで発火。
+on:
+  schedule:
+    - cron: '0 23 * * *'   # 08:00 JST（GitHubのcronは多少遅延あり）
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/.torecabank-trigger'
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Send torecabank kaitori mail
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: chikara0323@gmail.com
+          MIN_REMAINING: '10'
+        run: node scripts/torecabankKaitoriMail.mjs
