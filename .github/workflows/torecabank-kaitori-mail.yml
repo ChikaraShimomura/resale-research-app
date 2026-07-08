@@ -34,6 +34,7 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_TO: chikara0323@gmail.com
+          MAIL_BCC: m08h22@icloud.com   # 追加宛先（Bcc＝お互い非表示）。複数はカンマ区切り
           MIN_REMAINING: '10'
           EXCLUDE_BOX: '1'   # 未開封BOXを除外（BOX以外のみ・ユーザー指示）。BOXも含めるなら '0'
           # 価格の前日比/前週比＋「本日送信済み」ガードのため、既存KVを使用（書き込みは1日数回・軽量）。

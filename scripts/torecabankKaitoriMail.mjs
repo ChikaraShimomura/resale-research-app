@@ -12,7 +12,8 @@
 // env:
 //   RESEND_API_KEY     Resend のAPIキー（無ければ dry 実行）
 //   MAIL_FROM          差出人（既定: トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>）
-//   MAIL_TO            宛先（既定: chikara0323@gmail.com）
+//   MAIL_TO            宛先（既定: chikara0323@gmail.com・カンマ区切りで複数可）
+//   MAIL_BCC           追加宛先（Bcc＝お互い非表示・カンマ区切りで複数可）
 //   MIN_REMAINING      残り点数の下限（既定: 10）
 //   EXCLUDE_BOX        "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
 //   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴＋本日送信済みガードに使用）
@@ -30,7 +31,9 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 10);
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外(BOX以外のみ・ユーザー指示)。BOXも含めるなら EXCLUDE_BOX=0
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
+const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
 const MAIL_TO = process.env.MAIL_TO || "chikara0323@gmail.com";
+const MAIL_BCC = process.env.MAIL_BCC || ""; // 追加宛先（Bcc＝お互い非表示・カンマ区切りで複数可）
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const DRY = process.argv.includes("--dry") || !RESEND_API_KEY;
 const FORCE = process.argv.includes("--force") || process.env.FORCE_SEND === "1"; // 本日送信済みガードを無視して必ず送る（手動再送）
@@ -195,14 +198,18 @@ async function main() {
     return;
   }
 
+  const toList = parseAddrs(MAIL_TO);
+  const bccList = parseAddrs(MAIL_BCC);
+  const payload = { from: MAIL_FROM, to: toList, subject, html: html2 };
+  if (bccList.length) payload.bcc = bccList; // 追加宛先はBccでお互い非表示
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: MAIL_FROM, to: MAIL_TO, subject, html: html2 }),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(15000),
   });
   if (!r.ok) throw new Error(`Resend send failed: ${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`);
-  console.log(`[torecabank] メール送信完了 → ${MAIL_TO}（${rows.length}件）`);
+  console.log(`[torecabank] メール送信完了 → to:${toList.join(",")}${bccList.length ? " / bcc:" + bccList.join(",") : ""}（${rows.length}件）`);
   // 送信済みフラグを立てる＝同じ日の予備cron/再実行はスキップされる。
   if (KV_ON) { try { await kvCmd(["SET", SENT_KEY(jstDay(0)), "1", "EX", String(SENT_TTL)]); } catch (e) { console.warn("[guard] 送信済み記録に失敗:", e.message); } }
 }
