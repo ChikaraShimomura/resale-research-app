@@ -10,6 +10,7 @@
 //   MAIL_FROM       差出人（既定: トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>）
 //   MAIL_TO         宛先（既定: chikara0323@gmail.com）
 //   MIN_REMAINING   残り点数の下限（既定: 10）
+//   EXCLUDE_BOX     "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
 //
 // 使い方: node scripts/torecabankKaitoriMail.mjs        （送信 or キー無ければdry）
 //         node scripts/torecabankKaitoriMail.mjs --dry  （必ずプレビューのみ）
@@ -20,6 +21,7 @@ const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 10);
+const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外(BOX以外のみ・ユーザー指示)。BOXも含めるなら EXCLUDE_BOX=0
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const MAIL_TO = process.env.MAIL_TO || "chikara0323@gmail.com";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
@@ -57,8 +59,8 @@ function buildHtml(rows, meta) {
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取ウォッチ（残り${MIN_REMAINING}点以上）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date} 時点 ／ 対象 <b>${rows.length}件</b>（うち未開封BOX <b>${boxCount}件</b>＝Mercari転売で現実的）<br>
-        ※ PSA10は鑑定済み前提の買取額です。Mercariの未鑑定(raw)品とは別物なのでご注意を。
+        ${meta.date} 時点 ／ 対象 <b>${rows.length}件</b>${EXCLUDE_BOX ? "（未開封BOXは除外）" : `（うち未開封BOX ${boxCount}件）`}<br>
+        ※ グレード品(PSA10等)の買取額は鑑定済み前提です。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
   const body = rows
     .map((p) => {
@@ -95,14 +97,14 @@ async function main() {
   const html = await res.text();
   const all = extractProducts(html);
   const rows = all
-    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING)
+    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .sort((a, b) => Number(b.buy_price) - Number(a.buy_price));
 
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
-  const boxCount = rows.filter((p) => /BOX/i.test(p.product_type_name)).length;
-  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上 ${rows.length}件（未開封BOX ${boxCount}件）`);
+  const boxCount = all.filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && /BOX/i.test(p.product_type_name)).length;
+  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（除外した未開封BOX ${boxCount}件）`);
   const html2 = buildHtml(rows, { date });
-  const subject = `【トレカバンク買取】残り${MIN_REMAINING}点以上 ${rows.length}件（${date}）`;
+  const subject = `【トレカバンク買取】残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（${date}）`;
 
   if (DRY) {
     fs.writeFileSync("torecabank_preview.html", html2);

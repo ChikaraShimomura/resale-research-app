@@ -28,4 +28,5 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_TO: chikara0323@gmail.com
           MIN_REMAINING: '10'
+          EXCLUDE_BOX: '1'   # 未開封BOXを除外（BOX以外のみ・ユーザー指示）。BOXも含めるなら '0'
         run: node scripts/torecabankKaitoriMail.mjs
