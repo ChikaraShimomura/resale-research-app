@@ -15,7 +15,7 @@
 //   MAIL_TO            宛先（既定: chikara0323@gmail.com・カンマ区切りで複数可）
 //   MAIL_BCC           追加宛先（Bcc＝お互い非表示・カンマ区切りで複数可）
 //   MIN_REMAINING      残り点数の下限（既定: 10）
-//   MAX_PRICE          買取額の上限・円（既定: 100000＝10万円以下のみ・高額品は仕入れ非現実的なので除外）
+//   MAX_PRICE          買取額の上限・円（既定: 50000＝5万円以下のみ・高額品は仕入れ非現実的なので除外）
 //   EXCLUDE_BOX        "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
 //   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴＋本日送信済みガードに使用）
 //   KV_REST_API_TOKEN  同トークン（両方揃った時だけ履歴/ガードON）
@@ -30,7 +30,7 @@ const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 10);
-const MAX_PRICE = Number(process.env.MAX_PRICE || 100000); // 買取額の上限（既定10万円）。高額品は仕入れ非現実的なので除外
+const MAX_PRICE = Number(process.env.MAX_PRICE || 50000); // 買取額の上限（既定5万円）。高額品は仕入れ非現実的なので除外
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外(BOX以外のみ・ユーザー指示)。BOXも含めるなら EXCLUDE_BOX=0
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
