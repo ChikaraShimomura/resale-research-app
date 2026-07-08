@@ -2,15 +2,21 @@
 // 依存ゼロ（Node18+ の fetch のみ）。データはページHTMLに `const allProducts = [...]` として埋め込まれているので、
 // APIキーもヘッドレスブラウザも不要＝サーバー(GitHub Actions)取得だけで全件取れる。
 //
+// 価格の前日比・前週比つき：毎回、全商品の買取額を KV に「1日1キー」で保存し（tb_price_snap:YYYY-MM-DD）、
+// 前日ぶん(-1日)・前週ぶん(-7日)を読んで差分（▲上昇/▼下落/±0/NEW）を表示する。書き込みは1回/日＝KV負荷ほぼゼロ。
+// 履歴が貯まるまで（初日/1週間未満）は該当欄が「—」や「NEW」になる。
+//
 // 送信は Resend（自社ドメイン yushutsu-fukugyo.com）。RESEND_API_KEY 未設定 or `--dry` ならメールは送らず
-// プレビューHTMLをファイル出力＋サマリ表示（非破壊）。
+// プレビューHTMLをファイル出力＋サマリ表示（非破壊）。KV未設定なら履歴は「—」のまま（送信自体は動く）。
 //
 // env:
-//   RESEND_API_KEY  Resend のAPIキー（無ければ dry 実行）
-//   MAIL_FROM       差出人（既定: トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>）
-//   MAIL_TO         宛先（既定: chikara0323@gmail.com）
-//   MIN_REMAINING   残り点数の下限（既定: 10）
-//   EXCLUDE_BOX     "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
+//   RESEND_API_KEY     Resend のAPIキー（無ければ dry 実行）
+//   MAIL_FROM          差出人（既定: トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>）
+//   MAIL_TO            宛先（既定: chikara0323@gmail.com）
+//   MIN_REMAINING      残り点数の下限（既定: 10）
+//   EXCLUDE_BOX        "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
+//   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴の保存/読み出しに使用）
+//   KV_REST_API_TOKEN  同トークン（両方揃った時だけ履歴ON）
 //
 // 使い方: node scripts/torecabankKaitoriMail.mjs        （送信 or キー無ければdry）
 //         node scripts/torecabankKaitoriMail.mjs --dry  （必ずプレビューのみ）
@@ -27,8 +33,30 @@ const MAIL_TO = process.env.MAIL_TO || "chikara0323@gmail.com";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const DRY = process.argv.includes("--dry") || !RESEND_API_KEY;
 
+const KV_URL = process.env.KV_REST_API_URL || "";
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
+const KV_ON = Boolean(KV_URL && KV_TOKEN);
+const SNAP_KEY = (day) => `tb_price_snap:${day}`;
+const SNAP_TTL = 14 * 24 * 60 * 60; // 履歴は14日保持（前日/前週比に十分＋自動失効でゴミが残らない）
+
 const yen = (n) => "¥" + Number(n || 0).toLocaleString("ja-JP");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// 商品の同一性キー（日をまたいだ価格比較用）。グレード＋セット＋番号＋名前で安定させる。
+const keyOf = (p) => `${p.product_type_name}|${p.product_master_key1}|${p.product_master_key2}|${p.product_master_name}`;
+// JSTの日付(YYYY-MM-DD)。offsetDaysで前日(-1)/前週(-7)。
+const jstDay = (offsetDays = 0) => new Date(Date.now() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
+
+// Upstash/Vercel KV の REST を直叩き（@vercel/kv 非依存＝npm install不要）。コマンドはJSON配列。
+async function kvCmd(cmd) {
+  const r = await fetch(KV_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(cmd),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!r.ok) throw new Error(`KV ${cmd[0]} ${r.status}`);
+  return (await r.json()).result;
+}
 
 // HTML内の `const allProducts = [ ... ]` を括弧の深さで正確に切り出してJSON.parseする。
 function extractProducts(html) {
@@ -53,13 +81,28 @@ function extractProducts(html) {
   return JSON.parse(html.slice(start, end + 1));
 }
 
-function buildHtml(rows, meta) {
+// 前日/前週マップ(key→価格)を使って差分セルのHTMLを返す。マップ無し=「—」、前に無い商品=「NEW」。
+function deltaCell(today, map, key) {
+  if (!map) return `<span style="color:#cbd5e1">—</span>`;
+  const prev = map[key];
+  if (prev == null) return `<span style="color:#3b82f6">NEW</span>`;
+  const d = Number(today) - Number(prev);
+  if (d === 0) return `<span style="color:#9ca3af">±0</span>`;
+  const up = d > 0;
+  return `<span style="color:${up ? "#16a34a" : "#ef4444"};font-weight:700">${up ? "▲ +" : "▼ -"}${yen(Math.abs(d))}</span>`;
+}
+
+function buildHtml(rows, meta, prevMap, weekMap) {
   const boxCount = rows.filter((p) => /BOX/i.test(p.product_type_name)).length;
+  const histNote = meta.kvOn
+    ? "価格の 前日比／前週比 つき（履歴が貯まるまで一部 — / NEW 表示）。"
+    : "※価格履歴(KV)が未設定のため前日比/前週比は「—」です。";
   const head = `
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取ウォッチ（残り${MIN_REMAINING}点以上）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         ${meta.date} 時点 ／ 対象 <b>${rows.length}件</b>${EXCLUDE_BOX ? "（未開封BOXは除外）" : `（うち未開封BOX ${boxCount}件）`}<br>
+        ${histNote}<br>
         ※ グレード品(PSA10等)の買取額は鑑定済み前提です。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
   const body = rows
@@ -67,6 +110,7 @@ function buildHtml(rows, meta) {
       const img = BASE + String(p.image_path || "").replace(/^\/+/, "");
       const sub = [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" ");
       const isBox = /BOX/i.test(p.product_type_name);
+      const k = keyOf(p);
       return `
       <tr>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px">
@@ -81,6 +125,8 @@ function buildHtml(rows, meta) {
         <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">
           <div style="font-size:14px;font-weight:800">${yen(p.buy_price)}</div>
           <div style="font-size:11px;color:#ef4444;font-weight:700">残${esc(p.remaining_quantity)}点</div>
+          <div style="font-size:10px;margin-top:3px;color:#9ca3af">前日 ${deltaCell(p.buy_price, prevMap, k)}</div>
+          <div style="font-size:10px;color:#9ca3af">前週 ${deltaCell(p.buy_price, weekMap, k)}</div>
         </td>
       </tr>`;
     })
@@ -96,15 +142,37 @@ async function main() {
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const html = await res.text();
   const all = extractProducts(html);
+
+  // 全商品の価格スナップショット（key→価格）。履歴保存＆前日/前週比の突き合わせに使う（フィルタ前の全件）。
+  const todayMap = {};
+  for (const p of all) todayMap[keyOf(p)] = Number(p.buy_price);
+
+  // 前日/前週の価格マップを読む（KVが有効な時だけ。失敗しても履歴なし扱いでメールは続行）。
+  let prevMap = null, weekMap = null;
+  if (KV_ON) {
+    try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-1))]); prevMap = v ? JSON.parse(v) : null; } catch (e) { console.warn("[kv] 前日読み込み失敗:", e.message); }
+    try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-7))]); weekMap = v ? JSON.parse(v) : null; } catch (e) { console.warn("[kv] 前週読み込み失敗:", e.message); }
+  }
+
   const rows = all
     .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .sort((a, b) => Number(b.buy_price) - Number(a.buy_price));
 
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
   const boxCount = all.filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && /BOX/i.test(p.product_type_name)).length;
-  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（除外した未開封BOX ${boxCount}件）`);
-  const html2 = buildHtml(rows, { date });
+  console.log(`[torecabank] 全${all.length}件 → 残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（除外した未開封BOX ${boxCount}件）／履歴 前日:${prevMap ? "有" : "無"} 前週:${weekMap ? "有" : "無"}`);
+  const html2 = buildHtml(rows, { date, kvOn: KV_ON }, prevMap, weekMap);
   const subject = `【トレカバンク買取】残り${MIN_REMAINING}点以上${EXCLUDE_BOX ? "・BOX除外" : ""} ${rows.length}件（${date}）`;
+
+  // 今日のスナップショットを保存（本番のみ・1日1キー＝書き込み1回）。次回以降の前日/前週比に使う。
+  if (KV_ON && !DRY) {
+    try {
+      await kvCmd(["SET", SNAP_KEY(jstDay(0)), JSON.stringify(todayMap), "EX", String(SNAP_TTL)]);
+      console.log(`[kv] スナップショット保存: ${SNAP_KEY(jstDay(0))}（${Object.keys(todayMap).length}件）`);
+    } catch (e) {
+      console.warn("[kv] スナップショット保存失敗:", e.message);
+    }
+  }
 
   if (DRY) {
     fs.writeFileSync("torecabank_preview.html", html2);

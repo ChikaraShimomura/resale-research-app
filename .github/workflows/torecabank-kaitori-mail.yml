@@ -29,4 +29,7 @@ jobs:
           MAIL_TO: chikara0323@gmail.com
           MIN_REMAINING: '10'
           EXCLUDE_BOX: '1'   # 未開封BOXを除外（BOX以外のみ・ユーザー指示）。BOXも含めるなら '0'
+          # 価格の前日比/前週比のため、既存KVに1日1キー(全商品価格)を保存/読み出し（書き込み1回/日）。
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
         run: node scripts/torecabankKaitoriMail.mjs
