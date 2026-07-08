@@ -1,12 +1,17 @@
 name: トレカバンク買取ウォッチ メール
 
 # store.torecabank.com/kaitori_list を取得し、残り点数が MIN_REMAINING(既定10)以上の買取商品を
-# 商品名＋残り点数＋サムネ＋買取額でメールする個人用cron。取得は公開HTMLのみ・データはページ埋め込み
-# JSON(allProducts)なのでブラウザ/APIキー不要。送信は既存のResend(自社ドメイン)。
-# 毎朝8:00 JST(23:00 UTC)自動。手動は workflow_dispatch か scripts/.torecabank-trigger のpushで発火。
+# 商品名＋残り点数＋サムネ＋買取額＋前日比/前週比でメールする個人用cron。取得は公開HTMLのみ・データは
+# ページ埋め込みJSON(allProducts)なのでブラウザ/APIキー不要。送信は既存のResend(自社ドメイン)。
+#
+# 信頼性のため cron を2本（主＋予備）にし、KVの「本日送信済み」ガードで二重送信を防ぐ。
+# GitHubのcronは遅延/スキップがあるため、主(約08:05 JST)が漏れても予備(約10:00 JST)が拾う。
+# 手動(workflow_dispatch / トリガーpush)は event_name!=schedule → FORCE_SEND=1 でガードを無視して必ず送る。
+# 取得やスクリプトが失敗したら最後の「失敗通知」ステップが警告メールを飛ばす（黙って届かないを防ぐ）。
 on:
   schedule:
-    - cron: '0 23 * * *'   # 08:00 JST（GitHubのcronは多少遅延あり）
+    - cron: '5 23 * * *'   # 約08:05 JST（主）
+    - cron: '0 1 * * *'    # 約10:00 JST（予備＝主が遅延/スキップされた時のフォールバック。送信済みならスキップ）
   workflow_dispatch:
   push:
     paths:
@@ -29,7 +34,20 @@ jobs:
           MAIL_TO: chikara0323@gmail.com
           MIN_REMAINING: '10'
           EXCLUDE_BOX: '1'   # 未開封BOXを除外（BOX以外のみ・ユーザー指示）。BOXも含めるなら '0'
-          # 価格の前日比/前週比のため、既存KVに1日1キー(全商品価格)を保存/読み出し（書き込み1回/日）。
+          # 価格の前日比/前週比＋「本日送信済み」ガードのため、既存KVを使用（書き込みは1日数回・軽量）。
           KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          # schedule(自動)はガード有効＝1日1通。手動(dispatch/push)は必ず送る。
+          FORCE_SEND: ${{ github.event_name != 'schedule' && '1' || '0' }}
         run: node scripts/torecabankKaitoriMail.mjs
+      # どのステップが失敗しても（サイト構造変更・取得失敗・送信失敗など）警告メールを出す＝無通知の欠配を防ぐ。
+      - name: 失敗通知
+        if: failure()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"from":"トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>","to":"chikara0323@gmail.com","subject":"⚠️ トレカバンク買取メールが失敗しました","html":"<p>本日のトレカバンク買取ウォッチが失敗しました（サイトのHTML構造変更・取得エラー・送信エラーなどの可能性）。<br>GitHub Actions のログを確認してください。</p>"}' \
+            || echo "alert mail failed"

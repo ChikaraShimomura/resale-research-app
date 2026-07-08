@@ -15,8 +15,9 @@
 //   MAIL_TO            宛先（既定: chikara0323@gmail.com）
 //   MIN_REMAINING      残り点数の下限（既定: 10）
 //   EXCLUDE_BOX        "0"で未開封BOXも含める（既定はBOX除外＝BOX以外のみ・ユーザー指示）
-//   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴の保存/読み出しに使用）
-//   KV_REST_API_TOKEN  同トークン（両方揃った時だけ履歴ON）
+//   KV_REST_API_URL    Upstash/Vercel KV のRESTエンドポイント（価格履歴＋本日送信済みガードに使用）
+//   KV_REST_API_TOKEN  同トークン（両方揃った時だけ履歴/ガードON）
+//   FORCE_SEND         "1"で「本日送信済み」ガードを無視して必ず送る（手動再送用）
 //
 // 使い方: node scripts/torecabankKaitoriMail.mjs        （送信 or キー無ければdry）
 //         node scripts/torecabankKaitoriMail.mjs --dry  （必ずプレビューのみ）
@@ -32,12 +33,15 @@ const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ
 const MAIL_TO = process.env.MAIL_TO || "chikara0323@gmail.com";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const DRY = process.argv.includes("--dry") || !RESEND_API_KEY;
+const FORCE = process.argv.includes("--force") || process.env.FORCE_SEND === "1"; // 本日送信済みガードを無視して必ず送る（手動再送）
 
 const KV_URL = process.env.KV_REST_API_URL || "";
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
 const KV_ON = Boolean(KV_URL && KV_TOKEN);
 const SNAP_KEY = (day) => `tb_price_snap:${day}`;
 const SNAP_TTL = 14 * 24 * 60 * 60; // 履歴は14日保持（前日/前週比に十分＋自動失効でゴミが残らない）
+const SENT_KEY = (day) => `tb_sent:${day}`;   // 本日分の送信済みフラグ（cron2本の二重送信を防ぐ）
+const SENT_TTL = 2 * 24 * 60 * 60;
 
 const yen = (n) => "¥" + Number(n || 0).toLocaleString("ja-JP");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -138,6 +142,14 @@ function buildHtml(rows, meta, prevMap, weekMap) {
 }
 
 async function main() {
+  // 本日送信済みガード（自動実行のみ）。cron2本目や再実行での二重送信を防ぐ。手動(FORCE)/dryは対象外。
+  if (!DRY && !FORCE && KV_ON) {
+    try {
+      const already = await kvCmd(["GET", SENT_KEY(jstDay(0))]);
+      if (already) { console.log(`[torecabank] 本日分は送信済み（${SENT_KEY(jstDay(0))}）＝スキップ`); return; }
+    } catch (e) { console.warn("[guard] 送信済み確認に失敗（続行）:", e.message); }
+  }
+
   const res = await fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" } });
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const html = await res.text();
@@ -191,6 +203,8 @@ async function main() {
   });
   if (!r.ok) throw new Error(`Resend send failed: ${r.status} ${(await r.text().catch(() => "")).slice(0, 200)}`);
   console.log(`[torecabank] メール送信完了 → ${MAIL_TO}（${rows.length}件）`);
+  // 送信済みフラグを立てる＝同じ日の予備cron/再実行はスキップされる。
+  if (KV_ON) { try { await kvCmd(["SET", SENT_KEY(jstDay(0)), "1", "EX", String(SENT_TTL)]); } catch (e) { console.warn("[guard] 送信済み記録に失敗:", e.message); } }
 }
 
 main().catch((e) => { console.error("[torecabank] エラー:", e.message); process.exit(1); });
