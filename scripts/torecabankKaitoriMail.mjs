@@ -132,14 +132,14 @@ function buildUpdateHtml(cohort, byKey, meta) {
     const now = cur ? Number(cur.buy_price) : null;
     const nowRem = cur ? cur.remaining_quantity : null;
     return { ...it, now, nowRem, gone: !cur, diff: now == null ? null : now - it.price };
-  }).sort((a, b) => (b.now ?? -1) - (a.now ?? -1));
+  }).sort((a, b) => (b.diff ?? -Infinity) - (a.diff ?? -Infinity)); // 値上がり順(月曜比の上昇が大きい順)。掲載終了(diff=null)は最後。
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, gone = rows.filter((r) => r.gone).length;
   const head = `
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">月曜リストの現在金額（${WD_LABEL}曜）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         月曜(${esc(cohort.date)})のリスト <b>${cohort.items.length}件</b> ／ ${meta.date}(${WD_LABEL}) 時点<br>
-        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span> ／ 掲載終了 ${gone} 件（金額は月曜比）
+        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span> ／ 掲載終了 ${gone} 件（金額は月曜比・<b>値上がり順</b>）
       </p>`;
   const body = rows.map((r) => {
     const img = BASE + String(r.image_path || "").replace(/^\/+/, "");
