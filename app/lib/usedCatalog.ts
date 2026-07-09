@@ -23,7 +23,12 @@ export type UsedCatalogItem = {
   ebayConfirmed?: boolean; // true=型番単位でeBay落札相場を取得済み。false/未定義=系列中央値の「目安」。
   ebaySoldUrl?: string; // 代表落札ページ（型番リファイナが入れる・任意）
   ebayActiveCount?: number; // eBay現在出品の総数(=競合の厚み)。型番リファイナがBrowse APIで焼き込む。未取得は undefined(=競合不明=中立)。
-
+  // ↓ 型番なしブランド品の「画像一致」レール(refineUsedCatalogImage.mjs)が付与。型番確定なら全て undefined。
+  confirmMethod?: "code" | "image"; // 確定方法。"image"=画像一致で確定したブランド品。未定義=従来の型番一致。
+  enName?: string; // 画像レールで生成した英語検索名(eBay落札検索に使用)
+  matchedEbayUrl?: string; // 画像一致した代表eBay落札の出品URL
+  matchedEbayImageUrl?: string; // 画像一致した代表eBay落札のサムネURL(根拠表示用)
+  matchedEbayTitle?: string; // 画像一致した代表eBay落札のタイトル
 };
 
 // 時計の日本語モデル名→eBay英語表記（出品者が実際に使う語）。ハードオフの型番(code)だけだとeBayで0件になるため、
@@ -273,7 +278,16 @@ export async function getUsedCatalog(): Promise<UsedCatalogItem[]> {
     //   ＝2026-07-04 カタログ全消え(refineが確定を一過性0件でdrop→確定0件)の再発を配信側でも二度と起こさない担保。
     const MIN_CONFIRMED = 300;
     // ★確定の"広さ"はユニーク型番数で測る(2026-07-08)：重複ID/同一モデルの多数在庫でrow数が水増し/変動し足切りがブレるため、行数でなくdistinct codeで判定。
-    const confirmedCodes = new Set(confirmed.map((x) => String(x.code || "").toLowerCase().replace(/[^a-z0-9]/g, "")).filter(Boolean)).size;
+    // 型番はdistinct code、型番なしの画像一致確定(confirmMethod="image")は hardoffUrl で数える
+    // ＝code空が空文字1バケツに潰れて「確定の広さ」に寄与しない副作用を回避（画像確定品が増えても目安モードに落ちない）。
+    const confirmedCodes = new Set(
+      confirmed
+        .map((x) => {
+          const c = String(x.code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          return c || (x.confirmMethod === "image" ? "url:" + (x.hardoffUrl || x.id || "") : "");
+        })
+        .filter((k) => k && k !== "url:")
+    ).size;
     const serve = confirmedOnly && confirmedCodes >= MIN_CONFIRMED ? confirmed : base;
     return serve.sort((a, b) => b.profitJpy - a.profitJpy); // 利益額の高い順（書込側でソート済みだが配信時も保証）
   } catch {

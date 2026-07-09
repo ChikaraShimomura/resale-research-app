@@ -84,6 +84,20 @@ while true; do
     [ "$brc" -ne 0 ] && echo "  (候補構築失敗・次回再試行)" >> "$HOME/usedcatalog.log"
   fi
 
+  # ③b 画像一致リファイン(型番なしブランド品の別レール)。日本語名→限定英語→eBay落札→上位3件を画像一致→2件以上でカタログ確定。
+  #     Vision(Anthropic)を使うので頻度控えめ(IMG_REFINE_INTERVAL_SEC既定3600=毎サイクル1回)。eBay落札検索は住宅IP必須＝ここで回す。
+  #     型番refineとは別セッション(各自warmup)・小バッチ(IMG_REFINE_LIMIT既定8)でcaptcha枠を分ける。ANTHROPIC_API_KEY無しは即no-op。
+  IMG_REFINE_INTERVAL_SEC="${IMG_REFINE_INTERVAL_SEC:-3600}"
+  LAST_IMG="$HOME/.last_img_refine"
+  nowimg=$(date +%s); lastimg=$(cat "$LAST_IMG" 2>/dev/null || echo 0)
+  if [ $(( nowimg - lastimg )) -ge "$IMG_REFINE_INTERVAL_SEC" ]; then
+    echo "---- $(date) used-catalog image-refine ----" >> "$HOME/usedcatalog.log"
+    node scripts/used/refineUsedCatalogImage.mjs >> "$HOME/usedcatalog.log" 2>&1; irc=$?
+    [ "$irc" -ne 0 ] && echo "  (画像一致リファイン失敗・次回再試行)" >> "$HOME/usedcatalog.log"
+    wl imgrefine "$HOME/usedcatalog.log" "$irc"
+    date +%s > "$LAST_IMG"
+  fi
+
   # ④ 型番リファインを【小バッチ(既定12件)・サイクル内で複数回】実行（ユーザー指示2026-06-27）。
   #    一気に全件やるとeBayのcaptchaで弾かれる→毎回 warmup 付きの小バッチを「細かく・多く」回す方が弾かれにくく、
   #    未確認の型番を着実に確定できる。REFINE_SUBINTERVAL(既定20分)ごとに回す。

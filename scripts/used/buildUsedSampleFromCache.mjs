@@ -175,21 +175,27 @@ async function loadCategories() {
     const normCode = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     // 型番→確定相場（refine済み・ebayConfirmed）の対応表。同一型番は最初の確定を採用。
     const refinedByCode = new Map();
+    // 画像一致で確定したブランド品(型番なし)は code で引けない＝hardoffUrl で対応表を作る＝毎build消えるのを防ぐ。
+    const refinedImgByUrl = new Map();
     for (const p of existing) {
       const k = normCode(p.code);
       if (k && p.ebayConfirmed && Number(p.ebayMedianJpy) > 0 && !refinedByCode.has(k)) refinedByCode.set(k, p);
+      if (p.confirmMethod === "image" && p.ebayConfirmed && Number(p.ebayMedianJpy) > 0 && p.hardoffUrl && !refinedImgByUrl.has(p.hardoffUrl)) refinedImgByUrl.set(p.hardoffUrl, p);
     }
     let carried = 0;
     enriched = catalog.map((c) => {
-      const prev = refinedByCode.get(normCode(c.code));
+      const prev = refinedByCode.get(normCode(c.code)) || refinedImgByUrl.get(c.hardoffUrl); // 型番一致を優先・無ければ画像一致(url)
       if (!prev) return c;
-      const median = Number(prev.ebayMedianJpy); // 型番一致の確定相場
+      const median = Number(prev.ebayMedianJpy); // 確定相場（型番一致 or 画像一致）
       const net = netProfitJPY(c.buyJpy, median, c.cat); // 仕入れは新規品の値、相場は確定値で利益を再計算
       carried++;
       return {
         ...c, ebayMedianJpy: median, profitJpy: net, profitRate: c.buyJpy > 0 ? Math.round((net / c.buyJpy) * 100) : 0, // 利益率＝純利益÷仕入れ(ROI)
         soldCount: prev.soldCount ?? c.soldCount, ebayConfirmed: true, ebayChecked: true, ebaySoldUrl: prev.ebaySoldUrl,
         ebayActiveCount: prev.ebayActiveCount ?? c.ebayActiveCount, // 競合数(=eBay現在出品総数)も引き継ぐ＝buildのたびに消えてバッジが出なくなるのを防ぐ
+        // 画像一致確定の根拠も引き継ぐ（型番確定なら undefined＝JSONで自然に消える）
+        confirmMethod: prev.confirmMethod, enName: prev.enName,
+        matchedEbayUrl: prev.matchedEbayUrl, matchedEbayImageUrl: prev.matchedEbayImageUrl, matchedEbayTitle: prev.matchedEbayTitle,
       };
     });
     const haveUrls = new Set(catalog.map((p) => p.hardoffUrl));
