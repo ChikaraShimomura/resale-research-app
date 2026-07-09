@@ -108,35 +108,39 @@ Brand: "${brand || ""}"  Name: "${name || ""}"  Category: "${cat || ""}"`);
 
 // ---- 画像(2枚→同一か) ----
 function strictMatchPrompt(titleA, titleB) {
-  return `You verify whether two photos show the EXACT SAME sellable product variant, for a used-goods resale price catalog. A wrong "same" misleads users about market price, so be conservative: if you cannot confirm the same specific variant, answer NO.
+  return `You verify whether two photos show the SAME product model, for a used-goods resale price catalog of BRANDED SECONDHAND items (bags, wallets, jewelry, apparel, accessories, cameras/gear). For most such goods the exact model NUMBER is NOT printed on the item, so judge by VISIBLE FEATURES, not by a printed code.
 Image 1: source (Japan used shop). Title: "${(titleA || "").slice(0, 140)}".
 Image 2: eBay sold listing. Title: "${(titleB || "").slice(0, 140)}".
-Step 1 - For EACH image, read every identifier from the image AND its title: brand, product type, line/model name, model/style number, color, material, hardware, size.
-Step 2 - Compare the SPECIFIC variant, not just the category:
- - Bags/wallets/accessories: same BRAND and same line/model (e.g. Gucci GG Marmont vs Gucci Dionysus = NO) and same size class (mini vs full) and same material/color family.
- - Apparel: same brand, item type, and (if visible) size class; a different silhouette/pattern = NO.
- - Watches/jewelry: same brand and model; a genuine branded item is NOT the same as a generic/compatible/aftermarket item; never declare genuine from the image alone.
- - Single vs set/lot/bundle must match.
- - Note: condition/wear/scratches do NOT change identity (a worn bag and a mint bag of the SAME model are the same variant). Do NOT answer NO merely due to condition differences.
-Step 3 - If a distinguishing identifier (line/model/color/material) cannot be read in EITHER the image or the title, do NOT guess YES; set CONFIDENCE: LOW.
+Compare these VISIBLE features across BOTH photos and titles:
+ - Brand (logo, hallmark, hardware, engraving, or stated in title) — must match.
+ - Product type (necklace / shoulder bag / wallet / ring / jacket / lens ...) — must match.
+ - Overall form & design (silhouette, shape, distinctive motif e.g. a heart pendant, quilting, monogram pattern) — must match.
+ - Color family and material — must match.
+ - Single vs set/lot/pair — must match.
+Rules:
+ - You do NOT need a printed model number. If brand + type + form + color/material clearly match, answer YES even when no model text is visible.
+ - Condition/wear/scratches/missing box or accessories do NOT change identity — never answer NO due to condition.
+ - Answer NO if brand, product type, overall form, color, or material clearly differ (e.g. Gucci GG Marmont vs Gucci Dionysus = NO; a genuine item vs a generic/aftermarket look-alike = NO).
+ - Set CONFIDENCE: LOW ONLY if the photos are too unclear to compare the form, OR the brand cannot be established in either the photo or the title.
 Reply EXACTLY in this format:
-ID1: <the specific variant in image 1>
-ID2: <the specific variant in image 2>
+ID1: <what image 1 shows>
+ID2: <what image 2 shows>
 SAME_VARIANT: YES/NO
 CONFIDENCE: HIGH/MEDIUM/LOW
 REASON: <short>`;
 }
 function adversarialMatchPrompt(titleA, titleB) {
-  return `You are an adversarial QA auditor confirming a Japan-used -> eBay resale match for a price catalog. Two photos are shown.
+  return `You are an adversarial QA auditor confirming a Japan-used -> eBay resale match for a price catalog. Two photos of BRANDED SECONDHAND goods are shown. For most such goods the exact model NUMBER is NOT printed on the item — judge by VISIBLE FEATURES.
 Image 1: source (Japan used shop). Title: "${(titleA || "").slice(0, 140)}".
 Image 2: eBay sold listing. Title: "${(titleB || "").slice(0, 140)}".
-Your job is to find ANY reason these are NOT the exact same sellable product variant. Be skeptical; the default is NO. A wrong "same" misleads users about price.
-REJECT (answer NO) on any mismatch of: brand, product type, line/model name, style/model number, color, material, hardware, size class, or single-vs-set. A genuine item is NOT a compatible/aftermarket part. An accessory (dust bag/strap/box) is NOT the product itself.
-IMPORTANT: condition/wear/scratches/accessories do NOT change product identity — do NOT reject solely because one looks more worn or lacks the box; judge IDENTITY only.
-If a distinguishing identifier (line/model/color/material) cannot be CONFIRMED in BOTH the image and the title, do NOT assume same — set CONFIDENCE: LOW.
+Find any real reason these are NOT the same product model. Default to NO on a genuine mismatch.
+REJECT (answer NO) if these clearly differ: brand, product type, overall form/silhouette/pattern/motif, color, material, or single-vs-set. A genuine item is NOT a compatible/aftermarket look-alike. An accessory (dust bag/strap/box) is NOT the product itself.
+DO NOT reject for: condition/wear/scratches, missing box/accessories, different lighting or angle, or merely because no printed model number is visible.
+If brand + product type + overall form + color/material match across the two photos, answer YES (a printed model code is NOT required).
+Set CONFIDENCE: LOW ONLY if the photos are too unclear to compare, OR the brand cannot be established in either photo or title.
 Reply EXACTLY in this format:
-ID1: <the specific variant in image 1>
-ID2: <the specific variant in image 2>
+ID1: <what image 1 shows>
+ID2: <what image 2 shows>
 SAME_VARIANT: YES/NO
 CONFIDENCE: HIGH/MEDIUM/LOW
 REASON: <short>`;
