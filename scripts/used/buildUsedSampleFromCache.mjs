@@ -85,17 +85,17 @@ async function loadCategories() {
   // 精度極限ゲート(getUsedCatalog=確定品のみ配信)により、未確定候補は表示されず「確定待ちキュー」になる。
   // ＝候補を厚く貯めても精度は落ちない。キューを厚くするほど refine が確定できる型番の母数が増える(歩留まり↑)。
   const TARGET = Number(process.env.TARGET) || 5000; // 候補の総上限（確定待ちキュー）。実際の配分は per-genre 上限が主で、これは全体の安全弁。
-  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 60; // 1カテゴリ(型番系列)上限。※実測で40に当たる系列は全419中2つだけ＝ほぼ非拘束。深掘り分を受ける程度に微増。
+  const CAP_PER_CAT = Number(process.env.CAP_PER_CAT) || 100; // 1カテゴリ(型番系列)上限。★60→100(2026-07-08)：クロール深度UPで拾える候補が増えるのを受け止める(MODEL_CAP=4で1モデル偏重は別途抑制済)。
   // ⌚時計は注力ジャンル＝需要・ハードオフ在庫が深く確定率も高い。系列ごとの上限を厚くして増やす（既取得ページから拾うだけ＝追加fetch無し）。
   const CAP_WATCH = Number(process.env.CAP_WATCH) || 150;
   // ★ジャンルあたりの候補上限（ユーザー指示2026-07-01：全ジャンルを~1000件ずつ・ゲーム偏重を防ぐ）。
   //   カテゴリはsoldCount順に処理するため、上限が無いと歩留まり・需要の高いゲームが TARGET を食い尽くし他ジャンルが枯れる。ジャンルごとに均等配分する。
   const CAP_PER_GENRE = Number(process.env.CAP_PER_GENRE) || 1000;
-  const PAGES = Number(process.env.HARDOFF_PAGES) || 12; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため最大化（2026-07-02: 8→12で候補の母数UP）。空ページで即打切りなので狭い系列(時計等)は無駄打ちしない＝主に広いカテゴリ(ゲーム/カメラ/オーディオ)の候補が増える。2h毎の低頻度なので12でも常識内。
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 20; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため引き上げ（2026-07-02: 8→12／2026-07-08: 12→20 でdiscover復旧を待たず既存種から候補の母数UP）。空ページで即打切りなので狭い系列(時計等)は無駄打ちしない＝主に広いカテゴリ(ゲーム/カメラ/オーディオ)の候補が増える。2h毎の低頻度。
   // ⌚時計は OFFモールの在庫が桁違いに厚い(腕時計だけで約2.5万件)＋確定headroom大(CAP_WATCH150/genre1000に対し実数~88)。
   //   広い時計クエリ(セイコー/カシオ/シチズン/オリエント等)はページ深度で頭打ちなので、時計だけ深く掘る(既定24)。
   //   狭い型番クエリは空ページで即打切りなので無駄打ちしない＝増えるのは広い時計クエリぶんだけ(build時間の増分は限定的)。ユーザー指示2026-07-04。
-  const PAGES_WATCH = Number(process.env.HARDOFF_PAGES_WATCH) || 24;
+  const PAGES_WATCH = Number(process.env.HARDOFF_PAGES_WATCH) || 36; // ★24→36(2026-07-08)：時計はOFFモール在庫が桁違いに厚い＋確定headroom大なので深く掘る。
   const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
   const seenId = new Set();  // ★グローバル重複排除：同じハードオフ品が別カテゴリ検索で複数回ヒットするのを1回に(重複ID 57件の根治)。
   const modelCount = {};     // ★同一モデル上限：BOSS BD2 が25件…等の1モデル偏重で一覧が埋まるのを防ぐ。
