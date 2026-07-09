@@ -127,19 +127,26 @@ function buildListHtml(rows, meta, prevMap, weekMap) {
 
 // 火〜日モード：月曜リストの各商品の「現在の買取額（月曜比）」。cohort=月曜保存分, byKey=本日の全商品(key→product)。
 function buildUpdateHtml(cohort, byKey, meta) {
+  // 並び順グループ: ①値上がり → ②値下がり → ③変動なし → ④掲載終了（ユーザー指示2026-07-09）。
+  const grp = (r) => (r.gone ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
   const rows = cohort.items.map((it) => {
     const cur = byKey[it.key];
     const now = cur ? Number(cur.buy_price) : null;
     const nowRem = cur ? cur.remaining_quantity : null;
     return { ...it, now, nowRem, gone: !cur, diff: now == null ? null : now - it.price };
-  }).sort((a, b) => (b.diff ?? -Infinity) - (a.diff ?? -Infinity)); // 値上がり順(月曜比の上昇が大きい順)。掲載終了(diff=null)は最後。
+  }).sort((a, b) => {
+    if (grp(a) !== grp(b)) return grp(a) - grp(b);   // グループ順(値上がり→値下がり→変動なし→掲載終了)
+    if (grp(a) === 0) return b.diff - a.diff;         // 値上がり: 上昇の大きい順
+    if (grp(a) === 1) return a.diff - b.diff;         // 値下がり: 下落の大きい順
+    return (b.now ?? b.price) - (a.now ?? a.price);   // 変動なし/掲載終了: 金額の高い順
+  });
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, gone = rows.filter((r) => r.gone).length;
   const head = `
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">月曜リストの現在金額（${WD_LABEL}曜）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         月曜(${esc(cohort.date)})のリスト <b>${cohort.items.length}件</b> ／ ${meta.date}(${WD_LABEL}) 時点<br>
-        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span> ／ 掲載終了 ${gone} 件（金額は月曜比・<b>値上がり順</b>）
+        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span> ／ 掲載終了 ${gone} 件（月曜比・<b>値上がり→値下がり→変動なし順</b>）
       </p>`;
   const body = rows.map((r) => {
     const img = BASE + String(r.image_path || "").replace(/^\/+/, "");
