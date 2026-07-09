@@ -56,7 +56,13 @@ const shortCode = (p) => norm(stripNoise(p.code)).length < 4; // refine:139 が�
 const isBrandCandidate = (p) => !!p.brand && shortCode(p) && p.cat !== "腕時計" && !!p.imageUrl;
 
 (async () => {
-  if (!envv("ANTHROPIC_API_KEY")) { console.log("ANTHROPIC_API_KEY 無し → 画像一致レールは無効(何もしない)。.env.localに追加を"); return; }
+  // AI判定は「ローカルのANTHROPIC_API_KEY」or「KV鍵経由でVercelプロキシ(/api/internal/ai-brand)」のどちらかで実行できる。
+  // ★Pixelはローカルキーを持たずproxyを使うので、ローカルキーの有無だけで no-op してはいけない(旧ガードのバグ:キー無しで即return)。
+  //   ローカルキーもKV鍵(=proxy認証)も無い時だけ無効。brandMatch側が USE_PROXY で自動フォールバックする。
+  if (!envv("ANTHROPIC_API_KEY") && !(envv("KV_REST_API_TOKEN") || envv("UPSTASH_REDIS_REST_TOKEN"))) {
+    console.log("ANTHROPIC鍵もKV鍵も無し → 画像一致レール無効(AI不可)"); return;
+  }
+  console.log(`AI経路: ${envv("ANTHROPIC_API_KEY") ? "ローカルAnthropic直" : "Vercelプロキシ(/api/internal/ai-brand・KV鍵SHA256認証)"}`);
   const catalog = JSON.parse((await (await fetch(`${KV_URL}/get/used_catalog`, { headers: { Authorization: `Bearer ${KV_TOK}` } })).json()).result || "[]");
   if (!catalog.length) { console.log("used_catalog が空"); return; }
   console.log(`eBay競合鍵: ${hasEbayKeys() ? "あり ✓" : "なし→競合数スキップ"}`);
