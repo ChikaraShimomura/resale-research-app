@@ -22,7 +22,16 @@ cd "$HOME/resale-research-app" || exit 1
 # このスクリプト自体が変わっても新ジョブが反映されない(手動再起動が必要だった)。起動時の内容を
 # 記録し、毎サイクルの git pull 後に変化を検知したら exec で自分を再読込＝スクリプト更新を自動適用する。
 SELF="$HOME/resale-research-app/scripts/termux-run.sh"
-SELF_SUM="$(cksum "$SELF" 2>/dev/null)"
+# 自己更新のシグネチャ算出。★cksum非搭載のTermuxでも効くよう複数ツールをフォールバック（md5sum→sha256sum→cksum→stat→wc）。
+#   旧実装は cksum のみで、cksumが無いと SELF_SUM/NEW_SUM が空→常に一致→自己更新が発火せず、termux-run.sh を変えても
+#   手動再起動しないと反映されなかった（2026-07-09 実害: 画像レールjobを追加したのに走ってるループに入らなかった）。
+selfsig() {
+  if command -v md5sum >/dev/null 2>&1; then md5sum "$SELF" | awk '{print $1}';
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$SELF" | awk '{print $1}';
+  elif command -v cksum >/dev/null 2>&1; then cksum "$SELF";
+  else stat -c '%s-%Y' "$SELF" 2>/dev/null || wc -c < "$SELF" 2>/dev/null; fi
+}
+SELF_SUM="$(selfsig)"
 
 termux-wake-lock 2>/dev/null || true                # 省電力でCPUが寝て止まるのを防ぐ(Termux:API無ければ無視)
 
@@ -37,8 +46,8 @@ while true; do
   wl meta "$HOME/gitpull.log" "$gitrc"
 
   # このスクリプト自体が更新されていたら exec で再読込＝新ジョブ/変更を自動適用（手動再起動が要らなくなる）。
-  # cksum が無い環境では SELF_SUM/NEW_SUM が空で一致し再起動しない（安全側）。
-  NEW_SUM="$(cksum "$SELF" 2>/dev/null)"
+  # selfsig() が md5sum等でシグネチャを取るので、cksum非搭載のTermuxでも termux-run.sh の変更を確実に検知して再起動する。
+  NEW_SUM="$(selfsig)"
   if [ -n "$NEW_SUM" ] && [ "$NEW_SUM" != "$SELF_SUM" ]; then
     echo "termux-run.sh が更新された→ exec で再読込して新ループを適用 ($(date))"
     exec bash "$SELF"
