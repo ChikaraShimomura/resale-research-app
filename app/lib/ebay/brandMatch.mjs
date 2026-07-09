@@ -12,6 +12,7 @@
 // env: ANTHROPIC_API_KEY（無ければ全機能 null/'unknown'＝新レール無効化が安全）/ KV_REST_API_URL+TOKEN（結果キャッシュ）/
 //      BRAND_MATCH_HAIKU(既定 claude-haiku-4-5) / BRAND_MATCH_SONNET(既定 claude-sonnet-4-6)
 import fs from "node:fs";
+import crypto from "node:crypto";
 
 function envv(k) {
   if (process.env[k]) return process.env[k];
@@ -26,6 +27,26 @@ const KV_URL = envv("KV_REST_API_URL") || envv("UPSTASH_REDIS_REST_URL");
 const KV_TOK = envv("KV_REST_API_TOKEN") || envv("UPSTASH_REDIS_REST_TOKEN");
 const HAIKU = envv("BRAND_MATCH_HAIKU") || "claude-haiku-4-5";
 const SONNET = envv("BRAND_MATCH_SONNET") || "claude-sonnet-4-6";
+
+// ★Pixel等ローカルに ANTHROPIC_API_KEY が無い環境は、AI判定を Vercel の /api/internal/ai-brand 経由で実行する
+//   （Vercelにはキーがある＝Pixelに秘密を増やさない）。認証は両者が持つ KV_REST_API_TOKEN の SHA-256（生トークンは送らない）。
+const AI_PROXY_URL = envv("AI_PROXY_URL") || "https://www.yushutsu-fukugyo.com";
+const USE_PROXY = !ANTHROPIC_API_KEY && !!KV_TOK; // キー無し＝Pixel → Vercel経由
+const proxyAuth = () => (KV_TOK ? crypto.createHash("sha256").update(KV_TOK).digest("hex") : "");
+async function callProxy(op, payload) {
+  const auth = proxyAuth();
+  if (!auth) return null;
+  try {
+    const res = await fetch(`${AI_PROXY_URL}/api/internal/ai-brand`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-ai-auth": auth },
+      body: JSON.stringify({ op, ...payload }),
+      signal: AbortSignal.timeout(50000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
 
 const hashStr = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -69,6 +90,10 @@ export async function jaToEnglishBrandQuery(brand, name, cat = "") {
   const cacheKey = `en_brandq:${hashStr(jp)}`;
   const cached = await kvGet(cacheKey);
   if (cached) return cached;
+  if (!ANTHROPIC_API_KEY) { // Pixel: Vercel経由（キャッシュはVercel側が書く）
+    const r = USE_PROXY ? await callProxy("enquery", { brand, name, cat }) : null;
+    return r && r.query ? r.query : null;
+  }
   const text = await anthropicText(HAIKU, 40,
     `Convert this Japanese USED brand item into a short, SPECIFIC English eBay search query (max 6 words) to find the SAME product's sold listings.
 Keep: the brand name (romanize, e.g. グッチ->Gucci), the product type (bag/wallet/watch/ring/necklace/jacket/sunglasses/etc.), the line/model name if present, and ONE distinguishing attribute (color OR material).
@@ -146,10 +171,14 @@ async function anthropicVision(model, prompt, img) {
  * @returns {'same'|'different'|'unknown'} same=Haiku＆Sonnet両YES / different=どちらかがNO / unknown=取得失敗・AI不通・キー無し
  */
 export async function imageSameProduct(urlA, urlB, { titleA = "", titleB = "" } = {}) {
-  if (!ANTHROPIC_API_KEY || !urlA || !urlB) return "unknown";
+  if (!urlA || !urlB) return "unknown";
   const cacheKey = `img_same:${hashStr(urlA + "|" + urlB)}`; // refreshのimg_match5(fail-open値)とは別キー＝意味の取り違え防止
   const cached = await kvGet(cacheKey);
   if (cached === "same" || cached === "different") return cached;
+  if (!ANTHROPIC_API_KEY) { // Pixel: Vercel経由（判定＆キャッシュはVercel側）
+    const r = USE_PROXY ? await callProxy("imgmatch", { imageUrlA: urlA, imageUrlB: urlB, titleA, titleB }) : null;
+    return r && (r.verdict === "same" || r.verdict === "different") ? r.verdict : "unknown";
+  }
 
   let img;
   try {

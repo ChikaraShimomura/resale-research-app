@@ -91,6 +91,7 @@ export function middleware(req: NextRequest) {
   const isExternalWebhook =
     pathname === "/api/ebay/account-deletion" ||
     pathname === "/api/ebay/list/auto-stop-cron" ||
+    pathname === "/api/internal/ai-brand" || // 画像一致レールのAIプロキシ(Pixel→Vercel・route側でKV鍵SHA-256を検証)
     pathname === "/api/billing/webhook"; // Stripe(署名検証で正当性を確認)
   if (pathname.startsWith("/api/") && isMutation && !isExternalWebhook) {
     const origin = req.headers.get("origin");
