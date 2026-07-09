@@ -9,7 +9,7 @@
 // env:
 //   RESEND_API_KEY / MAIL_FROM / MAIL_TO(カンマ区切り可) / MAIL_BCC(Bcc・カンマ区切り可)
 //   MIN_REMAINING   月曜リストの残り点数の下限（既定: 50）
-//   MAX_PRICE       買取額の上限・円（既定: 50000＝5万円以下のみ）
+//   MAX_PRICE       買取額の上限・円（0=上限なし。既定0＝ユーザー指示2026-07-09で5万上限を解除）
 //   EXCLUDE_BOX     "0"で未開封BOXも含める（既定はBOX除外）
 //   KV_REST_API_URL / KV_REST_API_TOKEN   価格履歴＋月曜リスト保存＋送信済みガード
 //   FORCE_SEND      "1"で本日送信済みガードを無視して必ず送る（手動再送）
@@ -23,7 +23,7 @@ const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 50); // 月曜リストの残り点数下限（ユーザー指示: 50件以上）
-const MAX_PRICE = Number(process.env.MAX_PRICE || 50000); // 買取額の上限（5万円）
+const MAX_PRICE = Number(process.env.MAX_PRICE) || 0; // 買取額の上限（円）。0=上限なし（ユーザー指示2026-07-09: 5万上限を解除）
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -51,6 +51,7 @@ const WD_LABEL = ["日", "月", "火", "水", "木", "金", "土"][JST_WD];
 const MODE = process.env.FORCE_MODE || (JST_WD === 1 ? "monday" : "update");
 
 const yen = (n) => "¥" + Number(n || 0).toLocaleString("ja-JP");
+const priceCapLabel = MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下・` : ""; // 上限ありの時だけ表示（0=無制限は表示しない）
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const keyOf = (p) => `${p.product_type_name}|${p.product_master_key1}|${p.product_master_key2}|${p.product_master_name}`;
 const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:${/BOX/i.test(g) ? "#0d9488" : "#A98B5C"}">${esc(g)}</span>`;
@@ -93,7 +94,7 @@ function buildListHtml(rows, meta, prevMap, weekMap) {
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 月曜リスト（残り${MIN_REMAINING}点以上）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date}(月) 時点 ／ 対象 <b>${rows.length}件</b>（買取${yen(MAX_PRICE)}以下${EXCLUDE_BOX ? "・未開封BOX除外" : ""}）<br>
+        ${meta.date}(月) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点以上・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
         今週は火〜日にこのリストの現在金額を毎朝お送りします。<br>
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
@@ -192,11 +193,11 @@ async function main() {
       try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-7))]); weekMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
     }
     const rows = all
-      .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && Number(p.buy_price) <= MAX_PRICE && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+      .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
       .sort((a, b) => Number(b.buy_price) - Number(a.buy_price));
-    console.log(`[torecabank] 月曜モード: 残り${MIN_REMAINING}点以上・${yen(MAX_PRICE)}以下${EXCLUDE_BOX ? "・BOX除外" : ""} → ${rows.length}件`);
+    console.log(`[torecabank] 月曜モード: 残り${MIN_REMAINING}点以上・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件`);
     html2 = buildListHtml(rows, { date }, prevMap, weekMap);
-    subject = `【トレカバンク】月曜リスト ${rows.length}件（残り${MIN_REMAINING}点↑・${yen(MAX_PRICE)}以下・${date}）`;
+    subject = `【トレカバンク】月曜リスト ${rows.length}件（残り${MIN_REMAINING}点↑・${priceCapLabel}${date}）`;
     // 月曜リストを保存（火〜日が現在金額を突き合わせる）。
     if (KV_ON && !DRY) {
       const cohort = { date: jstDay(0), items: rows.map((p) => ({ key: keyOf(p), name: p.product_master_name, sub: [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" "), image_path: p.image_path, grade: p.product_type_name, remaining: p.remaining_quantity, price: Number(p.buy_price) })) };
