@@ -174,7 +174,20 @@ async function discoverSeeds() {
   // 毎回シャッフル：検問(captcha)で途中停止しても、複数回の実行で全キーワード(末尾の新ジャンル含む)に取得機会が回る＝飢餓防止。
   queries = [...queries];
   for (let i = queries.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [queries[i], queries[j]] = [queries[j], queries[i]]; }
-  if (DISCOVER_KW_MAX > 0) queries = queries.slice(0, DISCOVER_KW_MAX);
+  if (DISCOVER_KW_MAX > 0) {
+    // ★ブランド品クエリ(型番なし→画像一致レール)は全クエリ中ごく少数(~2.8%)。純ランダム抽選だと当たる確率が低く、
+    //   種がなかなか溜まらず SEED_TTL(7日)で失効する→カタログにバッグ/財布/ジュエリーが出てこない(2026-07-09診断:種3497件中ブランドは3カテゴリのみ)。
+    //   毎回【最低 EBAY_SOLD_BRAND_MIN(既定18) 件のブランドクエリを必ず含める】＝ブランド種を確実に立ち上げ&更新。残り枠は一般クエリのランダム。
+    //   一般カタログは既に成熟＋確定は used_catalog に carry-forward され消えないので、一般の巡回が少し遅れても崩れない。ブランド供給が立ったら BRAND_MIN を下げる。
+    const isBrand = (x) => BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q);
+    const brandAll = queries.filter(isBrand);          // 既にシャッフル済み＝毎回違う順で回る
+    const rest = queries.filter((x) => !isBrand(x));
+    const BRAND_MIN = Number(process.env.EBAY_SOLD_BRAND_MIN) || 18;
+    const brandPick = brandAll.slice(0, Math.min(BRAND_MIN, brandAll.length, DISCOVER_KW_MAX));
+    const fill = Math.max(0, DISCOVER_KW_MAX - brandPick.length);
+    queries = [...brandPick, ...rest.slice(0, fill)];
+    console.log(`  内訳: ブランド${brandPick.length}(全${brandAll.length}中・必ず優先) + 一般${queries.length - brandPick.length}`);
+  }
   console.log(`  実行キーワード数: ${queries.length}${mode}`);
   const seeds = [];
   const processedCats = new Set(); // 今回eBayに到達できた(検問でない)カテゴリ＝seedを差し替える対象。未到達は旧seedを持ち越す＝蓄積。
