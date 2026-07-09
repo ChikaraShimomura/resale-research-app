@@ -61,6 +61,25 @@ export const EBAY_JP_QUERIES = [
   { q: 'bvlgari necklace',                 name: 'ブルガリ ネックレス' },
   { q: 'georg jensen necklace silver',     name: 'ジョージジェンセン ネックレス' },
   { q: 'vivienne westwood necklace',       name: 'ヴィヴィアン ネックレス' },
+  // 【ブランド サングラス・眼鏡(2026-07-09追加)】軽い・形/型で画像照合しやすい・輸出向き・eBay需要あり。型番なしは画像レールが確定。
+  { q: 'ray-ban sunglasses',               name: 'レイバン サングラス' },
+  { q: 'ray-ban eyeglasses frame',         name: 'レイバン メガネ' },
+  { q: 'oakley sunglasses',                name: 'オークリー サングラス' },
+  { q: 'gucci sunglasses',                 name: 'グッチ サングラス' },
+  { q: 'prada sunglasses',                 name: 'プラダ サングラス' },
+  { q: 'tom ford sunglasses',              name: 'トムフォード サングラス' },
+  { q: 'persol sunglasses',                name: 'ペルソール サングラス' },
+  { q: 'fournines 999.9 eyeglasses japan', name: '999.9 メガネ' },
+  { q: 'hakusan megane eyeglasses japan',  name: '白山眼鏡 メガネ' },
+  // 【高級筆記具(2026-07-09追加)】万年筆/ボールペン。型・刻印で識別しやすい・軽い・高単価・eBayコレクター需要。
+  { q: 'montblanc fountain pen',           name: 'モンブラン 万年筆' },
+  { q: 'montblanc ballpoint pen',          name: 'モンブラン ボールペン' },
+  { q: 'pelikan fountain pen',             name: 'ペリカン 万年筆' },
+  { q: 'sailor fountain pen',              name: 'セーラー 万年筆' },
+  { q: 'platinum fountain pen japan',      name: 'プラチナ 万年筆' },
+  { q: 'namiki maki-e fountain pen',       name: 'ナミキ 万年筆' },
+  { q: 'waterman fountain pen',            name: 'ウォーターマン 万年筆' },
+  { q: 'parker fountain pen',              name: 'パーカー 万年筆' },
 
   // 【CASIO時計 拡充(2026-06-26・①)】型番がeBayタイトルに出る＝同一型番照合が効く＝中古カタログ(時計)の本命供給。
   { q: 'casio gshock GMW-B5000 full metal',  name: 'GショックフルメタルB5000' },
@@ -1061,7 +1080,7 @@ export const EBAY_JP_QUERIES = [
 //     （ebaySoldWorker が newOnly を外す）＝新品限定だと種が枯れるのを防ぐ。
 //   ※腕時計の genre語(腕時計/ウォッチ)は入れない＝国産時計(セイコー/カシオ等)を中古seedに切替えないため。海外時計はブランド名で当てる。
 export const BRAND_USED_KW =
-  /バッグ|ハンドバッグ|トートバッグ|ショルダーバッグ|ボストンバッグ|財布|長財布|ウォレット|ジュエリー|ネックレス|指輪|ブレスレット|ピアス|イヤリング|ルイヴィトン|ヴィトン|グッチ|シャネル|エルメス|コーチ|プラダ|セリーヌ|ロエベ|ボッテガ|フェンディ|ディオール|バレンシアガ|サンローラン|ミュウミュウ|マイケルコース|ティファニー|カルティエ|ブルガリ|ヴィヴィアン|ジョージジェンセン|オメガ|タグホイヤー|ティソ|フォッシル|ブローバ|モバード|アルマーニ/i;
+  /バッグ|ハンドバッグ|トートバッグ|ショルダーバッグ|ボストンバッグ|財布|長財布|ウォレット|ジュエリー|ネックレス|指輪|ブレスレット|ピアス|イヤリング|ルイヴィトン|ヴィトン|グッチ|シャネル|エルメス|コーチ|プラダ|セリーヌ|ロエベ|ボッテガ|フェンディ|ディオール|バレンシアガ|サンローラン|ミュウミュウ|マイケルコース|ティファニー|カルティエ|ブルガリ|ヴィヴィアン|ジョージジェンセン|オメガ|タグホイヤー|ティソ|フォッシル|ブローバ|モバード|アルマーニ|サングラス|メガネ|眼鏡|アイウェア|レイバン|Ray-?Ban|オークリー|Oakley|トムフォード|ペルソール|Persol|万年筆|ボールペン|筆記具|モンブラン|Montblanc|ペリカン|Pelikan|ナミキ|Namiki|ウォーターマン|Waterman/i;
 
 // ハードオフ中古の本領＝「型番がeBayタイトルに出る×ハードオフが中古で扱う×輸出可(非危険物)」ジャンル。
 // 2026-06-28 供給拡大のため時計/オーディオ中心→カメラ・レンズ/レトロゲーム/楽器・エフェクター/電動工具へ大幅拡張。
