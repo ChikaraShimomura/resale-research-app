@@ -21,7 +21,7 @@ import { jaToEnglishBrandQuery, imageSameProduct } from "../../app/lib/ebay/bran
 const USD_JPY = 155;
 const WINDOW_DAYS = 365;
 const GAP_MS = Number(process.env.EBAY_GAP_MS) || 8000;
-const LIMIT = Number(process.env.IMG_REFINE_LIMIT || process.argv[2]) || 8; // 小バッチ(画像ワーカーはVision呼び出しがあるので更に控えめ)
+const LIMIT = Number(process.env.IMG_REFINE_LIMIT || process.argv[2]) || 30; // 1回の処理件数(2026-07-09: 8→30に増量=確定の立ち上げ加速)。eBay検索は1候補=1回・8s間隔+warmupでcaptcha安全域。さらに上げる時は wlog:imgrefine の検問数を監視。
 const TOP_N = Number(process.env.IMG_TOP_N) || 3;                 // 落札ヒットの上位何件を照合するか
 const MIN_IMAGE_MATCH = Number(process.env.MIN_IMAGE_MATCH) || 2; // 上位N件中この数以上 'same' で確定(ユーザー指示: 3件中2件)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
