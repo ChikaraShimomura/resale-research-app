@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { PackageX } from "lucide-react";
-import EbayListingModal from "./EbayListingModal";
 import type { ProfitProduct } from "../lib/profitFilter";
+// ★遅延読込(2026-07-11)：巨大モーダル(EbayListingModal 1456行)はクリックで開く時だけ読む＝初期バンドルから除外。
+const EbayListingModal = dynamic(() => import("./EbayListingModal"), { ssr: false });
 import { track } from "../lib/analytics";
 
 // 「無在庫出品」＝仕入れ元(ハードオフ)にまだ在庫がある品を、先に買わずに eBay へ出品する。売れてから仕入れて発送する。

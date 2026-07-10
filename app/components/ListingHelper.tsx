@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Product } from "../types";
 import { ProfitProduct } from "../lib/profitFilter";
 import { Check, ExternalLink, RotateCw } from "lucide-react";
-import EbayListingModal from "./EbayListingModal";
 import { track } from "../lib/analytics";
+// ★遅延読込(2026-07-11)：巨大モーダル(EbayListingModal 1456行)はクリックで開く時だけ読む＝初期バンドルから除外。
+const EbayListingModal = dynamic(() => import("./EbayListingModal"), { ssr: false });
 
 interface Props {
   product: ProfitProduct | Product;

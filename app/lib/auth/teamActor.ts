@@ -7,6 +7,7 @@
 //  getEbayActor : eBay連携トークン/SKU対応表/eBay API の対象アカウント。
 //                 共有モード＝オーナー、個別モード＝本人（各自のeBayで出品するため）。
 //  ※ 認証・課金・出品権限の判定は従来どおり「本人(getActorId)」で行う（共有とは別軸）。
+import { cache } from "react";
 import { getActorId } from "./actor";
 import { getMyTeams, getTeamMode } from "../team";
 
@@ -21,7 +22,8 @@ export interface TeamContext {
 
 // 本人が参加しているチーム（メンバーとして）を引いて、共有名前空間を決める。
 // オーナー本人は getMyTeams に出ない（自分のチームには「参加」しない）ので dataActor=自分＝チームの共有先と一致。
-export async function getTeamContext(): Promise<TeamContext> {
+// ★request-scoped memo(2026-07-11)：1リクエストで複数回呼ばれても team解決(KV+actor往復)は1回だけ（React cache・非破壊）。
+export const getTeamContext = cache(async (): Promise<TeamContext> => {
   const viewer = (await getActorId()) ?? null;
   if (!viewer) return { viewer, dataActor: null, ebayActor: null, owner: null, isMember: false, mode: null };
   let teams: { ownerActor: string }[] = [];
@@ -41,7 +43,7 @@ export async function getTeamContext(): Promise<TeamContext> {
     return { viewer, dataActor: owner, ebayActor: mode === "shared" ? owner : viewer, owner, isMember: true, mode };
   }
   return { viewer, dataActor: viewer, ebayActor: viewer, owner: null, isMember: false, mode: null };
-}
+});
 
 // 共有データの名前空間（在庫/お気に入り/送料/非表示/deal/収益）。
 export async function getDataActor(): Promise<string | null> {

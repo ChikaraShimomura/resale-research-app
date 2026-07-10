@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
-import EditListingModal from "./EditListingModal";
+// ★遅延読込(2026-07-11)：編集モーダル(EditListingModal+PhotoManager)はクリックで開く時だけ読む＝初期バンドルから除外。
+const EditListingModal = dynamic(() => import("./EditListingModal"), { ssr: false });
 
 // 出品中カードから「出品を編集」モーダル（価格・数量・送料の出し方・実物写真の追加）を開くチップボタン。
 // manage（商品管理ハブ）はサーバーコンポーネントなので、モーダルの開閉状態を持つクライアント側の入口としてここに分離する。

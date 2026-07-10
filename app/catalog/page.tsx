@@ -12,6 +12,7 @@ import BottomNav from "../components/BottomNav";
 import CatalogActionButtons from "../components/CatalogActionButtons";
 import FavoriteHeart from "../components/FavoriteHeart";
 import RemoteThumb from "../components/RemoteThumb";
+import { imagefluxThumb } from "../lib/imagefluxUpscale.mjs"; // 64pxカードには1280px原寸でなく縮小版を配る（転送量削減・出品用原寸は不変）
 
 export const dynamic = "force-dynamic"; // KVの最新カタログで毎回配信
 
@@ -47,7 +48,7 @@ const pillCls = (active: boolean) =>
     active ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-600 border-[#A98B5C]/30 active:bg-gray-50"
   }`;
 
-export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string; genre?: string; team?: string }> }) {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ sort?: string; genre?: string; team?: string; show?: string }> }) {
   const sp = await searchParams;
   const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "profit";
   const genre = sp.genre || "all";
@@ -76,14 +77,22 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const genreCounts = base.reduce<Record<string, number>>((m, p) => { const c = p.cat || "中古"; m[c] = (m[c] || 0) + 1; return m; }, {});
   const genres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
   const items = (genre === "all" ? base : base.filter((p) => (p.cat || "中古") === genre)).sort(SORTS[sort].cmp);
+  // ★初期描画を軽くする(2026-07-11)：全件(~900)を一度に描画せず先頭 showN 件だけ描く＝ハイドレーション島/DOM/HTMLを激減。
+  //   sort/genre/マスク/漏洩対策・件数バッジは全て base/items(全件)で実行済み＝表示件数だけを絞る（データ・順序・バッジは不変）。
+  //   ?show= は改ざん対策でクランプ(最小PAGE・整数化)。sort/genre変更時は show を持たない=自然に60へリセット。
+  const PAGE = 60;
+  const showN = Number.isFinite(Number(sp.show)) ? Math.max(PAGE, Math.floor(Number(sp.show))) : PAGE;
+  const shown = items.slice(0, showN);
   // 並べ替え/ジャンルのリンク（互いのクエリを保持）。
-  const qs = (o: { sort?: string; genre?: string }) => {
+  // ※ show は「もっと見る」でだけ渡す＝sort/genre切替リンクには付けない（切替時に60へ戻す）。
+  const qs = (o: { sort?: string; genre?: string; show?: number }) => {
     const g = o.genre ?? genre;
     const s = o.sort ?? sort;
     const params = new URLSearchParams();
     if (g && g !== "all") params.set("genre", g);
     if (s && s !== "profit") params.set("sort", s);
     if (teamOwner) params.set("team", teamOwner); // チームモードを並べ替え/ジャンル遷移でも維持
+    if (o.show != null && o.show > PAGE) params.set("show", String(o.show)); // 「もっと見る」でだけ付く（未指定=60リセット）
     const str = params.toString();
     return str ? `/catalog?${str}` : "/catalog";
   };
@@ -171,8 +180,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
             </Link>
           </div>
         ) : (
+          <>
           <ol className="space-y-2.5">
-            {items.map((p, i) => {
+            {shown.map((p, i) => {
               const locked = !canView;
               const cond = conditionLabel(p.condition);
               return (
@@ -181,7 +191,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                     <div className="flex items-start gap-3">
                       {/* 仕入れ元の画像はリンク参照（再ホストしない・ホットリンク）。失効時はRemoteThumbがプレースホルダに差し替え。 */}
                       <RemoteThumb
-                        src={!locked ? p.imageUrl : undefined}
+                        src={!locked ? imagefluxThumb(p.imageUrl, 192) : undefined}
                         alt={`${p.brand} ${p.name}`.trim()}
                         className="w-16 h-16 rounded-lg border border-[#A98B5C]/25 shrink-0"
                       />
@@ -279,6 +289,19 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
               );
             })}
           </ol>
+          {items.length > showN && (
+            <div className="mt-3 flex justify-center">
+              <Link
+                href={qs({ show: showN + PAGE })}
+                scroll={false}
+                prefetch={false}
+                className="inline-flex items-center gap-1.5 h-11 px-6 bg-white border border-[#A98B5C]/40 text-[#2D323B] font-bold text-[13px] rounded-xl active:bg-gray-50"
+              >
+                もっと見る（残り{(items.length - showN).toLocaleString("ja-JP")}件）
+              </Link>
+            </div>
+          )}
+          </>
         )}
       </main>
 

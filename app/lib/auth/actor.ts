@@ -2,12 +2,14 @@
 // 端末Cookie rr_did を返す。eBayトークン/利益台帳(ebay_deals)/SKU対応表/売却キャッシュ など
 // アクター単位の全データはこの戻り値をキーに引く。
 // Supabase未設定 or セッション無しのときは従来どおり rr_did を返す＝挙動完全不変（認証は任意・非破壊）。
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isSupabaseConfigured } from "../supabase/server";
 
 const DEVICE_COOKIE = "rr_did";
 
-export async function getActorId(): Promise<string | undefined> {
+// ★request-scoped memo(2026-07-11)：ページ/API内で複数回呼ばれても Supabase往復は1回だけ（React cache=リクエスト単位・非破壊）。
+export const getActorId = cache(async (): Promise<string | undefined> => {
   const jar = await cookies();
   const did = jar.get(DEVICE_COOKIE)?.value;
   if (!isSupabaseConfigured()) return did; // 認証未設定＝従来挙動
@@ -24,7 +26,7 @@ export async function getActorId(): Promise<string | undefined> {
     /* セッション取得失敗時はゲストにフォールバック */
   }
   return did;
-}
+});
 
 // acct:<uuid> 形式（サインイン済みアカウント）か。サインイン時のデータ移行などで使う。
 export function isAccountId(id?: string | null): boolean {

@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Package, ChevronDown, ChevronUp, Pencil, RotateCw, Ban, ShoppingCart, Sparkles } from "lucide-react";
 import { ProfitProduct } from "../lib/profitFilter";
 import { toRakutenProductUrl } from "../lib/utils";
-import EbayListingModal from "./EbayListingModal";
-import EditListingModal from "./EditListingModal";
 import Spinner from "./Spinner";
+// ★遅延読込(2026-07-11)：巨大モーダルはクリックで開く時だけ読む＝出品管理/発送ページの初期バンドルから除外。
+const EbayListingModal = dynamic(() => import("./EbayListingModal"), { ssr: false });
+const EditListingModal = dynamic(() => import("./EditListingModal"), { ssr: false });
 import { clearListedFlag } from "../lib/ebayListed";
 import { reportClientError, errToDetail } from "../lib/clientError";
 
