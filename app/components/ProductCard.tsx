@@ -165,6 +165,8 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
           <img
             src={cleanImg(product.imageUrl)}
             alt={product.title}
+            loading="lazy"
+            decoding="async"
             onError={() => setImgError(true)}
             className="w-[88px] h-[88px] object-cover rounded-xl bg-gray-50 border-2 border-[#AEB4BD] shrink-0"
           />
@@ -227,6 +229,7 @@ export default function ProductCard({ product, ebaySold = false, autoOpenListing
               onClick={() => logEvent("product_view")}
               className="block relative" aria-label="仕入れ元でこの商品を見る">
               <img src={cleanImg(product.imageUrl)} alt={product.title}
+                loading="lazy" decoding="async"
                 onError={() => setImgError(true)}
                 // 仕入れ元の画像が消えると 404 で「1x1の極小プレースホルダgif」が返り onError が出ない＝空表示で残る。
                 // 読み込めた画像が極小(正規サムネは128px以上)ならリンク切れ扱いにしてカードごと隠す（負荷ゼロ・表示側のみ）。

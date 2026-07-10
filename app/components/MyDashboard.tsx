@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Package, ArrowRight, ArrowDown, Settings, Store, Users, type LucideIcon } from "lucide-react";
 import { fetchSoldIds } from "../lib/ebaySold";
@@ -177,13 +177,17 @@ function aggregateByYear(data: MonthPoint[]): Period[] {
 // 収支の推移（月別／年別の切替）。利益のバーチャート＋各期間の 仕入れ/売上/利益 を一覧で。CSS高さ比の軽量チャート。
 function PeriodBreakdown({ data, soldCount }: { data: MonthPoint[]; soldCount: number }) {
   const [view, setView] = useState<"month" | "year">("month");
-  const months: Period[] = data.map((p) => ({ key: p.month, label: p.label, profit: p.profit, sales: p.sales, purchase: p.purchase, count: p.count }));
-  const years = aggregateByYear(data);
-  const pts = (view === "month" ? months.slice(-12) : years);
-  const max = Math.max(...pts.map((p) => Math.abs(p.profit)), 1); // 赤字も棒の長さに反映（絶対値基準）
-  const charted = data.reduce((a, p) => a + p.count, 0);
+  // ★純粋な派生を useMemo で memo 化(2026-07-11)：出力は不変・再計算頻度だけ削減（表示中でない年別/月別も毎回全計算していた）。
+  const { months, years, charted } = useMemo(() => ({
+    months: data.map((p) => ({ key: p.month, label: p.label, profit: p.profit, sales: p.sales, purchase: p.purchase, count: p.count })) as Period[],
+    years: aggregateByYear(data),
+    charted: data.reduce((a, p) => a + p.count, 0),
+  }), [data]);
+  const { pts, max, rows } = useMemo(() => {
+    const pts = (view === "month" ? months.slice(-12) : years);
+    return { pts, max: Math.max(...pts.map((p) => Math.abs(p.profit)), 1), rows: [...pts].reverse() }; // 赤字も棒長に反映(絶対値)・rowsは新しい順
+  }, [months, years, view]);
   const unknown = Math.max(0, soldCount - charted);
-  const rows = [...pts].reverse(); // 新しい順で一覧
   const tabCls = (on: boolean) => `h-7 px-3 rounded-full text-[11px] font-bold border ${on ? "bg-[#2D323B] text-white border-[#2D323B]" : "bg-white text-gray-500 border-[#A98B5C]/30"}`;
   return (
     <div className="bg-white border border-[#A98B5C]/25 rounded-2xl p-4 shadow-sm">

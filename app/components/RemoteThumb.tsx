@@ -9,6 +9,6 @@ export default function RemoteThumb({ src, alt = "", className = "" }: { src?: s
   if (!src || bad) return <div className={`${className} bg-gray-100`} aria-hidden="true" />;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} loading="lazy" onError={() => setBad(true)} className={`${className} object-cover bg-white`} />
+    <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setBad(true)} className={`${className} object-cover bg-white`} />
   );
 }

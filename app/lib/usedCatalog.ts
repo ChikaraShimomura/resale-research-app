@@ -165,16 +165,14 @@ export async function getBoughtItems(actor: string | undefined | null): Promise<
       }
     }
     if (legacy.length) {
-      const recon = await Promise.all(
-        legacy.map(async ({ id, buyJpy }) => {
-          try {
-            const snap = await kvReadOnly.get<ProfitProduct>(`psnap:${id}`);
-            if (snap && snap.id && snap.title) return { ...snap, buyJpy: buyJpy || snap.source?.price, boughtAt: "", shippingJpy: shipOf(id) } as BoughtItem;
-          } catch { /* noop */ }
-          return null;
-        })
-      );
-      for (const r of recon) if (r) out.push(r);
+      // ★N+1回避(2026-07-11)：psnap を個別GET×N でなく mget 1回でまとめて引く（順序は入力キー順に対応・欠損はnull）。
+      try {
+        const snaps = (await kvReadOnly.mget(...legacy.map(({ id }) => `psnap:${id}`))) as (ProfitProduct | null)[];
+        legacy.forEach(({ id, buyJpy }, i) => {
+          const snap = snaps[i];
+          if (snap && snap.id && snap.title) out.push({ ...snap, buyJpy: buyJpy || snap.source?.price, boughtAt: "", shippingJpy: shipOf(id) } as BoughtItem);
+        });
+      } catch { /* noop（再構成失敗時は新形式ぶんだけ返す・従来と同じ非破壊） */ }
     }
     // 利益率＝純利益÷仕入れ(ROI)に統一（保存スナップショットが旧定義=粗利率の場合があるため再計算）。
     return out
