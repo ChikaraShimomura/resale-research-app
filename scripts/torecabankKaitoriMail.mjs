@@ -18,6 +18,7 @@
 // 使い方: node scripts/torecabankKaitoriMail.mjs [--dry] [--force]
 
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
@@ -28,7 +29,7 @@ const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除�
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
 const MAIL_TO = process.env.MAIL_TO || "chikara0323@gmail.com";
-const MAIL_BCC = process.env.MAIL_BCC || "";
+const MAIL_BCC = process.env.MAIL_BCC || "m08h22@icloud.com"; // 既定に追加宛先(Bcc)を入れる＝Vercel Cron経由でも両方に届く(GitHub workflowはenvで上書き)
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const DRY = process.argv.includes("--dry") || !RESEND_API_KEY;
 const FORCE = process.argv.includes("--force") || process.env.FORCE_SEND === "1";
@@ -178,7 +179,7 @@ async function sendMail(subject, html) {
   if (KV_ON) { try { await kvCmd(["SET", SENT_KEY(jstDay(0)), "1", "EX", String(SENT_TTL)]); } catch (e) { console.warn("[guard] 送信済み記録に失敗:", e.message); } }
 }
 
-async function main() {
+export async function main() {
   // 本日送信済みガード（自動実行のみ。cron2本目/再実行の二重送信を防ぐ）。
   if (!DRY && !FORCE && KV_ON) {
     try { const already = await kvCmd(["GET", SENT_KEY(jstDay(0))]); if (already) { console.log(`[torecabank] 本日分は送信済み＝スキップ`); return; } } catch (e) { console.warn("[guard] 送信済み確認に失敗（続行）:", e.message); }
@@ -235,4 +236,8 @@ async function main() {
   await sendMail(subject, html2);
 }
 
-main().catch((e) => { console.error("[torecabank] エラー:", e.message); process.exit(1); });
+// CLI(node scripts/torecabankKaitoriMail.mjs)として直接実行された時だけ自動実行する。
+// APIルート(Vercel Cron)からimportした時は main() を呼ばない＝関数として再利用できる。
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => { console.error("[torecabank] エラー:", e.message); process.exit(1); });
+}

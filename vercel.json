@@ -1,1 +1,5 @@
-{}
+{
+  "crons": [
+    { "path": "/api/cron/torecabank", "schedule": "0 23 * * *" }
+  ]
+}
