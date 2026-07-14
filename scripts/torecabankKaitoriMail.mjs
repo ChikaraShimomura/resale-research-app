@@ -61,9 +61,11 @@ const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " 
 const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}&status=on_sale&sort=price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
-const btnStyle = (bg) => `display:inline-block;padding:1px 5px;border-radius:4px;background:${bg};color:#ffffff !important;font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap`;
-const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${btnStyle("#FA5252")}">メルカリ🔍</a>`;
-const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${btnStyle("#111827")};margin-left:4px">スニダン🔍</a>`;
+// チップ(背景付きボタン)はGmailアプリのfont boosting(小さい文字の強制拡大)で膨らんで行からはみ出す→素のテキストリンクに(2026-07-11)。
+// サブ行と同じ11pxならboostされず、テキストとして自然に流れる＝崩れない。色で判別(メルカリ=赤/スニダン=黒)。
+const linkStyle = (color) => `color:${color} !important;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap`;
+const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${linkStyle("#FA5252")}">メルカリ🔍</a>`;
+const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${linkStyle("#111827")};margin-left:6px">スニダン🔍</a>`;
 
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, { method: "POST", headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(15000) });
