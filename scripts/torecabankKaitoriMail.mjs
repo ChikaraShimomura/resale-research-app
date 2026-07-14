@@ -59,9 +59,10 @@ const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;pad
 // 相場照合ボタン（タップでその商品名の検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
 // 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。両検索で同じ検索語を使う。
 const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " ").replace(/\s+/g, " ").trim();
-const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}`;
+// 両検索とも「販売中のみ＋価格の安い順」で開く(ユーザー指示2026-07-11)。param名は実ブラウザで操作して実測。
+const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}&status=on_sale&sort=price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
-const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}`;
+const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
 const btnStyle = (bg) => `display:inline-block;padding:1px 5px;border-radius:4px;background:${bg};color:#ffffff !important;font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap`;
 const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${btnStyle("#FA5252")}">メルカリ🔍</a>`;
 const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${btnStyle("#111827")};margin-left:4px">スニダン🔍</a>`;
