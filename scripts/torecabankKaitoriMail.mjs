@@ -44,7 +44,7 @@ const SNAP_TTL = 14 * 24 * 60 * 60;
 const SENT_KEY = (day) => `tb_sent:${day}`;
 const SENT_TTL = 2 * 24 * 60 * 60;
 
-// JSTの曜日/日付。cronはUTCだが、この時点の実時刻をJSTに寄せて判定する（12:00JST=03:00UTCでも正しい日付/曜日が出る）。
+// JSTの曜日/日付。cronはUTCだが、この時点の実時刻をJSTに寄せて判定する（10:00JST=01:00UTCでも正しい日付/曜日が出る）。
 const jstNow = () => new Date(Date.now() + 9 * 3600e3);
 const jstDay = (offsetDays = 0) => new Date(Date.now() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
 const WD_LABEL = ["日", "月", "火", "水", "木", "金", "土"][jstNow().getUTCDay()];

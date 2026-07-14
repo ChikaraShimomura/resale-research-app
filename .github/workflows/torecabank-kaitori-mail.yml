@@ -1,15 +1,15 @@
 name: トレカバンク買取ウォッチ メール
 
 # store.torecabank.com/kaitori_list を取得してメールする個人用cron。取得は公開HTML(埋め込みJSON)のみ＝ブラウザ/APIキー不要。
-# 送信は【毎日12:00 JST・フルリスト＋前日比】(ユーザー指示2026-07-11。旧2モード制は廃止):
+# 送信は【毎日10:00 JST・フルリスト＋前日比】(ユーザー指示2026-07-11。旧2モード制は廃止):
 #   残り点数下限は買取額で段階(50万↑=20点/10万↑=30点/未満=50点)・BOX除外のリストを毎日送信。各行に前日比(いくらプラスか)＝値上がり→値下がり→変動なし順。
-# 信頼性: Vercel Cron(12:00 JST・vercel.json→/api/cron/torecabank)を主系統に、このGitHub Actions(12:05/13:00 JST)を予備に二重化。KV「本日送信済み」ガードで二重送信防止(1日1通)。
+# 信頼性: Vercel Cron(10:00 JST・vercel.json→/api/cron/torecabank)を主系統に、このGitHub Actions(10:05/11:00 JST)を予備に二重化。KV「本日送信済み」ガードで二重送信防止(1日1通)。
 # 手動(workflow_dispatch / トリガーpush)は FORCE_SEND=1 でガード無視して必ず送る。失敗時は末尾ステップが警告メール。
 on:
   schedule:
-    # 毎日12:00 JST(ユーザー指示2026-07-11)。JST=UTC+9 → 12:00 JST=03:00 UTC。曜日判定はスクリプト側(JST)。
-    - cron: '5 3 * * *'    # 毎日 約12:05 JST（GitHub予備）
-    - cron: '0 4 * * *'    # 毎日 約13:00 JST（GitHub予備の予備）。主系統は Vercel Cron(12:00)。
+    # 毎日10:00 JST(ユーザー指示2026-07-11)。JST=UTC+9 → 10:00 JST=01:00 UTC。曜日判定はスクリプト側(JST)。
+    - cron: '5 1 * * *'    # 毎日 約10:05 JST（GitHub予備）
+    - cron: '0 2 * * *'    # 毎日 約11:00 JST（GitHub予備の予備）。主系統は Vercel Cron(10:00)。
   workflow_dispatch:
   push:
     paths:
