@@ -1,9 +1,8 @@
 name: トレカバンク買取ウォッチ メール
 
 # store.torecabank.com/kaitori_list を取得してメールする個人用cron。取得は公開HTML(埋め込みJSON)のみ＝ブラウザ/APIキー不要。
-# 送信は【毎日12:00 JST】(ユーザー指示2026-07-11)。スクリプトが曜日(JST)で2モードを切替(2026-07-09):
-#   月曜 = 残り MIN_REMAINING(50)件以上・買取MAX_PRICE(5万)以下のリストを送信＋「月曜リスト」としてKV保存。
-#   火〜日 = 月曜リストの各商品の現在金額(月曜比)を送信。月曜リスト未作成なら送らない。
+# 送信は【毎日12:00 JST・フルリスト＋前日比】(ユーザー指示2026-07-11。旧2モード制は廃止):
+#   残り MIN_REMAINING(50)件以上・BOX除外のリストを毎日送信。各行に前日比(いくらプラスか)＝値上がり→値下がり→変動なし順。
 # 信頼性: Vercel Cron(12:00 JST・vercel.json→/api/cron/torecabank)を主系統に、このGitHub Actions(12:05/13:00 JST)を予備に二重化。KV「本日送信済み」ガードで二重送信防止(1日1通)。
 # 手動(workflow_dispatch / トリガーpush)は FORCE_SEND=1 でガード無視して必ず送る。失敗時は末尾ステップが警告メール。
 on:
@@ -12,11 +11,6 @@ on:
     - cron: '5 3 * * *'    # 毎日 約12:05 JST（GitHub予備）
     - cron: '0 4 * * *'    # 毎日 約13:00 JST（GitHub予備の予備）。主系統は Vercel Cron(12:00)。
   workflow_dispatch:
-    inputs:
-      force_mode:
-        description: "monday=リスト送信+保存 / update=月曜リストの現在金額 / 空=曜日で自動判定"
-        required: false
-        default: ""
   push:
     paths:
       - 'scripts/.torecabank-trigger'
@@ -37,7 +31,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_TO: chikara0323@gmail.com
           MAIL_BCC: m08h22@icloud.com   # 追加宛先（Bcc＝お互い非表示）。複数はカンマ区切り
-          MIN_REMAINING: '50'   # 月曜リストの残り点数下限（ユーザー指示: 50件以上）
+          MIN_REMAINING: '50'   # リストの残り点数下限（ユーザー指示: 50件以上）
           MAX_PRICE: '0'   # 0=買取額の上限なし（ユーザー指示2026-07-09で5万上限を解除）
           EXCLUDE_BOX: '1'   # 未開封BOXを除外（BOX以外のみ・ユーザー指示）。BOXも含めるなら '0'
           # 価格の前日比/前週比＋「本日送信済み」ガードのため、既存KVを使用（書き込みは1日数回・軽量）。
@@ -45,8 +39,6 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           # schedule(自動)はガード有効＝1日1通。手動(dispatch/push)は必ず送る。
           FORCE_SEND: ${{ github.event_name != 'schedule' && '1' || '0' }}
-          # 手動dispatchで曜日判定を上書き（monday/update）。空なら曜日(JST)で自動判定。
-          FORCE_MODE: ${{ github.event.inputs.force_mode || '' }}
         run: node scripts/torecabankKaitoriMail.mjs
       # どのステップが失敗しても（サイト構造変更・取得失敗・送信失敗など）警告メールを出す＝無通知の欠配を防ぐ。
       - name: 失敗通知

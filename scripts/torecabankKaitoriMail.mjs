@@ -1,19 +1,18 @@
-// トレカバンクの「本日の買取表」から抽出して個人用メールする。曜日で2モード（ユーザー指示2026-07-09）:
-//   ・月曜: 残り MIN_REMAINING(既定50)件以上・買取 MAX_PRICE(既定5万)以下・BOX除外 のリストを送信し、その集合を「月曜リスト」としてKVに保存。
-//   ・火〜日: 月曜リストの各商品の【現在の買取額】を月曜比つきで送る（＝週の値動き追跡）。月曜リスト未作成なら送らない。
+// トレカバンクの「本日の買取表」から抽出して【毎日フルリスト】をメールする（ユーザー指示2026-07-11。旧・月曜リスト＋火〜日金額の2モード制は廃止）:
+//   残り MIN_REMAINING(既定50)件以上・買取 MAX_PRICE(既定0=上限なし)・BOX除外 のリストを毎日送信。
+//   各行に【前日比＝前日からいくらプラスになったか】を表示し、値上がり→値下がり→変動なし→NEW の順に並べる。
 // 依存ゼロ（Node18+ の fetch のみ）。データはページHTMLの `const allProducts = [...]` 埋め込みを取るだけ＝APIキー/ブラウザ不要。
 //
-// 価格履歴: 毎回 全商品の買取額を KV `tb_price_snap:YYYY-MM-DD`(JST)に1日1キー保存。月曜リストの前日/前週比にも使う。
-// 送信は Resend。RESEND_API_KEY 未設定 or `--dry` ならプレビューのみ（非破壊）。cron2本の二重送信は tb_sent:{date} で防ぐ。
+// 価格履歴: 毎回 全商品の買取額を KV `tb_price_snap:YYYY-MM-DD`(JST)に1日1キー保存。前日/前週比の基準に使う。
+// 送信は Resend。RESEND_API_KEY 未設定 or `--dry` ならプレビューのみ（非破壊）。cron2系統の二重送信は tb_sent:{date} で防ぐ。
 //
 // env:
 //   RESEND_API_KEY / MAIL_FROM / MAIL_TO(カンマ区切り可) / MAIL_BCC(Bcc・カンマ区切り可)
-//   MIN_REMAINING   月曜リストの残り点数の下限（既定: 50）
+//   MIN_REMAINING   リストの残り点数の下限（既定: 50）
 //   MAX_PRICE       買取額の上限・円（0=上限なし。既定0＝ユーザー指示2026-07-09で5万上限を解除）
 //   EXCLUDE_BOX     "0"で未開封BOXも含める（既定はBOX除外）
-//   KV_REST_API_URL / KV_REST_API_TOKEN   価格履歴＋月曜リスト保存＋送信済みガード
+//   KV_REST_API_URL / KV_REST_API_TOKEN   価格履歴＋送信済みガード
 //   FORCE_SEND      "1"で本日送信済みガードを無視して必ず送る（手動再送）
-//   FORCE_MODE      "monday"|"update" 曜日判定を上書き（テスト用）
 //
 // 使い方: node scripts/torecabankKaitoriMail.mjs [--dry] [--force]
 
@@ -41,15 +40,11 @@ const SNAP_KEY = (day) => `tb_price_snap:${day}`;
 const SNAP_TTL = 14 * 24 * 60 * 60;
 const SENT_KEY = (day) => `tb_sent:${day}`;
 const SENT_TTL = 2 * 24 * 60 * 60;
-const MONDAY_KEY = "tb_monday_list"; // 月曜に送ったリスト（火〜日はこれの現在金額を送る）
-const MONDAY_TTL = 8 * 24 * 60 * 60; // 次の月曜まで持てば十分
 
-// JSTの曜日/日付。cronはUTCだが、この時点の実時刻をJSTに寄せて判定する（月曜08:05JST=日曜23:05UTC等でも正しく月曜と出る）。
+// JSTの曜日/日付。cronはUTCだが、この時点の実時刻をJSTに寄せて判定する（12:00JST=03:00UTCでも正しい日付/曜日が出る）。
 const jstNow = () => new Date(Date.now() + 9 * 3600e3);
 const jstDay = (offsetDays = 0) => new Date(Date.now() + 9 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10);
-const JST_WD = jstNow().getUTCDay(); // 0=日,1=月,...,6=土
-const WD_LABEL = ["日", "月", "火", "水", "木", "金", "土"][JST_WD];
-const MODE = process.env.FORCE_MODE || (JST_WD === 1 ? "monday" : "update");
+const WD_LABEL = ["日", "月", "火", "水", "木", "金", "土"][jstNow().getUTCDay()];
 
 const yen = (n) => "¥" + Number(n || 0).toLocaleString("ja-JP");
 const priceCapLabel = MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下・` : ""; // 上限ありの時だけ表示（0=無制限は表示しない）
@@ -99,17 +94,18 @@ function deltaSpan(today, base) {
   return `<span style="color:${up ? "#16a34a" : "#ef4444"};font-weight:700">${up ? "▲ +" : "▼ -"}${yen(Math.abs(d))}</span>`;
 }
 
-// 月曜モード：本日のリスト（買取額＋残り点数＋前日/前週比）。
-function buildListHtml(rows, meta, prevMap, weekMap) {
+// 毎日のリスト（買取額＋残り点数＋前日比を強調＋前週比）。rowsは値上がり→値下がり→変動なし→NEW順に並び済み前提。
+function buildListHtml(rows, meta, weekMap) {
+  const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, fresh = rows.filter((r) => r.diff == null).length;
   const head = `
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
-      <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 月曜リスト（残り${MIN_REMAINING}点以上）</h2>
+      <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト（残り${MIN_REMAINING}点以上）</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date}(月) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点以上・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
-        今週は火〜日にこのリストの現在金額を毎朝お送りします。<br>
+        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点以上・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
+        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
-  const body = rows.map((p) => {
+  const body = rows.map(({ p, diff }) => {
     const img = BASE + String(p.image_path || "").replace(/^\/+/, "");
     const sub = [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" ");
     const k = keyOf(p);
@@ -122,53 +118,10 @@ function buildListHtml(rows, meta, prevMap, weekMap) {
         </td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">
           <div style="font-size:14px;font-weight:800">${yen(p.buy_price)}</div>
+          <div style="font-size:11px;margin-top:2px">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>
           <div style="font-size:11px;color:#ef4444;font-weight:700">残${esc(p.remaining_quantity)}点</div>
-          <div style="font-size:10px;margin-top:3px;color:#9ca3af">前日 ${deltaSpan(p.buy_price, prevMap ? prevMap[k] : null)}</div>
           <div style="font-size:10px;color:#9ca3af">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div>
         </td>
-      </tr>`;
-  }).join("");
-  return `${head}<table style="width:100%;border-collapse:collapse">${body}</table>
-      <p style="font-size:11px;color:#9ca3af;margin:14px 0 0">出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p></div>`;
-}
-
-// 火〜日モード：月曜リストの各商品の「現在の買取額（月曜比）」。cohort=月曜保存分, byKey=本日の全商品(key→product)。
-function buildUpdateHtml(cohort, byKey, meta) {
-  // 並び順グループ: ①値上がり → ②値下がり → ③変動なし → ④掲載終了（ユーザー指示2026-07-09）。
-  const grp = (r) => (r.gone ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
-  const rows = cohort.items.map((it) => {
-    const cur = byKey[it.key];
-    const now = cur ? Number(cur.buy_price) : null;
-    const nowRem = cur ? cur.remaining_quantity : null;
-    return { ...it, now, nowRem, gone: !cur, diff: now == null ? null : now - it.price };
-  }).sort((a, b) => {
-    if (grp(a) !== grp(b)) return grp(a) - grp(b);   // グループ順(値上がり→値下がり→変動なし→掲載終了)
-    if (grp(a) === 0) return b.diff - a.diff;         // 値上がり: 上昇の大きい順
-    if (grp(a) === 1) return a.diff - b.diff;         // 値下がり: 下落の大きい順
-    return (b.now ?? b.price) - (a.now ?? a.price);   // 変動なし/掲載終了: 金額の高い順
-  });
-  const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, gone = rows.filter((r) => r.gone).length;
-  const head = `
-    <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
-      <h2 style="font-size:17px;margin:0 0 4px">月曜リストの現在金額（${WD_LABEL}曜）</h2>
-      <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        月曜(${esc(cohort.date)})のリスト <b>${cohort.items.length}件</b> ／ ${meta.date}(${WD_LABEL}) 時点<br>
-        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span> ／ 掲載終了 ${gone} 件（月曜比・<b>値上がり→値下がり→変動なし順</b>）
-      </p>`;
-  const body = rows.map((r) => {
-    const img = BASE + String(r.image_path || "").replace(/^\/+/, "");
-    const rightNow = r.gone
-      ? `<div style="font-size:12px;color:#9ca3af;font-weight:700">掲載終了</div>`
-      : `<div style="font-size:14px;font-weight:800">${yen(r.now)}</div><div style="font-size:10px;margin-top:2px">月曜比 ${deltaSpan(r.now, r.price)}</div>${r.nowRem != null ? `<div style="font-size:10px;color:#ef4444">残${esc(r.nowRem)}点</div>` : ""}`;
-    return `
-      <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px"><img src="${esc(img)}" alt="" width="52" height="52" style="width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6"></td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee">
-          <div style="font-size:13px;font-weight:700;line-height:1.4">${esc(r.name)}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${r.sub ? esc(r.sub) + " " : ""}${mercariBtn(r.name)}${snkrdunkBtn(r.name)}</div>
-          <div style="font-size:10px;color:#9ca3af;margin-top:2px">月曜 ${yen(r.price)}</div>
-        </td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${rightNow}</td>
       </tr>`;
   }).join("");
   return `${head}<table style="width:100%;border-collapse:collapse">${body}</table>
@@ -194,51 +147,37 @@ export async function main() {
   const res = await fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" } });
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const all = extractProducts(await res.text());
-  const byKey = {}; for (const p of all) byKey[keyOf(p)] = p;
   const todayMap = {}; for (const p of all) todayMap[keyOf(p)] = Number(p.buy_price); // スナップショット用（key→価格）
   const date = jstNow().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
 
-  // 価格スナップショット保存（毎日・1キー）。前日/前週比に使う。
-  const saveSnapshot = async () => { if (KV_ON && !DRY) { try { await kvCmd(["SET", SNAP_KEY(jstDay(0)), JSON.stringify(todayMap), "EX", String(SNAP_TTL)]); console.log(`[kv] スナップショット保存 ${SNAP_KEY(jstDay(0))}（${Object.keys(todayMap).length}件）`); } catch (e) { console.warn("[kv] スナップショット保存失敗:", e.message); } } };
-
-  let subject, html2;
-
-  if (MODE === "monday") {
-    // ── 月曜: リスト送信＋保存 ──
-    let prevMap = null, weekMap = null;
-    if (KV_ON) {
-      try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-1))]); prevMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
-      try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-7))]); weekMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
-    }
-    const rows = all
-      .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
-      .sort((a, b) => Number(b.buy_price) - Number(a.buy_price));
-    console.log(`[torecabank] 月曜モード: 残り${MIN_REMAINING}点以上・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件`);
-    html2 = buildListHtml(rows, { date }, prevMap, weekMap);
-    subject = `【トレカバンク】月曜リスト ${rows.length}件（残り${MIN_REMAINING}点↑・${priceCapLabel}${date}）`;
-    // 月曜リストを保存（火〜日が現在金額を突き合わせる）。
-    if (KV_ON && !DRY) {
-      const cohort = { date: jstDay(0), items: rows.map((p) => ({ key: keyOf(p), name: p.product_master_name, sub: [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" "), image_path: p.image_path, grade: p.product_type_name, remaining: p.remaining_quantity, price: Number(p.buy_price) })) };
-      try { await kvCmd(["SET", MONDAY_KEY, JSON.stringify(cohort), "EX", String(MONDAY_TTL)]); console.log(`[kv] 月曜リスト保存 ${MONDAY_KEY}（${cohort.items.length}件）`); } catch (e) { console.warn("[kv] 月曜リスト保存失敗:", e.message); }
-    }
-    await saveSnapshot();
-    if (DRY) { fs.writeFileSync("torecabank_preview.html", html2); console.log(`[dry] 月曜プレビュー出力 / 件名: ${subject}`); rows.slice(0, 5).forEach((p) => console.log(`  ${yen(p.buy_price)} 残${p.remaining_quantity}点 ${p.product_master_name}`)); return; }
-    await sendMail(subject, html2);
-    return;
+  // 前日/前週の価格スナップショットを読む（前日比/前週比の基準）。
+  let prevMap = null, weekMap = null;
+  if (KV_ON) {
+    try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-1))]); prevMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
+    try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-7))]); weekMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
   }
 
-  // ── 火〜日: 月曜リストの現在金額 ──
-  let cohort = null;
-  if (KV_ON) { try { const v = await kvCmd(["GET", MONDAY_KEY]); cohort = v ? JSON.parse(v) : null; } catch { /* noop */ } }
-  await saveSnapshot();
-  if (!cohort || !Array.isArray(cohort.items) || !cohort.items.length) {
-    console.log(`[torecabank] ${WD_LABEL}曜モード: 月曜リストが未作成＝送信スキップ（次の月曜に作成されます）`);
-    return;
-  }
-  html2 = buildUpdateHtml(cohort, byKey, { date });
-  subject = `【トレカバンク】月曜リストの金額（${WD_LABEL}曜 ${date}）${cohort.items.length}件`;
-  console.log(`[torecabank] ${WD_LABEL}曜モード: 月曜リスト${cohort.items.length}件の現在金額`);
-  if (DRY) { fs.writeFileSync("torecabank_preview.html", html2); console.log(`[dry] ${WD_LABEL}曜プレビュー出力 / 件名: ${subject}`); return; }
+  // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
+  const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
+  const rows = all
+    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+    .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base) }; })
+    .sort((a, b) => {
+      if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
+      if (grp(a) === 0) return b.diff - a.diff;                          // 値上がり: 上昇の大きい順
+      if (grp(a) === 1) return a.diff - b.diff;                          // 値下がり: 下落の大きい順
+      return Number(b.p.buy_price) - Number(a.p.buy_price);              // 変動なし/NEW: 金額の高い順
+    });
+  const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length;
+  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点以上・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）`);
+
+  const html2 = buildListHtml(rows, { date }, weekMap);
+  const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}）`;
+
+  // 価格スナップショット保存（毎日・1キー）。翌日の前日比の基準になる。
+  if (KV_ON && !DRY) { try { await kvCmd(["SET", SNAP_KEY(jstDay(0)), JSON.stringify(todayMap), "EX", String(SNAP_TTL)]); console.log(`[kv] スナップショット保存 ${SNAP_KEY(jstDay(0))}（${Object.keys(todayMap).length}件）`); } catch (e) { console.warn("[kv] スナップショット保存失敗:", e.message); } }
+
+  if (DRY) { fs.writeFileSync("torecabank_preview.html", html2); console.log(`[dry] プレビュー出力 / 件名: ${subject}`); rows.slice(0, 5).forEach(({ p, diff }) => console.log(`  ${yen(p.buy_price)} 前日比${diff == null ? "NEW" : (diff >= 0 ? "+" : "") + diff} 残${p.remaining_quantity}点 ${p.product_master_name}`)); return; }
   await sendMail(subject, html2);
 }
 
