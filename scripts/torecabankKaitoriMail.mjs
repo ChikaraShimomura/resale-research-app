@@ -56,10 +56,15 @@ const priceCapLabel = MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下・` : ""; /
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const keyOf = (p) => `${p.product_type_name}|${p.product_master_key1}|${p.product_master_key2}|${p.product_master_name}`;
 const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:${/BOX/i.test(g) ? "#0d9488" : "#A98B5C"}">${esc(g)}</span>`;
-// メルカリ検索ボタン（タップでその商品名のメルカリ検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
-// 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。
-const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(String(name || "").replace(/[()（）\[\]【】]/g, " ").replace(/\s+/g, " ").trim())}`;
-const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="display:inline-block;padding:1px 5px;border-radius:4px;background:#FA5252;color:#ffffff !important;font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap">メルカリ🔍</a>`;
+// 相場照合ボタン（タップでその商品名の検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
+// 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。両検索で同じ検索語を使う。
+const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " ").replace(/\s+/g, " ").trim();
+const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}`;
+// スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
+const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}`;
+const btnStyle = (bg) => `display:inline-block;padding:1px 5px;border-radius:4px;background:${bg};color:#ffffff !important;font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap`;
+const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${btnStyle("#FA5252")}">メルカリ🔍</a>`;
+const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${btnStyle("#111827")};margin-left:4px">スニダン🔍</a>`;
 
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, { method: "POST", headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(15000) });
@@ -112,7 +117,7 @@ function buildListHtml(rows, meta, prevMap, weekMap) {
         <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px"><img src="${esc(img)}" alt="" width="52" height="52" style="width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6"></td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee">
           <div style="font-size:13px;font-weight:700;line-height:1.4">${esc(p.product_master_name)}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${sub ? esc(sub) + " " : ""}${mercariBtn(p.product_master_name)}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${sub ? esc(sub) + " " : ""}${mercariBtn(p.product_master_name)}${snkrdunkBtn(p.product_master_name)}</div>
         </td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">
           <div style="font-size:14px;font-weight:800">${yen(p.buy_price)}</div>
@@ -159,7 +164,7 @@ function buildUpdateHtml(cohort, byKey, meta) {
         <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px"><img src="${esc(img)}" alt="" width="52" height="52" style="width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6"></td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee">
           <div style="font-size:13px;font-weight:700;line-height:1.4">${esc(r.name)}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${r.sub ? esc(r.sub) + " " : ""}${mercariBtn(r.name)}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${r.sub ? esc(r.sub) + " " : ""}${mercariBtn(r.name)}${snkrdunkBtn(r.name)}</div>
           <div style="font-size:10px;color:#9ca3af;margin-top:2px">月曜 ${yen(r.price)}</div>
         </td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${rightNow}</td>
