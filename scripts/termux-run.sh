@@ -96,7 +96,7 @@ while true; do
   # ③b 画像一致リファイン(型番なしブランド品の別レール)。日本語名→限定英語→eBay落札→上位3件を画像一致→2件以上でカタログ確定。
   #     Vision(Anthropic)を使うので頻度控えめ(IMG_REFINE_INTERVAL_SEC既定3600=毎サイクル1回)。eBay落札検索は住宅IP必須＝ここで回す。
   #     型番refineとは別セッション(各自warmup)・小バッチ(IMG_REFINE_LIMIT既定8)でcaptcha枠を分ける。ANTHROPIC_API_KEY無しは即no-op。
-  IMG_REFINE_INTERVAL_SEC="${IMG_REFINE_INTERVAL_SEC:-3600}"
+  IMG_REFINE_INTERVAL_SEC="${IMG_REFINE_INTERVAL_SEC:-2400}"  # ★3600→2400(07-14 常時1000件目標)：名前一致(無料)が主なので頻度UPしてもAIコストは僅増。
   LAST_IMG="$HOME/.last_img_refine"
   nowimg=$(date +%s); lastimg=$(cat "$LAST_IMG" 2>/dev/null || echo 0)
   if [ $(( nowimg - lastimg )) -ge "$IMG_REFINE_INTERVAL_SEC" ]; then

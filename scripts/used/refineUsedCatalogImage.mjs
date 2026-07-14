@@ -23,8 +23,9 @@ import { jaToEnglishBrandQuery, imageSameProduct } from "../../app/lib/ebay/bran
 const USD_JPY = 155;
 const WINDOW_DAYS = 365;
 const GAP_MS = Number(process.env.EBAY_GAP_MS) || 8000;
-const LIMIT = Number(process.env.IMG_REFINE_LIMIT || process.argv[2]) || 30; // 1回の処理件数(2026-07-09: 8→30に増量=確定の立ち上げ加速)。eBay検索は1候補=1回・8s間隔+warmupでcaptcha安全域。さらに上げる時は wlog:imgrefine の検問数を監視。
-const TOP_N = Number(process.env.IMG_TOP_N) || 4;                 // 落札ヒットの上位何件を照合するか(3→4:カバレッジ優先)
+const LIMIT = Number(process.env.IMG_REFINE_LIMIT || process.argv[2]) || 40; // 1回の処理件数(07-09: 8→30／07-14: 30→40=常時1000件目標のバックログ消化加速)。eBay検索は1候補=1回・8s間隔+warmupでcaptcha安全域。上げる時は wlog:imgrefine の検問数を監視。
+const TOP_N = Number(process.env.IMG_TOP_N) || 4;                 // 画像照合(AI)に回す上位件数(コストの蛇口)
+const NAME_TOP_N = Number(process.env.NAME_TOP_N) || 8;           // ★名前一致(無料)はより広く見る=上位8件をスキャン(ヒット率UP・AIコスト不変)
 const MIN_NAME_MATCH = Number(process.env.MIN_NAME_MATCH) || 2;   // ★名前一致(無料)：識別トークン(型番/ライン名)を含む中古落札がこの件数以上＋価格が揃えば画像AIを叩かず確定。
 const MIN_IMAGE_MATCH = Number(process.env.MIN_IMAGE_MATCH) || 1; // ★2→1(2026-07-11 カタログ最大化・精度70%運用)：名前で決まらない品は上位N件中1件でも画像'same'で確定。
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -117,14 +118,15 @@ const titleHasKey = (title, keys) => keys.length > 0 && norm(title).includes(nor
     try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
     if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}（再確認待ち）`); await jitter(); continue; }
     const { cards } = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, false);
-    // 中古の実落札のみ(新品タイトル除外)・画像URLがあるものを上位TOP_N件
-    const top = cards.filter((c) => c.img && !isNew(c.cond) && !isNew(c.title)).slice(0, TOP_N);
-    if (!top.length) { unconf[unconfKey(p)] = nowIso; unconfirmed++; console.log(`  ・ ${q.slice(0, 30).padEnd(30)} 中古落札0件→確定せず`); await jitter(); continue; }
+    // 中古の実落札のみ(新品タイトル除外)・画像URLがあるもの。名前一致(無料)は広く NAME_TOP_N件・画像照合(AI)は上位 TOP_N件だけ(コストの蛇口)。
+    const topAll = cards.filter((c) => c.img && !isNew(c.cond) && !isNew(c.title)).slice(0, NAME_TOP_N);
+    const top = topAll.slice(0, TOP_N);
+    if (!topAll.length) { unconf[unconfKey(p)] = nowIso; unconfirmed++; console.log(`  ・ ${q.slice(0, 30).padEnd(30)} 中古落札0件→確定せず`); await jitter(); continue; }
 
     let med = null, matched = null, method = null;
     // ③a 名前一致(無料・画像AIを叩かない)：識別トークン(型番/ライン名)を含む中古落札が MIN_NAME_MATCH件以上＋価格が揃えば確定。
     const keys = keyTokens(enName);
-    const nameHits = top.filter((c) => titleHasKey(c.title, keys));
+    const nameHits = topAll.filter((c) => titleHasKey(c.title, keys));
     if (nameHits.length >= MIN_NAME_MATCH) {
       const prices = nameHits.map((c) => c.price);
       const m = trimmedMedian(prices);

@@ -116,30 +116,44 @@ function titleSim(a, b) {
 export function parseSoldWithin(html, windowDays, usdJpy, wantNew = true) {
   // s-card__image を区切りに1カード=1チャンク（画像→落札日→コンディション→URL→価格が同じチャンクに収まる）。
   // ※カード数(items)は s-card__caption の数で別途数える（s-card__image は1カードに複数出るので区切り用途のみ）。
-  const chunks = html.split(/class=s-card__image/);
-  const items = (html.match(/s-card__caption/g) || []).length;
+  let chunks = html.split(/class=s-card__image/);
+  let items = (html.match(/s-card__caption/g) || []).length;
+  // ★新マークアップfallback(2026-07-14)：eBayはSRPを s-card__* → su-*(su-card-container/su-styled-text) へ移行中で、
+  //   セッション毎のA/B抽選で新マークアップページ(s-card__* ゼロ)が返る＝旧分割だと0件に見え discover が全滅していた。
+  //   新旧共通の外枠 <li ... data-listingid=...> で分割し、下の抽出は「テキスト/属性ベースの汎用regex」で新旧両対応。
+  let legacyMarkup = items > 0;
+  if (items === 0) {
+    const alt = html.split(/data-listingid=/);
+    if (alt.length > 1) { chunks = alt; items = alt.length - 1; legacyMarkup = false; }
+  }
   const prices = []; const cards = []; let dated = 0, withWindow = 0, usedSkipped = 0;
   for (let i = 1; i < chunks.length; i++) {
-    const c = chunks[i].slice(0, 4500);
+    const c = chunks[i].slice(0, 6000);
     // 落札日: "Sold Mon DD, YYYY"（"Sold"接頭辞の有無どちらも許容＝将来表記揺れに強く）。
     const dm = c.match(/Sold\s+([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/) || c.match(/([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})/);
     let age = null; if (dm) { age = ageDays(dm[1]); if (age != null) dated++; }
     if (age == null || age < -1 || age > windowDays) continue; // 窓外/日付不明は採用しない
     withWindow++;
-    // コンディション(s-card__subtitle の先頭テキスト)。新品商品(wantNew)では中古カードを除外＝新品同士で比較。
-    const cm = c.match(/s-card__subtitle[^>]*>\s*<span[^>]*>([^<]{2,40})/);
+    // コンディション：旧=s-card__subtitle の先頭テキスト／新=可視テキストの状態語(Pre-Owned 等)を直接拾う。
+    const cm = legacyMarkup
+      ? c.match(/s-card__subtitle[^>]*>\s*<span[^>]*>([^<]{2,40})/)
+      : c.match(/>\s*(Pre-?Owned|Brand New|New \(Other\)|New other|Open box|Parts Only|For parts|Seller refurbished|Certified [- ]?Refurbished|Excellent|Very Good|Good|Acceptable)\b/i);
     if (wantNew && cm && isUsedCond(cm[1])) { usedSkipped++; continue; }
-    // 価格: このカードの最初の s-card__price。JPY=円直値 / $=USD×レート。それ以外の通貨は採らない。
-    const pj = c.match(/s-card__price[^>]*>\s*(?:JPY|¥)\s*([0-9][0-9,]*)/);
-    const pd = pj ? null : c.match(/s-card__price[^>]*>\s*(?:US\s*)?\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+    // 価格: 旧=このカードの最初の s-card__price／新=カード内の最初の通貨表記。JPY=円直値 / $=USD×レート。他通貨は採らない。
+    const pj = legacyMarkup
+      ? c.match(/s-card__price[^>]*>\s*(?:JPY|¥)\s*([0-9][0-9,]*)/)
+      : c.match(/(?:JPY|¥)\s*([0-9][0-9,]*)/);
+    const pd = pj ? null : (legacyMarkup
+      ? c.match(/s-card__price[^>]*>\s*(?:US\s*)?\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/)
+      : c.match(/(?:US\s*)?\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/));
     let jpy = null;
     if (pj) jpy = parseInt(pj[1].replace(/,/g, ""), 10);
     else if (pd) jpy = Math.round(parseFloat(pd[1].replace(/,/g, "")) * usdJpy);
     if (!(jpy > 0)) continue;
     prices.push(jpy);
-    // 候補（AI同一判定の材料）：高解像度画像(data-defer-load=s-l500)優先・タイトルはimg alt・実物URL。
-    const im = c.match(/data-defer-load=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/) || c.match(/src=(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/);
-    const um = c.match(/https:\/\/www\.ebay\.com\/itm\/(\d+)/);
+    // 候補（AI同一判定の材料）：高解像度画像(data-defer-load=s-l500)優先・タイトルはimg alt・実物URL。（新旧共通のテキスト/属性regex）
+    const im = c.match(/data-defer-load="?(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/) || c.match(/src="?(https:\/\/i\.ebayimg\.com\/[^"'\s>]+)/);
+    const um = c.match(/https:\/\/(?:www\.)?ebay\.com\/itm\/(\d+)/);
     const al = c.match(/alt="([^"]{3,140})"/);
     if (im && um) cards.push({ price: jpy, ageDays: Math.round(age), url: `https://www.ebay.com/itm/${um[1]}`, img: im[1], title: al ? decodeHtmlEntities(al[1].trim()) : "", cond: cm ? cm[1].trim() : "" });
   }
@@ -153,7 +167,7 @@ export async function get(url, referer) {
 const isBlocked = (html) => /Pardon Our Interruption|Checking your browser|verify you are a human|to continue, please|captcha/i.test(html.slice(0, 4000));
 // ★SRPの"器"(検索結果コンテナ/件数/0件表示)が有るか。status200・非captchaでも器が無い応答＝中身を抜いたソフトブロック。
 //   これを「落札なし」と誤カウントすると(1)ブレーキが鳴らず(2)processedCatsに入り旧種を上書き消去(データ欠損)する。
-const hasSrpShell = (html) => /srp-river|srp-controls|s-card|srp-save-null-search|s-no-result|該当する商品|no exact match|\d[\d,]*\s*results?/i.test(html);
+const hasSrpShell = (html) => /srp-river|srp-controls|s-card|su-card|data-listingid|srp-save-null-search|s-no-result|該当する商品|no exact match|\d[\d,]*\s*results?/i.test(html);
 
 // ★発掘モード：EBAY_JP_QUERIES のキーワード別に「売れた出品(Sold)」をスクレイプし、楽天マッチ用の種を KV ebay_sold_seed に格納。
 //   各 seed = {title, priceJpy(=同一商品の落札中央値), category, imageUrl, itemUrl(代表=直近落札), rank, soldCount, soldWindowDays}。

@@ -95,7 +95,7 @@ async function loadCategories() {
   // ★ジャンルあたりの候補上限（ユーザー指示2026-07-01：全ジャンルを~1000件ずつ・ゲーム偏重を防ぐ）。
   //   カテゴリはsoldCount順に処理するため、上限が無いと歩留まり・需要の高いゲームが TARGET を食い尽くし他ジャンルが枯れる。ジャンルごとに均等配分する。
   const CAP_PER_GENRE = Number(process.env.CAP_PER_GENRE) || 1000;
-  const PAGES = Number(process.env.HARDOFF_PAGES) || 20; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため引き上げ（2026-07-02: 8→12／2026-07-08: 12→20 でdiscover復旧を待たず既存種から候補の母数UP）。空ページで即打切りなので狭い系列(時計等)は無駄打ちしない＝主に広いカテゴリ(ゲーム/カメラ/オーディオ)の候補が増える。2h毎の低頻度。
+  const PAGES = Number(process.env.HARDOFF_PAGES) || 28; // 1カテゴリで取るハードオフ検索ページ数（深掘り）。★実質の供給レバー＝大半の系列が「CAPでなくページ深度」で頭打ちのため引き上げ（07-02: 8→12／07-08: 12→20／07-14: 20→28=常時1000件掲載目標の供給増）。空ページで即打切りなので狭い系列は無駄打ちしない。2h毎の低頻度。
   // ⌚時計は OFFモールの在庫が桁違いに厚い(腕時計だけで約2.5万件)＋確定headroom大(CAP_WATCH150/genre1000に対し実数~88)。
   //   広い時計クエリ(セイコー/カシオ/シチズン/オリエント等)はページ深度で頭打ちなので、時計だけ深く掘る(既定24)。
   //   狭い型番クエリは空ページで即打切りなので無駄打ちしない＝増えるのは広い時計クエリぶんだけ(build時間の増分は限定的)。ユーザー指示2026-07-04。
@@ -103,7 +103,7 @@ async function loadCategories() {
   const genreCount = {}; // ジャンル別の投入数（per-genre 上限の判定用）
   const seenId = new Set();  // ★グローバル重複排除：同じハードオフ品が別カテゴリ検索で複数回ヒットするのを1回に(重複ID 57件の根治)。
   const modelCount = {};     // ★同一モデル上限：BOSS BD2 が25件…等の1モデル偏重で一覧が埋まるのを防ぐ。
-  const MODEL_CAP = Number(process.env.USED_MODEL_CAP) || 4;
+  const MODEL_CAP = Number(process.env.USED_MODEL_CAP) || 5; // ★4→5(07-14 常時1000件目標)：1点物の売切流出に耐える在庫の厚み。偏重はCAPで引き続き抑制。
   let scanned = 0;
   for (const c of all) {
     if (catalog.length >= TARGET) break;
