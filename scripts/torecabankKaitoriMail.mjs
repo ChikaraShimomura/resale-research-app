@@ -1,5 +1,5 @@
 // トレカバンクの「本日の買取表」から抽出して【毎日フルリスト】をメールする（ユーザー指示2026-07-11。旧・月曜リスト＋火〜日金額の2モード制は廃止）:
-//   残り MIN_REMAINING(既定50)件以上・買取 MAX_PRICE(既定0=上限なし)・BOX除外 のリストを毎日送信。
+//   残り点数の下限は買取額で段階(50万↑=20点/10万↑=30点/未満=MIN_REMAINING(50)点)・MAX_PRICE(既定0=上限なし)・BOX除外 のリストを毎日送信。
 //   各行に【前日比＝前日からいくらプラスになったか】を表示し、値上がり→値下がり→変動なし→NEW の順に並べる。
 // 依存ゼロ（Node18+ の fetch のみ）。データはページHTMLの `const allProducts = [...]` 埋め込みを取るだけ＝APIキー/ブラウザ不要。
 //
@@ -22,7 +22,10 @@ import { pathToFileURL } from "node:url";
 const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
-const MIN_REMAINING = Number(process.env.MIN_REMAINING || 50); // 月曜リストの残り点数下限（ユーザー指示: 50件以上）
+const MIN_REMAINING = Number(process.env.MIN_REMAINING || 50); // 残り点数下限の基本値（買取10万円未満に適用）
+// 残り点数の下限は買取額で段階化（ユーザー指示2026-07-11）: 50万円以上=20点 / 10万円以上=30点 / それ未満=MIN_REMAINING(50)点。
+// 高額品は残りが少なくても1点の妙味が大きいため下限を緩める。
+const minRemainFor = (price) => (price >= 500000 ? 20 : price >= 100000 ? 30 : MIN_REMAINING);
 const MAX_PRICE = Number(process.env.MAX_PRICE) || 0; // 買取額の上限（円）。0=上限なし（ユーザー指示2026-07-09: 5万上限を解除）
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
@@ -99,9 +102,9 @@ function buildListHtml(rows, meta, weekMap) {
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, fresh = rows.filter((r) => r.diff == null).length;
   const head = `
     <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
-      <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト（残り${MIN_REMAINING}点以上）</h2>
+      <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点以上・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
+        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取10万円↑は30点↑・50万円↑は20点↑・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
         <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
@@ -160,7 +163,7 @@ export async function main() {
   // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
   const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
   const rows = all
-    .filter((p) => Number(p.remaining_quantity) >= MIN_REMAINING && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+    .filter((p) => Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base) }; })
     .sort((a, b) => {
       if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
@@ -169,7 +172,7 @@ export async function main() {
       return Number(b.p.buy_price) - Number(a.p.buy_price);              // 変動なし/NEW: 金額の高い順
     });
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length;
-  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点以上・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）`);
+  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点↑(10万↑=30点/50万↑=20点)・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）`);
 
   const html2 = buildListHtml(rows, { date }, weekMap);
   const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}）`;
