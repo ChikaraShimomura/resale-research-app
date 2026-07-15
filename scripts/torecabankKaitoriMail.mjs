@@ -61,11 +61,12 @@ const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " 
 const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}&status=on_sale&sort=price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
-// チップ(背景付きボタン)はGmailアプリのfont boosting(小さい文字の強制拡大)で膨らんで行からはみ出す→素のテキストリンクに(2026-07-11)。
-// サブ行と同じ11pxならboostされず、テキストとして自然に流れる＝崩れない。色で判別(メルカリ=赤/スニダン=黒)。
-const linkStyle = (color) => `color:${color} !important;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap`;
-const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${linkStyle("#FA5252")}">メルカリ🔍</a>`;
-const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${linkStyle("#111827")};margin-left:6px">スニダン🔍</a>`;
+// 小さなボタン(チップ)。ユーザー指示2026-07-11「小さく収まるボタンに」。前回9pxチップはGmailのfont boosting
+// (小さい文字の強制拡大)で膨らみ行から崩れた→対策: ①11px(boost対象になりにくい) ②ボタンは専用の行に分離
+// (型番の行に詰めない=多少拡大されても崩れない) ③ラッパーにtext-size-adjust抑制。色: メルカリ=赤/スニダン=黒。
+const btnStyle = (bg) => `display:inline-block;padding:1px 8px;border-radius:9px;background:${bg};color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap`;
+const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${btnStyle("#FA5252")}">メルカリ🔍</a>`;
+const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${btnStyle("#111827")};margin-left:6px">スニダン🔍</a>`;
 
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, { method: "POST", headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(15000) });
@@ -103,7 +104,7 @@ function deltaSpan(today, base) {
 function buildListHtml(rows, meta, weekMap) {
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, fresh = rows.filter((r) => r.diff == null).length;
   const head = `
-    <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B">
+    <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取50万円↑は20点↑・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
@@ -119,7 +120,8 @@ function buildListHtml(rows, meta, weekMap) {
         <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px"><img src="${esc(img)}" alt="" width="52" height="52" style="width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6"></td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee">
           <div style="font-size:13px;font-weight:700;line-height:1.4">${esc(p.product_master_name)}</div>
-          <div style="font-size:11px;color:#9ca3af;margin-top:3px">${sub ? esc(sub) + " " : ""}${mercariBtn(p.product_master_name)}${snkrdunkBtn(p.product_master_name)}</div>
+          ${sub ? `<div style="font-size:11px;color:#9ca3af;margin-top:3px">${esc(sub)}</div>` : ""}
+          <div style="margin-top:5px">${mercariBtn(p.product_master_name)}${snkrdunkBtn(p.product_master_name)}</div>
         </td>
         <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">
           <div style="font-size:14px;font-weight:800">${yen(p.buy_price)}</div>
