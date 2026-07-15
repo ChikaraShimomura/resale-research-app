@@ -61,12 +61,8 @@ const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " 
 const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}&status=on_sale&sort=price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
-// 小さなボタン(チップ)。ユーザー指示2026-07-11「小さく収まるボタンに」。前回9pxチップはGmailのfont boosting
-// (小さい文字の強制拡大)で膨らみ行から崩れた→対策: ①11px(boost対象になりにくい) ②ボタンは専用の行に分離
-// (型番の行に詰めない=多少拡大されても崩れない) ③ラッパーにtext-size-adjust抑制。色: メルカリ=赤/スニダン=黒。
-const btnStyle = (bg) => `display:inline-block;padding:1px 8px;border-radius:9px;background:${bg};color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap`;
-const mercariBtn = (name) => `<a href="${mercariUrl(name)}" style="${btnStyle("#FA5252")}">メルカリ🔍</a>`;
-const snkrdunkBtn = (name) => `<a href="${snkrdunkUrl(name)}" style="${btnStyle("#111827")};margin-left:6px">スニダン🔍</a>`;
+// 小さなボタン(チップ)は buildListHtml 内の .btn class で描画(ユーザー指示「小さく収まるボタンに」)。
+// 11px(Gmailのfont boosting対象になりにくい)＋ボタン専用行に分離＝多少拡大されても崩れない。色: メルカリ=赤/スニダン=黒。
 
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, { method: "POST", headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(15000) });
@@ -101,10 +97,30 @@ function deltaSpan(today, base) {
 }
 
 // 毎日のリスト（買取額＋残り点数＋前日比を強調＋前週比）。rowsは値上がり→値下がり→変動なし→NEW順に並び済み前提。
+// ⚠設計制約(2026-07-11ユーザー報告「画像と名前がずれている」への対策・崩すな):
+//  ①全<td>と<img>は vertical-align:top ＝画像を必ず自分の行の商品名の高さに固定(既定middleだと縦長行で画像が
+//    下の商品側へ沈んで見える) ②繰り返しスタイルは<style>のclassへ・行HTMLは改行なし＝78件でも約60KBに収まり
+//    Gmailの102KB切り詰め(超えると途中でぶった切られ表示が崩れる)を回避。GmailはヘッダやclassのCSSに対応済み。
 function buildListHtml(rows, meta, weekMap) {
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, fresh = rows.filter((r) => r.diff == null).length;
-  const head = `
-    <div style="font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%">
+  const css = `
+    .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+    .tbl{width:100%;border-collapse:collapse}
+    .tbl td{padding:8px 6px;border-bottom:1px solid #eee;vertical-align:top}
+    .ic{width:56px}
+    .ic img{width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6;vertical-align:top}
+    .nm{font-size:13px;font-weight:700;line-height:1.4}
+    .sb{font-size:11px;color:#9ca3af;margin-top:3px}
+    .bt{margin-top:5px}
+    .pr{text-align:right;white-space:nowrap}
+    .p1{font-size:14px;font-weight:800}
+    .p2{font-size:11px;margin-top:2px}
+    .rm{font-size:11px;color:#ef4444;font-weight:700}
+    .wk{font-size:10px;color:#9ca3af}
+    .btn{display:inline-block;padding:1px 8px;border-radius:9px;color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+  `.replace(/\s+/g, " ");
+  const head = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>
+    <div class="wrap">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取50万円↑は20点↑・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
@@ -115,24 +131,17 @@ function buildListHtml(rows, meta, weekMap) {
     const img = BASE + String(p.image_path || "").replace(/^\/+/, "");
     const sub = [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" ");
     const k = keyOf(p);
-    return `
-      <tr>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px"><img src="${esc(img)}" alt="" width="52" height="52" style="width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6"></td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee">
-          <div style="font-size:13px;font-weight:700;line-height:1.4">${esc(p.product_master_name)}</div>
-          ${sub ? `<div style="font-size:11px;color:#9ca3af;margin-top:3px">${esc(sub)}</div>` : ""}
-          <div style="margin-top:5px">${mercariBtn(p.product_master_name)}${snkrdunkBtn(p.product_master_name)}</div>
-        </td>
-        <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">
-          <div style="font-size:14px;font-weight:800">${yen(p.buy_price)}</div>
-          <div style="font-size:11px;margin-top:2px">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>
-          <div style="font-size:11px;color:#ef4444;font-weight:700">残${esc(p.remaining_quantity)}点</div>
-          <div style="font-size:10px;color:#9ca3af">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div>
-        </td>
-      </tr>`;
+    const nm = p.product_master_name;
+    return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
+      `<td><div class="nm">${esc(nm)}</div>${sub ? `<div class="sb">${esc(sub)}</div>` : ""}` +
+      `<div class="bt"><a class="btn" href="${mercariUrl(nm)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(nm)}" style="background:#111827">スニダン🔍</a></div></td>` +
+      `<td class="pr"><div class="p1">${yen(p.buy_price)}</div>` +
+      `<div class="p2">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>` +
+      `<div class="rm">残${esc(p.remaining_quantity)}点</div>` +
+      `<div class="wk">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div></td></tr>`;
   }).join("");
-  return `${head}<table style="width:100%;border-collapse:collapse">${body}</table>
-      <p style="font-size:11px;color:#9ca3af;margin:14px 0 0">出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p></div>`;
+  return `${head}<table class="tbl">${body}</table>
+      <p style="font-size:11px;color:#9ca3af;margin:14px 0 0">出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p></div></body></html>`;
 }
 
 async function sendMail(subject, html) {
