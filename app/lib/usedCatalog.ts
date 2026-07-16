@@ -31,6 +31,19 @@ export type UsedCatalogItem = {
   matchedEbayTitle?: string; // 画像一致した代表eBay落札のタイトル
 };
 
+// 表示ジャンル（カタログのジャンル絞り込み/バッジ用）。内部の cat は重量(WEIGHT_G)・手数料(ebayFeeRate=時計15%)・
+// build上限(CAP_WATCH等)に直結するため細かいまま維持し、ユーザーに見せる粒度だけここで統合する（2026-07-16 ユーザー指示）。
+//   オーディオ＋楽器 → オーディオ・楽器 ／ バッグ＋メガネ＋腕時計 → ブランド品 ／ 筆記具＋工具 → 工具・筆記具
+const DISPLAY_GENRE: Record<string, string> = {
+  オーディオ: "オーディオ・楽器", 楽器: "オーディオ・楽器",
+  バッグ: "ブランド品", メガネ: "ブランド品", 腕時計: "ブランド品",
+  筆記具: "工具・筆記具", 工具: "工具・筆記具",
+};
+export function displayGenre(cat?: string | null): string {
+  const c = cat || "中古";
+  return DISPLAY_GENRE[c] ?? c;
+}
+
 // 時計の日本語モデル名→eBay英語表記（出品者が実際に使う語）。ハードオフの型番(code)だけだとeBayで0件になるため、
 // ライン名でフォールバックして「その機種に近い実落札」を必ず出す＝根拠ボタンが空にならない。
 const WATCH_LINE: [RegExp, string][] = [

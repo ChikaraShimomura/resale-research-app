@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, ArrowRight, Lock, ArrowUpDown, Tag } from "lucide-react";
-import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited } from "../lib/usedCatalog";
+import { getUsedCatalog, conditionLabel, ebaySoldSearchUrl, ebayActiveSearchUrl, getHiddenCatalogKeys, getFavoriteKeys, catalogItemKey, isProhibited, displayGenre } from "../lib/usedCatalog";
 import type { UsedCatalogItem } from "../lib/usedCatalog";
 import { canViewCatalog, getCurrentUserEmail, canAutoList, canDropship, canBuy } from "../lib/auth/plan";
 import { getActorId } from "../lib/auth/actor";
@@ -74,9 +74,11 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     (p) => p.ebayConfirmed && p.profitRate >= 5 && !hidden.has(catalogItemKey(p)) && !isProhibited(`${p.brand} ${p.name}`)
   );
   // ジャンル一覧（件数つき・多い順）。?genre= で絞り込む。
-  const genreCounts = base.reduce<Record<string, number>>((m, p) => { const c = p.cat || "中古"; m[c] = (m[c] || 0) + 1; return m; }, {});
+  // ジャンルは表示粒度(displayGenre)で束ねる：オーディオ＋楽器／バッグ＋メガネ＋腕時計=ブランド品／筆記具＋工具（2026-07-16）。
+  // 内部の p.cat(重量/手数料/上限の鍵)はそのまま＝利益計算に影響ゼロ。絞り込み・件数・バッジの見た目だけ統合。
+  const genreCounts = base.reduce<Record<string, number>>((m, p) => { const c = displayGenre(p.cat); m[c] = (m[c] || 0) + 1; return m; }, {});
   const genres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
-  const items = (genre === "all" ? base : base.filter((p) => (p.cat || "中古") === genre)).sort(SORTS[sort].cmp);
+  const items = (genre === "all" ? base : base.filter((p) => displayGenre(p.cat) === genre)).sort(SORTS[sort].cmp);
   // ★初期描画を軽くする(2026-07-11)：全件(~900)を一度に描画せず先頭 showN 件だけ描く＝ハイドレーション島/DOM/HTMLを激減。
   //   sort/genre/マスク/漏洩対策・件数バッジは全て base/items(全件)で実行済み＝表示件数だけを絞る（データ・順序・バッジは不変）。
   //   ?show= は改ざん対策でクランプ(最小PAGE・整数化)。sort/genre変更時は show を持たない=自然に60へリセット。
@@ -202,7 +204,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                             {cond.rank ? `${cond.rank}（${cond.label}）` : cond.label}
                           </span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#2D323B]/[0.06] text-[#2D323B] border border-[#A98B5C]/25">
-                            {p.cat}
+                            {displayGenre(p.cat)}
                           </span>
                         </div>
                         <p className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2">
