@@ -297,7 +297,7 @@ async function discoverSeeds() {
   // マージ蓄積：今回到達できたカテゴリ(processedCats)だけ新seedで差し替え、未到達(検問/今回バッチ外)カテゴリは旧seedを持ち越す。
   //   ＝1回のバッチ(既定150語)では全クエリを回せない/captchaで途中停止しても、毎回シャッフル＋持ち越しで数日かけ全921クエリを網羅し蓄積する。
   //   毎回マージblob全体をTTL更新で再書込＝ワーカーが回り続ける限り失効しない（停止7日で自然失効＝失敗安全は維持）。
-  const SEED_CAP = Number(process.env.EBAY_SOLD_SEED_CAP) || 5000; // KV値サイズ/処理負荷の保護。超過時は実需(soldCount)の高い順に残す。
+  const SEED_CAP = Number(process.env.EBAY_SOLD_SEED_CAP) || 8000; // KV値サイズ/処理負荷の保護。超過時は実需(soldCount)の高い順に残す。★5000→8000(07-16)：種5000でキャップ到達＝新カテゴリが既存と枠を奪い合うため拡大。blobは~2.3MB=Upstash有料(pay-as-you-go)で1.44MB書込実測済み・許容圏。書込失敗時は旧種が残る(fail-safe)。
   let wrote = 0;
   if (!healthy) {
     console.error(`🚨 発掘異常（OK${okKw}/カード0語${noCardKw}/落札なし${emptyKw}/検問${blocked} of ${done}）＝ソフトブロック/UI変更疑い。新種は書かず旧種を温存。`);

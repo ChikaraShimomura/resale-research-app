@@ -1069,6 +1069,64 @@ export const EBAY_JP_QUERIES = [
   { q: 'Casio W-800H digital'                               , name: 'カシオ 腕時計 W-800' },
   // --- ティソ（既存と非重複） ---
   { q: 'Tissot Supersport Chrono'                           , name: 'ティソ スーパースポーツ 腕時計' },
+
+  // 【供給拡大 第2弾(2026-07-16・常時1000件掲載目標)】カテゴリ=クエリnameがそのままハードオフ検索キーワードになるため、
+  //   「ブランド/シリーズ×ジャンル語」で新カテゴリを増やす＝build候補の母数を直接増やす(種カテゴリ660≒クエリ飽和の解消)。
+  //   全て既存の安全ジャンル(カメラ/レンズ/オーディオ/ゲーム機/楽器/工具/腕時計)内・危険物なし。
+  // カメラ・レンズ
+  { q: 'minolta af 50mm lens',                    name: 'ミノルタ AF 50mm レンズ' },
+  { q: 'pentax smc takumar 55mm lens',            name: 'ペンタックス タクマー レンズ' },
+  { q: 'olympus om zuiko 50mm lens',              name: 'オリンパス ズイコー レンズ' },
+  { q: 'nikon ai-s nikkor 50mm lens',             name: 'ニコン AIS ニッコール レンズ' },
+  { q: 'canon ef 85mm f1.8 lens',                 name: 'キヤノン EF 85mm レンズ' },
+  { q: 'konica hexanon ar lens',                  name: 'コニカ ヘキサノン レンズ' },
+  { q: 'carl zeiss contax lens japan',            name: 'コンタックス ツァイス レンズ' },
+  { q: 'konica big mini film camera',             name: 'コニカ ビッグミニ フィルムカメラ' },
+  { q: 'olympus mju ii film camera',              name: 'オリンパス ミュー フィルムカメラ' },
+  { q: 'canon autoboy film camera',               name: 'キヤノン オートボーイ フィルムカメラ' },
+  { q: 'fujifilm natura classica camera',         name: 'フジフイルム ナチュラ フィルムカメラ' },
+  { q: 'polaroid sx-70 instant camera',           name: 'ポラロイド カメラ' },
+  { q: 'mamiya 645 medium format camera',         name: 'マミヤ 645 カメラ' },
+  { q: 'zenza bronica medium format camera',      name: 'ブロニカ カメラ' },
+  { q: 'ricoh gr1 film camera',                   name: 'リコー GR1 フィルムカメラ' },
+  // オーディオ
+  { q: 'nakamichi cassette deck',                 name: 'ナカミチ カセットデッキ' },
+  { q: 'akai gx cassette deck',                   name: 'アカイ カセットデッキ' },
+  { q: 'teac reel to reel tape deck',             name: 'ティアック オープンリール デッキ' },
+  { q: 'jbl control speaker vintage',             name: 'JBL スピーカー' },
+  { q: 'diatone speaker vintage japan',           name: 'ダイヤトーン スピーカー' },
+  { q: 'yamaha ns-10m studio monitor speaker',    name: 'ヤマハ NS-10M スピーカー' },
+  { q: 'bose 101 speaker',                        name: 'BOSE 101 スピーカー' },
+  { q: 'shure v15 cartridge',                     name: 'シュアー カートリッジ' },
+  { q: 'sony mdr-7506 headphones',                name: 'ソニー MDR-7506 ヘッドホン' },
+  { q: 'akg k240 headphones',                     name: 'AKG ヘッドホン' },
+  { q: 'luxman integrated amplifier',             name: 'ラックスマン 真空管 アンプ' },
+  { q: 'kenwood integrated amplifier japan',      name: 'ケンウッド アンプ' },
+  { q: 'pioneer ct cassette deck',                name: 'パイオニア カセットデッキ' },
+  { q: 'aiwa cassette recorder walkman',          name: 'アイワ カセットレコーダー' },
+  // ゲーム機
+  { q: 'wonderswan color console',                name: 'ワンダースワン 本体' },
+  { q: 'pc engine coregrafx console',             name: 'PCエンジン コアグラフィックス 本体' },
+  { q: 'nintendo gamecube controller oem',        name: 'ゲームキューブ コントローラー' },
+  { q: 'super famicom jr console',                name: 'スーパーファミコン ジュニア 本体' },
+  { q: 'twin famicom console',                    name: 'ツインファミコン 本体' },
+  { q: 'sega dreamcast controller vmu',           name: 'ドリームキャスト コントローラー' },
+  // 楽器・エフェクター
+  { q: 'proco rat distortion pedal',              name: 'プロコ RAT エフェクター' },
+  { q: 'electro harmonix big muff pedal',         name: 'ビッグマフ エフェクター' },
+  { q: 'yamaha silent guitar',                    name: 'ヤマハ サイレントギター' },
+  { q: 'greco vintage guitar japan',              name: 'グレコ ギター' },
+  { q: 'tokai vintage guitar japan',              name: 'トーカイ ギター' },
+  { q: 'zoom multi effects pedal',                name: 'ズーム マルチ エフェクター' },
+  { q: 'akai mpc sampler drum machine',           name: 'アカイ MPC ドラムマシン' },
+  { q: 'roland tr drum machine',                  name: 'ローランド TR ドラムマシン' },
+  { q: 'morris acoustic guitar japan',            name: 'モーリス アコースティックギター' },
+  // 工具
+  { q: 'bosch cordless drill 18v',                name: 'ボッシュ ドリル' },
+  { q: 'ryobi power tool japan',                  name: 'リョービ 電動工具' },
+  // 腕時計（国産定番の追い足し）
+  { q: 'seiko alba watch',                        name: 'セイコー アルバ 腕時計' },
+  { q: 'casio protrek prw watch',                 name: 'カシオ プロトレック PRW 腕時計' },
 ];
 
 // 【SSOT】ハードオフ中古カタログ対象ジャンル（発掘フィルタ＝ebaySoldWorker と build＝buildUsedSampleFromCache の双方が使う）。
