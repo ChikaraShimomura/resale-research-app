@@ -54,11 +54,16 @@ const priceCapLabel = MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下・` : ""; /
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const keyOf = (p) => `${p.product_type_name}|${p.product_master_key1}|${p.product_master_key2}|${p.product_master_name}`;
 const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:${/BOX/i.test(g) ? "#0d9488" : "#A98B5C"}">${esc(g)}</span>`;
-// 相場照合ボタン（タップでその商品名の検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
-// 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。両検索で同じ検索語を使う。
+// 相場照合ボタン（タップで検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
+// 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。
 const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " ").replace(/\s+/g, " ").trim();
 // 両検索とも「販売中のみ＋価格の安い順」で開く(ユーザー指示2026-07-11)。param名は実ブラウザで操作して実測。
-const mercariUrl = (name) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(cleanKw(name))}&status=on_sale&sort=price&order=asc`;
+// メルカリは【型番+グレード】で検索(ユーザー指示2026-07-11。例「119/114 PSA10」)＝名前より正確に個体が当たる
+// (実ブラウザ検証: がんばリーリエのPSA10だけに絞れた)。型番なしの商品だけ名前検索にフォールバック。
+const mercariUrl = (p) => {
+  const q = p.product_master_key2 ? `${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name);
+  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
+};
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
 // 小さなボタン(チップ)は buildListHtml 内の .btn class で描画(ユーザー指示「小さく収まるボタンに」)。
@@ -134,7 +139,7 @@ function buildListHtml(rows, meta, weekMap) {
     const nm = p.product_master_name;
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
       `<td><div class="nm">${esc(nm)}</div>${sub ? `<div class="sb">${esc(sub)}</div>` : ""}` +
-      `<div class="bt"><a class="btn" href="${mercariUrl(nm)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(nm)}" style="background:#111827">スニダン🔍</a></div></td>` +
+      `<div class="bt"><a class="btn" href="${mercariUrl(p)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(nm)}" style="background:#111827">スニダン🔍</a></div></td>` +
       `<td class="pr"><div class="p1">${yen(p.buy_price)}</div>` +
       `<div class="p2">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>` +
       `<div class="rm">残${esc(p.remaining_quantity)}点</div>` +
