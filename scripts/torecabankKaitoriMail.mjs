@@ -57,11 +57,15 @@ const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;pad
 // 相場照合ボタン（タップで検索が開く）。メールはJS不可なので"コピー"は無理→検索リンクで代替。
 // 括弧/角括弧はスペース化して素直な検索語にする（例「(PSA10)リザードンVMAX[S8b]」→「PSA10 リザードンVMAX S8b」）。
 const cleanKw = (name) => String(name || "").replace(/[()（）\[\]【】]/g, " ").replace(/\s+/g, " ").trim();
+// 商品名からカード名部分だけを抜く(ユーザー指示2026-07-12)。「(PSA10)イーブイ[S8b]」→「イーブイ」＝
+// 先頭の(グレード)接頭辞を除去→セット記号[S8b]/補足括弧(マクドナルド等)/エディション(:1ED)以降を落とす。
+const cardName = (name) => String(name || "").replace(/^[(（][^)）]*[)）]/, "").split(/[\[［(（:：]/)[0].trim();
 // 両検索とも「販売中のみ＋価格の安い順」で開く(ユーザー指示2026-07-11)。param名は実ブラウザで操作して実測。
-// メルカリは【型番+グレード】で検索(ユーザー指示2026-07-11。例「119/114 PSA10」)＝名前より正確に個体が当たる
-// (実ブラウザ検証: がんばリーリエのPSA10だけに絞れた)。型番なしの商品だけ名前検索にフォールバック。
+// メルカリは【カード名+型番+グレード】で検索(ユーザー指示2026-07-12。例「イーブイ 210/184 PSA10」)＝個体がほぼ一意に当たる。
+// 型番なしの商品だけ名前検索にフォールバック。
 const mercariUrl = (p) => {
-  const q = p.product_master_key2 ? `${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name);
+  const nm = cardName(p.product_master_name);
+  const q = p.product_master_key2 && nm ? `${nm} ${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name);
   return `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
 };
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
