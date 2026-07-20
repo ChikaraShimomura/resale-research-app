@@ -63,15 +63,120 @@ const cardName = (name) => String(name || "").replace(/^[(（][^)）]*[)）]/, "
 // 両検索とも「販売中のみ＋価格の安い順」で開く(ユーザー指示2026-07-11)。param名は実ブラウザで操作して実測。
 // メルカリは【カード名+型番+グレード】で検索(ユーザー指示2026-07-12。例「イーブイ 210/184 PSA10」)＝個体がほぼ一意に当たる。
 // 型番なしの商品だけ名前検索にフォールバック。
+const mercariSearch = (q) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
 const mercariUrl = (p) => {
   const nm = cardName(p.product_master_name);
-  const q = p.product_master_key2 && nm ? `${nm} ${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name);
-  return `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
+  return mercariSearch(p.product_master_key2 && nm ? `${nm} ${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name));
 };
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
 // 小さなボタン(チップ)は buildListHtml 内の .btn class で描画(ユーザー指示「小さく収まるボタンに」)。
 // 11px(Gmailのfont boosting対象になりにくい)＋ボタン専用行に分離＝多少拡大されても崩れない。色: メルカリ=赤/スニダン=黒。
+
+// ── トレカラウンジ(かんたん郵送買取)の照合 ──────────────────────────────
+// ユーザー指示2026-07-13: ①TBよりラウンジが高い商品だけ行内に緑で明示 ②TBに無い商品は末尾の別セクションに追加。
+// (前回の全行「ラ ¥X」併記は「醜い」で撤回済み→高い時だけ＋別セクションの控えめ設計に変更)
+// kaitori.toreca-lounge.com/products/pokemon はNext.js SSR(Vercelホスト・bot壁なし)。商品データはRSC flight
+// (self.__next_f.push([1,"..."]))内のJSONに埋め込み＝ページを取ってパースするだけ(実測 約11ページ/約890商品)。
+// 照合=「型番|グレード」(TBのproduct_master_key2 × TLのmodelNumber)＋【カード名の一致検証】。
+// ⚠TLのmodelNumberはセットコード無しの番号だけ＝別セットの同番号カードと衝突する(敵対レビュー実測: 衝突70キー)。
+// →同キーは配列で持ち、TLカード名(括弧/空白前の基本名)がTB商品名に含まれる候補だけ採用・価格が割れたら不採用。
+const TL_BASE = "https://kaitori.toreca-lounge.com/products/pokemon";
+function parseLoungeProducts(html) {
+  const chunks = [...html.matchAll(/self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g)].map((m) => JSON.parse(m[1]));
+  const flight = chunks.join("");
+  const out = [];
+  let i = 0;
+  const marker = '{"productFormat"';
+  while ((i = flight.indexOf(marker, i)) !== -1) {
+    let d = 0, end = -1, inS = false, escChar = false;
+    for (let p = i; p < flight.length; p++) {
+      const c = flight[p];
+      if (inS) { if (escChar) escChar = false; else if (c === "\\") escChar = true; else if (c === '"') inS = false; continue; }
+      if (c === '"') { inS = true; continue; }
+      if (c === "{") d++;
+      else if (c === "}") { d--; if (d === 0) { end = p; break; } }
+    }
+    if (end < 0) break;
+    try { out.push(JSON.parse(flight.slice(i, end + 1))); } catch { /* 壊れた断片はスキップ */ }
+    i = end + 1;
+  }
+  return out;
+}
+// カード名の基本形＝括弧/空白以降を落とす(NFKC)。「ピカチュウ(25th)」→「ピカチュウ」「メガガルーラex SAR」→「メガガルーラex」。
+const tlBaseName = (name) => String(name || "").normalize("NFKC").split(/[\s(（\[【]/)[0].trim();
+// 全ページ取得。map=「型番|グレード」→候補配列[{base,price}](TB行の照合用)、products=TL全商品(TBに無い物の抽出用)。
+// 失敗してもメール自体は止めない(fail-open=ラウンジ情報なしで送る)。
+async function fetchLounge() {
+  const map = new Map();
+  const products = [];
+  const seen = new Set();
+  const deadline = Date.now() + 35000; // Vercelルート(maxDuration60s)内に収める保険。途中まででも取れた分は使う。
+  try {
+    for (let page = 1; page <= 40 && Date.now() < deadline; page++) {
+      const r = await fetch(`${TL_BASE}?page=${page}`, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: AbortSignal.timeout(15000) });
+      if (!r.ok) break;
+      const prods = parseLoungeProducts(await r.text());
+      let fresh = 0; // 範囲外pageは最終ページにクランプされて同内容が返る(実測)＝新規商品0で終端を検知する
+      for (const p of prods) {
+        const id = p.productId || p.publicId;
+        if (!id || seen.has(id)) continue;
+        seen.add(id); fresh++;
+        const base = tlBaseName(p.productName);
+        // 型番の飾りを除去して照合キーに使う(「031/095（型番不問）」→「031/095」。飾り付きはTBのkey2と絶対一致しないため)。
+        const model = String(p.modelNumber || "").split(/[(（]/)[0].trim();
+        if (!base) continue;
+        for (const g of p.grades || []) {
+          const key = `${model}|${g.grade}`;
+          const price = Number(g.buyPrice);
+          if (!(price > 0)) continue;
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push({ base, price });
+          products.push({ base, name: p.productName, modelNumber: model, grade: g.grade, price, imageUrl: p.imageUrl });
+        }
+      }
+      if (!fresh) break;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    console.log(`[lounge] トレカラウンジ ${seen.size}商品取得`);
+  } catch (e) { console.warn("[lounge] 取得失敗（ラウンジ情報なしで続行）:", e.message); }
+  return { map, products };
+}
+// TB商品1件に対するラウンジ価格。名前一致で衝突候補を絞り、それでも価格が割れたら null。
+function loungePriceFor(p, tlMap) {
+  const cands = tlMap.get(`${p.product_master_key2}|${p.product_type_name}`);
+  if (!cands || !cands.length) return null;
+  const tbName = String(p.product_master_name || "").normalize("NFKC").replace(/\s+/g, "");
+  const hit = cands.filter((c) => tbName.includes(c.base));
+  if (!hit.length) return null;
+  const prices = [...new Set(hit.map((c) => c.price))];
+  return prices.length === 1 ? prices[0] : null;
+}
+// TBに無いTL商品(PSA10のみ・BOXは対象外方針)。TB全商品の「型番|グレード」逆引き＋名前で存在判定し、無い物を高額順に。
+// 存在判定の名前一致は【双方向】: TB商品名⊇TL基本名(通常) または TL基本名⊇TBカード名(TBが接尾語を落とす例:
+// TB「ソルガレオ&ルナアーラ」vs TL「…GX」/ TBがコラボ名を括弧に出す例: TB「モクロー(ムンク展)」vs TL「ムンクモクロー」)。
+// ※価格を表示する loungePriceFor は誤帰属(別カードの価格を出す)防止のため片方向のまま＝「載せ漏れ」より「誤情報」を避ける。
+function loungeOnlyItems(tlProducts, tbAll) {
+  const tbIdx = new Map();
+  for (const p of tbAll) {
+    const key = `${p.product_master_key2}|${p.product_type_name}`;
+    if (!tbIdx.has(key)) tbIdx.set(key, []);
+    tbIdx.get(key).push({
+      full: String(p.product_master_name || "").normalize("NFKC").replace(/\s+/g, ""),
+      card: cardName(p.product_master_name).normalize("NFKC").replace(/\s+/g, ""),
+    });
+  }
+  const dedup = new Map(); // 同一カード(base|型番)の重複は高い方
+  for (const t of tlProducts) {
+    if (t.grade !== "PSA10") continue;
+    if (!t.modelNumber) continue; // 型番なし=「最低保証」等のカードでない疑似商品・照合不能のため対象外
+    const names = tbIdx.get(`${t.modelNumber}|${t.grade}`);
+    if (names && names.some((n) => n.full.includes(t.base) || (n.card.length >= 3 && t.base.includes(n.card)))) continue; // TBにある
+    const k = `${t.base}|${t.modelNumber}`;
+    if (!dedup.has(k) || dedup.get(k).price < t.price) dedup.set(k, t);
+  }
+  return [...dedup.values()].sort((a, b) => b.price - a.price);
+}
 
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, { method: "POST", headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(cmd), signal: AbortSignal.timeout(15000) });
@@ -106,12 +211,14 @@ function deltaSpan(today, base) {
 }
 
 // 毎日のリスト（買取額＋残り点数＋前日比を強調＋前週比）。rowsは値上がり→値下がり→変動なし→NEW順に並び済み前提。
+// ラウンジ情報(ユーザー指示2026-07-13)は控えめに: TBより高い行だけ緑の1行＋TBに無い商品は末尾の紫セクション。
 // ⚠設計制約(2026-07-11ユーザー報告「画像と名前がずれている」への対策・崩すな):
 //  ①全<td>と<img>は vertical-align:top ＝画像を必ず自分の行の商品名の高さに固定(既定middleだと縦長行で画像が
 //    下の商品側へ沈んで見える) ②繰り返しスタイルは<style>のclassへ・行HTMLは改行なし＝78件でも約60KBに収まり
 //    Gmailの102KB切り詰め(超えると途中でぶった切られ表示が崩れる)を回避。GmailはヘッダやclassのCSSに対応済み。
-function buildListHtml(rows, meta, weekMap) {
+function buildListHtml(rows, meta, weekMap, tlOnly) {
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length, fresh = rows.filter((r) => r.diff == null).length;
+  const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
     .tbl{width:100%;border-collapse:collapse}
@@ -127,6 +234,10 @@ function buildListHtml(rows, meta, weekMap) {
     .rm{font-size:11px;color:#ef4444;font-weight:700}
     .wk{font-size:10px;color:#9ca3af}
     .btn{display:inline-block;padding:1px 8px;border-radius:9px;color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+    .lg{font-size:11px;color:#16a34a;font-weight:700}
+    .tlh{font-size:14px;margin:20px 0 2px;color:#7c3aed}
+    .tls{font-size:11px;color:#6b7280;margin:0 0 6px}
+    .tlpr{font-size:14px;font-weight:800;color:#7c3aed}
   `.replace(/\s+/g, " ");
   const head = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>
     <div class="wrap">
@@ -134,9 +245,10 @@ function buildListHtml(rows, meta, weekMap) {
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取50万円↑は20点↑・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
         <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
+        ${tlHigher ? `<span class="lg">緑「ラウンジ ¥…▲」=トレカラウンジ(郵送)の方が買取が高い ${tlHigher}件</span><br>` : ""}
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
-  const body = rows.map(({ p, diff }) => {
+  const body = rows.map(({ p, diff, tl }) => {
     const img = BASE + String(p.image_path || "").replace(/^\/+/, "");
     const sub = [p.product_master_key1, p.product_master_key2].filter(Boolean).join(" ");
     const k = keyOf(p);
@@ -147,10 +259,25 @@ function buildListHtml(rows, meta, weekMap) {
       `<td class="pr"><div class="p1">${yen(p.buy_price)}</div>` +
       `<div class="p2">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>` +
       `<div class="rm">残${esc(p.remaining_quantity)}点</div>` +
+      (tl != null && tl > Number(p.buy_price) ? `<div class="lg">ラウンジ ${yen(tl)} ▲</div>` : "") +
       `<div class="wk">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div></td></tr>`;
   }).join("");
-  return `${head}<table class="tbl">${body}</table>
-      <p style="font-size:11px;color:#9ca3af;margin:14px 0 0">出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p></div></body></html>`;
+  // トレカバンクに無い・トレカラウンジのみの商品(高額順・上限あり)。
+  let tlSection = "";
+  if (tlOnly && tlOnly.items.length) {
+    const tlBody = tlOnly.items.map((t) => {
+      const q = `${t.base} ${t.modelNumber} PSA10`;
+      return `<tr><td class="ic"><img src="${esc(t.imageUrl || "")}" alt="" width="52" height="52"></td>` +
+        `<td><div class="nm">${esc(t.name)}</div><div class="sb">${esc(t.modelNumber)} PSA10</div>` +
+        `<div class="bt"><a class="btn" href="${mercariSearch(q)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(`PSA10 ${t.base}`)}" style="background:#111827">スニダン🔍</a></div></td>` +
+        `<td class="pr"><div class="tlpr">${yen(t.price)}</div><div class="wk">ラウンジ買取</div></td></tr>`;
+    }).join("");
+    tlSection = `<h3 class="tlh">🟣 トレカラウンジのみ買取中（トレカバンク未掲載）</h3>
+      <p class="tls">該当 <b>${tlOnly.total}件</b>${tlOnly.total > tlOnly.items.length ? ` 中 高額順 ${tlOnly.items.length}件を表示` : ""} ／ <a href="${TL_BASE}" style="color:#7c3aed">トレカラウンジ(郵送買取)</a>・枚数制限なしの物が多い</p>
+      <table class="tbl">${tlBody}</table>`;
+  }
+  return `${head}<table class="tbl">${body}</table>${tlSection}
+      <p style="font-size:11px;color:#9ca3af;margin:14px 0 0">出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a> ／ <a href="${TL_BASE}" style="color:#9ca3af">kaitori.toreca-lounge.com</a>（自動取得）</p></div></body></html>`;
 }
 
 async function sendMail(subject, html) {
@@ -173,20 +300,23 @@ export async function main() {
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const all = extractProducts(await res.text());
   const todayMap = {}; for (const p of all) todayMap[keyOf(p)] = Number(p.buy_price); // スナップショット用（key→価格）
-  const date = jstNow().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
+  // 表示日付は「実時刻」にtimeZone指定で整形する。jstNow()(既に+9h済み)に更にtimeZone:'Asia/Tokyo'を掛けると
+  // 二重シフトで15:00 JST以降+1日ズレる(敵対レビューで実機再現)ため、ここではjstNow()を使わないこと。
+  const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
 
-  // 前日/前週の価格スナップショットを読む（前日比/前週比の基準）。
+  // 前日/前週の価格スナップショットを読む（前日比/前週比の基準）＋トレカラウンジ全商品。
   let prevMap = null, weekMap = null;
   if (KV_ON) {
     try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-1))]); prevMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
     try { const v = await kvCmd(["GET", SNAP_KEY(jstDay(-7))]); weekMap = v ? JSON.parse(v) : null; } catch { /* noop */ }
   }
+  const tl = await fetchLounge();
 
   // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
   const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
   const rows = all
     .filter((p) => Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
-    .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base) }; })
+    .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base), tl: loungePriceFor(p, tl.map) }; })
     .sort((a, b) => {
       if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
       if (grp(a) === 0) return b.diff - a.diff;                          // 値上がり: 上昇の大きい順
@@ -194,9 +324,18 @@ export async function main() {
       return Number(b.p.buy_price) - Number(a.p.buy_price);              // 変動なし/NEW: 金額の高い順
     });
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length;
-  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点↑(50万↑=20点)・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）`);
+  // トレカバンクに無い・ラウンジのみの商品(高額順)。メールはGmailの102KB切り詰めがあるため表示は上位までに絞る。
+  const TL_ONLY_MAX = 25;
+  const tlOnlyAll = loungeOnlyItems(tl.products, all);
+  const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
+  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点↑(50万↑=20点)・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
 
-  const html2 = buildListHtml(rows, { date }, weekMap);
+  let html2 = buildListHtml(rows, { date }, weekMap, { items: tlOnlyAll.slice(0, TL_ONLY_MAX), total: tlOnlyAll.length });
+  // Gmailは102KB超を切り詰めて表示が崩れる→超えそうならラウンジのみセクションを削って本体リストを守る。
+  if (Buffer.byteLength(html2, "utf8") > 98000) {
+    html2 = buildListHtml(rows, { date }, weekMap, { items: [], total: 0 });
+    console.warn("[torecabank] 102KB接近のためラウンジのみセクションを省略");
+  }
   const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}）`;
 
   // 価格スナップショット保存（毎日・1キー）。翌日の前日比の基準になる。
