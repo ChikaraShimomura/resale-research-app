@@ -50,7 +50,8 @@ function trimmedMedian(prices) {
   const k = kept.length ? kept : ps;
   return k[Math.floor(k.length / 2)];
 }
-const soldUrl = (q) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1&LH_ItemCondition=3000&_sop=13`;
+// usedOnly=false はトレカ用：PSA鑑定品はeBay上「Graded」・未開封BOXは「New」扱い＝中古(3000)縛りだと落札が出てこない。
+const soldUrl = (q, usedOnly = true) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1${usedOnly ? "&LH_ItemCondition=3000" : ""}&_sop=13`;
 const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const isNew = (s) => /^new\b|new with|new without|new \(other|brand\s?new|新品|未使用|未開封|dead\s?stock|デッドストック/i.test((s || "").trim());
 // 型番の日本語ノイズを除去した ASCII 断片（refineと同じ判定＝「型番が短い/無い＝code空ブランド品」を選ぶ）。
@@ -59,10 +60,20 @@ const shortCode = (p) => norm(stripNoise(p.code)).length < 4;
 // ★対象を拡張(2026-07-11・ユーザー指示「カタログ最大化・精度70%でOK」)：型番なしブランド品だけでなく
 //   「まだ確定していないブランド品(型番refineで落札0/不一致だった品も含む)」全般。時計も含める(文字盤は識別しやすい)。
 //   まず名前一致(無料)で確定を試み、曖昧な品だけ画像一致(AI)に回す＝コストを抑えつつ最大化。
-const isRefineCandidate = (p) => !!p.brand && !!p.imageUrl && p.ebayConfirmed !== true;
+//   トレカ(2026-07-20)はブランド欄が無い個体もあるため brand 必須を外す(名前+カード番号+グレードで照合する)。
+const isTcgCat = (p) => /^トレカ/.test(p.cat || "");
+const isRefineCandidate = (p) => (!!p.brand || isTcgCat(p)) && !!p.imageUrl && p.ebayConfirmed !== true;
+// トレカのPSAグレード(PSA10/PSA 9等)。ハードオフ名とeBayタイトルで「同一グレード」を必須にする＝PSA10とPSA9は価格が数倍違うため。
+const psaGradeOf = (s) => { const m = String(s || "").match(/PSA\s*(10|9(?:\.5)?|[1-8])/i); return m ? m[1] : null; };
 // 名前一致の要＝識別トークン。モデルコード様(英字+数字連結: d80/wm51/scph50000)を最優先、無ければライン名(数字なしの最長語)。
+// トレカ(2026-07-20)：カード番号(213/172・001/SV-P)とセットコード(PAC1-JP028/OP01-001)を最優先トークンに＝カードをピン留めする最強の識別子。
 const keyTokens = (name) => {
-  const s = String(name || "").toLowerCase();
+  const raw = String(name || "");
+  const cardNo = raw.match(/\b(\d{1,3}\s*\/\s*[A-Za-z0-9-]{1,8})\b/);            // カード番号 "213/172"・"001/SV-P"
+  const setNo = raw.match(/\b([A-Za-z]{2,5}\d{0,2}-[A-Za-z]{0,2}\d{2,3})\b/);    // セットコード "PAC1-JP028"・"OP01-001"
+  if (cardNo) return [cardNo[1].replace(/\s+/g, "")];
+  if (setNo) return [setNo[1]];
+  const s = raw.toLowerCase();
   const codes = (s.replace(/[-_]/g, "").match(/[a-z]+\d+[a-z0-9]*|\d+[a-z]+[a-z0-9]*/g) || []).filter((t) => t.length >= 3);
   if (codes.length) return [...new Set(codes)];
   const words = s.split(/[^a-z]+/).filter((t) => t.length >= 4 && !/^(with|body|used|only|the|and|for|new|pre|owned|vintage|japan|mint|near|rare|black|white|silver|gold)$/.test(t));
@@ -107,25 +118,42 @@ const titleHasKey = (title, keys) => keys.length > 0 && norm(title).includes(nor
   for (const p of order) {
     if (n >= LIMIT) break;
     n++;
-    // ① 日本語名 → 限定英語クエリ
-    const enName = await jaToEnglishBrandQuery(p.brand, p.name, p.cat);
+    // ① 日本語名 → 限定英語クエリ。トレカはカード番号(code欄)込みで変換＝番号がクエリと照合キーの本体。
+    const tcg = isTcgCat(p);
+    const jaName = tcg ? `${p.name} ${p.code || ""}`.trim() : p.name;
+    const enName = await jaToEnglishBrandQuery(p.brand, jaName, p.cat);
     if (!enName) { skipped++; console.log(`  ? ${(p.brand + " " + p.name).slice(0, 30)} 英語変換不可(AI不通/キー)→今回スキップ(unconfに入れない)`); continue; }
     p.enName = enName;
-    const q = enName;
-    p.ebaySoldUrl = soldUrl(q);
-    // ② eBay落札検索(中古限定)
+    let q = enName;
+    const grade = tcg ? psaGradeOf(`${p.name} ${p.code || ""}`) : null;
+    if (tcg) {
+      // PSAグレード/sealedをクエリに必ず含める＝同一グレード/未開封の落札だけが返るように検索段階から絞る。
+      if (grade && !new RegExp(`psa\\s*${grade}(?![0-9])`, "i").test(q)) q += ` psa ${grade}`;
+      if (p.cat === "トレカBOX" && !/sealed/i.test(q)) q += " sealed";
+    }
+    p.ebaySoldUrl = soldUrl(q, !tcg);
+    // ② eBay落札検索。通常=中古限定／トレカ=条件フィルタなし(PSA=Graded・未開封BOX=New扱いのため中古縛りだと出てこない)。
     let r;
-    try { r = await get(soldUrl(q), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
+    try { r = await get(soldUrl(q, !tcg), "https://www.ebay.com/"); } catch (e) { console.log(`  [err] ${q}: ${e.message.slice(0, 30)}`); await jitter(); continue; }
     if (r.status !== 200 || /captcha|verify you|Pardon/i.test(r.html.slice(0, 3000))) { blocked++; console.log(`  [検問] ${q}（再確認待ち）`); await jitter(); continue; }
     const { cards } = parseSoldWithin(r.html, WINDOW_DAYS, USD_JPY, false);
-    // 中古の実落札のみ(新品タイトル除外)・画像URLがあるもの。名前一致(無料)は広く NAME_TOP_N件・画像照合(AI)は上位 TOP_N件だけ(コストの蛇口)。
-    const topAll = cards.filter((c) => c.img && !isNew(c.cond) && !isNew(c.title)).slice(0, NAME_TOP_N);
+    // 通常＝中古の実落札のみ(新品タイトル除外)。トレカBOX＝sealed(新品)こそが本体なので新品除外を反転。
+    const allowNew = p.cat === "トレカBOX";
+    let pool = cards.filter((c) => c.img && (allowNew || (!isNew(c.cond) && !isNew(c.title))));
+    if (tcg) {
+      // ★グレード一致ロック：PSA10とPSA9は価格が数倍違う＝同一グレードの落札だけ採用。グレード不明の落札も除外(混入防止)。
+      if (grade) pool = pool.filter((c) => psaGradeOf(c.title) === grade);
+      // ★sealedロック(BOX/未開封)：タイトルにsealed系表記を必須・リシール/空箱は除外。
+      if (p.cat === "トレカBOX") pool = pool.filter((c) => /sealed|unopened|shrink|未開封/i.test(c.title) && !/resealed|empty/i.test(c.title));
+    }
+    const topAll = pool.slice(0, NAME_TOP_N);
     const top = topAll.slice(0, TOP_N);
-    if (!topAll.length) { unconf[unconfKey(p)] = nowIso; unconfirmed++; console.log(`  ・ ${q.slice(0, 30).padEnd(30)} 中古落札0件→確定せず`); await jitter(); continue; }
+    if (!topAll.length) { unconf[unconfKey(p)] = nowIso; unconfirmed++; console.log(`  ・ ${q.slice(0, 30).padEnd(30)} ${tcg ? "同条件の落札0件" : "中古落札0件"}→確定せず`); await jitter(); continue; }
 
     let med = null, matched = null, method = null;
-    // ③a 名前一致(無料・画像AIを叩かない)：識別トークン(型番/ライン名)を含む中古落札が MIN_NAME_MATCH件以上＋価格が揃えば確定。
-    const keys = keyTokens(enName);
+    // ③a 名前一致(無料・画像AIを叩かない)：識別トークン(型番/カード番号/ライン名)を含む落札が MIN_NAME_MATCH件以上＋価格が揃えば確定。
+    let keys = keyTokens(tcg ? `${p.name} ${p.code || ""}` : enName);
+    if (tcg && !keys.length) keys = keyTokens(enName); // 番号なしBOX等は英語名(セット名)でフォールバック
     const nameHits = topAll.filter((c) => titleHasKey(c.title, keys));
     if (nameHits.length >= MIN_NAME_MATCH) {
       const prices = nameHits.map((c) => c.price);

@@ -38,6 +38,7 @@ const DISPLAY_GENRE: Record<string, string> = {
   オーディオ: "オーディオ・楽器", 楽器: "オーディオ・楽器",
   バッグ: "ブランド品", メガネ: "ブランド品", 腕時計: "ブランド品",
   筆記具: "工具・筆記具", 工具: "工具・筆記具",
+  トレカ: "トレカ", トレカBOX: "トレカ", // PSA鑑定シングル＋未開封BOXを1つの表示ジャンルに(2026-07-20)
 };
 export function displayGenre(cat?: string | null): string {
   const c = cat || "中古";

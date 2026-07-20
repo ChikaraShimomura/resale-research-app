@@ -107,7 +107,8 @@ const matchCodeOf = (p) => {
     return out;
   };
   // 確定不能キャッシュに載ってる型番(TTL内)はスキップ＝バッチ枠を新規候補に集中(確定済みは再確認のため残す)。
-  const eligible = [...catalog].filter((p) => p.ebayConfirmed || !isUnconfFresh(norm(matchCodeOf(p))));
+  // トレカは型番レール対象外(name/imageレール担当)＝バッチ枠を消費させない。
+  const eligible = [...catalog].filter((p) => !/^トレカ/.test(p.cat || "") && (p.ebayConfirmed || !isUnconfFresh(norm(matchCodeOf(p)))));
   const order = [
     ...roundRobinByGenre(eligible.filter((p) => pri(p) === 0)), // 未確認（ジャンル交互で均等に）
     ...roundRobinByGenre(eligible.filter((p) => pri(p) === 1)), // 未確定の再挑戦（ジャンル交互）
@@ -137,6 +138,9 @@ const matchCodeOf = (p) => {
     const codeN = norm(code);
     // ★p.ebayChecked=true は「実際にeBayで確認できた」印。ブロック/エラーでは付けない＝取りこぼしを除外せず次回再確認。
     if (codeN.length < 4 || !p.brand) { p.ebayConfirmed = false; p.ebayChecked = true; console.log(`  ・ ${q} 型番が短い/無→相場確定せず（除外）`); continue; } // ★短コードは unconf に記録しない(断片キーが他型番と衝突し正当な品を誤スキップするため)
+    // ★トレカ(2026-07-20)は型番レール対象外＝name/imageレール(refineUsedCatalogImage)が「同一カード番号+同一PSAグレード/sealed」で確定する。
+    //   カード番号("213/172"等)をブランド+型番で検索すると無関係品を引きeBay枠を浪費するため、ここでは検索せず素通し(ebayCheckedも付けない=レールに残す)。
+    if (/^トレカ/.test(p.cat || "")) continue;
     // ★時計のキャリバー+ケース製番(例 "U600 T012531"/"E660 S118298")はeBayタイトルに出ず、ブランド+全コード検索は無関係品(Lenovo/Ford等)を
     //   引いてeBay枠を浪費するだけ→検索せずスキップ(枠温存＝captcha回避)。誤スキップ防止：2トークン目が長い製番(≥6字・英数字混在)の時だけ＝短い実ref(T1000等)は救う。
     if (p.cat === "腕時計" && /^[A-Za-z0-9]{2,5}\s+(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6,}$/.test(stripNoise(p.code || ""))) {

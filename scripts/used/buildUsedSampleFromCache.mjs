@@ -6,7 +6,7 @@
 // 住宅IP・低頻度（ハードオフのみ・逐次+待ち）。サンプル件数とカタログをKV used_catalog に書き、Resendでメール送信する。
 import fs from "node:fs";
 import { fetchHardoff } from "./fetchHardoff.mjs";
-import { USED_GENRE_KW, BRAND_USED_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
+import { USED_GENRE_KW, BRAND_USED_KW, TCG_CAT_KW, PROHIBITED_EXCLUDE } from "../ebayQueries.mjs";
 import { landedSubtractJpy, ebayFeeRate, ebayFeeFixedJpy } from "../../app/lib/ebay/landedCostCore.mjs";
 import { upscaleImageflux } from "../../app/lib/imagefluxUpscale.mjs"; // imageFluxの小サムネURL→原寸級(1280px)。既存catalogをmergeした古い小URLもpsnapに焼く前に原寸化。
 
@@ -47,6 +47,8 @@ const NONWATCH = /ダイワ|DAIWA|シマノ|SHIMANO|メジャークラフト|MAJ
 // カテゴリ名(シードのname)→表示カテゴリ。商品カードの「ジャンル」バッジに出す。
 function genreOf(category) {
   const c = category || "";
+  // トレカ(2026-07-20)：PSA鑑定シングル=トレカ／未開封BOX・パック=トレカBOX(重量が別=WEIGHT_G)。他バケツより先に判定(カード名の誤爆防止)。
+  if (TCG_CAT_KW.test(c)) return /BOX|未開封/i.test(c) ? "トレカBOX" : "トレカ";
   if (/腕時計|ウォッチ|セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|ダイバー|クロノグラフ|watch|ハミルトン|タイメックス|スウォッチ/i.test(c)) return "腕時計";
   if (/レンズ|フィルムカメラ|一眼|カメラ|デジカメ|ミラーレス|ボディ|キヤノン|キャノン|ニコン|フジフイルム|富士フイルム|オリンパス|ペンタックス|ライカ|コンタックス|LUMIX|パナソニック|シグマ|タムロン/i.test(c)) return "カメラ";
   if (/ファミコン|スーパーファミコン|ニンテンドー|任天堂|NINTENDO|ゲームボーイ|ゲームキューブ|セガ|サターン|ドリームキャスト|メガドライブ|プレイステーション|プレステ|PSP|Vita|ゲーム機|コントローラー|本体/i.test(c)) return "ゲーム機";
@@ -77,8 +79,9 @@ async function loadCategories() {
     return { category, ebayMedian, soldCount, n: arr.length, query: category };
   });
   // ハードオフ中古の本領ジャンル＋値ごろ（中央¥6000以上）＋非除外。需要(soldCount)順。
+  // トレカ(TCG_CAT_KW=PSA/未開封BOX限定カテゴリ)は EXCLUDE のカード語より優先して通す(無鑑定バラのカテゴリは従来どおり除外)。
   return cats
-    .filter((c) => c.ebayMedian >= 6000 && (USED_GENRE_KW.test(c.category) || BRAND_USED_KW.test(c.category)) && !EXCLUDE.test(c.category))
+    .filter((c) => c.ebayMedian >= 6000 && (USED_GENRE_KW.test(c.category) || BRAND_USED_KW.test(c.category) || TCG_CAT_KW.test(c.category)) && (!EXCLUDE.test(c.category) || TCG_CAT_KW.test(c.category)))
     .sort((a, b) => b.soldCount - a.soldCount);
 }
 
@@ -131,10 +134,21 @@ async function loadCategories() {
       if (!it.imageUrl) continue; // ★画像なしは掲載しない（空カード＆出品時に写真ゼロを防ぐ）
       if (NONWATCH.test(`${it.brand} ${it.name}`)) continue; // 釣具等の非時計を除外
       if (PROHIBITED_EXCLUDE.test(`${it.brand} ${it.name}`)) continue; // 【厳命】航空危険物/国際発送不可は絶対に対象外
+      // ★トレカ(2026-07-20)の個体レベル絞り：PSA鑑定 or 未開封/シュリンク の個体だけ。無鑑定バラ・まとめ/オリパ/引退品は除外
+      //   (旧EXCLUDEの除外理由=バラ/まとめとの誤マッチをここで防ぐ)。開封済み表記も除外。
+      const isTcg = catGenre === "トレカ" || catGenre === "トレカBOX";
+      if (isTcg) {
+        const t = `${it.brand} ${it.name} ${it.code || ""}`;
+        if (!/PSA\s*\d|未開封|シュリンク/i.test(t)) continue;
+        if (/まとめ|オリパ|引退|大量|セット売り|開封済/i.test(t)) continue;
+      }
       // ※ジャンク(動作未確認/部品取り)も掲載対象にする（ユーザー指示2026-06-27）。出品時に状態を説明文で明示してクレーム回避。
       const ratio = it.price / c.ebayMedian;
       // ガード：仕入れがeBay中央の15〜80%（ミスマッチ＝極端に安い/高いを除外）。
-      if (ratio < 0.15 || ratio > 0.8) continue;
+      //   トレカはカード単位で価格が桁違いに散る＝カテゴリ中央値の帯が機能しないため広げる(0.05〜2.5)。
+      //   最終価格は name/imageレールの「同一カード・同一グレード」確定が正すので、ここは粗い入口で良い。
+      const [rLo, rHi] = isTcg ? [0.05, 2.5] : [0.15, 0.8];
+      if (ratio < rLo || ratio > rHi) continue;
       const net = netProfitJPY(it.price, c.ebayMedian, catGenre);
       const roi = it.price > 0 ? net / it.price : 0; // 利益率＝純利益÷仕入れ値(ROI)。配信(getUsedCatalog)と同じ定義で判定する。
       // 採用条件は「対仕入れ10%以上」だけ（純益の絶対額フロアは撤廃・ユーザー指示2026-06-28）。
