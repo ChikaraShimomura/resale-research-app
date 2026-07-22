@@ -22,7 +22,7 @@
 //   EBAY_SOLD_DRY=0 node scripts/ebaySoldWorker.mjs                    # 本書込
 
 import fs from "node:fs";
-import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE, USED_GENRE_KW, BRAND_USED_KW } from "./ebayQueries.mjs";
+import { EBAY_JP_QUERIES, PROHIBITED_EXCLUDE, USED_GENRE_KW, BRAND_USED_KW, TCG_CAT_KW } from "./ebayQueries.mjs";
 import { decodeHtmlEntities } from "../app/lib/htmlEntities.mjs";
 try {
   const envPath = new URL("../.env.local", import.meta.url);
@@ -183,7 +183,7 @@ async function discoverSeeds() {
   const WATCH_KW = /セイコー|シチズン|カシオ|Gショック|G-?SHOCK|オリエント|オシアナス|アテッサ|プロマスター|エディフィス|プロトレック|ロイヤルAE|F91W|腕時計|ウォッチ|watch/i;
   let queries = EBAY_JP_QUERIES;
   let mode = "";
-  if (process.env.EBAY_USED_GENRES === "1") { queries = queries.filter((x) => USED_GENRE_KW.test(x.name) || USED_GENRE_KW.test(x.q) || BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q)); mode = "（中古ジャンル＋ブランド品）"; }
+  if (process.env.EBAY_USED_GENRES === "1") { queries = queries.filter((x) => USED_GENRE_KW.test(x.name) || USED_GENRE_KW.test(x.q) || BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q) || TCG_CAT_KW.test(x.name)); mode = "（中古ジャンル＋ブランド品＋トレカ）"; } // ★TCG_CAT_KW追加(2026-07-22)：入れ忘れでトレカクエリが発掘対象にならず種ゼロだったバグ修正
   else if (process.env.EBAY_WATCH_ONLY === "1") { queries = queries.filter((x) => WATCH_KW.test(x.name) || WATCH_KW.test(x.q)); mode = "（時計のみ）"; }
   // 毎回シャッフル：検問(captcha)で途中停止しても、複数回の実行で全キーワード(末尾の新ジャンル含む)に取得機会が回る＝飢餓防止。
   queries = [...queries];
@@ -193,14 +193,18 @@ async function discoverSeeds() {
     //   種がなかなか溜まらず SEED_TTL(7日)で失効する→カタログにバッグ/財布/ジュエリーが出てこない(2026-07-09診断:種3497件中ブランドは3カテゴリのみ)。
     //   毎回【最低 EBAY_SOLD_BRAND_MIN(既定18) 件のブランドクエリを必ず含める】＝ブランド種を確実に立ち上げ&更新。残り枠は一般クエリのランダム。
     //   一般カタログは既に成熟＋確定は used_catalog に carry-forward され消えないので、一般の巡回が少し遅れても崩れない。ブランド供給が立ったら BRAND_MIN を下げる。
-    const isBrand = (x) => BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q);
+    const isTcg = (x) => TCG_CAT_KW.test(x.name);
+    const isBrand = (x) => !isTcg(x) && (BRAND_USED_KW.test(x.name) || BRAND_USED_KW.test(x.q));
+    const tcgAll = queries.filter(isTcg);              // トレカ(PSA/未開封BOX)=7本のみ。毎回TCG_MIN本を必ず含め種を確実に立ち上げる(2026-07-22)。
     const brandAll = queries.filter(isBrand);          // 既にシャッフル済み＝毎回違う順で回る
-    const rest = queries.filter((x) => !isBrand(x));
+    const rest = queries.filter((x) => !isBrand(x) && !isTcg(x));
     const BRAND_MIN = Number(process.env.EBAY_SOLD_BRAND_MIN) || 18;
-    const brandPick = brandAll.slice(0, Math.min(BRAND_MIN, brandAll.length, DISCOVER_KW_MAX));
-    const fill = Math.max(0, DISCOVER_KW_MAX - brandPick.length);
-    queries = [...brandPick, ...rest.slice(0, fill)];
-    console.log(`  内訳: ブランド${brandPick.length}(全${brandAll.length}中・必ず優先) + 一般${queries.length - brandPick.length}`);
+    const TCG_MIN = Number(process.env.EBAY_SOLD_TCG_MIN) || 4;
+    const tcgPick = tcgAll.slice(0, Math.min(TCG_MIN, tcgAll.length, DISCOVER_KW_MAX));
+    const brandPick = brandAll.slice(0, Math.min(BRAND_MIN, brandAll.length, Math.max(0, DISCOVER_KW_MAX - tcgPick.length)));
+    const fill = Math.max(0, DISCOVER_KW_MAX - tcgPick.length - brandPick.length);
+    queries = [...tcgPick, ...brandPick, ...rest.slice(0, fill)];
+    console.log(`  内訳: トレカ${tcgPick.length}(全${tcgAll.length}中・必ず優先) + ブランド${brandPick.length}(全${brandAll.length}中・必ず優先) + 一般${queries.length - tcgPick.length - brandPick.length}`);
   }
   console.log(`  実行キーワード数: ${queries.length}${mode}`);
   const seeds = [];
