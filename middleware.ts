@@ -60,6 +60,20 @@ function buildCsp(nonce: string): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ★サービス終了(2026-07-22 ユーザー指示「輸出ラボを畳む」)：全ページを /closed(終了のお知らせ)へ。
+  //   除外＝/closed自身・法務ページ(特商法/プライバシー/規約=閉鎖後も掲示)・/api/*(トレカバンクcron・Stripe webhook(返金/解約イベント)・
+  //   eBayアカウント削除通知(開発者アカウントのコンプラ要件)を生かすため。費用が出るAPIは各routeで個別に410/no-op済み)。
+  //   再開はこの定数を false に。
+  const SERVICE_CLOSED = true;
+  if (
+    SERVICE_CLOSED &&
+    !pathname.startsWith("/api/") &&
+    pathname !== "/closed" &&
+    pathname !== "/legal" && pathname !== "/privacy" && pathname !== "/terms"
+  ) {
+    return NextResponse.rewrite(new URL("/closed", req.url));
+  }
+
   // メンテナンスモード: 全ページを /sorry に切替（APIと /sorry 自身は除外）。
   // 2026-06-26 中古カタログ移行が一段落したので解除（false）。再度全停止したい時は true / Vercel env MAINTENANCE_MODE=1。
   const MAINTENANCE_REBUILD = false;
