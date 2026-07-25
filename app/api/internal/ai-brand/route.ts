@@ -22,6 +22,11 @@ function authOk(req: Request): boolean {
 }
 
 export async function POST(req: Request) {
+  // ⏸ 2026-07-22 輸出ラボ畳み(ユーザー指示)：AIプロキシを閉鎖＝Anthropic支出の元栓。ワーカーが誤って再起動しても課金されない。
+  //   再開は SERVICE_SHUTDOWN=0 か本ガード削除。
+  if (process.env.SERVICE_SHUTDOWN !== "0") {
+    return Response.json({ error: "shutdown", note: "輸出ラボ畳み中(2026-07-22)＝AIプロキシ停止" }, { status: 410 });
+  }
   if (!authOk(req)) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) return Response.json({ error: "ai-not-configured" }, { status: 503 });
   const body = (await req.json().catch(() => ({}))) as {

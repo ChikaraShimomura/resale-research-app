@@ -12,6 +12,7 @@ on:
 
 jobs:
   radar:
+    if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
     # 2026-06-29 再開(ユーザー指示)。2026-06-25にコスト停止していたXリプ候補レーダーを再稼働。
     #   ⚠️ X読み取り(recent search・Basic以上が必要)＋Anthropic分類で課金が出る。cron-job.orgが毎日20:00 JSTに dispatch。
     #   再び止めたい時は次行に `if: ${{ false }}` を足すだけ（cron-job.orgが叩いてもskip＝課金ゼロ）。

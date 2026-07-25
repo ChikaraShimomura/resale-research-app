@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   check-listings:
+    if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
     runs-on: ubuntu-latest
     timeout-minutes: 25
 

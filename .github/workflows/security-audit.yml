@@ -4,7 +4,7 @@ name: セキュリティ脆弱性スキャン（依存・定期）
 # を継続的に満たすための定期ジョブ。毎週 npm audit を実行し、high以上が出たらメール通知（→Dependabot/手動で修正対応）。
 on:
   schedule:
-    - cron: "0 0 * * 1" # 毎週月曜 09:00 JST（00:00 UTC）
+    # ⏸ 2026-07-22 輸出ラボ畳みで停止: - cron: "0 0 * * 1" # 毎週月曜 09:00 JST（00:00 UTC）
   workflow_dispatch:
 
 jobs:

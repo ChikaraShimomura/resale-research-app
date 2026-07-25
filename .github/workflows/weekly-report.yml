@@ -5,7 +5,7 @@ name: Weekly Report (週次ファネルメール)
 # route( /api/report/weekly )を CRON_SECRET 付きで叩くだけ。実際のメール送信は route 側が行う。
 on:
   schedule:
-    - cron: "0 0 * * 1"   # 毎週月曜 00:00 UTC = 09:00 JST
+    # ⏸ 2026-07-22 輸出ラボ畳みで停止: - cron: "0 0 * * 1"   # 毎週月曜 00:00 UTC = 09:00 JST
   workflow_dispatch: {}
 
 env:

@@ -14,6 +14,7 @@ on:
 
 jobs:
   tweet:
+    if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
     # ▶ 2026-06-28 再開（中古リサーチへ全面アライン後）。一時停止する時はこのジョブに `if: ${{ false }}` を足すだけ。
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -35,6 +35,11 @@ function upHtml(beat: Wlog | null) {
 }
 
 export async function GET(req: Request) {
+  // ⏸ 2026-07-22 輸出ラボ畳み(ユーザー指示)：ワーカー(Pixel)は恒久停止のため、死活監視は警報を出さず常にokを返す。
+  //   これが無いと down警報→24hごとの再通知が永遠に届く。cron-job.org側のジョブ削除後もこのno-opは無害。再開は SERVICE_SHUTDOWN=0 か本ガード削除。
+  if (process.env.SERVICE_SHUTDOWN !== "0") {
+    return Response.json({ ok: true, down: false, action: "shutdown", note: "輸出ラボ畳み中＝監視停止(2026-07-22)" });
+  }
   // 認証: ?secret= か Authorization: Bearer。専用の OPS_ALERT_SECRET を優先(無ければ CRON_SECRET)。
   // ＝Vercelのsensitiveで見れない CRON_SECRET を掘らずに、新しい既知の値(OPS_ALERT_SECRET)を1個作って使える。
   const secret = process.env.OPS_ALERT_SECRET || process.env.CRON_SECRET;
