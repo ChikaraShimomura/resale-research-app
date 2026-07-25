@@ -4,8 +4,9 @@ name: Weekly Report (週次ファネルメール)
 # Vercel cron から GitHub Actions に一本化（スケジュールは全部 GitHub Actions に集約）。
 # route( /api/report/weekly )を CRON_SECRET 付きで叩くだけ。実際のメール送信は route 側が行う。
 on:
-  schedule:
-    # ⏸ 2026-07-22 輸出ラボ畳みで停止: - cron: "0 0 * * 1"   # 毎週月曜 00:00 UTC = 09:00 JST
+  # ⏸ 2026-07-22 輸出ラボ畳みで停止(scheduleキーごと無効化=空のscheduleは無効YAMLでfailure通知が飛ぶため):
+  # schedule:
+  #   - cron: "0 0 * * 1"   # 毎週月曜 00:00 UTC = 09:00 JST
   workflow_dispatch: {}
 
 env:
