@@ -22,11 +22,11 @@ import { pathToFileURL } from "node:url";
 const SOURCE_URL = "https://store.torecabank.com/kaitori_list";
 const BASE = "https://store.torecabank.com/";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
-const MIN_REMAINING = Number(process.env.MIN_REMAINING || 30); // 残り点数下限の基本値（買取10万円未満に適用）
-// 残り点数の下限は買取額で段階化: 50万円以上=20点 / 10万円以上=30点 / それ未満=MIN_REMAINING。
-// 2026-07-11ユーザー指示「10万円以下は一律30枚」→基本値50→30(＝50万未満は一律30点以上)。高額品は残り少なくても1点の妙味が大きい。
-const minRemainFor = (price) => (price >= 500000 ? 20 : price >= 100000 ? 30 : MIN_REMAINING);
+const MIN_REMAINING = Number(process.env.MIN_REMAINING || 5); // 残り点数の下限（全金額帯で一律）
+// 2026-07-26ユーザー指示「点数は全金額で5件以上あればリスト化していい」＝買取額での段階制(50万↑20点/10万↑30点)を廃止し一律5点以上に。
+const minRemainFor = () => MIN_REMAINING;
 const MAX_PRICE = Number(process.env.MAX_PRICE) || 0; // 買取額の上限（円）。0=上限なし（ユーザー指示2026-07-09: 5万上限を解除）
+const MIN_PRICE = Number(process.env.MIN_PRICE ?? 30000); // 買取額の下限（円）。これ以下は掲載しない。2026-07-26ユーザー指示「3万以下はリストに上げない」。0=下限なし
 const EXCLUDE_BOX = process.env.EXCLUDE_BOX !== "0"; // 既定=未開封BOX除外
 const MAIL_FROM = process.env.MAIL_FROM || "トレカバンク買取ウォッチ <noreply@yushutsu-fukugyo.com>";
 const parseAddrs = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -170,6 +170,7 @@ function loungeOnlyItems(tlProducts, tbAll) {
   for (const t of tlProducts) {
     if (t.grade !== "PSA10") continue;
     if (!t.modelNumber) continue; // 型番なし=「最低保証」等のカードでない疑似商品・照合不能のため対象外
+    if (!(Number(t.price) > MIN_PRICE)) continue; // 買取下限(既定3万円超)を本体リストと統一(2026-07-26ユーザー指示)
     const names = tbIdx.get(`${t.modelNumber}|${t.grade}`);
     if (names && names.some((n) => n.full.includes(t.base) || (n.card.length >= 3 && t.base.includes(n.card)))) continue; // TBにある
     const k = `${t.base}|${t.modelNumber}`;
@@ -243,7 +244,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     <div class="wrap">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取50万円↑は20点↑・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
+        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（残り${MIN_REMAINING}点↑・買取${yen(MIN_PRICE)}超・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
         <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
         ${tlHigher ? `<span class="lg">緑「ラウンジ ¥…▲」=トレカラウンジ(郵送)の方が買取が高い ${tlHigher}件</span><br>` : ""}
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
@@ -315,7 +316,7 @@ export async function main() {
   // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
   const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
   const rows = all
-    .filter((p) => Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+    .filter((p) => Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && Number(p.buy_price) > MIN_PRICE && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base), tl: loungePriceFor(p, tl.map) }; })
     .sort((a, b) => {
       if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
@@ -328,7 +329,7 @@ export async function main() {
   const TL_ONLY_MAX = 25;
   const tlOnlyAll = loungeOnlyItems(tl.products, all);
   const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
-  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点↑(50万↑=20点)・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
+  console.log(`[torecabank] 毎日リスト: 残り${MIN_REMAINING}点↑・買取${yen(MIN_PRICE)}超・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
 
   let html2 = buildListHtml(rows, { date }, weekMap, { items: tlOnlyAll.slice(0, TL_ONLY_MAX), total: tlOnlyAll.length });
   // Gmailは102KB超を切り詰めて表示が崩れる→超えそうならラウンジのみセクションを削って本体リストを守る。
