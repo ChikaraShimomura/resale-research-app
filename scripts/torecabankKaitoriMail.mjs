@@ -1,15 +1,17 @@
 // トレカバンクの「本日の買取表」から抽出して【毎日フルリスト】をメールする（ユーザー指示2026-07-11。旧・月曜リスト＋火〜日金額の2モード制は廃止）:
-//   残り点数の下限は買取額で段階(50万↑=20点/未満=一律MIN_REMAINING(30)点)・MAX_PRICE(既定0=上限なし)・BOX除外 のリストを毎日送信。
+//   ポケモンのみ・残り5点以上・買取2.5万〜32万円・BOX除外 のリストを朝10時＋夕18時に送信（各回で最新データ取得）。
 //   各行に【前日比＝前日からいくらプラスになったか】を表示し、値上がり→値下がり→変動なし→NEW の順に並べる。
 // 依存ゼロ（Node18+ の fetch のみ）。データはページHTMLの `const allProducts = [...]` 埋め込みを取るだけ＝APIキー/ブラウザ不要。
 //
 // 価格履歴: 毎回 全商品の買取額を KV `tb_price_snap:YYYY-MM-DD`(JST)に1日1キー保存。前日/前週比の基準に使う。
-// 送信は Resend。RESEND_API_KEY 未設定 or `--dry` ならプレビューのみ（非破壊）。cron2系統の二重送信は tb_sent:{date} で防ぐ。
+// 送信は Resend。RESEND_API_KEY 未設定 or `--dry` ならプレビューのみ（非破壊）。配信は朝10時＋夕18時の1日2通(各回で最新データを取得)。
+// cron2系統の二重送信はスロット別ガード tb_sent:{date}:{am|pm} で防ぐ(朝の送信が夕方をブロックしない)。
 //
 // env:
 //   RESEND_API_KEY / MAIL_FROM / MAIL_TO(カンマ区切り可) / MAIL_BCC(Bcc・カンマ区切り可)
-//   MIN_REMAINING   リストの残り点数の下限（既定: 50）
-//   MAX_PRICE       買取額の上限・円（0=上限なし。既定0＝ユーザー指示2026-07-09で5万上限を解除）
+//   MIN_REMAINING   リストの残り点数の下限（既定: 5・全金額帯一律）
+//   MIN_PRICE / MAX_PRICE   買取額の下限/上限・円（既定 25000〜320000。0で無効化）
+//   TB_CATEGORY_IDS 対象カテゴリ（既定"1"=ポケモンのみ。"1,3"等で複数）
 //   EXCLUDE_BOX     "0"で未開封BOXも含める（既定はBOX除外）
 //   KV_REST_API_URL / KV_REST_API_TOKEN   価格履歴＋送信済みガード
 //   FORCE_SEND      "1"で本日送信済みガードを無視して必ず送る（手動再送）
@@ -25,8 +27,8 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const MIN_REMAINING = Number(process.env.MIN_REMAINING || 5); // 残り点数の下限（全金額帯で一律）
 // 2026-07-26ユーザー指示「点数は全金額で5件以上あればリスト化していい」＝買取額での段階制(50万↑20点/10万↑30点)を廃止し一律5点以上に。
 const minRemainFor = () => MIN_REMAINING;
-const MAX_PRICE = Number(process.env.MAX_PRICE) || 0; // 買取額の上限（円）。0=上限なし（ユーザー指示2026-07-09: 5万上限を解除）
-const MIN_PRICE = Number(process.env.MIN_PRICE ?? 30000); // 買取額の下限（円）。これ以下は掲載しない。2026-07-26ユーザー指示「3万以下はリストに上げない」。0=下限なし
+const MAX_PRICE = Number(process.env.MAX_PRICE ?? 320000); // 買取額の上限（円・以下）。2026-08-05ユーザー指示「32万以下のみ」。0=上限なし
+const MIN_PRICE = Number(process.env.MIN_PRICE ?? 25000); // 買取額の下限（円・以上）。2026-08-05ユーザー指示「2.5万以上」(旧: 3万超)。0=下限なし
 // 対象カテゴリ（トレカバンクの category_id）。実データ確認: 1=ポケモン(572件)/2=ワンピース(52)/3=遊戯王(159)/4=ホロライブ等(149)。
 // 2026-07-29ユーザー指示「ポケモンだけに絞って」＝既定"1"。複数入れる時はカンマ区切り(例 TB_CATEGORY_IDS="1,3")。
 const CATEGORY_IDS = String(process.env.TB_CATEGORY_IDS ?? "1").split(",").map((s) => s.trim()).filter(Boolean);
@@ -46,7 +48,12 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
 const KV_ON = Boolean(KV_URL && KV_TOKEN);
 const SNAP_KEY = (day) => `tb_price_snap:${day}`;
 const SNAP_TTL = 14 * 24 * 60 * 60;
-const SENT_KEY = (day) => `tb_sent:${day}`;
+// 送信スロット(朝=10時台/夕=18時台)。2026-08-05ユーザー指示「夕方18時にも送る」＝1日2通体制。
+// ★呼び出し時に毎回判定する(モジュール定数にしない)＝Vercelのwarm lambdaが朝→夕をまたいで生存してもスロットが古くならない。
+const slotOf = () => (jstNow().getUTCHours() < 15 ? "am" : "pm");
+const slotLabel = () => (slotOf() === "am" ? "朝" : "夕");
+// 送信済みガードはスロット別＝朝の2系統同士/夕の2系統同士では二重送信を防ぎ、朝送信が夕方をブロックしない。
+const SENT_KEY = (day) => `tb_sent:${day}:${slotOf()}`;
 const SENT_TTL = 2 * 24 * 60 * 60;
 
 // JSTの曜日/日付。cronはUTCだが、この時点の実時刻をJSTに寄せて判定する（10:00JST=01:00UTCでも正しい日付/曜日が出る）。
@@ -55,7 +62,8 @@ const jstDay = (offsetDays = 0) => new Date(Date.now() + 9 * 3600e3 + offsetDays
 const WD_LABEL = ["日", "月", "火", "水", "木", "金", "土"][jstNow().getUTCDay()];
 
 const yen = (n) => "¥" + Number(n || 0).toLocaleString("ja-JP");
-const priceCapLabel = MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下・` : ""; // 上限ありの時だけ表示（0=無制限は表示しない）
+// 価格帯ラベル(例「買取¥25,000〜¥320,000」)。下限/上限は0で無効化でき、表記も自動で追従する。
+const priceRangeLabel = MIN_PRICE > 0 && MAX_PRICE > 0 ? `買取${yen(MIN_PRICE)}〜${yen(MAX_PRICE)}` : MIN_PRICE > 0 ? `買取${yen(MIN_PRICE)}以上` : MAX_PRICE > 0 ? `買取${yen(MAX_PRICE)}以下` : "買取額制限なし";
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const keyOf = (p) => `${p.product_type_name}|${p.product_master_key1}|${p.product_master_key2}|${p.product_master_name}`;
 const gradeBadge = (g) => `<span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:${/BOX/i.test(g) ? "#0d9488" : "#A98B5C"}">${esc(g)}</span>`;
@@ -175,7 +183,7 @@ function loungeOnlyItems(tlProducts, tbAll) {
   for (const t of tlProducts) {
     if (t.grade !== "PSA10") continue;
     if (!t.modelNumber) continue; // 型番なし=「最低保証」等のカードでない疑似商品・照合不能のため対象外
-    if (!(Number(t.price) > MIN_PRICE)) continue; // 買取下限(既定3万円超)を本体リストと統一(2026-07-26ユーザー指示)
+    if (!(Number(t.price) >= MIN_PRICE) || (MAX_PRICE > 0 && Number(t.price) > MAX_PRICE)) continue; // 買取価格帯(既定2.5万〜32万)を本体リストと統一
     const names = tbIdx.get(`${t.modelNumber}|${t.grade}`);
     if (names && names.some((n) => n.full.includes(t.base) || (n.card.length >= 3 && t.base.includes(n.card)))) continue; // TBにある
     const k = `${t.base}|${t.modelNumber}`;
@@ -249,7 +257,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     <div class="wrap">
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
-        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（${categoryLabel}・残り${MIN_REMAINING}点↑・買取${yen(MIN_PRICE)}超・${priceCapLabel}${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
+        ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（${categoryLabel}・残り${MIN_REMAINING}点↑・${priceRangeLabel}・${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
         <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
         ${tlHigher ? `<span class="lg">緑「ラウンジ ¥…▲」=トレカラウンジ(郵送)の方が買取が高い ${tlHigher}件</span><br>` : ""}
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
@@ -321,7 +329,7 @@ export async function main() {
   // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
   const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
   const rows = all
-    .filter((p) => CATEGORY_IDS.includes(String(p.category_id)) && Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && Number(p.buy_price) > MIN_PRICE && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
+    .filter((p) => CATEGORY_IDS.includes(String(p.category_id)) && Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && Number(p.buy_price) >= MIN_PRICE && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base), tl: loungePriceFor(p, tl.map) }; })
     .sort((a, b) => {
       if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
@@ -334,7 +342,7 @@ export async function main() {
   const TL_ONLY_MAX = 25;
   const tlOnlyAll = loungeOnlyItems(tl.products, all);
   const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
-  console.log(`[torecabank] 毎日リスト: ${categoryLabel}・残り${MIN_REMAINING}点↑・買取${yen(MIN_PRICE)}超・${priceCapLabel || "上限なし・"}${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
+  console.log(`[torecabank] 毎日リスト: ${categoryLabel}・残り${MIN_REMAINING}点↑・${priceRangeLabel}・${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
 
   let html2 = buildListHtml(rows, { date }, weekMap, { items: tlOnlyAll.slice(0, TL_ONLY_MAX), total: tlOnlyAll.length });
   // Gmailは102KB超を切り詰めて表示が崩れる→超えそうならラウンジのみセクションを削って本体リストを守る。
@@ -342,7 +350,7 @@ export async function main() {
     html2 = buildListHtml(rows, { date }, weekMap, { items: [], total: 0 });
     console.warn("[torecabank] 102KB接近のためラウンジのみセクションを省略");
   }
-  const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}）`;
+  const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}・${slotLabel()}）`;
 
   // 価格スナップショット保存（毎日・1キー）。翌日の前日比の基準になる。
   if (KV_ON && !DRY) { try { await kvCmd(["SET", SNAP_KEY(jstDay(0)), JSON.stringify(todayMap), "EX", String(SNAP_TTL)]); console.log(`[kv] スナップショット保存 ${SNAP_KEY(jstDay(0))}（${Object.keys(todayMap).length}件）`); } catch (e) { console.warn("[kv] スナップショット保存失敗:", e.message); } }

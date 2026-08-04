@@ -10,6 +10,8 @@ on:
     # 毎日10:00 JST(ユーザー指示2026-07-11)。JST=UTC+9 → 10:00 JST=01:00 UTC。曜日判定はスクリプト側(JST)。
     - cron: '5 1 * * *'    # 毎日 約10:05 JST（GitHub予備）
     - cron: '0 2 * * *'    # 毎日 約11:00 JST（GitHub予備の予備）。主系統は Vercel Cron(10:00)。
+    - cron: '5 9 * * *'    # 毎日 約18:05 JST（夕方便のGitHub予備）。主系統は Vercel Cron(18:00)。2026-08-05 1日2通化。
+    - cron: '0 10 * * *'   # 毎日 約19:00 JST（夕方便の予備の予備）。二重送信はスロット別ガード tb_sent:{date}:{am|pm} が防ぐ。
   workflow_dispatch:
   push:
     paths:
