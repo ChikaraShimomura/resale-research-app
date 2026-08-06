@@ -258,7 +258,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
       <h2 style="font-size:17px;margin:0 0 4px">トレカバンク 買取リスト</h2>
       <p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.6">
         ${meta.date}(${WD_LABEL}) 時点 ／ 対象 <b>${rows.length}件</b>（${categoryLabel}・残り${MIN_REMAINING}点↑・${priceRangeLabel}・${EXCLUDE_BOX ? "未開封BOX除外" : "BOX含む"}）<br>
-        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比・<b>値上がり→値下がり→変動なし順</b>）<br>
+        <span style="color:#16a34a;font-weight:700">▲上昇 ${up}</span> ／ <span style="color:#ef4444;font-weight:700">▼下落 ${down}</span>${fresh ? ` ／ NEW ${fresh}` : ""} 件（前日比）／ <b>残り点数が多い順</b><br>
         ${tlHigher ? `<span class="lg">緑「ラウンジ ¥…▲」=トレカラウンジ(郵送)の方が買取が高い ${tlHigher}件</span><br>` : ""}
         ※ グレード品(PSA10等)の買取額は鑑定済み前提。Mercariで仕入れる際はグレードを合わせること。
       </p>`;
@@ -310,7 +310,7 @@ export async function main() {
     try { const already = await kvCmd(["GET", SENT_KEY(jstDay(0))]); if (already) { console.log(`[torecabank] 本日分は送信済み＝スキップ`); return; } } catch (e) { console.warn("[guard] 送信済み確認に失敗（続行）:", e.message); }
   }
 
-  const res = await fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" } });
+  const res = await fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: AbortSignal.timeout(20000) });
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const all = extractProducts(await res.text());
   const todayMap = {}; for (const p of all) todayMap[keyOf(p)] = Number(p.buy_price); // スナップショット用（key→価格）
@@ -326,17 +326,11 @@ export async function main() {
   }
   const tl = await fetchLounge();
 
-  // 対象抽出＋前日比を付与し、値上がり→値下がり→変動なし→NEW順に（各グループ内は変動幅/金額の大きい順）。
-  const grp = (r) => (r.diff == null ? 3 : r.diff > 0 ? 0 : r.diff < 0 ? 1 : 2);
+  // 対象抽出＋前日比を付与し、【残り点数が多い順】に（ユーザー指示2026-07-13。旧・値上がり順グループを置換。同数は金額の高い順）。
   const rows = all
     .filter((p) => CATEGORY_IDS.includes(String(p.category_id)) && Number(p.remaining_quantity) >= minRemainFor(Number(p.buy_price)) && Number(p.buy_price) >= MIN_PRICE && (MAX_PRICE <= 0 || Number(p.buy_price) <= MAX_PRICE) && !(EXCLUDE_BOX && /BOX/i.test(p.product_type_name)))
     .map((p) => { const base = prevMap ? prevMap[keyOf(p)] : null; return { p, diff: base == null ? null : Number(p.buy_price) - Number(base), tl: loungePriceFor(p, tl.map) }; })
-    .sort((a, b) => {
-      if (grp(a) !== grp(b)) return grp(a) - grp(b);                    // グループ順(値上がり→値下がり→変動なし→NEW)
-      if (grp(a) === 0) return b.diff - a.diff;                          // 値上がり: 上昇の大きい順
-      if (grp(a) === 1) return a.diff - b.diff;                          // 値下がり: 下落の大きい順
-      return Number(b.p.buy_price) - Number(a.p.buy_price);              // 変動なし/NEW: 金額の高い順
-    });
+    .sort((a, b) => Number(b.p.remaining_quantity) - Number(a.p.remaining_quantity) || Number(b.p.buy_price) - Number(a.p.buy_price));
   const up = rows.filter((r) => r.diff > 0).length, down = rows.filter((r) => r.diff < 0).length;
   // トレカバンクに無い・ラウンジのみの商品(高額順)。メールはGmailの102KB切り詰めがあるため表示は上位までに絞る。
   const TL_ONLY_MAX = 25;
