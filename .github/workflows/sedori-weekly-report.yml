@@ -1,0 +1,28 @@
+name: せどり帳 週次レポート メール
+
+# iOSアプリ「せどり帳」の週次メトリクスメール(個人用cron)。毎週月曜9:00 JSTに送信。
+# データ: PostHog(project 538873・personal API key query:read) + iTunes Lookup(認証不要)。送信: Resend。
+# このrepoは輸出ラボ本体とは無関係だが、既存のActions+Resend秘密鍵に相乗り(トレカバンクメールと同じ扱い)。
+on:
+  schedule:
+    # 月曜9:00 JST = 月曜0:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Send sedori weekly report
+        env:
+          POSTHOG_API_KEY: ${{ secrets.SEDORI_POSTHOG_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: chikara0323@gmail.com
+        run: node scripts/sedoriWeeklyReport.mjs
