@@ -198,7 +198,9 @@ async function kvCmd(cmd) {
   return (await r.json()).result;
 }
 
-function extractProducts(html) {
+// せどり帳の含み益メール(sedoriTorecabankProfitMail.mjs)からも使う＝パーサはここが唯一の実装。
+// サイト構造が変わったら直すのはこの1箇所だけでよい。
+export function extractProducts(html) {
   const marker = "const allProducts = ";
   const i = html.indexOf(marker);
   if (i < 0) throw new Error("allProducts marker not found（サイト構造が変わった可能性）");

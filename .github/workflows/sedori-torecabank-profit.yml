@@ -1,0 +1,58 @@
+name: せどり帳 含み益（トレカバンク）メール
+
+# iOSアプリ「せどり帳」の共有帳簿にある【在庫】と、トレカバンクの【買取表】を突き合わせて、
+# 「今送ればプラスになる在庫」だけを毎朝9:30 JSTに1通メールする（ユーザー指示2026-08-10）。
+#
+# 在庫の取得は service_role キーを使わない。せどり帳のSupabaseはApp Store配信中のアプリの本番DB＝
+# 全ユーザーの共有帳簿が入っているため、RLSを貫通する鍵を公開リポジトリのCIに置かない。
+# 代わりに「指定した1帳簿の在庫行だけを返す」関数 public.stock_for_report(token) を叩く
+# （定義: sedori-ledger/supabase/patch-report-token.sql）。漏れても被害はこの帳簿の在庫の読み取りだけ。
+#
+# 二重送信は KV の本日送信済みガード sedori_tb_sent:YYYY-MM-DD(JST) が防ぐ＝予備cronがあっても1日1通。
+# 既存のトレカバンク買取メール(tb_sent:*)とはキー空間が別なので互いのガードを壊さない。
+on:
+  schedule:
+    # 9:30 JST = 00:30 UTC。GitHub Actionsのcronは数分〜十数分遅れる/稀にスキップするため予備を1本置く。
+    - cron: '30 0 * * *'   # 毎朝 約9:30 JST（本命）
+    - cron: '50 0 * * *'   # 毎朝 約9:50 JST（予備。本命が送れていればガードでスキップされる）
+  workflow_dispatch:
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Send sedori profit mail
+        env:
+          SEDORI_SUPABASE_URL: ${{ secrets.SEDORI_SUPABASE_URL }}
+          SEDORI_SUPABASE_ANON_KEY: ${{ secrets.SEDORI_SUPABASE_ANON_KEY }}
+          SEDORI_REPORT_TOKEN: ${{ secrets.SEDORI_REPORT_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: chikara0323@gmail.com
+          # 本日送信済みガード用（既存KVに相乗り・書き込みは1日1回）
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          # プラスなら全部載せる（ユーザー指示2026-08-10）。送料込みで絞りたくなったら円で指定する。
+          MIN_PROFIT: '1'
+          # 買取の受付が終了（残り点数0以下）の商品は今日送れないので除外（ユーザー指示2026-08-10）。'0'で表示。
+          REQUIRE_AVAILABLE: '1'
+          # schedule(自動)はガード有効＝1日1通。手動(dispatch)は必ず送る。
+          FORCE_SEND: ${{ github.event_name != 'schedule' && '1' || '0' }}
+        run: node scripts/sedoriTorecabankProfitMail.mjs
+      # どのステップが失敗しても警告メールを出す＝無通知の欠配を防ぐ。
+      - name: 失敗通知
+        if: failure()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"from":"せどり帳 含み益ウォッチ <noreply@yushutsu-fukugyo.com>","to":"chikara0323@gmail.com","subject":"⚠️ せどり帳の含み益メールが失敗しました","html":"<p>本日のせどり帳×トレカバンクの照合が失敗しました（買取表のHTML構造変更・Supabaseのトークン失効・送信エラーなどの可能性）。<br>GitHub Actions のログを確認してください。</p>"}' \
+            || echo "alert mail failed"
