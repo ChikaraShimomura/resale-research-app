@@ -74,6 +74,10 @@ const normModel = (s) => String(s || "").normalize("NFKC").split(/[(（]/)[0].re
 const cardName = (s) => String(s || "").replace(/^[(（][^)）]*[)）]/, "").split(/[\[［(（:：]/)[0].trim();
 // 比較用に潰す: NFKC(全角英数/＆→&)＋空白/中黒を除去＋小文字化。
 const squash = (s) => String(s || "").normalize("NFKC").replace(/[\s・･]/g, "").toLowerCase();
+// 商品名の「フルネーム」: 先頭の(グレード)を剥ぐ→[セット記号]を消す→括弧記号だけ落として潰す。
+// 「(PSA10)ミュウツー(マスターボールミラー)[SV2a]」→「ミュウツーマスターボールミラー」。
+// 在庫名にも同じ変換をかけて突き合わせる＝型番の打ち間違いを名前だけで拾うための保険。
+const fullName = (s) => squash(String(s || "").replace(/^[(（][^)）]*[)）]/, "").replace(/[\[［][^\]］]*[\]］]/g, "").replace(/[()（）]/g, ""));
 
 // 仕入れ日(purchase_date="YYYY-MM-DD")から今日(JST)までの経過日数。
 // 日付だけで引き算する＝時刻やタイムゾーンでブレない。日付が無い行は古い扱い(除外しない)。
@@ -129,25 +133,32 @@ async function fetchStock() {
  * 在庫1件をトレカバンク商品に突き合わせる。確定の条件は【型番＋グレード＋カード名】の3点一致。
  * 型番だけの一致で確定してはいけない（同一型番に別カードがぶら下がる型番が実測34件ある）。
  */
-function matchOne(item, byModel) {
+function matchOne(item, byModel, byFullName) {
   const grade = gradeOf(item);
   const model = normModel(item.model_number);
-  if (!grade || !model) return { item, grade, model, hit: null, reason: !model ? "型番なし" : "グレード不明" };
+  // 型番で当たらなかった時の保険。名前(フルネーム)が【ちょうど1件】に一致した場合だけ「型番が違うかも」として拾う。
+  // 断定はしない＝どちらの型番が正しいか決められないので、含み益の本リストには入れず別枠で知らせる。
+  const suspect = () => {
+    if (!grade) return null;
+    const c = (byFullName.get(fullName(item.name)) || []).filter((p) => gradeMatches(grade, p.product_type_name));
+    return c.length === 1 ? c[0] : null;
+  };
+  if (!grade || !model) return { item, grade, model, hit: null, suspect: suspect(), reason: !model ? "型番なし" : "グレード不明" };
   const sameModel = (byModel.get(model) || []).filter((p) => gradeMatches(grade, p.product_type_name));
-  if (!sameModel.length) return { item, grade, model, hit: null, reason: "買取表に無い" };
+  if (!sameModel.length) return { item, grade, model, hit: null, suspect: suspect(), reason: "買取表に無い" };
   const mine = squash(item.name);
   // カード名の一致検証: TB側の基本名が在庫名に含まれること。実データ39件で誤爆0・複数候補0を確認済み。
   const named = sameModel.filter((p) => {
     const base = squash(cardName(p.product_master_name));
     return base.length >= 2 && mine.includes(base);
   });
-  if (!named.length) return { item, grade, model, hit: null, reason: "カード名が一致しない", cands: sameModel };
+  if (!named.length) return { item, grade, model, hit: null, suspect: suspect(), reason: "カード名が一致しない", cands: sameModel };
   // 同名候補が複数あるときは安全側＝一番安い買取額を採用する(含み益を盛らない)。
   const hit = named.reduce((a, b) => (Number(a.buy_price) <= Number(b.buy_price) ? a : b));
   return { item, grade, model, hit };
 }
 
-function buildHtml(rows, skipped, unmatched, freshCount, date) {
+function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -169,6 +180,8 @@ function buildHtml(rows, skipped, unmatched, freshCount, date) {
     .p2{font-size:11px;color:#6b7280;margin-top:2px}
     .rm{font-size:11px;color:#ef4444;font-weight:700;margin-top:2px}
     .gb{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:#A98B5C}
+    .ah{font-size:13px;font-weight:800;margin:18px 0 2px;color:#b45309}
+    .as{font-size:11px;color:#6b7280;margin:0 0 6px;line-height:1.6}
     .note{font-size:11px;color:#9ca3af;margin:14px 0 0;line-height:1.6}
     .warn{font-size:12px;color:#6b7280;background:#f9fafb;border-radius:8px;padding:9px 11px;margin:14px 0 0;line-height:1.7}`;
 
@@ -192,10 +205,29 @@ function buildHtml(rows, skipped, unmatched, freshCount, date) {
   const freshNote = freshCount
     ? `<div class="warn">🆕 仕入れ登録から<b>${MIN_HOLD_DAYS}日未満</b>の在庫 <b>${freshCount}件</b> は対象外にしています。${MIN_HOLD_DAYS}日経てば自動でリストに入ります。</div>`
     : "";
-  const unmatchedNote = unmatched.length
-    ? `<div class="warn">❓ <b>照合できなかった在庫 ${unmatched.length}件</b>（買取表に無い／型番の打ち間違いの可能性）:<br>` +
-      unmatched.map((u) => `・${esc(u.item.name)}（${esc(u.item.model_number || "型番なし")}）— ${esc(u.reason)}`).join("<br>") +
+  // 名前は完全一致したのに型番が食い違う行＝どちらかの打ち間違い。含み益は「参考」として出し、本リストには入れない。
+  const suspectNote = suspects.length
+    ? `<div class="warn">🔧 <b>型番が違うかもしれない在庫 ${suspects.length}件</b>（カード名は買取表と完全一致・アプリの型番を直すと本リストに載ります）:<br>` +
+      suspects.map((u) => {
+        const d = Number(u.suspect.buy_price) - Number(u.item.cost_price);
+        return `・${esc(u.item.name)}<br>&nbsp;&nbsp;登録型番 <b>${esc(u.item.model_number || "なし")}</b> → 買取表 <b>${esc(u.suspect.product_master_key2)}</b>` +
+          `（${esc(u.suspect.product_master_name)}）<br>&nbsp;&nbsp;${yen(u.item.cost_price)} → 買取${yen(u.suspect.buy_price)} ＝ ` +
+          `<b style="color:${d > 0 ? "#16a34a" : "#ef4444"}">${d > 0 ? "＋" : "－"}${yen(Math.abs(d))}</b>（参考・残り${esc(u.suspect.remaining_quantity)}点）`;
+      }).join("<br>") +
       `</div>`
+    : "";
+  // 仕入れ元がトレカバンクの買取表なので「載っていない」は異常＝型番の打ち間違いか、買取枠が埋まって
+  // 落ちたかのどちらか(ユーザー指示2026-08-10)。埋もれないよう独立したセクションで出す。
+  const unmatchedNote = unmatched.length
+    ? `<h3 class="ah">⚠️ 買取表に見つからない在庫 ${unmatched.length}件</h3>
+       <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。</p>
+       <table class="tbl">` +
+      unmatched.map((u) => `<tr><td><div class="nm">${esc(u.item.name)}</div>` +
+        `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div>` +
+        `<div class="bt"><a class="btn" href="${SOURCE_URL}" style="background:#0d9488">買取表🔍</a> ` +
+        `<a class="btn" href="${mercariUrl(u.item.name, u.item.model_number || "")}" style="background:#FA5252">メルカリ🔍</a></div></td>` +
+        `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div></td></tr>`).join("") +
+      `</table>`
     : "";
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div class="wrap">
@@ -203,7 +235,7 @@ function buildHtml(rows, skipped, unmatched, freshCount, date) {
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
     <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
-    ${skipNote}${freshNote}${unmatchedNote}
+    ${skipNote}${freshNote}${suspectNote}${unmatchedNote}
     <p class="note">照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
   </div></body></html>`;
@@ -247,43 +279,53 @@ export async function main() {
   if (!res.ok) throw new Error(`買取表の取得に失敗: ${res.status}`);
   const products = extractProducts(await res.text());
 
-  const byModel = new Map();
+  const byModel = new Map(), byFullName = new Map();
   for (const p of products) {
     const k = normModel(p.product_master_key2);
-    if (!k) continue;
-    if (!byModel.has(k)) byModel.set(k, []);
-    byModel.get(k).push(p);
+    if (k) {
+      if (!byModel.has(k)) byModel.set(k, []);
+      byModel.get(k).push(p);
+    }
+    const f = fullName(p.product_master_name);
+    if (f.length >= 4) {
+      if (!byFullName.has(f)) byFullName.set(f, []);
+      byFullName.get(f).push(p);
+    }
   }
 
-  // 仕入れ登録したばかりの在庫は対象外にする(ユーザー指示2026-08-10)。照合不可の一覧からも外す＝
-  // 登録直後の行について「買取表に無い」と毎朝言われない。
-  const fresh = stock.filter((it) => daysSincePurchase(it.purchase_date) < MIN_HOLD_DAYS);
-  const target = stock.filter((it) => daysSincePurchase(it.purchase_date) >= MIN_HOLD_DAYS);
-
-  const matched = [], unmatched = [];
-  for (const item of target) {
-    const m = matchOne(item, byModel);
-    if (!m.hit) { unmatched.push(m); continue; }
+  // 照合は【全在庫】に対して行う。仕入れ元がトレカバンクの買取表なので「買取表に無い」は異常＝
+  // 型番の打ち間違いか買取表から落ちたかのどちらか(ユーザー指示2026-08-10)。登録直後こそ直しやすいので
+  // 新しい行も警告の対象にする。日数のフィルタは含み益リスト側にだけ効かせる。
+  const matched = [], unmatched = [], suspects = [];
+  for (const item of stock) {
+    const m = matchOne(item, byModel, byFullName);
+    if (!m.hit) { (m.suspect ? suspects : unmatched).push(m); continue; }
     const qty = Number(item.quantity) || 1;
     const profitUnit = Number(m.hit.buy_price) - Number(item.cost_price);
     matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity) });
   }
 
-  const plus = matched.filter((r) => r.profitUnit >= MIN_PROFIT);
+  // 含み益リストだけ「仕入れ登録から MIN_HOLD_DAYS 日以上」に絞る(ユーザー指示2026-08-10)。
+  const plusAll = matched.filter((r) => r.profitUnit >= MIN_PROFIT);
+  const plus = plusAll.filter((r) => daysSincePurchase(r.item.purchase_date) >= MIN_HOLD_DAYS);
+  const freshCount = plusAll.length - plus.length;
   // 残り点数0以下=買取の受付枠が埋まっている＝今日送っても買い取ってもらえない(ユーザー指示2026-08-10で除外)。
   const rows = plus.filter((r) => !REQUIRE_AVAILABLE || r.remain > 0).sort((a, b) => b.profitTotal - a.profitTotal);
   const skipped = plus.filter((r) => REQUIRE_AVAILABLE && r.remain <= 0).sort((a, b) => b.profitTotal - a.profitTotal);
 
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
-  console.log(`[sedori] 在庫${stock.length}件(直近${MIN_HOLD_DAYS}日の登録${fresh.length}件は対象外) / 照合${matched.length}件 / プラス${plus.length}件 → 掲載${rows.length}件(受付終了で見送り${skipped.length}件・照合不可${unmatched.length}件) 合計＋${yen(total)}`);
+  console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → 掲載${rows.length}件 合計＋${yen(total)}（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
 
+  // 要確認(型番違いの疑い＋買取表に無い)は件名にも出す＝開かなくても異常に気付ける。
+  const alerts = suspects.length + unmatched.length;
+  const alertTail = alerts ? ` ／要確認${alerts}件` : "";
   const subject = rows.length
-    ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}（${date}）`
-    : `【せどり帳】今日はプラスの在庫なし（${date}）`;
-  const html = buildHtml(rows, skipped, unmatched, fresh.length, date);
+    ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}${alertTail}（${date}）`
+    : `【せどり帳】今日はプラスの在庫なし${alertTail}（${date}）`;
+  const html = buildHtml(rows, skipped, unmatched, suspects, freshCount, date);
 
   if (DRY) {
     fs.writeFileSync("sedori_torecabank_preview.html", html);
