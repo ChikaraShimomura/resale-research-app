@@ -101,10 +101,6 @@ function gradeOf(item) {
 // TB側のグレード表記は "PSA10" / "未開封BOX（テープ付き）" / "未開封BOX（シュリンク付き）" の3種だけ(実測)。
 const gradeMatches = (g, tbType) => (g === "BOX" ? /未開封BOX/.test(tbType) : tbType === g);
 
-// 相場の照合先。カード名+型番+グレードで引くと個体がほぼ一意に当たる(既存メーラーと同じ作法)。
-const mercariUrl = (name, model) =>
-  `https://jp.mercari.com/search?keyword=${encodeURIComponent(`${name} ${model} PSA10`.trim())}&status=on_sale&sort=price&order=asc`;
-
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, {
     method: "POST",
@@ -168,35 +164,32 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
     .sumv{font-size:20px;font-weight:800;color:#16a34a}
     .suml{font-size:11px;color:#6b7280}
     .tbl{width:100%;border-collapse:collapse}
-    .tbl td{padding:8px 6px;border-bottom:1px solid #eee;vertical-align:top}
-    .ic{width:56px}
-    .ic img{width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6;vertical-align:top}
-    .nm{font-size:13px;font-weight:700;line-height:1.4}
-    .sb{font-size:11px;color:#9ca3af;margin-top:3px}
-    .bt{margin-top:5px}
-    .btn{display:inline-block;padding:1px 8px;border-radius:9px;color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+    .tbl td{padding:4px 6px;border-bottom:1px solid #f1f2f4;vertical-align:top}
+    .ic{width:44px}
+    .ic img{width:40px;height:40px;object-fit:cover;border-radius:5px;background:#f3f4f6;vertical-align:top}
+    .nm{font-size:13px;font-weight:700;line-height:1.35}
+    .sb{font-size:11px;color:#9ca3af;line-height:1.35;margin-top:1px}
     .pr{text-align:right;white-space:nowrap}
-    .p1{font-size:15px;font-weight:800;color:#16a34a}
-    .p2{font-size:11px;color:#6b7280;margin-top:2px}
-    .rm{font-size:11px;color:#ef4444;font-weight:700;margin-top:2px}
+    .p1{font-size:14px;font-weight:800;color:#16a34a;line-height:1.35}
+    .p2{font-size:11px;color:#6b7280;line-height:1.35;margin-top:1px}
     .gb{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:#A98B5C}
     .ah{font-size:13px;font-weight:800;margin:18px 0 2px;color:#b45309}
     .as{font-size:11px;color:#6b7280;margin:0 0 6px;line-height:1.6}
     .note{font-size:11px;color:#9ca3af;margin:14px 0 0;line-height:1.6}
     .warn{font-size:12px;color:#6b7280;background:#f9fafb;border-radius:8px;padding:9px 11px;margin:14px 0 0;line-height:1.7}`;
 
+  // 1行は【画像／カード名+グレード・型番+残り点数／含み益・仕入→買取】の2行だけに詰める
+  // (ユーザー指示2026-08-10「ボタンはいらない・縦幅を狭めて」)。買取表の商品名は行を折り返して
+  // 高さを食う最大の原因だったので省いた。照合は型番+カード名+グレードの3点一致なので行き先は一意。
   const body = rows.map((r) => {
     const { item, hit } = r;
     const img = hit.image_path ? BASE + hit.image_path : "";
-    const q = item.quantity > 1 ? `<span class="sb">×${item.quantity}個</span>` : "";
-    return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
+    const q = item.quantity > 1 ? `<span class="sb"> ×${item.quantity}個</span>` : "";
+    return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="40" height="40"></td>` +
       `<td><div class="nm">${esc(item.name)}${q}<span class="gb">${esc(hit.product_type_name)}</span></div>` +
-      `<div class="sb">${esc(item.model_number || "")} ／ 買取表: ${esc(hit.product_master_name)}</div>` +
-      `<div class="bt"><a class="btn" href="${SOURCE_URL}" style="background:#0d9488">買取表🔍</a> ` +
-      `<a class="btn" href="${mercariUrl(cardName(hit.product_master_name), item.model_number || "")}" style="background:#FA5252">メルカリ🔍</a></div></td>` +
+      `<div class="sb">${esc(item.model_number || "")} ／ 残り${esc(hit.remaining_quantity)}点</div></td>` +
       `<td class="pr"><div class="p1">＋${yen(r.profitTotal)}</div>` +
-      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>` +
-      `<div class="p2">残り${esc(hit.remaining_quantity)}点</div></td></tr>`;
+      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div></td></tr>`;
   }).join("");
 
   const skipNote = skipped.length
@@ -223,9 +216,7 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
        <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。</p>
        <table class="tbl">` +
       unmatched.map((u) => `<tr><td><div class="nm">${esc(u.item.name)}</div>` +
-        `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div>` +
-        `<div class="bt"><a class="btn" href="${SOURCE_URL}" style="background:#0d9488">買取表🔍</a> ` +
-        `<a class="btn" href="${mercariUrl(u.item.name, u.item.model_number || "")}" style="background:#FA5252">メルカリ🔍</a></div></td>` +
+        `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div></td>` +
         `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div></td></tr>`).join("") +
       `</table>`
     : "";
