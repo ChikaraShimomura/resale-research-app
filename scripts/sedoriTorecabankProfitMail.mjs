@@ -301,8 +301,13 @@ export async function main() {
   const plus = plusAll.filter((r) => daysSincePurchase(r.item.purchase_date) >= MIN_HOLD_DAYS);
   const freshCount = plusAll.length - plus.length;
   // 残り点数0以下=買取の受付枠が埋まっている＝今日送っても買い取ってもらえない(ユーザー指示2026-08-10で除外)。
-  const rows = plus.filter((r) => !REQUIRE_AVAILABLE || r.remain > 0).sort((a, b) => b.profitTotal - a.profitTotal);
-  const skipped = plus.filter((r) => REQUIRE_AVAILABLE && r.remain <= 0).sort((a, b) => b.profitTotal - a.profitTotal);
+  // 並びはカード名順(ユーザー指示2026-08-10)。比較キーは squash 済み＝「ピカチュウ 夏がキタ！」と
+  // 「ピカチュウ　夏がキタ！」のような全角/半角スペースの揺れで同じカードが離れないようにする。
+  // 同名内は含み益の大きい順(同じカードを複数持っていて仕入れ値が違うため)。
+  const byName = (a, b) =>
+    squash(a.item.name).localeCompare(squash(b.item.name), "ja") || b.profitTotal - a.profitTotal;
+  const rows = plus.filter((r) => !REQUIRE_AVAILABLE || r.remain > 0).sort(byName);
+  const skipped = plus.filter((r) => REQUIRE_AVAILABLE && r.remain <= 0).sort(byName);
 
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
