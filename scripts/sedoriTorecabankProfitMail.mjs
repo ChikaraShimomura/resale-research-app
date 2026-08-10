@@ -16,6 +16,7 @@
 //   RESEND_API_KEY / MAIL_FROM / MAIL_TO(カンマ区切り可) / MAIL_BCC
 //   MIN_PROFIT            これ未満の含み益は載せない（円・既定1＝プラスなら全部）
 //   REQUIRE_AVAILABLE     "0"で「残り点数0以下(買取受付終了)」も載せる（既定は除外）
+//   MIN_HOLD_DAYS         仕入れ登録から何日経った在庫を対象にするか（既定2＝今日と昨日の登録は除外）
 //   SEND_WHEN_EMPTY       "0"で0件の日は送らない（既定は送る＝届かない日は故障と分かる）
 //   SEDORI_DEFAULT_GRADE  グレード表記が無い在庫行の既定グレード（既定 PSA10 / "none"で照合対象外にする）
 //   KV_REST_API_URL / KV_REST_API_TOKEN   本日送信済みガード
@@ -37,6 +38,9 @@ const SB_TOKEN = process.env.SEDORI_REPORT_TOKEN || "";
 
 const MIN_PROFIT = Number(process.env.MIN_PROFIT ?? 1);
 const REQUIRE_AVAILABLE = process.env.REQUIRE_AVAILABLE !== "0";
+// 仕入れ登録から何日経った在庫を対象にするか（ユーザー指示2026-08-10「直近2日間で仕入れ登録された
+// ものは除いて、3日前から登録されたものだけ」）。2＝今日と昨日に登録した分を外し、一昨日以前を載せる。
+const MIN_HOLD_DAYS = Number(process.env.MIN_HOLD_DAYS ?? 2);
 const SEND_WHEN_EMPTY = process.env.SEND_WHEN_EMPTY !== "0";
 const DEFAULT_GRADE = process.env.SEDORI_DEFAULT_GRADE || "PSA10";
 
@@ -70,6 +74,17 @@ const normModel = (s) => String(s || "").normalize("NFKC").split(/[(（]/)[0].re
 const cardName = (s) => String(s || "").replace(/^[(（][^)）]*[)）]/, "").split(/[\[［(（:：]/)[0].trim();
 // 比較用に潰す: NFKC(全角英数/＆→&)＋空白/中黒を除去＋小文字化。
 const squash = (s) => String(s || "").normalize("NFKC").replace(/[\s・･]/g, "").toLowerCase();
+
+// 仕入れ日(purchase_date="YYYY-MM-DD")から今日(JST)までの経過日数。
+// 日付だけで引き算する＝時刻やタイムゾーンでブレない。日付が無い行は古い扱い(除外しない)。
+function daysSincePurchase(purchaseDate) {
+  if (!purchaseDate) return Infinity;
+  const [y, m, d] = String(purchaseDate).split("-").map(Number);
+  if (!y || !m || !d) return Infinity;
+  const today = jstNow();
+  const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  return Math.floor((t - Date.UTC(y, m - 1, d)) / 86400000);
+}
 
 // せどり帳の行のグレード。名前/メモにBOX系があれば未開封BOX、PSA10表記があればPSA10、
 // 何も書いていなければ既定(=PSA10。在庫は全て鑑定済みというユーザー確認に基づく)。
@@ -132,7 +147,7 @@ function matchOne(item, byModel) {
   return { item, grade, model, hit };
 }
 
-function buildHtml(rows, skipped, unmatched, date) {
+function buildHtml(rows, skipped, unmatched, freshCount, date) {
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -174,6 +189,9 @@ function buildHtml(rows, skipped, unmatched, date) {
   const skipNote = skipped.length
     ? `<div class="warn">🕒 買取の<b>受付が終了</b>していて今日は送れない在庫が <b>${skipped.length}件</b> あります（含み益の合計 ${yen(skipped.reduce((s, r) => s + r.profitTotal, 0))}）。枠が戻れば翌朝のメールに出ます。</div>`
     : "";
+  const freshNote = freshCount
+    ? `<div class="warn">🆕 仕入れ登録から<b>${MIN_HOLD_DAYS}日未満</b>の在庫 <b>${freshCount}件</b> は対象外にしています。${MIN_HOLD_DAYS}日経てば自動でリストに入ります。</div>`
+    : "";
   const unmatchedNote = unmatched.length
     ? `<div class="warn">❓ <b>照合できなかった在庫 ${unmatched.length}件</b>（買取表に無い／型番の打ち間違いの可能性）:<br>` +
       unmatched.map((u) => `・${esc(u.item.name)}（${esc(u.item.model_number || "型番なし")}）— ${esc(u.reason)}`).join("<br>") +
@@ -185,7 +203,7 @@ function buildHtml(rows, skipped, unmatched, date) {
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
     <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
-    ${skipNote}${unmatchedNote}
+    ${skipNote}${freshNote}${unmatchedNote}
     <p class="note">照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
   </div></body></html>`;
@@ -237,8 +255,13 @@ export async function main() {
     byModel.get(k).push(p);
   }
 
+  // 仕入れ登録したばかりの在庫は対象外にする(ユーザー指示2026-08-10)。照合不可の一覧からも外す＝
+  // 登録直後の行について「買取表に無い」と毎朝言われない。
+  const fresh = stock.filter((it) => daysSincePurchase(it.purchase_date) < MIN_HOLD_DAYS);
+  const target = stock.filter((it) => daysSincePurchase(it.purchase_date) >= MIN_HOLD_DAYS);
+
   const matched = [], unmatched = [];
-  for (const item of stock) {
+  for (const item of target) {
     const m = matchOne(item, byModel);
     if (!m.hit) { unmatched.push(m); continue; }
     const qty = Number(item.quantity) || 1;
@@ -253,14 +276,14 @@ export async function main() {
 
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
-  console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 / プラス${plus.length}件 → 掲載${rows.length}件(受付終了で見送り${skipped.length}件・照合不可${unmatched.length}件) 合計＋${yen(total)}`);
+  console.log(`[sedori] 在庫${stock.length}件(直近${MIN_HOLD_DAYS}日の登録${fresh.length}件は対象外) / 照合${matched.length}件 / プラス${plus.length}件 → 掲載${rows.length}件(受付終了で見送り${skipped.length}件・照合不可${unmatched.length}件) 合計＋${yen(total)}`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
 
   const subject = rows.length
     ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}（${date}）`
     : `【せどり帳】今日はプラスの在庫なし（${date}）`;
-  const html = buildHtml(rows, skipped, unmatched, date);
+  const html = buildHtml(rows, skipped, unmatched, fresh.length, date);
 
   if (DRY) {
     fs.writeFileSync("sedori_torecabank_preview.html", html);
