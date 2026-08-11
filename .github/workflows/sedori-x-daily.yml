@@ -1,0 +1,29 @@
+name: sedori-x-daily
+
+# せどり帳のX投稿文を毎朝7時(JST)にメール配信
+on:
+  schedule:
+    - cron: "0 22 * * *" # 22:00 UTC = 翌朝 07:00 JST
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "強制的に送るDay番号(テスト用・空なら日付から自動)"
+        required: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Send today's post via email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.day }}" ]; then
+            node scripts/sedoriXDaily.mjs --day "${{ github.event.inputs.day }}"
+          else
+            node scripts/sedoriXDaily.mjs
+          fi
