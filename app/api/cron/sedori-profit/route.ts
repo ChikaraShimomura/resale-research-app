@@ -17,6 +17,16 @@ export async function GET(req: Request) {
   if (!secret || (auth !== `Bearer ${secret}` && qs !== secret)) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  // ★mailer は「鍵が未設定なら何もせず正常終了」する設計(鍵を入れる前にActionsを赤くしないため)。
+  // その静かな終了がVercel上では失敗を隠す(2026-08-12に実際に欠配)＝ここで先に検査して大声で落とす。
+  const missing = ["SEDORI_SUPABASE_URL", "SEDORI_SUPABASE_ANON_KEY", "SEDORI_REPORT_TOKEN", "RESEND_API_KEY"]
+    .filter((k) => !process.env[k]);
+  if (missing.length) {
+    return Response.json(
+      { ok: false, error: `Vercelの環境変数が未設定: ${missing.join(", ")}（Settings → Environment Variables に追加して redeploy）` },
+      { status: 500 }
+    );
+  }
   try {
     await runSedoriProfitMail();
     return Response.json({ ok: true, at: new Date().toISOString() });
