@@ -1,0 +1,1 @@
+sedori-cron: am 22:00 UTC + pm 08:30 UTC (deployed 2026-08-13)

@@ -1,5 +1,6 @@
 // iOSアプリ「せどり帳」の共有帳簿にある【在庫】と、トレカバンクの【買取表】を突き合わせて、
-// 「今トレカバンクに送ればプラスになる在庫」だけを毎朝9:30 JSTにメールする（ユーザー指示2026-08-10）。
+// 「今トレカバンクに送ればプラスになる在庫」だけを【朝7:00＋夕17:30 JSTの1日2通】メールする
+// （ユーザー指示2026-08-10、2026-08-13に夕方便を追加。各回で最新の買取表・在庫を取得）。
 //
 // 在庫の取り方: せどり帳のSupabaseは【App Store配信中のせどり帳ユーザー全員の共有帳簿が入る本番DB】なので、
 //   RLSを全部貫通する service_role キーは使わない。代わりに「指定した1帳簿の在庫行だけを返す」
@@ -56,7 +57,12 @@ const KV_URL = process.env.KV_REST_API_URL || "";
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
 const KV_ON = Boolean(KV_URL && KV_TOKEN);
 // 既存のトレカバンク買取メール(tb_sent:*)とはキー空間を分ける＝お互いのガードを壊さない。
-const SENT_KEY = (day) => `sedori_tb_sent:${day}`;
+// 送信スロット(朝=7時台/夕=17:30台)。★呼び出し時に毎回判定する(モジュール定数にしない)＝
+// Vercelのwarm lambdaが朝→夕をまたいで生存してもスロットが古くならない(torecabankメーラーで実証済の罠)。
+const slotOf = () => (jstNow().getUTCHours() < 15 ? "am" : "pm");
+const slotLabel = () => (slotOf() === "am" ? "朝" : "夕");
+// ガードはスロット別＝朝の送信が夕方の便をブロックしない。主系統/予備の二重送信は同スロット内で防ぐ。
+const SENT_KEY = (day) => `sedori_tb_sent:${day}:${slotOf()}`;
 const SENT_TTL = 2 * 24 * 60 * 60;
 
 const jstNow = () => new Date(Date.now() + 9 * 3600e3);
@@ -319,8 +325,8 @@ export async function main() {
   const alerts = suspects.length + unmatched.length;
   const alertTail = alerts ? ` ／要確認${alerts}件` : "";
   const subject = rows.length
-    ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}${alertTail}（${date}）`
-    : `【せどり帳】今日はプラスの在庫なし${alertTail}（${date}）`;
+    ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}${alertTail}（${date}・${slotLabel()}）`
+    : `【せどり帳】今日はプラスの在庫なし${alertTail}（${date}・${slotLabel()}）`;
   const html = buildHtml(rows, skipped, unmatched, suspects, freshCount, date);
 
   if (DRY) {
