@@ -77,9 +77,6 @@ const cardName = (name) => String(name || "").replace(/^[(（][^)）]*[)）]/, "
 // メルカリは【カード名+型番+グレード】で検索(ユーザー指示2026-07-12。例「イーブイ 210/184 PSA10」)＝個体がほぼ一意に当たる。
 // 型番なしの商品だけ名前検索にフォールバック。
 const mercariSearch = (q) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
-// Yahoo!フリマ/ラクマ(ユーザー指示2026-08-06「仕入れ先を増やしたい」)。paramは実ブラウザでフィルタ/ソート操作して実測。
-const yahooSearch = (q) => `https://paypayfleamarket.yahoo.co.jp/search/${encodeURIComponent(q)}?open=1&sort=price&order=asc`;
-const rakumaSearch = (q) => `https://fril.jp/s?query=${encodeURIComponent(q)}&transaction=selling&sort=sell_price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
 // 検索ボタン4種(メルカリ/ヤフフリ/ラクマ/スニダン)。型番がある商品は自サイトの【短縮リダイレクト /s/{site}/{型番}】
@@ -89,11 +86,10 @@ const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIC
 // ⚠リンクは必ず【各サイトのドメインへの直接URL】にする(ユーザー指示2026-08-17「アプリに直接飛ばしたい」)。
 // スマホはリンク先ドメインを見てアプリに渡す(Universal Links/App Links)ため、自サイト経由の短縮リダイレクト
 // (旧/s/ルート)だと一旦ブラウザが開きアプリに行けない=撤去済み。直接URLは長くGmailの102KB切り詰めに当たるため、
-// サイズ超過時はメール自体を分割送信する(main側)。並びは2行×2列(ユーザー指定):「メルカリ ヤフフリ」/「スニダン ラクマ」。
-// 各ペアを.nwr(改行禁止)で包む＝スマホの狭い列でもチップが縦積みにならず必ず横並び2個で維持される。
+// サイズ超過時はメール自体を分割送信する(main側)。ボタンはメルカリ/スニダンの2つ(2026-08-17ヤフフリ/ラクマは追加後に撤回)。
+// ペアを.nwr(改行禁止)で包む＝スマホの狭い列でも縦積みにならず必ず横並びで維持される。
 const directBtns = (q, snkrName) =>
-  `<span class="nwr"><a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a></span><br>` +
-  `<span class="nwr"><a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a> <a class="btn br" href="${rakumaSearch(q)}">ラクマ</a></span>`;
+  `<span class="nwr"><a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a></span>`;
 // 検索語=カード名+型番+グレード(例「イーブイ 210/184 PSA10」・ユーザー指定)。型番なしは商品名(稀)。
 const searchQ = (p) => {
   const card = cardName(p.product_master_name);
@@ -266,7 +262,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     .rm{font-size:11px;color:#ef4444;font-weight:700}
     .wk{font-size:10px;color:#9ca3af}
     .btn{display:inline-block;width:54px;text-align:center;padding:1px 0;border-radius:8px;color:#ffffff !important;font-size:10px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
-    .bm{background:#FA5252}.by{background:#dd0011}.br{background:#7a0c0c}.bs{background:#111827}
+    .bm{background:#FA5252}.bs{background:#111827}
     .u{color:#16a34a;font-weight:700}.dn{color:#ef4444;font-weight:700}.z{color:#9ca3af}
     .lg{font-size:11px;color:#16a34a;font-weight:700}
     .tlh{font-size:14px;margin:20px 0 2px;color:#7c3aed}
