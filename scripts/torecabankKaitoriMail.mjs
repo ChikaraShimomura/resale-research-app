@@ -90,9 +90,10 @@ const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIC
 // スマホはリンク先ドメインを見てアプリに渡す(Universal Links/App Links)ため、自サイト経由の短縮リダイレクト
 // (旧/s/ルート)だと一旦ブラウザが開きアプリに行けない=撤去済み。直接URLは長くGmailの102KB切り詰めに当たるため、
 // サイズ超過時はメール自体を分割送信する(main側)。並びは2行×2列(ユーザー指定):「メルカリ ヤフフリ」/「スニダン ラクマ」。
+// 各ペアを.nwr(改行禁止)で包む＝スマホの狭い列でもチップが縦積みにならず必ず横並び2個で維持される。
 const directBtns = (q, snkrName) =>
-  `<a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a><br>` +
-  `<a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a> <a class="btn br" href="${rakumaSearch(q)}">ラクマ</a>`;
+  `<span class="nwr"><a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a></span><br>` +
+  `<span class="nwr"><a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a> <a class="btn br" href="${rakumaSearch(q)}">ラクマ</a></span>`;
 // 検索語=カード名+型番+グレード(例「イーブイ 210/184 PSA10」・ユーザー指定)。型番なしは商品名(稀)。
 const searchQ = (p) => {
   const card = cardName(p.product_master_name);
@@ -258,7 +259,8 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     .nm{font-size:12px;font-weight:700;line-height:1.35}
     .sb{font-size:10px;color:#9ca3af;margin-top:1px}
     .bt{margin-top:2px;line-height:1.75}
-    .pr{text-align:right;white-space:nowrap}
+    .pr{text-align:right}
+    .nwr{white-space:nowrap}
     .p1{font-size:13px;font-weight:800}
     .p2{font-size:10px;color:#6b7280}
     .rm{font-size:11px;color:#ef4444;font-weight:700}
@@ -288,8 +290,8 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
       `<td><div class="nm">${esc(nm)}</div>${sub ? `<div class="sb">${esc(sub)}</div>` : ""}` +
       `<div class="bt">${btnRow(p)}</div></td>` +
-      `<td class="pr"><div class="p1">${yen(p.buy_price)} <span class="rm">残${esc(p.remaining_quantity)}点</span></div>` +
-      `<div class="p2">前日 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)} ／ 前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div>` +
+      `<td class="pr"><div class="p1 nwr">${yen(p.buy_price)} <span class="rm">残${esc(p.remaining_quantity)}点</span></div>` +
+      `<div class="p2"><span class="nwr">前日 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</span> ／ <span class="nwr">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</span></div>` +
       (tl != null && tl > Number(p.buy_price) ? `<div class="lg">ラウンジ ${yen(tl)} ▲</div>` : "") +
       `</td></tr>`;
   }).join("");
