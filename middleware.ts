@@ -13,6 +13,8 @@ const LOGIN_GATE = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/register" || pathname === "/reset-password") return true;
   if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
+  // トレカバンク買取メールの検索ボタン用短縮リダイレクト(個人ツール・メールから未ログインで踏む)＝公開。
+  if (pathname.startsWith("/s/")) return true;
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/legal" || pathname === "/faq" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
   // チーム招待の承認ページは未ログインで踏まれ得る（メールのリンク）→ページ内でログイン状態を判定し誘導する。
