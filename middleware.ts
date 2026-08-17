@@ -13,8 +13,6 @@ const LOGIN_GATE = !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/register" || pathname === "/reset-password") return true;
   if (pathname.startsWith("/auth/") || pathname.startsWith("/r/") || pathname.startsWith("/.well-known/")) return true;
-  // トレカバンク買取メールの検索ボタン用短縮リダイレクト(個人ツール・メールから未ログインで踏む)＝公開。
-  if (pathname.startsWith("/s/")) return true;
   if (pathname === "/privacy" || pathname === "/terms" || pathname === "/legal" || pathname === "/faq" || pathname === "/sorry") return true;
   if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") return true;
   // チーム招待の承認ページは未ログインで踏まれ得る（メールのリンク）→ページ内でログイン状態を判定し誘導する。
@@ -64,14 +62,12 @@ export function middleware(req: NextRequest) {
 
   // ★サービス終了(2026-07-22 ユーザー指示「輸出ラボを畳む」)：全ページを /closed(終了のお知らせ)へ。
   //   除外＝/closed自身・法務ページ(特商法/プライバシー/規約=閉鎖後も掲示)・/api/*(トレカバンクcron・Stripe webhook(返金/解約イベント)・
-  //   eBayアカウント削除通知(開発者アカウントのコンプラ要件)を生かすため。費用が出るAPIは各routeで個別に410/no-op済み)・
-  //   /s/*(トレカバンク買取メールの検索ボタン用短縮リダイレクト=個人ツール。サービス機能ではない)。
+  //   eBayアカウント削除通知(開発者アカウントのコンプラ要件)を生かすため。費用が出るAPIは各routeで個別に410/no-op済み)。
   //   再開はこの定数を false に。
   const SERVICE_CLOSED = true;
   if (
     SERVICE_CLOSED &&
     !pathname.startsWith("/api/") &&
-    !pathname.startsWith("/s/") &&
     pathname !== "/closed" &&
     pathname !== "/legal" && pathname !== "/privacy" && pathname !== "/terms"
   ) {

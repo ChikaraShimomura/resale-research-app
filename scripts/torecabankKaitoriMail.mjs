@@ -86,19 +86,19 @@ const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIC
 // (app/s/[site]/[num]/route.ts)を使う＝日本語クエリ入りの長いURLを1行に4本埋め込むとGmailの102KB切り詰めを
 // 確実に超えるため。タップ時にルート側が買取表から商品を引き当ててクエリを組み立て302する。型番の"/"は"_"に
 // 置換して埋め込む("339/S-P"のようにハイフン入り型番があるため"-"は不可)。型番なしの商品(稀)だけ直接URL。
-const SHORT_BASE = "https://www.yushutsu-fukugyo.com/s";
-// 並びは2行×2列(ユーザー指示2026-08-17):「メルカリ ヤフフリ」/「スニダン ラクマ」。
-const BTN_DEFS = [["m", "bm", "メルカリ"], ["y", "by", "ヤフフリ"], null, ["s", "bs", "スニダン"], ["r", "br", "ラクマ"]];
+// ⚠リンクは必ず【各サイトのドメインへの直接URL】にする(ユーザー指示2026-08-17「アプリに直接飛ばしたい」)。
+// スマホはリンク先ドメインを見てアプリに渡す(Universal Links/App Links)ため、自サイト経由の短縮リダイレクト
+// (旧/s/ルート)だと一旦ブラウザが開きアプリに行けない=撤去済み。直接URLは長くGmailの102KB切り詰めに当たるため、
+// サイズ超過時はメール自体を分割送信する(main側)。並びは2行×2列(ユーザー指定):「メルカリ ヤフフリ」/「スニダン ラクマ」。
 const directBtns = (q, snkrName) =>
   `<a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a><br>` +
   `<a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a> <a class="btn br" href="${rakumaSearch(q)}">ラクマ</a>`;
-const btnRow = (p) => {
-  if (p.product_master_key2) {
-    const num = encodeURIComponent(p.product_master_key2.replace(/\//g, "_"));
-    return BTN_DEFS.map((d) => (d ? `<a class="btn ${d[1]}" href="${SHORT_BASE}/${d[0]}/${num}">${d[2]}</a>` : "<br>")).join(" ");
-  }
-  return directBtns(cleanKw(p.product_master_name), p.product_master_name);
+// 検索語=カード名+型番+グレード(例「イーブイ 210/184 PSA10」・ユーザー指定)。型番なしは商品名(稀)。
+const searchQ = (p) => {
+  const card = cardName(p.product_master_name);
+  return p.product_master_key2 && card ? `${card} ${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name);
 };
+const btnRow = (p) => directBtns(searchQ(p), p.product_master_name);
 // 11px(Gmailのfont boosting対象になりにくい)＋ボタン専用行に分離＝多少拡大されても崩れない。色: メルカリ=赤/スニダン=黒。
 
 // ── トレカラウンジ(かんたん郵送買取)の照合 ──────────────────────────────
@@ -355,22 +355,40 @@ export async function main() {
   const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
   console.log(`[torecabank] 毎日リスト: ${categoryLabel}・残り${MIN_REMAINING}点↑・${priceRangeLabel}・${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
 
-  // Gmailは102KB超を切り詰めて表示が崩れる→収まるまでラウンジのみセクションの行数を減らす(本体リスト優先)。
-  let tlShow = tlOnlyAll.slice(0, TL_ONLY_MAX);
-  let html2 = buildListHtml(rows, { date }, weekMap, { items: tlShow, total: tlOnlyAll.length });
-  while (Buffer.byteLength(html2, "utf8") > 98000 && tlShow.length) {
-    tlShow = tlShow.slice(0, Math.max(0, tlShow.length - 5));
-    html2 = buildListHtml(rows, { date }, weekMap, { items: tlShow, total: tlOnlyAll.length });
-  }
-  if (tlShow.length < Math.min(TL_ONLY_MAX, tlOnlyAll.length)) console.warn(`[torecabank] 102KB対策でラウンジのみ表示を${tlShow.length}件に縮小`);
-  if (Buffer.byteLength(html2, "utf8") > 98000) console.warn("[torecabank] 本体リストのみで98KB超＝Gmailで切り詰めの可能性");
-  const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}・${slotLabel()}）`;
+  // ── Gmailの102KB切り詰め対策＝メール分割 ─────────────────────────────
+  // ボタンはアプリ直行のため各サイトへの直接URL(長い)で妥協できない→98KBを超える日はリストを等分して複数通に。
+  // ラウンジのみセクションは最終通にだけ付け、それでも収まらなければ行数を5件ずつ縮める。実運用は1通で収まる日が大半。
+  const tlSec = (items) => ({ items, total: tlOnlyAll.length });
+  const buildParts = (chunkCount) => {
+    const per = Math.ceil(rows.length / chunkCount) || 1;
+    return Array.from({ length: chunkCount }, (_, i) => {
+      const part = rows.slice(i * per, (i + 1) * per);
+      const isLast = i === chunkCount - 1;
+      let tlShow = isLast ? tlOnlyAll.slice(0, TL_ONLY_MAX) : [];
+      let html = buildListHtml(part, { date }, weekMap, tlSec(tlShow));
+      while (Buffer.byteLength(html, "utf8") > 98000 && tlShow.length) {
+        tlShow = tlShow.slice(0, Math.max(0, tlShow.length - 5));
+        html = buildListHtml(part, { date }, weekMap, tlSec(tlShow));
+      }
+      return { html, count: part.length };
+    });
+  };
+  let parts = buildParts(1);
+  for (let n = 2; n <= 4 && parts.some(({ html }) => Buffer.byteLength(html, "utf8") > 98000); n++) parts = buildParts(n);
+  if (parts.length > 1) console.log(`[torecabank] 102KB対策で${parts.length}通に分割（${parts.map((x) => x.count).join("+")}件）`);
+  const subjectOf = (i) =>
+    `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}・${slotLabel()}）${parts.length > 1 ? ` その${i + 1}/${parts.length}` : ""}`;
 
   // 価格スナップショット保存（毎日・1キー）。翌日の前日比の基準になる。
   if (KV_ON && !DRY) { try { await kvCmd(["SET", SNAP_KEY(jstDay(0)), JSON.stringify(todayMap), "EX", String(SNAP_TTL)]); console.log(`[kv] スナップショット保存 ${SNAP_KEY(jstDay(0))}（${Object.keys(todayMap).length}件）`); } catch (e) { console.warn("[kv] スナップショット保存失敗:", e.message); } }
 
-  if (DRY) { fs.writeFileSync("torecabank_preview.html", html2); console.log(`[dry] プレビュー出力 / 件名: ${subject}`); rows.slice(0, 5).forEach(({ p, diff }) => console.log(`  ${yen(p.buy_price)} 前日比${diff == null ? "NEW" : (diff >= 0 ? "+" : "") + diff} 残${p.remaining_quantity}点 ${p.product_master_name}`)); return; }
-  await sendMail(subject, html2);
+  if (DRY) {
+    parts.forEach(({ html }, i) => fs.writeFileSync(i === 0 ? "torecabank_preview.html" : `torecabank_preview_${i + 1}.html`, html));
+    parts.forEach((_, i) => console.log(`[dry] プレビュー出力 / 件名: ${subjectOf(i)}`));
+    rows.slice(0, 5).forEach(({ p, diff }) => console.log(`  ${yen(p.buy_price)} 前日比${diff == null ? "NEW" : (diff >= 0 ? "+" : "") + diff} 残${p.remaining_quantity}点 ${p.product_master_name}`));
+    return;
+  }
+  for (let i = 0; i < parts.length; i++) await sendMail(subjectOf(i), parts[i].html);
 }
 
 // CLI(node scripts/torecabankKaitoriMail.mjs)として直接実行された時だけ自動実行する。
