@@ -87,14 +87,15 @@ const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIC
 // 確実に超えるため。タップ時にルート側が買取表から商品を引き当ててクエリを組み立て302する。型番の"/"は"_"に
 // 置換して埋め込む("339/S-P"のようにハイフン入り型番があるため"-"は不可)。型番なしの商品(稀)だけ直接URL。
 const SHORT_BASE = "https://www.yushutsu-fukugyo.com/s";
-const BTN_DEFS = [["m", "bm", "メルカリ"], ["y", "by", "ヤフフリ"], ["r", "br", "ラクマ"], ["s", "bs", "スニダン"]];
+// 並びは2行×2列(ユーザー指示2026-08-17):「メルカリ ヤフフリ」/「スニダン ラクマ」。
+const BTN_DEFS = [["m", "bm", "メルカリ"], ["y", "by", "ヤフフリ"], null, ["s", "bs", "スニダン"], ["r", "br", "ラクマ"]];
 const directBtns = (q, snkrName) =>
-  `<a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a> ` +
-  `<a class="btn br" href="${rakumaSearch(q)}">ラクマ</a> <a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a>`;
+  `<a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a><br>` +
+  `<a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a> <a class="btn br" href="${rakumaSearch(q)}">ラクマ</a>`;
 const btnRow = (p) => {
   if (p.product_master_key2) {
     const num = encodeURIComponent(p.product_master_key2.replace(/\//g, "_"));
-    return BTN_DEFS.map(([s, cls, label]) => `<a class="btn ${cls}" href="${SHORT_BASE}/${s}/${num}">${label}</a>`).join(" ");
+    return BTN_DEFS.map((d) => (d ? `<a class="btn ${d[1]}" href="${SHORT_BASE}/${d[0]}/${num}">${d[2]}</a>` : "<br>")).join(" ");
   }
   return directBtns(cleanKw(p.product_master_name), p.product_master_name);
 };
@@ -251,18 +252,18 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
     .tbl{width:100%;border-collapse:collapse}
-    .tbl td{padding:8px 6px;border-bottom:1px solid #eee;vertical-align:top}
-    .ic{width:56px}
-    .ic img{width:52px;height:52px;object-fit:cover;border-radius:6px;background:#f3f4f6;vertical-align:top}
-    .nm{font-size:13px;font-weight:700;line-height:1.4}
-    .sb{font-size:11px;color:#9ca3af;margin-top:3px}
-    .bt{margin-top:5px}
+    .tbl td{padding:4px 6px;border-bottom:1px solid #eee;vertical-align:top}
+    .ic{width:48px}
+    .ic img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:#f3f4f6;vertical-align:top}
+    .nm{font-size:12px;font-weight:700;line-height:1.35}
+    .sb{font-size:10px;color:#9ca3af;margin-top:1px}
+    .bt{margin-top:2px;line-height:1.75}
     .pr{text-align:right;white-space:nowrap}
-    .p1{font-size:14px;font-weight:800}
-    .p2{font-size:11px;margin-top:2px}
+    .p1{font-size:13px;font-weight:800}
+    .p2{font-size:10px;color:#6b7280}
     .rm{font-size:11px;color:#ef4444;font-weight:700}
     .wk{font-size:10px;color:#9ca3af}
-    .btn{display:inline-block;padding:1px 6px;border-radius:8px;color:#ffffff !important;font-size:10px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+    .btn{display:inline-block;width:54px;text-align:center;padding:1px 0;border-radius:8px;color:#ffffff !important;font-size:10px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
     .bm{background:#FA5252}.by{background:#dd0011}.br{background:#7a0c0c}.bs{background:#111827}
     .u{color:#16a34a;font-weight:700}.dn{color:#ef4444;font-weight:700}.z{color:#9ca3af}
     .lg{font-size:11px;color:#16a34a;font-weight:700}
@@ -287,11 +288,10 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
       `<td><div class="nm">${esc(nm)}</div>${sub ? `<div class="sb">${esc(sub)}</div>` : ""}` +
       `<div class="bt">${btnRow(p)}</div></td>` +
-      `<td class="pr"><div class="p1">${yen(p.buy_price)}</div>` +
-      `<div class="p2">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>` +
-      `<div class="rm">残${esc(p.remaining_quantity)}点</div>` +
+      `<td class="pr"><div class="p1">${yen(p.buy_price)} <span class="rm">残${esc(p.remaining_quantity)}点</span></div>` +
+      `<div class="p2">前日 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)} ／ 前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div>` +
       (tl != null && tl > Number(p.buy_price) ? `<div class="lg">ラウンジ ${yen(tl)} ▲</div>` : "") +
-      `<div class="wk">前週 ${deltaSpan(p.buy_price, weekMap ? weekMap[k] : null)}</div></td></tr>`;
+      `</td></tr>`;
   }).join("");
   // トレカバンクに無い・トレカラウンジのみの商品(高額順・上限あり)。
   let tlSection = "";
