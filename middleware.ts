@@ -62,12 +62,14 @@ export function middleware(req: NextRequest) {
 
   // ★サービス終了(2026-07-22 ユーザー指示「輸出ラボを畳む」)：全ページを /closed(終了のお知らせ)へ。
   //   除外＝/closed自身・法務ページ(特商法/プライバシー/規約=閉鎖後も掲示)・/api/*(トレカバンクcron・Stripe webhook(返金/解約イベント)・
-  //   eBayアカウント削除通知(開発者アカウントのコンプラ要件)を生かすため。費用が出るAPIは各routeで個別に410/no-op済み)。
+  //   eBayアカウント削除通知(開発者アカウントのコンプラ要件)を生かすため。費用が出るAPIは各routeで個別に410/no-op済み)・
+  //   /s/*(トレカバンク買取メールの検索ボタン用短縮リダイレクト=個人ツール。サービス機能ではない)。
   //   再開はこの定数を false に。
   const SERVICE_CLOSED = true;
   if (
     SERVICE_CLOSED &&
     !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/s/") &&
     pathname !== "/closed" &&
     pathname !== "/legal" && pathname !== "/privacy" && pathname !== "/terms"
   ) {
