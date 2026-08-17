@@ -77,13 +77,27 @@ const cardName = (name) => String(name || "").replace(/^[(（][^)）]*[)）]/, "
 // メルカリは【カード名+型番+グレード】で検索(ユーザー指示2026-07-12。例「イーブイ 210/184 PSA10」)＝個体がほぼ一意に当たる。
 // 型番なしの商品だけ名前検索にフォールバック。
 const mercariSearch = (q) => `https://jp.mercari.com/search?keyword=${encodeURIComponent(q)}&status=on_sale&sort=price&order=asc`;
-const mercariUrl = (p) => {
-  const nm = cardName(p.product_master_name);
-  return mercariSearch(p.product_master_key2 && nm ? `${nm} ${p.product_master_key2} ${p.product_type_name}` : cleanKw(p.product_master_name));
-};
+// Yahoo!フリマ/ラクマ(ユーザー指示2026-08-06「仕入れ先を増やしたい」)。paramは実ブラウザでフィルタ/ソート操作して実測。
+const yahooSearch = (q) => `https://paypayfleamarket.yahoo.co.jp/search/${encodeURIComponent(q)}?open=1&sort=price&order=asc`;
+const rakumaSearch = (q) => `https://fril.jp/s?query=${encodeURIComponent(q)}&transaction=selling&sort=sell_price&order=asc`;
 // スニダン(スニーカーダンク)=トレカ相場の照合先。検索paramは keywords(複数形)＝実ブラウザで検証済(単数 keyword だと既定ページに落ちる)。
 const snkrdunkUrl = (name) => `https://snkrdunk.com/search?keywords=${encodeURIComponent(cleanKw(name))}&isSaleOnly=true&sort=price_low`;
-// 小さなボタン(チップ)は buildListHtml 内の .btn class で描画(ユーザー指示「小さく収まるボタンに」)。
+// 検索ボタン4種(メルカリ/ヤフフリ/ラクマ/スニダン)。型番がある商品は自サイトの【短縮リダイレクト /s/{site}/{型番}】
+// (app/s/[site]/[num]/route.ts)を使う＝日本語クエリ入りの長いURLを1行に4本埋め込むとGmailの102KB切り詰めを
+// 確実に超えるため。タップ時にルート側が買取表から商品を引き当ててクエリを組み立て302する。型番の"/"は"_"に
+// 置換して埋め込む("339/S-P"のようにハイフン入り型番があるため"-"は不可)。型番なしの商品(稀)だけ直接URL。
+const SHORT_BASE = "https://www.yushutsu-fukugyo.com/s";
+const BTN_DEFS = [["m", "bm", "メルカリ"], ["y", "by", "ヤフフリ"], ["r", "br", "ラクマ"], ["s", "bs", "スニダン"]];
+const directBtns = (q, snkrName) =>
+  `<a class="btn bm" href="${mercariSearch(q)}">メルカリ</a> <a class="btn by" href="${yahooSearch(q)}">ヤフフリ</a> ` +
+  `<a class="btn br" href="${rakumaSearch(q)}">ラクマ</a> <a class="btn bs" href="${snkrdunkUrl(snkrName)}">スニダン</a>`;
+const btnRow = (p) => {
+  if (p.product_master_key2) {
+    const num = encodeURIComponent(p.product_master_key2.replace(/\//g, "_"));
+    return BTN_DEFS.map(([s, cls, label]) => `<a class="btn ${cls}" href="${SHORT_BASE}/${s}/${num}">${label}</a>`).join(" ");
+  }
+  return directBtns(cleanKw(p.product_master_name), p.product_master_name);
+};
 // 11px(Gmailのfont boosting対象になりにくい)＋ボタン専用行に分離＝多少拡大されても崩れない。色: メルカリ=赤/スニダン=黒。
 
 // ── トレカラウンジ(かんたん郵送買取)の照合 ──────────────────────────────
@@ -217,13 +231,12 @@ export function extractProducts(html) {
   return JSON.parse(html.slice(start, end + 1));
 }
 
-// 2値の差分セル（今日 vs 基準）。上昇=緑▲ / 下落=赤▼ / 同=灰。基準がnull=—。
+// 2値の差分セル（今日 vs 基準）。上昇=緑▲ / 下落=赤▼ / 同=灰。基準がnull=—。スタイルはclass(.u/.dn/.z)＝メール容量節約。
 function deltaSpan(today, base) {
-  if (base == null) return `<span style="color:#cbd5e1">—</span>`;
+  if (base == null) return `<span class="z">—</span>`;
   const d = Number(today) - Number(base);
-  if (d === 0) return `<span style="color:#9ca3af">±0</span>`;
-  const up = d > 0;
-  return `<span style="color:${up ? "#16a34a" : "#ef4444"};font-weight:700">${up ? "▲ +" : "▼ -"}${yen(Math.abs(d))}</span>`;
+  if (d === 0) return `<span class="z">±0</span>`;
+  return d > 0 ? `<span class="u">▲ +${yen(d)}</span>` : `<span class="dn">▼ -${yen(-d)}</span>`;
 }
 
 // 毎日のリスト（買取額＋残り点数＋前日比を強調＋前週比）。rowsは値上がり→値下がり→変動なし→NEW順に並び済み前提。
@@ -249,7 +262,9 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     .p2{font-size:11px;margin-top:2px}
     .rm{font-size:11px;color:#ef4444;font-weight:700}
     .wk{font-size:10px;color:#9ca3af}
-    .btn{display:inline-block;padding:1px 8px;border-radius:9px;color:#ffffff !important;font-size:11px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+    .btn{display:inline-block;padding:1px 6px;border-radius:8px;color:#ffffff !important;font-size:10px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap}
+    .bm{background:#FA5252}.by{background:#dd0011}.br{background:#7a0c0c}.bs{background:#111827}
+    .u{color:#16a34a;font-weight:700}.dn{color:#ef4444;font-weight:700}.z{color:#9ca3af}
     .lg{font-size:11px;color:#16a34a;font-weight:700}
     .tlh{font-size:14px;margin:20px 0 2px;color:#7c3aed}
     .tls{font-size:11px;color:#6b7280;margin:0 0 6px}
@@ -271,7 +286,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
     const nm = p.product_master_name;
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="52" height="52"></td>` +
       `<td><div class="nm">${esc(nm)}</div>${sub ? `<div class="sb">${esc(sub)}</div>` : ""}` +
-      `<div class="bt"><a class="btn" href="${mercariUrl(p)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(nm)}" style="background:#111827">スニダン🔍</a></div></td>` +
+      `<div class="bt">${btnRow(p)}</div></td>` +
       `<td class="pr"><div class="p1">${yen(p.buy_price)}</div>` +
       `<div class="p2">前日比 ${diff == null ? `<span style="color:#0d9488;font-weight:700">NEW</span>` : deltaSpan(Number(p.buy_price), Number(p.buy_price) - diff)}</div>` +
       `<div class="rm">残${esc(p.remaining_quantity)}点</div>` +
@@ -285,7 +300,7 @@ function buildListHtml(rows, meta, weekMap, tlOnly) {
       const q = `${t.base} ${t.modelNumber} PSA10`;
       return `<tr><td class="ic"><img src="${esc(t.imageUrl || "")}" alt="" width="52" height="52"></td>` +
         `<td><div class="nm">${esc(t.name)}</div><div class="sb">${esc(t.modelNumber)} PSA10</div>` +
-        `<div class="bt"><a class="btn" href="${mercariSearch(q)}" style="background:#FA5252">メルカリ🔍</a> <a class="btn" href="${snkrdunkUrl(`PSA10 ${t.base}`)}" style="background:#111827">スニダン🔍</a></div></td>` +
+        `<div class="bt">${directBtns(q, `PSA10 ${t.base}`)}</div></td>` +
         `<td class="pr"><div class="tlpr">${yen(t.price)}</div><div class="wk">ラウンジ買取</div></td></tr>`;
     }).join("");
     tlSection = `<h3 class="tlh">🟣 トレカラウンジのみ買取中（トレカバンク未掲載）</h3>
@@ -340,12 +355,15 @@ export async function main() {
   const tlHigher = rows.filter((r) => r.tl != null && r.tl > Number(r.p.buy_price)).length;
   console.log(`[torecabank] 毎日リスト: ${categoryLabel}・残り${MIN_REMAINING}点↑・${priceRangeLabel}・${EXCLUDE_BOX ? "BOX除外" : ""} → ${rows.length}件（▲${up} ▼${down}）／ ラウンジ高${tlHigher}件・ラウンジのみ${tlOnlyAll.length}件`);
 
-  let html2 = buildListHtml(rows, { date }, weekMap, { items: tlOnlyAll.slice(0, TL_ONLY_MAX), total: tlOnlyAll.length });
-  // Gmailは102KB超を切り詰めて表示が崩れる→超えそうならラウンジのみセクションを削って本体リストを守る。
-  if (Buffer.byteLength(html2, "utf8") > 98000) {
-    html2 = buildListHtml(rows, { date }, weekMap, { items: [], total: 0 });
-    console.warn("[torecabank] 102KB接近のためラウンジのみセクションを省略");
+  // Gmailは102KB超を切り詰めて表示が崩れる→収まるまでラウンジのみセクションの行数を減らす(本体リスト優先)。
+  let tlShow = tlOnlyAll.slice(0, TL_ONLY_MAX);
+  let html2 = buildListHtml(rows, { date }, weekMap, { items: tlShow, total: tlOnlyAll.length });
+  while (Buffer.byteLength(html2, "utf8") > 98000 && tlShow.length) {
+    tlShow = tlShow.slice(0, Math.max(0, tlShow.length - 5));
+    html2 = buildListHtml(rows, { date }, weekMap, { items: tlShow, total: tlOnlyAll.length });
   }
+  if (tlShow.length < Math.min(TL_ONLY_MAX, tlOnlyAll.length)) console.warn(`[torecabank] 102KB対策でラウンジのみ表示を${tlShow.length}件に縮小`);
+  if (Buffer.byteLength(html2, "utf8") > 98000) console.warn("[torecabank] 本体リストのみで98KB超＝Gmailで切り詰めの可能性");
   const subject = `【トレカバンク】買取リスト ${rows.length}件 ▲${up} ▼${down}（${date} ${WD_LABEL}・${slotLabel()}）`;
 
   // 価格スナップショット保存（毎日・1キー）。翌日の前日比の基準になる。
