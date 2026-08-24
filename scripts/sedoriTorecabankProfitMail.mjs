@@ -39,9 +39,10 @@ const SB_TOKEN = process.env.SEDORI_REPORT_TOKEN || "";
 
 const MIN_PROFIT = Number(process.env.MIN_PROFIT ?? 1);
 const REQUIRE_AVAILABLE = process.env.REQUIRE_AVAILABLE !== "0";
-// 仕入れ登録から何日経った在庫を対象にするか（ユーザー指示2026-08-10「直近2日間で仕入れ登録された
-// ものは除いて、3日前から登録されたものだけ」）。2＝今日と昨日に登録した分を外し、一昨日以前を載せる。
-const MIN_HOLD_DAYS = Number(process.env.MIN_HOLD_DAYS ?? 2);
+// 仕入れ登録から何日経った在庫を対象にするか（ユーザー指示2026-08-24「3日経てばリストに入れて」。
+// 旧2026-08-10指示の2日から変更）。3＝今日/昨日/一昨日の登録を外し、3日前以前の仕入れを載せる。
+// ★Vercel Cron経路はこのenvを渡していないため、既定値がそのまま本番の挙動になる。
+const MIN_HOLD_DAYS = Number(process.env.MIN_HOLD_DAYS ?? 3);
 const SEND_WHEN_EMPTY = process.env.SEND_WHEN_EMPTY !== "0";
 const DEFAULT_GRADE = process.env.SEDORI_DEFAULT_GRADE || "PSA10";
 
