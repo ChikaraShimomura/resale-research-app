@@ -108,6 +108,83 @@ function gradeOf(item) {
 // TB側のグレード表記は "PSA10" / "未開封BOX（テープ付き）" / "未開封BOX（シュリンク付き）" の3種だけ(実測)。
 const gradeMatches = (g, tbType) => (g === "BOX" ? /未開封BOX/.test(tbType) : tbType === g);
 
+// ── トレカラウンジ別館買取センター(秋葉原・店頭買取)の照合 ─────────────────
+// ユーザー指示2026-08-24。別館は買取表をGoogleスプレッドシートで公開しXで告知している
+// (docs.google.com/spreadsheets/d/1nZXgbFCh-…・「ポケモン」タブ gid=1341670214)。
+// 実測: 263行・全てPSA10・列=[画像,買取金額,商品名,型番,種別]・1行目に「更新日時: …」。
+// 同一ドキュメントを更新し続ける運用(更新日時が当日)なのでIDは固定でよい。
+// 取得失敗・構造変更時は空で返してメール本体は止めない(fail-open)。
+const ANNEX_SHEET_ID = process.env.SEDORI_ANNEX_SHEET_ID || "1nZXgbFCh-70YxmMJSs-fBDkbn_sy8IvBAQ-gIPmW2GQ";
+const ANNEX_SHEET_GID = process.env.SEDORI_ANNEX_SHEET_GID || "1341670214";
+const ANNEX_CSV_URL = `https://docs.google.com/spreadsheets/d/${ANNEX_SHEET_ID}/export?format=csv&gid=${ANNEX_SHEET_GID}`;
+
+// クォート対応の簡易CSV1行パーサ(買取金額が "¥1,320,000" 形式でカンマを含むため必須)
+function parseCsvLine(line) {
+  const out = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false;
+      } else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** 別館の買取表を取得。{map: normModel(型番)→[{name,price,kind}], updatedAt: "…"} */
+async function fetchAnnex() {
+  const empty = { map: new Map(), updatedAt: "" };
+  try {
+    const r = await fetch(ANNEX_CSV_URL, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const lines = (await r.text()).split(/\r?\n/).filter(Boolean);
+    const updatedAt = (lines[0] || "").replace(/^更新日時:\s*/, "").split(",")[0].trim();
+    const map = new Map();
+    let n = 0;
+    for (const line of lines) {
+      const [, priceRaw, name, model, kind] = parseCsvLine(line);
+      const price = Number(String(priceRaw || "").replace(/[^0-9]/g, ""));
+      const k = normModel(model);
+      if (!k || !name || !(price > 0)) continue; // ヘッダ・更新日時行はここで落ちる
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push({ name: String(name).trim(), price, kind: String(kind || "").trim() });
+      n++;
+    }
+    console.log(`[annex] 別館買取センター ${n}件取得(シート更新: ${updatedAt || "不明"})`);
+    return { map, updatedAt };
+  } catch (e) {
+    console.warn("[annex] 別館買取表の取得失敗(表示なしで続行):", e.message);
+    return empty;
+  }
+}
+
+/**
+ * TB照合済みの1行に対する別館価格。型番+種別(グレード)一致の候補から、
+ * カード名の相互包含で検証(TB基本名⊆シート名 or シート名⊆TB基本名)。
+ * 複数残ったら安い方(相場を盛らない)。無ければnull。
+ */
+function annexPriceFor(hit, grade, annexMap) {
+  const cands = (annexMap.get(normModel(hit.product_master_key2)) || []).filter((row) =>
+    gradeMatches(grade, row.kind)
+  );
+  if (!cands.length) return null;
+  const tbBase = squash(cardName(hit.product_master_name));
+  const ok = cands.filter((row) => {
+    const an = squash(row.name);
+    return an.length >= 2 && tbBase.length >= 2 && (tbBase.includes(an) || an.includes(tbBase));
+  });
+  if (!ok.length) return null;
+  return Math.min(...ok.map((row) => row.price));
+}
+
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, {
     method: "POST",
@@ -161,7 +238,11 @@ function matchOne(item, byModel, byFullName) {
   return { item, grade, model, hit };
 }
 
-function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
+function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexInfo) {
+  // 「ラ店頭」=トレカラウンジ別館買取センター(秋葉原)の店頭買取。1行でも表示があれば出典を書く
+  const annexNote = rows.some((r) => r.annexPrice != null)
+    ? `「ラ店頭」はトレカラウンジ別館買取センター(秋葉原・店頭買取)の公開買取表${annexInfo && annexInfo.updatedAt ? `(${esc(annexInfo.updatedAt)}更新)` : ""}の額です。<br>`
+    : "";
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -171,14 +252,16 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
     .sumv{font-size:20px;font-weight:800;color:#16a34a}
     .suml{font-size:11px;color:#6b7280}
     .tbl{width:100%;border-collapse:collapse}
-    .tbl td{padding:4px 6px;border-bottom:1px solid #f1f2f4;vertical-align:top}
+    .tbl td{padding:3px 6px;border-bottom:1px solid #f1f2f4;vertical-align:top}
     .ic{width:44px}
     .ic img{width:40px;height:40px;object-fit:cover;border-radius:5px;background:#f3f4f6;vertical-align:top}
     .nm{font-size:13px;font-weight:700;line-height:1.35}
     .sb{font-size:11px;color:#9ca3af;line-height:1.35;margin-top:1px}
     .pr{text-align:right;white-space:nowrap}
-    .p1{font-size:14px;font-weight:800;color:#16a34a;line-height:1.35}
-    .p2{font-size:11px;color:#6b7280;line-height:1.35;margin-top:1px}
+    .p1{font-size:14px;font-weight:800;color:#16a34a;line-height:1.25}
+    .p2{font-size:11px;color:#6b7280;line-height:1.25;margin-top:0}
+    .p3{font-size:10px;color:#9ca3af;line-height:1.25;margin-top:0}
+    .p3up{color:#16a34a;font-weight:700}
     .gb{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700;color:#fff;background:#A98B5C}
     .ah{font-size:13px;font-weight:800;margin:18px 0 2px;color:#b45309}
     .as{font-size:11px;color:#6b7280;margin:0 0 6px;line-height:1.6}
@@ -192,11 +275,16 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
     const { item, hit } = r;
     const img = hit.image_path ? BASE + hit.image_path : "";
     const q = item.quantity > 1 ? `<span class="sb"> ×${item.quantity}個</span>` : "";
+    // 別館店頭の額(3行目・10px)。TBより高い=持ち込みの方が高く売れる時だけ緑で目立たせる
+    const annexLine =
+      r.annexPrice != null
+        ? `<div class="p3${r.annexPrice > Number(hit.buy_price) ? " p3up" : ""}">ラ店頭 ${yen(r.annexPrice)}</div>`
+        : "";
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="40" height="40"></td>` +
       `<td><div class="nm">${esc(item.name)}${q}<span class="gb">${esc(hit.product_type_name)}</span></div>` +
       `<div class="sb">${esc(item.model_number || "")} ／ 残り${esc(hit.remaining_quantity)}点</div></td>` +
       `<td class="pr"><div class="p1">＋${yen(r.profitTotal)}</div>` +
-      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div></td></tr>`;
+      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>${annexLine}</td></tr>`;
   }).join("");
 
   const skipNote = skipped.length
@@ -234,7 +322,7 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date) {
     <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
     ${skipNote}${freshNote}${suspectNote}${unmatchedNote}
-    <p class="note">照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
+    <p class="note">${annexNote}照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
   </div></body></html>`;
 }
@@ -270,9 +358,10 @@ export async function main() {
     } catch (e) { console.warn("[guard] 送信済み確認に失敗（続行）:", e.message); }
   }
 
-  const [stock, res] = await Promise.all([
+  const [stock, res, annex] = await Promise.all([
     fetchStock(),
     fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: AbortSignal.timeout(20000) }),
+    fetchAnnex(),
   ]);
   if (!res.ok) throw new Error(`買取表の取得に失敗: ${res.status}`);
   const products = extractProducts(await res.text());
@@ -300,7 +389,9 @@ export async function main() {
     if (!m.hit) { (m.suspect ? suspects : unmatched).push(m); continue; }
     const qty = Number(item.quantity) || 1;
     const profitUnit = Number(m.hit.buy_price) - Number(item.cost_price);
-    matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity) });
+    // トレカラウンジ別館買取センター(店頭)の同一カードの買取額。無ければnull
+    const annexPrice = annexPriceFor(m.hit, m.grade, annex.map);
+    matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity), annexPrice });
   }
 
   // 含み益リストだけ「仕入れ登録から MIN_HOLD_DAYS 日以上」に絞る(ユーザー指示2026-08-10)。
@@ -318,6 +409,8 @@ export async function main() {
 
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
+  const annexHits = matched.filter((r) => r.annexPrice != null).length;
+  console.log(`[sedori] 別館店頭の照合 ${annexHits}/${matched.length}件`);
   console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → 掲載${rows.length}件 合計＋${yen(total)}（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
@@ -328,7 +421,7 @@ export async function main() {
   const subject = rows.length
     ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}${alertTail}（${date}・${slotLabel()}）`
     : `【せどり帳】今日はプラスの在庫なし${alertTail}（${date}・${slotLabel()}）`;
-  const html = buildHtml(rows, skipped, unmatched, suspects, freshCount, date);
+  const html = buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annex);
 
   if (DRY) {
     fs.writeFileSync("sedori_torecabank_preview.html", html);
