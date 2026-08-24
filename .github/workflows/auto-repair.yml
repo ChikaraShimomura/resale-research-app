@@ -132,7 +132,7 @@ jobs:
 
       - name: 結果メール通知
         if: steps.fetch.outputs.has == 'true'
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@v18
         with:
           server_address: smtp.resend.com
           server_port: 465
