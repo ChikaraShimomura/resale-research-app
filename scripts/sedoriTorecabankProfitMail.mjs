@@ -37,7 +37,8 @@ const SB_URL = process.env.SEDORI_SUPABASE_URL || "";
 const SB_ANON = process.env.SEDORI_SUPABASE_ANON_KEY || "";
 const SB_TOKEN = process.env.SEDORI_REPORT_TOKEN || "";
 
-const MIN_PROFIT = Number(process.env.MIN_PROFIT ?? 1);
+// 掲載する含み益の下限。0=±0(トントン)も載せる(ユーザー指示2026-08-24。旧は1=プラスのみ)
+const MIN_PROFIT = Number(process.env.MIN_PROFIT ?? 0);
 const REQUIRE_AVAILABLE = process.env.REQUIRE_AVAILABLE !== "0";
 // 仕入れ登録から何日経った在庫を対象にするか（ユーザー指示2026-08-24「3日経てばリストに入れて」。
 // 旧2026-08-10指示の2日から変更）。3＝今日/昨日/一昨日の登録を外し、3日前以前の仕入れを載せる。
@@ -259,6 +260,7 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
     .sb{font-size:11px;color:#9ca3af;line-height:1.35;margin-top:1px}
     .pr{text-align:right;white-space:nowrap}
     .p1{font-size:14px;font-weight:800;color:#16a34a;line-height:1.25}
+    .p1zero{color:#9ca3af}
     .p2{font-size:11px;color:#6b7280;line-height:1.25;margin-top:0}
     .p3{font-size:10px;color:#9ca3af;line-height:1.25;margin-top:0}
     .p3up{color:#16a34a;font-weight:700}
@@ -283,7 +285,7 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="40" height="40"></td>` +
       `<td><div class="nm">${esc(item.name)}${q}<span class="gb">${esc(hit.product_type_name)}</span></div>` +
       `<div class="sb">${esc(item.model_number || "")} ／ 残り${esc(hit.remaining_quantity)}点</div></td>` +
-      `<td class="pr"><div class="p1">＋${yen(r.profitTotal)}</div>` +
+      `<td class="pr"><div class="p1${r.profitTotal === 0 ? " p1zero" : ""}">${r.profitTotal === 0 ? "±0" : `＋${yen(r.profitTotal)}`}</div>` +
       `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>${annexLine}</td></tr>`;
   }).join("");
 
