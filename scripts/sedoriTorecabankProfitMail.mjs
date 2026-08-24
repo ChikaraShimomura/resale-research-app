@@ -239,7 +239,7 @@ function matchOne(item, byModel, byFullName) {
   return { item, grade, model, hit };
 }
 
-function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexInfo) {
+function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, date, annexInfo) {
   // 「ラ店頭」=トレカラウンジ別館買取センター(秋葉原)の店頭買取。1行でも表示があれば出典を書く
   const annexNote = rows.some((r) => r.annexPrice != null)
     ? `「ラ店頭」はトレカラウンジ別館買取センター(秋葉原・店頭買取)の公開買取表${annexInfo && annexInfo.updatedAt ? `(${esc(annexInfo.updatedAt)}更新)` : ""}の額です。<br>`
@@ -261,6 +261,8 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
     .pr{text-align:right;white-space:nowrap}
     .p1{font-size:14px;font-weight:800;color:#16a34a;line-height:1.25}
     .p1zero{color:#9ca3af}
+    .p1minus{color:#ef4444}
+    .mh{font-size:13px;font-weight:800;margin:18px 0 2px;color:#ef4444}
     .p2{font-size:11px;color:#6b7280;line-height:1.25;margin-top:0}
     .p3{font-size:10px;color:#9ca3af;line-height:1.25;margin-top:0}
     .p3up{color:#16a34a;font-weight:700}
@@ -273,7 +275,8 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
   // 1行は【画像／カード名+グレード・型番+残り点数／含み益・仕入→買取】の2行だけに詰める
   // (ユーザー指示2026-08-10「ボタンはいらない・縦幅を狭めて」)。買取表の商品名は行を折り返して
   // 高さを食う最大の原因だったので省いた。照合は型番+カード名+グレードの3点一致なので行き先は一意。
-  const body = rows.map((r) => {
+  // 1行のHTML(プラス/±0/マイナス共通)。含み益の符号で色分け: ＋緑/±0グレー/−赤
+  const rowHtml = (r) => {
     const { item, hit } = r;
     const img = hit.image_path ? BASE + hit.image_path : "";
     const q = item.quantity > 1 ? `<span class="sb"> ×${item.quantity}個</span>` : "";
@@ -282,12 +285,28 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
       r.annexPrice != null
         ? `<div class="p3${r.annexPrice > Number(hit.buy_price) ? " p3up" : ""}">ラ店頭 ${yen(r.annexPrice)}</div>`
         : "";
+    const p1 =
+      r.profitTotal > 0
+        ? `＋${yen(r.profitTotal)}`
+        : r.profitTotal === 0
+          ? "±0"
+          : `−${yen(Math.abs(r.profitTotal))}`;
+    const p1cls = r.profitTotal > 0 ? "" : r.profitTotal === 0 ? " p1zero" : " p1minus";
     return `<tr><td class="ic"><img src="${esc(img)}" alt="" width="40" height="40"></td>` +
       `<td><div class="nm">${esc(item.name)}${q}<span class="gb">${esc(hit.product_type_name)}</span></div>` +
       `<div class="sb">${esc(item.model_number || "")} ／ 残り${esc(hit.remaining_quantity)}点</div></td>` +
-      `<td class="pr"><div class="p1${r.profitTotal === 0 ? " p1zero" : ""}">${r.profitTotal === 0 ? "±0" : `＋${yen(r.profitTotal)}`}</div>` +
+      `<td class="pr"><div class="p1${p1cls}">${p1}</div>` +
       `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>${annexLine}</td></tr>`;
-  }).join("");
+  };
+  const body = rows.map(rowHtml).join("");
+
+  // マイナスの在庫セクション(プラスの直後・買取表に無いの前)
+  const minusTotal = minusRows.reduce((s2, r) => s2 + r.profitTotal, 0);
+  const minusSection = minusRows.length
+    ? `<h3 class="mh">🔻 今はマイナスの在庫 ${minusRows.length}件（合計 −${yen(Math.abs(minusTotal))}）</h3>
+       <p class="as">買取額が仕入れ値を下回っている在庫です。値上がり待ちの判断材料に。</p>
+       <table class="tbl">${minusRows.map(rowHtml).join("")}</table>`
+    : "";
 
   const skipNote = skipped.length
     ? `<div class="warn">🕒 買取の<b>受付が終了</b>していて今日は送れない在庫が <b>${skipped.length}件</b> あります（含み益の合計 ${yen(skipped.reduce((s, r) => s + r.profitTotal, 0))}）。枠が戻れば翌朝のメールに出ます。</div>`
@@ -323,6 +342,7 @@ function buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annexIn
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
     <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
+    ${minusSection}
     ${skipNote}${freshNote}${suspectNote}${unmatchedNote}
     <p class="note">${annexNote}照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
@@ -396,10 +416,17 @@ export async function main() {
     matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity), annexPrice });
   }
 
-  // 含み益リストだけ「仕入れ登録から MIN_HOLD_DAYS 日以上」に絞る(ユーザー指示2026-08-10)。
-  const plusAll = matched.filter((r) => r.profitUnit >= MIN_PROFIT);
-  const plus = plusAll.filter((r) => daysSincePurchase(r.item.purchase_date) >= MIN_HOLD_DAYS);
-  const freshCount = plusAll.length - plus.length;
+  // リストは「仕入れ登録から MIN_HOLD_DAYS 日以上」に絞る(ユーザー指示2026-08-10)。
+  const aged = matched.filter((r) => daysSincePurchase(r.item.purchase_date) >= MIN_HOLD_DAYS);
+  const freshCount = matched.length - aged.length;
+  const plus = aged.filter((r) => r.profitUnit >= MIN_PROFIT);
+  // マイナスの在庫(ユーザー指示2026-08-24「-のものもリスト化」)。売り時判断用の情報なので
+  // 受付終了(残り0)でも載せる。プラス→マイナス→買取表にない、の順で表示する。
+  const minusRows = aged
+    .filter((r) => r.profitUnit < 0)
+    .sort((a, b) =>
+      squash(a.item.name).localeCompare(squash(b.item.name), "ja") || a.profitTotal - b.profitTotal
+    );
   // 残り点数0以下=買取の受付枠が埋まっている＝今日送っても買い取ってもらえない(ユーザー指示2026-08-10で除外)。
   // 並びはカード名順(ユーザー指示2026-08-10)。比較キーは squash 済み＝「ピカチュウ 夏がキタ！」と
   // 「ピカチュウ　夏がキタ！」のような全角/半角スペースの揺れで同じカードが離れないようにする。
@@ -413,7 +440,7 @@ export async function main() {
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
   const annexHits = matched.filter((r) => r.annexPrice != null).length;
   console.log(`[sedori] 別館店頭の照合 ${annexHits}/${matched.length}件`);
-  console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → 掲載${rows.length}件 合計＋${yen(total)}（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
+  console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → プラス${rows.length}件 合計＋${yen(total)}／マイナス${minusRows.length}件（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
 
@@ -423,7 +450,7 @@ export async function main() {
   const subject = rows.length
     ? `【せどり帳】今売ればプラス ${rows.length}件 ＋${yen(total)}${alertTail}（${date}・${slotLabel()}）`
     : `【せどり帳】今日はプラスの在庫なし${alertTail}（${date}・${slotLabel()}）`;
-  const html = buildHtml(rows, skipped, unmatched, suspects, freshCount, date, annex);
+  const html = buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, date, annex);
 
   if (DRY) {
     fs.writeFileSync("sedori_torecabank_preview.html", html);
