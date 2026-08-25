@@ -186,6 +186,25 @@ function annexPriceFor(hit, grade, annexMap) {
   return Math.min(...ok.map((row) => row.price));
 }
 
+/**
+ * TB照合が無い在庫行に対する別館価格(「買取表に無い」セクション用)。
+ * 型番+種別一致の候補を、在庫名との相互包含で検証。複数残ったら安い方。
+ */
+function annexPriceForItem(item, grade, annexMap) {
+  if (!grade) return null;
+  const cands = (annexMap.get(normModel(item.model_number)) || []).filter((row) =>
+    gradeMatches(grade, row.kind)
+  );
+  if (!cands.length) return null;
+  const mine = squash(item.name);
+  const ok = cands.filter((row) => {
+    const an = squash(row.name);
+    return an.length >= 2 && mine.length >= 2 && (mine.includes(an) || an.includes(mine));
+  });
+  if (!ok.length) return null;
+  return Math.min(...ok.map((row) => row.price));
+}
+
 async function kvCmd(cmd) {
   const r = await fetch(KV_URL, {
     method: "POST",
@@ -329,11 +348,19 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
   // 落ちたかのどちらか(ユーザー指示2026-08-10)。埋もれないよう独立したセクションで出す。
   const unmatchedNote = unmatched.length
     ? `<h3 class="ah">⚠️ 買取表に見つからない在庫 ${unmatched.length}件</h3>
-       <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。</p>
+       <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。別館買取センターに価格がある物は「ラ店頭」で併記します。</p>
        <table class="tbl">` +
-      unmatched.map((u) => `<tr><td><div class="nm">${esc(u.item.name)}</div>` +
-        `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div></td>` +
-        `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div></td></tr>`).join("") +
+      unmatched.map((u) => {
+        const a = u.annexPrice;
+        const up = a != null && a > Number(u.item.cost_price);
+        const annexLine =
+          a != null
+            ? `<div class="p3${up ? " p3up" : ""}">ラ店頭 ${yen(a)}${up ? `（＋${yen(a - u.item.cost_price)}）` : ""}</div>`
+            : "";
+        return `<tr><td><div class="nm">${esc(u.item.name)}</div>` +
+          `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div></td>` +
+          `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div>${annexLine}</td></tr>`;
+      }).join("") +
       `</table>`
     : "";
 
@@ -408,7 +435,12 @@ export async function main() {
   const matched = [], unmatched = [], suspects = [];
   for (const item of stock) {
     const m = matchOne(item, byModel, byFullName);
-    if (!m.hit) { (m.suspect ? suspects : unmatched).push(m); continue; }
+    if (!m.hit) {
+      // TBに無くても別館にはあるかもしれない(ユーザー指示2026-08-24)。あれば価格を併記する
+      m.annexPrice = annexPriceForItem(item, m.grade, annex.map);
+      (m.suspect ? suspects : unmatched).push(m);
+      continue;
+    }
     const qty = Number(item.quantity) || 1;
     const profitUnit = Number(m.hit.buy_price) - Number(item.cost_price);
     // トレカラウンジ別館買取センター(店頭)の同一カードの買取額。無ければnull
@@ -439,7 +471,8 @@ export async function main() {
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
   const annexHits = matched.filter((r) => r.annexPrice != null).length;
-  console.log(`[sedori] 別館店頭の照合 ${annexHits}/${matched.length}件`);
+  const annexUnmatchedHits = unmatched.filter((u) => u.annexPrice != null).length;
+  console.log(`[sedori] 別館店頭の照合 ${annexHits}/${matched.length}件 ／ 買取表に無い側 ${annexUnmatchedHits}/${unmatched.length}件`);
   console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → プラス${rows.length}件 合計＋${yen(total)}／マイナス${minusRows.length}件（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
