@@ -1,5 +1,6 @@
 // iOSアプリ「せどり帳」の共有帳簿にある【在庫】と、トレカバンクの【買取表】を突き合わせて、
-// 「今トレカバンクに送ればプラスになる在庫」だけを【朝7:00＋夕17:30 JSTの1日2通】メールする
+// 「今トレカバンクに持って行けばプラスになる在庫」だけを【朝7:00＋夕17:30 JSTの1日2通】メールする
+// (kaitori_listのbuy_priceは【店頭買取価格】=ページに明記。ユーザーは郵送でなく店頭持ち込み。郵送は別ページで約97%)
 // （ユーザー指示2026-08-10、2026-08-13に夕方便を追加。各回で最新の買取表・在庫を取得）。
 //
 // 在庫の取り方: せどり帳のSupabaseは【App Store配信中のせどり帳ユーザー全員の共有帳簿が入る本番DB】なので、
@@ -387,7 +388,7 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
   // 件数注記ではなく行ごと表示し、ラ店頭/ブルロケの額で売り先を判断できるようにする。
   const skipNote = skipped.length
     ? `<h3 class="ah">⏸ バンク受付終了 → 別館/ブルロケ検討 ${skipped.length}件</h3>
-       <p class="as">トレカバンクの買取枠が埋まっている在庫です(表示中のバンク額では今日は送れません)。ラ店頭/ブルロケの額と仕入れ値で持ち込みを判断してください。枠が戻れば本リストに復帰します。</p>
+       <p class="as">トレカバンクの買取枠が埋まっている在庫です(表示中のバンク額では今日は持ち込めません)。ラ店頭/ブルロケの額と仕入れ値で持ち込み先を判断してください。枠が戻れば本リストに復帰します。</p>
        <table class="tbl">${skipped.map(rowHtml).join("")}</table>`
     : "";
   const freshNote = freshCount
@@ -425,9 +426,9 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
     : "";
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div class="wrap">
-    <p class="hd">今トレカバンクに送ればプラスになる在庫</p>
+    <p class="hd">今トレカバンクに持って行けばプラスになる在庫</p>
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
-    <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
+    <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝店頭買取額 − 仕入れ値（交通費などの諸経費は含みません）</div></div>
     <table class="tbl">${body}</table>
     ${skipNote}
     ${minusSection}${freshNote}${suspectNote}${unmatchedNote}
