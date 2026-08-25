@@ -1,6 +1,5 @@
 // iOSアプリ「せどり帳」の共有帳簿にある【在庫】と、トレカバンクの【買取表】を突き合わせて、
-// 「今トレカバンクに持って行けばプラスになる在庫」だけを【朝7:00＋夕17:30 JSTの1日2通】メールする
-// (kaitori_listのbuy_priceは【店頭買取価格】=ページに明記。ユーザーは郵送でなく店頭持ち込み。郵送は別ページで約97%)
+// 「今トレカバンクに送ればプラスになる在庫」だけを【朝7:00＋夕17:30 JSTの1日2通】メールする
 // （ユーザー指示2026-08-10、2026-08-13に夕方便を追加。各回で最新の買取表・在庫を取得）。
 //
 // 在庫の取り方: せどり帳のSupabaseは【App Store配信中のせどり帳ユーザー全員の共有帳簿が入る本番DB】なので、
@@ -168,55 +167,6 @@ async function fetchAnnex() {
   }
 }
 
-// ── ブルーロケット(秋葉原・店頭/郵送買取)の照合 ─────────────────────────
-// ユーザー指示2026-08-26「トレカバンクより高いときがある」。bluerocket-tcg.com はRails製の
-// 買取カタログで、商品カードに data-product-name="PSA10 ピカチュウ 367/SM-P"(レア度が挟まる事も)
-// data-product-price / data-product-category が埋まっている(実測443件・40件/頁・23頁)。
-// PSAカテゴリだけを使い、型番(最後の "/" 入りトークン)とグレード(先頭のPSA10等)を切り出す。
-// 取得失敗・構造変更時は空で返してメール本体は止めない(fail-open)。
-const BR_BASE = "https://bluerocket-tcg.com";
-const BR_MAX_PAGES = 30; // 現在23頁。暴走防止の上限
-
-/** ブルーロケットの買取カタログ。map: normModel(型番)→[{name,price,kind}](annexと同形=照合関数を共用) */
-async function fetchBlueRocket() {
-  const map = new Map();
-  try {
-    let total = 0;
-    for (let page = 1; page <= BR_MAX_PAGES; page++) {
-      const r = await fetch(`${BR_BASE}/products?page=${page}`, {
-        headers: { "User-Agent": UA, "Accept-Language": "ja" },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!r.ok) break;
-      const html = await r.text();
-      const items = [...html.matchAll(
-        /data-product-name="([^"]+)"[\s\S]{0,200}?data-product-price="(\d+)"[\s\S]{0,160}?data-product-category="([^"]*)"/g
-      )];
-      if (!items.length) break;
-      for (const [, rawName, priceRaw, category] of items) {
-        if (category !== "PSA") continue; // BOX(シュリンク有無)はTB側と照合キーが違うため対象外
-        // 形式: "PSA10 カード名 [レア度] 型番"。型番=末尾の "/" 入りトークン、グレード=先頭トークン
-        const tokens = rawName.trim().split(/\s+/);
-        const kind = tokens[0] || "";
-        const model = tokens[tokens.length - 1] || "";
-        if (!/^PSA\d+$/i.test(kind) || !model.includes("/")) continue;
-        const name = tokens.slice(1, -1).join(" ");
-        const price = Number(priceRaw);
-        const k = normModel(model);
-        if (!k || !name || !(price > 0)) continue;
-        if (!map.has(k)) map.set(k, []);
-        map.get(k).push({ name, price, kind: kind.toUpperCase() });
-        total++;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    console.log(`[bluerocket] ブルーロケット ${total}件取得(PSAのみ)`);
-  } catch (e) {
-    console.warn("[bluerocket] 取得失敗(表示なしで続行):", e.message);
-  }
-  return { map };
-}
-
 /**
  * TB照合済みの1行に対する別館価格。型番+種別(グレード)一致の候補から、
  * カード名の相互包含で検証(TB基本名⊆シート名 or シート名⊆TB基本名)。
@@ -313,9 +263,6 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
   const annexNote = rows.some((r) => r.annexPrice != null)
     ? `「ラ店頭」はトレカラウンジ別館買取センター(秋葉原・店頭買取)の公開買取表${annexInfo && annexInfo.updatedAt ? `(${esc(annexInfo.updatedAt)}更新)` : ""}の額です。<br>`
     : "";
-  const brNote = rows.concat(minusRows).some((r) => r.brPrice != null) || unmatched.some((u) => u.brPrice != null)
-    ? `「ブルロケ」はブルーロケット(秋葉原・店頭/郵送買取)の公開買取カタログの額です。<br>`
-    : "";
   const total = rows.reduce((s, r) => s + r.profitTotal, 0);
   const css = `
     .wrap{font-family:'Noto Sans JP',sans-serif;max-width:640px;margin:0 auto;color:#2D323B;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -352,14 +299,10 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
     const { item, hit } = r;
     const img = hit.image_path ? BASE + hit.image_path : "";
     const q = item.quantity > 1 ? `<span class="sb"> ×${item.quantity}個</span>` : "";
-    // 別館店頭/ブルーロケットの額(3〜4行目・10px)。TBより高い=そちらで売る方が得な時だけ緑
+    // 別館店頭の額(3行目・10px)。TBより高い=持ち込みの方が高く売れる時だけ緑で目立たせる
     const annexLine =
       r.annexPrice != null
         ? `<div class="p3${r.annexPrice > Number(hit.buy_price) ? " p3up" : ""}">ラ店頭 ${yen(r.annexPrice)}</div>`
-        : "";
-    const brLine =
-      r.brPrice != null
-        ? `<div class="p3${r.brPrice > Number(hit.buy_price) ? " p3up" : ""}">ブルロケ ${yen(r.brPrice)}</div>`
         : "";
     const p1 =
       r.profitTotal > 0
@@ -372,7 +315,7 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
       `<td><div class="nm">${esc(item.name)}${q}<span class="gb">${esc(hit.product_type_name)}</span></div>` +
       `<div class="sb">${esc(item.model_number || "")} ／ 残り${esc(hit.remaining_quantity)}点</div></td>` +
       `<td class="pr"><div class="p1${p1cls}">${p1}</div>` +
-      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>${annexLine}${brLine}</td></tr>`;
+      `<div class="p2">${yen(item.cost_price)} → ${yen(hit.buy_price)}</div>${annexLine}</td></tr>`;
   };
   const body = rows.map(rowHtml).join("");
 
@@ -384,12 +327,8 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
        <table class="tbl">${minusRows.map(rowHtml).join("")}</table>`
     : "";
 
-  // バンクの枠切れ=「バンクで無理だったものを別館/ブルロケで売る」戦略の主対象(ユーザー方針2026-08-26)。
-  // 件数注記ではなく行ごと表示し、ラ店頭/ブルロケの額で売り先を判断できるようにする。
   const skipNote = skipped.length
-    ? `<h3 class="ah">⏸ バンク受付終了 → 別館/ブルロケ検討 ${skipped.length}件</h3>
-       <p class="as">トレカバンクの買取枠が埋まっている在庫です(表示中のバンク額では今日は持ち込めません)。ラ店頭/ブルロケの額と仕入れ値で持ち込み先を判断してください。枠が戻れば本リストに復帰します。</p>
-       <table class="tbl">${skipped.map(rowHtml).join("")}</table>`
+    ? `<div class="warn">🕒 買取の<b>受付が終了</b>していて今日は送れない在庫が <b>${skipped.length}件</b> あります（含み益の合計 ${yen(skipped.reduce((s, r) => s + r.profitTotal, 0))}）。枠が戻れば翌朝のメールに出ます。</div>`
     : "";
   const freshNote = freshCount
     ? `<div class="warn">🆕 仕入れ登録から<b>${MIN_HOLD_DAYS}日未満</b>の在庫 <b>${freshCount}件</b> は対象外にしています。${MIN_HOLD_DAYS}日経てば自動でリストに入ります。</div>`
@@ -409,30 +348,30 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
   // 落ちたかのどちらか(ユーザー指示2026-08-10)。埋もれないよう独立したセクションで出す。
   const unmatchedNote = unmatched.length
     ? `<h3 class="ah">⚠️ 買取表に見つからない在庫 ${unmatched.length}件</h3>
-       <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。別館買取センター/ブルーロケットに価格がある物は「ラ店頭」「ブルロケ」で併記します。</p>
+       <p class="as">仕入れ元の買取表に今日は載っていません。<b>型番の打ち間違い</b>か、<b>買取枠が埋まって掲載が終了</b>したかのどちらかです。別館買取センターに価格がある物は「ラ店頭」で併記します。</p>
        <table class="tbl">` +
       unmatched.map((u) => {
-        const cost = Number(u.item.cost_price);
-        const altLine = (label, v) => {
-          if (v == null) return "";
-          const up = v > cost;
-          return `<div class="p3${up ? " p3up" : ""}">${label} ${yen(v)}${up ? `（＋${yen(v - cost)}）` : ""}</div>`;
-        };
+        const a = u.annexPrice;
+        const up = a != null && a > Number(u.item.cost_price);
+        const annexLine =
+          a != null
+            ? `<div class="p3${up ? " p3up" : ""}">ラ店頭 ${yen(a)}${up ? `（＋${yen(a - u.item.cost_price)}）` : ""}</div>`
+            : "";
         return `<tr><td><div class="nm">${esc(u.item.name)}</div>` +
           `<div class="sb">型番 ${esc(u.item.model_number || "未入力")} ／ ${esc(u.reason)} ／ ${esc(u.item.purchase_date || "")}仕入れ</div></td>` +
-          `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div>${altLine("ラ店頭", u.annexPrice)}${altLine("ブルロケ", u.brPrice)}</td></tr>`;
+          `<td class="pr"><div class="p2">仕入 ${yen(u.item.cost_price)}</div>${annexLine}</td></tr>`;
       }).join("") +
       `</table>`
     : "";
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div class="wrap">
-    <p class="hd">今トレカバンクに持って行けばプラスになる在庫</p>
+    <p class="hd">今トレカバンクに送ればプラスになる在庫</p>
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
-    <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝店頭買取額 − 仕入れ値（交通費などの諸経費は含みません）</div></div>
+    <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
-    ${skipNote}
-    ${minusSection}${freshNote}${suspectNote}${unmatchedNote}
-    <p class="note">${annexNote}${brNote}照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
+    ${minusSection}
+    ${skipNote}${freshNote}${suspectNote}${unmatchedNote}
+    <p class="note">${annexNote}照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
   </div></body></html>`;
 }
@@ -468,11 +407,10 @@ export async function main() {
     } catch (e) { console.warn("[guard] 送信済み確認に失敗（続行）:", e.message); }
   }
 
-  const [stock, res, annex, bluerocket] = await Promise.all([
+  const [stock, res, annex] = await Promise.all([
     fetchStock(),
     fetch(SOURCE_URL, { headers: { "User-Agent": UA, "Accept-Language": "ja" }, signal: AbortSignal.timeout(20000) }),
     fetchAnnex(),
-    fetchBlueRocket(),
   ]);
   if (!res.ok) throw new Error(`買取表の取得に失敗: ${res.status}`);
   const products = extractProducts(await res.text());
@@ -498,18 +436,16 @@ export async function main() {
   for (const item of stock) {
     const m = matchOne(item, byModel, byFullName);
     if (!m.hit) {
-      // TBに無くても別館/ブルーロケットにはあるかもしれない。あれば価格を併記する
+      // TBに無くても別館にはあるかもしれない(ユーザー指示2026-08-24)。あれば価格を併記する
       m.annexPrice = annexPriceForItem(item, m.grade, annex.map);
-      m.brPrice = annexPriceForItem(item, m.grade, bluerocket.map);
       (m.suspect ? suspects : unmatched).push(m);
       continue;
     }
     const qty = Number(item.quantity) || 1;
     const profitUnit = Number(m.hit.buy_price) - Number(item.cost_price);
-    // トレカラウンジ別館買取センター(店頭)/ブルーロケットの同一カードの買取額。無ければnull
+    // トレカラウンジ別館買取センター(店頭)の同一カードの買取額。無ければnull
     const annexPrice = annexPriceFor(m.hit, m.grade, annex.map);
-    const brPrice = annexPriceFor(m.hit, m.grade, bluerocket.map);
-    matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity), annexPrice, brPrice });
+    matched.push({ ...m, qty, profitUnit, profitTotal: profitUnit * qty, remain: Number(m.hit.remaining_quantity), annexPrice });
   }
 
   // リストは「仕入れ登録から MIN_HOLD_DAYS 日以上」に絞る(ユーザー指示2026-08-10)。
@@ -536,10 +472,7 @@ export async function main() {
   const date = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
   const annexHits = matched.filter((r) => r.annexPrice != null).length;
   const annexUnmatchedHits = unmatched.filter((u) => u.annexPrice != null).length;
-  const brHits = matched.filter((r) => r.brPrice != null).length;
-  const brUnmatchedHits = unmatched.filter((u) => u.brPrice != null).length;
   console.log(`[sedori] 別館店頭の照合 ${annexHits}/${matched.length}件 ／ 買取表に無い側 ${annexUnmatchedHits}/${unmatched.length}件`);
-  console.log(`[sedori] ブルロケの照合 ${brHits}/${matched.length}件 ／ 買取表に無い側 ${brUnmatchedHits}/${unmatched.length}件`);
   console.log(`[sedori] 在庫${stock.length}件 / 照合${matched.length}件 → プラス${rows.length}件 合計＋${yen(total)}／マイナス${minusRows.length}件（直近${MIN_HOLD_DAYS}日の登録で見送り${freshCount}件・受付終了${skipped.length}件・型番違いの疑い${suspects.length}件・買取表に無い${unmatched.length}件）`);
 
   if (!rows.length && !SEND_WHEN_EMPTY) { console.log("[sedori] 0件＝送信しない設定のため終了"); return; }
