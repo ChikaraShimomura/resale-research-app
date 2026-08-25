@@ -383,8 +383,12 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
        <table class="tbl">${minusRows.map(rowHtml).join("")}</table>`
     : "";
 
+  // バンクの枠切れ=「バンクで無理だったものを別館/ブルロケで売る」戦略の主対象(ユーザー方針2026-08-26)。
+  // 件数注記ではなく行ごと表示し、ラ店頭/ブルロケの額で売り先を判断できるようにする。
   const skipNote = skipped.length
-    ? `<div class="warn">🕒 買取の<b>受付が終了</b>していて今日は送れない在庫が <b>${skipped.length}件</b> あります（含み益の合計 ${yen(skipped.reduce((s, r) => s + r.profitTotal, 0))}）。枠が戻れば翌朝のメールに出ます。</div>`
+    ? `<h3 class="ah">⏸ バンク受付終了 → 別館/ブルロケ検討 ${skipped.length}件</h3>
+       <p class="as">トレカバンクの買取枠が埋まっている在庫です(表示中のバンク額では今日は送れません)。ラ店頭/ブルロケの額と仕入れ値で持ち込みを判断してください。枠が戻れば本リストに復帰します。</p>
+       <table class="tbl">${skipped.map(rowHtml).join("")}</table>`
     : "";
   const freshNote = freshCount
     ? `<div class="warn">🆕 仕入れ登録から<b>${MIN_HOLD_DAYS}日未満</b>の在庫 <b>${freshCount}件</b> は対象外にしています。${MIN_HOLD_DAYS}日経てば自動でリストに入ります。</div>`
@@ -425,8 +429,8 @@ function buildHtml(rows, minusRows, skipped, unmatched, suspects, freshCount, da
     <p class="sub">${esc(date)}（${WD_LABEL}）／ せどり帳の在庫と本日の買取表を照合</p>
     <div class="sum"><div class="sumv">${rows.length}件・合計 ＋${yen(total)}</div><div class="suml">含み益＝買取額 − 仕入れ値（送料・梱包費は含みません）</div></div>
     <table class="tbl">${body}</table>
-    ${minusSection}
-    ${skipNote}${freshNote}${suspectNote}${unmatchedNote}
+    ${skipNote}
+    ${minusSection}${freshNote}${suspectNote}${unmatchedNote}
     <p class="note">${annexNote}${brNote}照合は<b>型番＋カード名＋グレード</b>の3点一致のみを採用しています。在庫は<b>すべてPSA10鑑定済み</b>という前提で計算しているので、無鑑定のカードを登録した場合はその行の金額が実態と合わなくなります。<br>
     出典: <a href="${SOURCE_URL}" style="color:#6b7280">store.torecabank.com/kaitori_list</a>（自動取得）</p>
   </div></body></html>`;
