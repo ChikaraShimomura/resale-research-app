@@ -258,18 +258,28 @@ async function main() {
   const summary =
     users7 === 0
       ? trend
-      : `${trend}${newUserRows != null ? ` うち <b>${jp(newUsers)}人</b> が今週はじめて使った人です。` : " "}売却 <b>${jp(sold)}件</b>、課金は <b>${paid}件</b> でした。`;
+      : `${trend}${newUserRows != null ? ` うち <b>${jp(newUsers)}人</b> が今週はじめて使った人で、` : " "}${
+          retentionPct != null ? `先週の <b>${retentionPct}%</b> が戻ってきました。` : ""
+        }売却 <b>${jp(sold)}件</b>、課金は <b>${paid}件</b> でした。`;
 
   const cards = [
     { label: "使った人", value: `${jp(users7)}人`, d: delta(users7, usersPrev) },
     { label: "はじめての人", value: orDash(newUserRows, newUsers, "人"), d: "" },
+    {
+      label: "継続率",
+      value: retentionPct != null ? `${retentionPct}%` : "—",
+      d:
+        retentionPct != null
+          ? `<span style="color:${MUTED};font-size:11px">${jp(usersPrev)}人中${jp(retained)}人</span>`
+          : "",
+    },
     { label: "売却", value: `${jp(sold)}件`, d: delta(sold, soldPrev) },
     { label: "課金", value: `${jp(paid)}件`, d: "", highlight: true },
   ]
     .map(
-      (c) => `<td width="25%" align="center" style="padding:11px 4px;border:1px solid ${LINE};background:${c.highlight ? "#F4F8F5" : "#FAFBFC"}">
+      (c) => `<td width="20%" align="center" style="padding:11px 2px;border:1px solid ${LINE};background:${c.highlight ? "#F4F8F5" : "#FAFBFC"}">
         <div style="font-size:11px;color:${MUTED}">${c.label}</div>
-        <div style="font-size:21px;font-weight:bold;color:${INK};padding:2px 0">${c.value}</div>
+        <div style="font-size:19px;font-weight:bold;color:${INK};padding:2px 0">${c.value}</div>
         <div>${c.d || "&nbsp;"}</div>
       </td>`
     )
@@ -279,7 +289,6 @@ async function main() {
   const reach = [
     `累計 ${orDash(usersAllRows, usersAll, "人")}`,
     `月間 ${orDash(users30Rows, users30, "人")}`,
-    retentionPct != null ? `継続率 ${retentionPct}%(先週の${jp(usersPrev)}人中${jp(retained)}人)` : null,
     `日別最大 ${jp(wau)}人`,
     `仕入れ ${jp(added)}件`,
   ]
