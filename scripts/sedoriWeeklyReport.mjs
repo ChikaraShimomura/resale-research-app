@@ -4,9 +4,14 @@
 //   - iTunes Lookup / Google Play: どちらも認証不要の公開情報
 // 送信は Resend。RESEND_API_KEY 未設定 or `--dry` ならプレビューのみ(非破壊)。
 // env: POSTHOG_API_KEY / RESEND_API_KEY / MAIL_FROM / MAIL_TO(カンマ区切り可)
+//   任意: ASC_KEY_ID / ASC_ISSUER_ID / ASC_PRIVATE_KEY / ASC_VENDOR_NUMBER
+//        (4つ揃うとApp Store Connectのダウンロード数を出す。無ければその行を出さない)
 //
 // 方針: 個々のクエリが落ちてもメールは必ず届かせる(そのセクションだけ「取得できず」にする)。
 // レポートは毎週流し読みするものなので、件数の羅列ではなく「人・行動・お金」の順に並べる。
+
+import crypto from "node:crypto";
+import { gunzipSync } from "node:zlib";
 
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY || "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
@@ -18,6 +23,15 @@ const PH_HOST = "https://us.posthog.com";
 const PH_PROJECT = 538873;
 const APP_ID = "6793951342";
 const ANDROID_PACKAGE = "com.chikara.sedoriledger";
+
+// App Store Connect の売上レポート(=ダウンロード数)。4つ揃ったときだけ有効。
+// 発行: App Store Connect > Users and Access > Integrations > App Store Connect API
+// (Finance または Admin 権限。.p8 は発行時に一度しかダウンロードできない)
+const ASC_KEY_ID = process.env.ASC_KEY_ID || "";
+const ASC_ISSUER_ID = process.env.ASC_ISSUER_ID || "";
+const ASC_PRIVATE_KEY = (process.env.ASC_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const ASC_VENDOR_NUMBER = process.env.ASC_VENDOR_NUMBER || "";
+const ascReady = Boolean(ASC_KEY_ID && ASC_ISSUER_ID && ASC_PRIVATE_KEY && ASC_VENDOR_NUMBER);
 
 // アプリ側でtrack()を足したらここにも足す。載っていないイベントはメールに出ない。
 const ACTIONS = [
@@ -148,6 +162,91 @@ async function fetchPlayStore() {
   }
 }
 
+/** App Store Connect API 用の JWT(ES256)。Nodeのcryptoだけで作る */
+function ascToken() {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const iat = Math.floor(Date.now() / 1000);
+  const head = b64({ alg: "ES256", kid: ASC_KEY_ID, typ: "JWT" });
+  const body = b64({ iss: ASC_ISSUER_ID, iat, exp: iat + 900, aud: "appstoreconnect-v1" });
+  // JWSの署名はDERではなく生のR||S(P1363)。dsaEncodingで直接その形にする
+  const sig = createSign(`${head}.${body}`);
+  return `${head}.${body}.${sig}`;
+}
+
+function createSign(input) {
+  return crypto
+    .sign("sha256", Buffer.from(input), {
+      key: ASC_PRIVATE_KEY,
+      dsaEncoding: "ieee-p1363",
+    })
+    .toString("base64url");
+}
+
+/**
+ * 直近7日のダウンロード数(初回インストール)。
+ * 日次の売上レポートはgzipのTSVで、当日分はまだ無いことが多いので取れた日だけ足す。
+ * 未設定・取得失敗なら null(レポートには出さない)。
+ */
+async function fetchDownloads() {
+  if (!ascReady) return null;
+  let token;
+  try {
+    token = ascToken();
+  } catch (e) {
+    console.error("ASC token failed:", String(e.message || e).slice(0, 160));
+    return null;
+  }
+  const days = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(Date.now() - i * 86400 * 1000);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  let total = 0;
+  let got = 0;
+  for (const day of days) {
+    try {
+      const url =
+        "https://api.appstoreconnect.apple.com/v1/salesReports" +
+        `?filter[frequency]=DAILY&filter[reportType]=SALES&filter[reportSubType]=SUMMARY` +
+        `&filter[vendorNumber]=${encodeURIComponent(ASC_VENDOR_NUMBER)}&filter[reportDate]=${day}`;
+      const r = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/a-gzip" },
+        signal: AbortSignal.timeout(20000),
+      });
+      // まだ集計されていない日は404。異常ではないので黙って飛ばす
+      if (r.status === 404) continue;
+      if (!r.ok) {
+        console.error(`ASC salesReports ${day}: ${r.status}`);
+        continue;
+      }
+      const tsv = gunzipSync(Buffer.from(await r.arrayBuffer())).toString("utf8");
+      total += sumFirstTimeUnits(tsv);
+      got++;
+    } catch (e) {
+      console.error(`ASC salesReports ${day} failed:`, String(e.message || e).slice(0, 120));
+    }
+  }
+  return got === 0 ? null : { total, days: got };
+}
+
+/** 売上レポートTSVから初回インストールだけ合計する(再ダウンロード/アップデートは除く) */
+function sumFirstTimeUnits(tsv) {
+  const lines = tsv.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return 0;
+  const head = lines[0].split("\t");
+  const iType = head.indexOf("Product Type Identifier");
+  const iUnits = head.indexOf("Units");
+  if (iType < 0 || iUnits < 0) return 0;
+  let n = 0;
+  for (const line of lines.slice(1)) {
+    const c = line.split("\t");
+    // 先頭が1 = 初回ダウンロード(1F=無料アプリ, 1T/1E=対応端末別)。3F/7F等は再DL・アップデート
+    if (!String(c[iType] || "").startsWith("1")) continue;
+    n += Number(c[iUnits]) || 0;
+  }
+  return n;
+}
+
 async function main() {
   // 集計窓 = 直近7日。前週比のため 14〜7日前 も取る
   const W = "timestamp >= now() - interval 7 day";
@@ -197,7 +296,11 @@ async function main() {
     ),
   ]);
 
-  const [appStoreLine, playStoreLine] = await Promise.all([fetchAppStore(), fetchPlayStore()]);
+  const [appStoreLine, playStoreLine, downloads] = await Promise.all([
+    fetchAppStore(),
+    fetchPlayStore(),
+    fetchDownloads(),
+  ]);
 
   // クエリが落ちた分は 0 として描画されてしまう。0件なのか取れなかったのかを
   // 読み手が取り違えないよう、1つでも失敗していたら本文と件名で断る
@@ -287,6 +390,7 @@ async function main() {
 
   // カードに載せきらない利用状況は1行にまとめる
   const reach = [
+    downloads ? `ダウンロード ${jp(downloads.total)}件${downloads.days < 7 ? `(${downloads.days}日分)` : ""}` : null,
     `累計 ${orDash(usersAllRows, usersAll, "人")}`,
     `月間 ${orDash(users30Rows, users30, "人")}`,
     `日別最大 ${jp(wau)}人`,
