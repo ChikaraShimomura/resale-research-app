@@ -153,7 +153,21 @@ async function main() {
   const W = "timestamp >= now() - interval 7 day";
   const P = "timestamp >= now() - interval 14 day and timestamp < now() - interval 7 day";
 
-  const [daily, ev7, ev14, feedback, purchases, locked, osRows, users7Rows, usersPrevRows] = await Promise.all([
+  const [
+    daily,
+    ev7,
+    ev14,
+    feedback,
+    purchases,
+    locked,
+    osRows,
+    users7Rows,
+    usersPrevRows,
+    usersAllRows,
+    users30Rows,
+    newUserRows,
+    retainedRows,
+  ] = await Promise.all([
     tryQuery(`select toDate(timestamp) as d, uniq(person_id) as u, count() as c from events where ${W} group by d order by d`),
     tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${W} group by event`),
     tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${P} group by event`),
@@ -169,18 +183,48 @@ async function main() {
     ),
     tryQuery(`select uniq(person_id) from events where ${W}`),
     tryQuery(`select uniq(person_id) from events where ${P}`),
+    // 累計(全期間)と月間(直近30日)のユニーク
+    tryQuery(`select uniq(person_id) from events`),
+    tryQuery(`select uniq(person_id) from events where timestamp >= now() - interval 30 day`),
+    // 今週はじめて使った人。ダウンロード数は取れないので、これを「使い始めた人」として見る
+    tryQuery(
+      `select count() from (select person_id, min(timestamp) as fs from events group by person_id having fs >= now() - interval 7 day)`,
+      `select uniq(person_id) from (select person_id, min(timestamp) as fs from events group by person_id) where fs >= now() - interval 7 day`
+    ),
+    // 先週使った人のうち、今週も使った人(継続率の分子)
+    tryQuery(
+      `select uniq(person_id) from events where ${W} and person_id in (select person_id from events where ${P})`
+    ),
   ]);
 
   const [appStoreLine, playStoreLine] = await Promise.all([fetchAppStore(), fetchPlayStore()]);
 
   // クエリが落ちた分は 0 として描画されてしまう。0件なのか取れなかったのかを
   // 読み手が取り違えないよう、1つでも失敗していたら本文と件名で断る
-  const degraded = [daily, ev7, ev14, feedback, purchases, locked, osRows, users7Rows, usersPrevRows].some(
-    (r) => r == null
-  );
+  const degraded = [
+    daily,
+    ev7,
+    ev14,
+    feedback,
+    purchases,
+    locked,
+    osRows,
+    users7Rows,
+    usersPrevRows,
+  ].some((r) => r == null);
 
   const users7 = num(users7Rows?.[0]?.[0]);
   const usersPrev = num(usersPrevRows?.[0]?.[0]);
+  const usersAll = num(usersAllRows?.[0]?.[0]);
+  const users30 = num(users30Rows?.[0]?.[0]);
+  const newUsers = num(newUserRows?.[0]?.[0]);
+  const retained = num(retainedRows?.[0]?.[0]);
+  // 継続率 = 先週使った人のうち今週も使った割合。先週0人/取得失敗なら出さない
+  const retentionPct =
+    retainedRows != null && usersPrev > 0 ? Math.round((retained / usersPrev) * 100) : null;
+  /** 取得できなかった補助指標は 0 ではなく「—」と出す(0件と区別する) */
+  const orDash = (rows, value, unit = "") => (rows == null ? "—" : `${jp(value)}${unit}`);
+  const wau = Math.max(0, ...(daily || []).map((d) => num(d[1])));
   const added = num(pick(ev7, "item_added")[1]);
   const addedPrev = num(pick(ev14, "item_added")[1]);
   const sold = num(pick(ev7, "item_sold")[1]);
@@ -199,181 +243,133 @@ async function main() {
     : `${fmtMD(start)}〜${fmtMD(end)}`;
   const subject = degraded
     ? `せどり帳 週次 ${range}｜一部の数字を取得できませんでした`
-    : `せどり帳 週次 ${range}｜${users7}人・仕入${added}・売却${sold}・課金${paid}`;
+    : `せどり帳 週次 ${range}｜${users7}人${newUserRows != null ? `(新規${newUsers})` : ""}・売却${sold}・課金${paid}`;
 
-  // ── ひとことサマリー ──────────────────────────────
+  // ── ブロック1: どれくらい使われたか ─────────────────────
   const userDiff = users7 - usersPrev;
   const trend =
     users7 === 0
       ? "今週は利用がありませんでした。"
       : userDiff > 0
-      ? `先週より ${userDiff}人ふえて <b>${users7}人</b> が使いました。`
-      : userDiff < 0
-      ? `先週より ${-userDiff}人へって <b>${users7}人</b> が使いました。`
-      : `先週と同じ <b>${users7}人</b> が使いました。`;
+        ? `先週より ${userDiff}人ふえて <b>${jp(users7)}人</b> が使いました。`
+        : userDiff < 0
+          ? `先週より ${-userDiff}人へって <b>${jp(users7)}人</b> が使いました。`
+          : `先週と同じ <b>${jp(users7)}人</b> が使いました。`;
   const summary =
     users7 === 0
       ? trend
-      : `${trend} 仕入れ <b>${jp(added)}件</b>・売却 <b>${jp(sold)}件</b> が記録され、課金は <b>${paid}件</b> でした。`;
+      : `${trend}${newUserRows != null ? ` うち <b>${jp(newUsers)}人</b> が今週はじめて使った人です。` : " "}売却 <b>${jp(sold)}件</b>、課金は <b>${paid}件</b> でした。`;
 
-  // ── 4つの数字 ────────────────────────────────
   const cards = [
     { label: "使った人", value: `${jp(users7)}人`, d: delta(users7, usersPrev) },
-    { label: "仕入れを登録", value: `${jp(added)}件`, d: delta(added, addedPrev) },
-    { label: "売却を登録", value: `${jp(sold)}件`, d: delta(sold, soldPrev) },
-    { label: "課金", value: `${jp(paid)}件`, d: "" },
+    { label: "はじめての人", value: orDash(newUserRows, newUsers, "人"), d: "" },
+    { label: "売却", value: `${jp(sold)}件`, d: delta(sold, soldPrev) },
+    { label: "課金", value: `${jp(paid)}件`, d: "", highlight: true },
   ]
     .map(
-      (c) => `<td width="25%" align="center" style="padding:12px 4px;border:1px solid ${LINE};background:#FAFBFC">
+      (c) => `<td width="25%" align="center" style="padding:11px 4px;border:1px solid ${LINE};background:${c.highlight ? "#F4F8F5" : "#FAFBFC"}">
         <div style="font-size:11px;color:${MUTED}">${c.label}</div>
-        <div style="font-size:22px;font-weight:bold;color:${INK};padding:2px 0">${c.value}</div>
+        <div style="font-size:21px;font-weight:bold;color:${INK};padding:2px 0">${c.value}</div>
         <div>${c.d || "&nbsp;"}</div>
       </td>`
     )
     .join("");
 
-  // ── 日ごとの利用者(横棒) ─────────────────────────
-  let dailyBlock;
-  if (daily == null) {
-    dailyBlock = `<p style="color:${MUTED}">取得できませんでした</p>`;
-  } else if (days.length === 0) {
-    dailyBlock = `<p style="color:${MUTED}">データがありません</p>`;
-  } else {
-    const max = Math.max(1, ...days.map((d) => num(d[1])));
-    dailyBlock = `<table cellpadding="0" cellspacing="0" width="100%" style="font-size:12px">${days
-      .map((d) => {
-        const u = num(d[1]);
-        const w = Math.round((u / max) * 100);
-        const label = String(d[0] ?? "").slice(5).replace("-", "/");
-        return `<tr>
-          <td width="42" style="color:${MUTED};padding:2px 0">${esc(label)}</td>
-          <td style="padding:2px 0"><div style="background:${ACCENT};height:10px;width:${w}%;border-radius:2px"></div></td>
-          <td width="42" align="right" style="color:${INK};padding:2px 0">${jp(u)}人</td>
-        </tr>`;
-      })
-      .join("")}</table>`;
-  }
-
-  // ── 使われた機能 ─────────────────────────────
-  const actionRows = ACTIONS.map(([ev, label]) => {
-    const now = num(pick(ev7, ev)[1]);
-    const uniq = num(pick(ev7, ev)[2]);
-    const prev = num(pick(ev14, ev)[1]);
-    const value = now === 0 ? `<span style="color:${MUTED}">0</span>` : `${jp(now)}件<span style="color:${MUTED}">（${jp(uniq)}人）</span>`;
-    return `<tr>
-      <td style="padding:6px 0;border-bottom:1px solid ${LINE}">${label}</td>
-      <td align="right" style="padding:6px 0;border-bottom:1px solid ${LINE}">${value}</td>
-      <td align="right" width="52" style="padding:6px 0;border-bottom:1px solid ${LINE}">${delta(now, prev)}</td>
-    </tr>`;
-  }).join("");
-
-  const minorText = MINOR.map(([ev, label]) => [label, num(pick(ev7, ev)[1])])
-    .filter(([, n]) => n > 0)
-    .map(([label, n]) => `${label} ${jp(n)}`)
+  // カードに載せきらない利用状況は1行にまとめる
+  const reach = [
+    `累計 ${orDash(usersAllRows, usersAll, "人")}`,
+    `月間 ${orDash(users30Rows, users30, "人")}`,
+    retentionPct != null ? `継続率 ${retentionPct}%(先週の${jp(usersPrev)}人中${jp(retained)}人)` : null,
+    `日別最大 ${jp(wau)}人`,
+    `仕入れ ${jp(added)}件`,
+  ]
+    .filter(Boolean)
     .join(" ／ ");
 
-  // ── 課金までの流れ ────────────────────────────
-  const paywallUsers = num(pick(ev7, "paywall_shown")[2]);
-  const startedCount = num(pick(ev7, "purchase_started")[1]);
-  const funnel = [
-    ["ペイウォールを見た", `${jp(paywallUsers)}人`],
-    ["購入を始めた", `${jp(startedCount)}回`],
-    ["購入した", `${jp(paid)}件`],
-  ]
-    .map(
-      ([l, v], i) => `<td align="center" style="padding:10px 4px;border:1px solid ${LINE};${i === 2 ? `background:#F4F8F5` : ""}">
-        <div style="font-size:11px;color:${MUTED}">${l}</div>
-        <div style="font-size:18px;font-weight:bold;color:${INK}">${v}</div>
-      </td>${i < 2 ? `<td width="18" align="center" style="color:${MUTED}">›</td>` : ""}`
-    )
-    .join("");
-
-  const purchaseDetail = (purchases || []).length
-    ? `<p style="margin:8px 0 0;font-size:13px">内訳: ${purchases
-        .map((p) => `${esc(String(p[0]).slice(5, 10))} ${esc(TIER_LABEL[p[1]] || p[1] || "?")}・${esc(PERIOD_LABEL[p[2]] || p[2] || "?")}`)
-        .join(" ／ ")}</p>`
-    : "";
-
-  const wantedBlock =
-    locked == null
-      ? `<p style="color:${MUTED};font-size:13px">取得できませんでした</p>`
-      : locked.length === 0
-      ? `<p style="color:${MUTED};font-size:13px">今週はロック機能がタップされませんでした</p>`
-      : `<table cellpadding="0" cellspacing="0" width="100%" style="font-size:13px">${locked
-          .map(
-            (l) => `<tr>
-              <td style="padding:4px 0">${esc(FEATURE_LABEL[l[0]] || l[0] || "不明")}</td>
-              <td align="right" style="padding:4px 0">${jp(l[1])}回<span style="color:${MUTED}">（${jp(l[2])}人）</span></td>
-            </tr>`
-          )
-          .join("")}</table>`;
-
-  // ── 要望 ────────────────────────────────
+  // ── ブロック2: 届いた声 ────────────────────────────
   const feedbackBlock =
     feedback == null
       ? `<p style="color:${MUTED}">取得できませんでした</p>`
       : feedback.length === 0
-      ? `<p style="color:${MUTED}">今週の要望はありません</p>`
-      : feedback
-          .map(
-            (f) => `<div style="border-left:3px solid ${ACCENT};padding:2px 0 2px 10px;margin-bottom:10px">
+        ? `<p style="color:${MUTED};font-size:13px">今週の要望はありません</p>`
+        : feedback
+            .map(
+              (f) => `<div style="border-left:3px solid ${ACCENT};padding:2px 0 2px 10px;margin-bottom:10px">
               <div style="font-size:14px;white-space:pre-wrap">${esc(f[1] || "(本文なし)")}</div>
               <div style="color:${MUTED};font-size:11px;padding-top:2px">${esc(String(f[0]).slice(0, 10))}・v${esc(f[3] || "?")}${f[2] ? "・連絡先 " + esc(f[2]) : ""}</div>
             </div>`
-          )
-          .join("");
+            )
+            .join("");
 
-  // ── 端末 ────────────────────────────────
-  const osBlock =
+  // ── ブロック3: 欲しがられている機能(上位3つだけ) ──────────
+  const wantedLine =
+    locked == null
+      ? "取得できませんでした"
+      : locked.length === 0
+        ? "今週はロック機能がタップされませんでした"
+        : locked
+            .slice(0, 3)
+            .map((l) => `${esc(FEATURE_LABEL[l[0]] || l[0] || "不明")} ${jp(l[1])}回`)
+            .join(" ／ ");
+
+  // ── ブロック4: 参考(3行) ───────────────────────────
+  const usedLine = ACTIONS.concat(MINOR)
+    .map(([ev, label]) => [label, num(pick(ev7, ev)[1])])
+    .filter(([, n]) => n > 0)
+    .map(([label, n]) => `${label} ${jp(n)}`)
+    .join(" ・ ");
+
+  const paywallUsers = num(pick(ev7, "paywall_shown")[2]);
+  const startedCount = num(pick(ev7, "purchase_started")[1]);
+  const purchaseDetail = (purchases || []).length
+    ? `(${purchases
+        .map((x) => `${esc(TIER_LABEL[x[1]] || x[1] || "?")}・${esc(PERIOD_LABEL[x[2]] || x[2] || "?")}`)
+        .join(" / ")})`
+    : "";
+  const funnelLine = `ペイウォール ${jp(paywallUsers)}人 → 購入開始 ${jp(startedCount)} → 購入 ${jp(paid)} ${purchaseDetail}`;
+
+  const osLine =
     osRows == null
-      ? `<span style="color:${MUTED}">取得できませんでした</span>`
+      ? "端末は取得できませんでした"
       : osRows.length === 0
-      ? `<span style="color:${MUTED}">データがありません</span>`
-      : osRows.map((o) => `${esc(o[0] || "不明")} ${jp(o[1])}人`).join(" ／ ");
+        ? "端末データなし"
+        : osRows.map((o) => `${esc(o[0] || "不明")} ${jp(o[1])}人`).join(" / ");
+  const deliveryLine = `App Store ${appStoreLine} ・ Google Play ${playStoreLine} ・ ${osLine}`;
 
   const html = `
 <div style="font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;max-width:600px;margin:0 auto;color:${INK};line-height:1.7">
   <div style="border-bottom:3px solid ${ACCENT};padding-bottom:6px;margin-bottom:14px">
-    <div style="font-size:19px;font-weight:bold">📒 せどり帳 週次レポート</div>
+    <div style="font-size:18px;font-weight:bold">📒 せどり帳 週次レポート</div>
     <div style="font-size:12px;color:${MUTED}">${range} のまとめ</div>
   </div>
-
   ${
     degraded
       ? `<p style="background:#FDF3F1;border:1px solid ${DOWN};color:${DOWN};font-size:12px;padding:8px 10px;margin:0 0 14px">⚠ PostHogへの問い合わせが一部失敗しました。0と出ている数字は、本当に0なのか取得できなかったのか区別がつきません。</p>`
-      : ''
+      : ""
   }
-  <p style="font-size:15px;margin:0 0 16px">${summary}</p>
 
-  <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-bottom:22px"><tr>${cards}</tr></table>
+  <p style="font-size:14px;margin:0 0 14px">${summary}</p>
 
-  <h3 style="font-size:14px;color:${ACCENT};margin:0 0 6px">日ごとの利用者</h3>
-  ${dailyBlock}
+  <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse"><tr>${cards}</tr></table>
+  <p style="font-size:11px;color:${MUTED};margin:6px 0 22px">${reach}</p>
 
-  <h3 style="font-size:14px;color:${ACCENT};margin:22px 0 4px">使われた機能</h3>
-  <table cellpadding="0" cellspacing="0" width="100%" style="font-size:13px">${actionRows}</table>
-  ${minorText ? `<p style="color:${MUTED};font-size:11px;margin:6px 0 0">${minorText}</p>` : ""}
-
-  <h3 style="font-size:14px;color:${ACCENT};margin:22px 0 6px">課金までの流れ</h3>
-  <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse"><tr>${funnel}</tr></table>
-  ${purchaseDetail}
-  <p style="font-size:12px;color:${MUTED};margin:14px 0 4px">ロックを押された＝ほしがられている機能</p>
-  ${wantedBlock}
-
-  <h3 style="font-size:14px;color:${ACCENT};margin:22px 0 8px">今週届いた要望</h3>
+  <h3 style="font-size:14px;color:${ACCENT};margin:0 0 8px">届いた声${feedback && feedback.length ? ` ${feedback.length}件` : ""}</h3>
   ${feedbackBlock}
 
-  <h3 style="font-size:14px;color:${ACCENT};margin:22px 0 6px">配信状況</h3>
-  <table cellpadding="0" cellspacing="0" width="100%" style="font-size:13px">
-    <tr><td width="96" style="color:${MUTED};padding:3px 0">App Store</td><td style="padding:3px 0">${appStoreLine}</td></tr>
-    <tr><td style="color:${MUTED};padding:3px 0">Google Play</td><td style="padding:3px 0">${playStoreLine}</td></tr>
-    <tr><td style="color:${MUTED};padding:3px 0">使われた端末</td><td style="padding:3px 0">${osBlock}</td></tr>
-  </table>
+  <h3 style="font-size:14px;color:${ACCENT};margin:22px 0 4px">欲しがられている機能</h3>
+  <p style="font-size:13px;margin:0">${wantedLine}</p>
 
-  <p style="color:#A6ABB3;font-size:11px;border-top:1px solid ${LINE};padding-top:8px;margin-top:26px">
+  <div style="border-top:1px solid ${LINE};margin-top:22px;padding-top:10px;font-size:11px;color:${MUTED};line-height:1.9">
+    ${usedLine ? `<div>使われた機能 ／ ${usedLine}</div>` : ""}
+    <div>課金までの流れ ／ ${funnelLine}</div>
+    <div>配信 ／ ${deliveryLine}</div>
+  </div>
+
+  <p style="color:#A6ABB3;font-size:11px;padding-top:8px;margin-top:16px">
     毎週月曜の朝に自動送信 ／ 直近7日のPostHog + 各ストアの公開情報 ／ GitHub Actions sedori-weekly-report
   </p>
 </div>`;
+
 
   if (DRY) {
     console.log("=== DRY RUN ===");
