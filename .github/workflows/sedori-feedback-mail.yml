@@ -1,0 +1,39 @@
+name: せどり帳 届いた声 即時メール
+
+# アプリの「ご要望・不具合の報告」が届いたら、まとめを待たずにメールで知らせる。
+# 30分ごとに PostHog を見て、まだ送っていない feedback だけを送る(重複ガードは KV のイベントUUID)。
+# 週次レポート(sedori-weekly-report.yml)は数字のまとめ、こちらは取りこぼし防止。
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: '遡る時間(既定24)'
+        required: false
+        default: '24'
+
+# 同時実行を1本に絞る(cronの遅延で前の実行と重なっても二重送信しない)
+concurrency:
+  group: sedori-feedback-mail
+  cancel-in-progress: false
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Send new feedback
+        env:
+          POSTHOG_API_KEY: ${{ secrets.SEDORI_POSTHOG_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          MAIL_TO: chikara0323@gmail.com
+        run: node scripts/sedoriFeedbackMail.mjs --hours ${{ github.event.inputs.hours || '24' }}
