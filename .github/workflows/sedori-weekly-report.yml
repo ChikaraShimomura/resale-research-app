@@ -24,5 +24,9 @@ jobs:
         env:
           POSTHOG_API_KEY: ${{ secrets.SEDORI_POSTHOG_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # 2.2.0〜 の「届いた声」「お仕事の相談」(未設定なら読まないだけ)
+          SEDORI_SUPABASE_URL: ${{ secrets.SEDORI_SUPABASE_URL }}
+          SEDORI_SUPABASE_ANON_KEY: ${{ secrets.SEDORI_SUPABASE_ANON_KEY }}
+          SEDORI_INQUIRY_TOKEN: ${{ secrets.SEDORI_INQUIRY_TOKEN }}
           MAIL_TO: chikara0323@gmail.com
         run: node scripts/sedoriWeeklyReport.mjs

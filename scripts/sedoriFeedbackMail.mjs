@@ -93,13 +93,17 @@ async function main() {
       order by timestamp asc
       limit 100`
   );
-  const all = rows.map((r) => ({
-    uuid: String(r[0] ?? ""),
-    timestamp: r[1],
-    message: r[2] ?? "",
-    contact: r[3] ?? "",
-    version: r[4] ?? "",
-  }));
+  // 2.2.0〜 の feedback イベントは件数用で本文を持たない(本文は Supabase の inquiries → sedoriInquiryMail.mjs)。
+  // 本文のあるもの(2.1.0 以前のアプリから)だけをここで送る
+  const all = rows
+    .map((r) => ({
+      uuid: String(r[0] ?? ""),
+      timestamp: r[1],
+      message: r[2] ?? "",
+      contact: r[3] ?? "",
+      version: r[4] ?? "",
+    }))
+    .filter((f) => String(f.message).trim() !== "");
   console.log(`feedback in last ${HOURS}h: ${all.length}`);
   if (!all.length) return;
 

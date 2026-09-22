@@ -1,7 +1,8 @@
 name: せどり帳 届いた声 即時メール
 
 # アプリの「ご要望・不具合の報告」が届いたら、まとめを待たずにメールで知らせる。
-# 30分ごとに PostHog を見て、まだ送っていない feedback だけを送る(重複ガードは KV のイベントUUID)。
+# 1つ目: 2.1.0 以前の要望(PostHog の feedback イベント・重複ガードは KV のイベントUUID)。
+# 2つ目: 2.2.0〜 の要望と「お仕事・コラボのご相談」(Supabase の inquiries・通知済みは DB 側に記録)。
 # 週次レポート(sedori-weekly-report.yml)は数字のまとめ、こちらは取りこぼし防止。
 on:
   schedule:
@@ -22,6 +23,10 @@ jobs:
   mail:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # お問い合わせ(2.2.0〜・Supabase inquiries)のトークン。未設定の間は2つ目のステップを飛ばす
+    # (sedori-ledger/supabase/patch-inquiries.sql の【セットアップ手順】で作って Secrets に置く)
+    env:
+      SEDORI_INQUIRY_TOKEN: ${{ secrets.SEDORI_INQUIRY_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,3 +42,11 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           MAIL_TO: chikara0323@gmail.com
         run: node scripts/sedoriFeedbackMail.mjs --hours ${{ github.event.inputs.hours || '24' }}
+      - name: Send new inquiries (business / feedback from 2.2.0)
+        if: ${{ always() && env.SEDORI_INQUIRY_TOKEN != '' }}
+        env:
+          SEDORI_SUPABASE_URL: ${{ secrets.SEDORI_SUPABASE_URL }}
+          SEDORI_SUPABASE_ANON_KEY: ${{ secrets.SEDORI_SUPABASE_ANON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: chikara0323@gmail.com
+        run: node scripts/sedoriInquiryMail.mjs

@@ -33,6 +33,33 @@ const ASC_PRIVATE_KEY = (process.env.ASC_PRIVATE_KEY || "").replace(/\\n/g, "\n"
 const ASC_VENDOR_NUMBER = process.env.ASC_VENDOR_NUMBER || "";
 const ascReady = Boolean(ASC_KEY_ID && ASC_ISSUER_ID && ASC_PRIVATE_KEY && ASC_VENDOR_NUMBER);
 
+// お問い合わせ(2.2.0〜)。3つ揃ったときだけ読む(未設定なら PostHog の feedback だけ)
+const SB_URL = process.env.SEDORI_SUPABASE_URL || "";
+const SB_ANON = process.env.SEDORI_SUPABASE_ANON_KEY || "";
+const INQUIRY_TOKEN = process.env.SEDORI_INQUIRY_TOKEN || "";
+
+/** 直近7日のお問い合わせ(新しい順)。未設定・失敗は null */
+async function fetchInquiries() {
+  if (!(SB_URL && SB_ANON && INQUIRY_TOKEN)) return null;
+  try {
+    const since = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/inquiries_since`, {
+      method: "POST",
+      headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_token: INQUIRY_TOKEN, p_since: since }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!r.ok) {
+      console.error(`inquiries_since ${r.status}`);
+      return null;
+    }
+    return await r.json();
+  } catch (e) {
+    console.error("inquiries_since failed:", String(e.message || e).slice(0, 120));
+    return null;
+  }
+}
+
 // アプリ側でtrack()を足したらここにも足す。載っていないイベントはメールに出ない。
 // 「今週の動き」の1行に、1以上のものだけ並ぶ(ACTIONS=件数 / PEOPLE=人数)
 const ACTIONS = [
@@ -48,6 +75,12 @@ const PEOPLE = [
   ["ad_interstitial_shown", "全画面広告を見た人"],
   ["tutorial_done", "チュートリアル完了"],
   ["tutorial_skip", "チュートリアルをスキップ"],
+  // 2.2.0〜
+  ["fee_auto_free_used", "手数料の無料枠を使った人"],
+  ["upsell_card_tap", "集計のCSVカードを押した人"],
+  ["promo_tap", "おすすめを押した人"],
+  ["paywall_dismissed", "プラン画面を閉じた人"],
+  ["purchase_cancelled", "購入をやめた人"],
 ];
 // plan_locked_tap の feature。プランは月額¥150の1本(2026-09〜)なのでプラン名は付けない
 const FEATURE_LABEL = {
@@ -57,11 +90,13 @@ const FEATURE_LABEL = {
   flags: "色フラグ",
   kobutsu: "古物台帳",
   kobutsu_csv: "古物台帳の書き出し",
-  ads: "広告を消す(広告の下の導線)",
+  ads: "広告を消す(バナーの導線・2.1以前)",
   ads_settings: "広告を消す(設定)",
   group: "3人以上の共有",
   ledgers: "帳簿の追加",
   import: "取り込み(上限超え)",
+  csv: "CSVの書き出し",
+  expense: "経費の登録",
 };
 // purchase_completed の product。iOS は商品ID、Android は「商品ID:基本プランID」
 const PRODUCT_LABEL = (id) => {
@@ -296,7 +331,17 @@ async function main() {
       ),
     ]);
 
-  const [appStoreLine, downloads] = await Promise.all([fetchAppStore(), fetchDownloads()]);
+  const [appStoreLine, downloads, inquiries] = await Promise.all([fetchAppStore(), fetchDownloads(), fetchInquiries()]);
+  // 届いた声 = 2.1.0 以前(PostHog・本文あり)+ 2.2.0〜(Supabase・kind=feedback)
+  const voices = [
+    ...(feedback || [])
+      .filter((f) => String(f[1] ?? "").trim() !== "")
+      .map((f) => ({ at: String(f[0]), body: f[1], contact: f[2], version: f[3] })),
+    ...(inquiries || [])
+      .filter((q) => q.kind === "feedback")
+      .map((q) => ({ at: String(q.created_at), body: q.body, contact: q.contact, version: q.app_version })),
+  ].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const businessCount = (inquiries || []).filter((q) => q.kind === "business").length;
 
   // クエリが落ちた分を0と読み違えないよう、失敗があれば本文と件名で断る
   const degraded = [ev7, feedback, purchases, users7Rows, usersPrevRows, d7Rows, funnelRows].some((r) => r == null);
@@ -379,13 +424,13 @@ async function main() {
   const feedbackBlock =
     feedback == null
       ? `<p style="color:${MUTED};font-size:13px">取得できませんでした</p>`
-      : feedback.length === 0
+      : voices.length === 0
         ? `<p style="color:${MUTED};font-size:13px">今週はありません</p>`
-        : feedback
+        : voices
             .map(
               (f) => `<div style="border-left:3px solid ${ACCENT};padding:2px 0 2px 10px;margin-bottom:10px">
-              <div style="font-size:14px;white-space:pre-wrap">${esc(f[1] || "(本文なし)")}</div>
-              <div style="color:${MUTED};font-size:11px;padding-top:2px">${esc(String(f[0]).slice(0, 10))}・v${esc(f[3] || "?")}${f[2] ? "・連絡先 " + esc(f[2]) : ""}</div>
+              <div style="font-size:14px;white-space:pre-wrap">${esc(f.body || "(本文なし)")}</div>
+              <div style="color:${MUTED};font-size:11px;padding-top:2px">${esc(f.at.slice(0, 10))}・v${esc(f.version || "?")}${f.contact ? "・連絡先 " + esc(f.contact) : ""}</div>
             </div>`
             )
             .join("");
@@ -432,8 +477,9 @@ async function main() {
   ${table}
   <p style="font-size:11px;color:${MUTED};margin:6px 0 20px">${refLine}</p>
 
-  <h3 style="font-size:14px;color:${ACCENT};margin:0 0 8px">届いた声${feedback && feedback.length ? ` ${feedback.length}件` : ""}</h3>
+  <h3 style="font-size:14px;color:${ACCENT};margin:0 0 8px">届いた声${voices.length ? ` ${voices.length}件` : ""}</h3>
   ${feedbackBlock}
+  ${businessCount ? `<p style="font-size:13px;margin:8px 0 0">お仕事・コラボのご相談 <b>${businessCount}件</b>(中身は届いたときのメールで)</p>` : ""}
 
   ${movesLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">今週の動き</h3><p style="font-size:13px;margin:0">${movesLine}</p>` : ""}
   ${wantedLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">有料機能で触られた場所</h3><p style="font-size:13px;margin:0">${wantedLine}</p>` : ""}
