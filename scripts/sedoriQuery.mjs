@@ -17,6 +17,8 @@ const PH_PROJECT = 538873;
 const PACK = process.env.PACK || "monetization";
 const HOGQL = process.env.HOGQL || "";
 const DAYS = Number(process.env.DAYS) || 90;
+const COUNTRY = process.env.COUNTRY || ""; // 例 JP。空なら全員
+const C = COUNTRY ? ` AND properties.$geoip_country_code = '${COUNTRY}'` : "";
 
 if (!POSTHOG_API_KEY) {
   console.error("POSTHOG_API_KEY がありません");
@@ -66,13 +68,13 @@ async function section(title, query, note) {
 
 // 人ごとの初日(JST)。以下のクエリで共通に使う
 const FIRST_DAY = `
-  SELECT person_id, min(toDate(timestamp, 'Asia/Tokyo')) AS d0
+  SELECT person_id, min(toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) AS d0
   FROM events
-  WHERE event NOT IN ('$feature_flag_called', '$set')
+  WHERE event NOT IN ('$feature_flag_called', '$set')${C}
   GROUP BY person_id`;
 
 const monetization = async () => {
-  console.log(`# せどり帳 課金分析(PostHog)  実行: ${new Date().toISOString()}  DAYS=${DAYS}`);
+  console.log(`# せどり帳 課金分析(PostHog)  実行: ${new Date().toISOString()}  DAYS=${DAYS}  国=${COUNTRY || "全部"}`);
 
   await section(
     "1. 利用者の全体像",
@@ -95,8 +97,8 @@ const monetization = async () => {
     "3. 継続率(初日を0日目として、その後に起動した人の割合)",
     `WITH f AS (${FIRST_DAY}),
      opens AS (
-       SELECT person_id, toDate(timestamp, 'Asia/Tokyo') AS d
-       FROM events WHERE event = 'Application Opened'
+       SELECT person_id, toDate(toTimeZone(timestamp, 'Asia/Tokyo')) AS d
+       FROM events WHERE event = 'Application Opened'${C}
        GROUP BY person_id, d
      )
      SELECT
@@ -114,8 +116,8 @@ const monetization = async () => {
     "3b. 継続率(初日の月ごと)",
     `WITH f AS (${FIRST_DAY}),
      opens AS (
-       SELECT person_id, toDate(timestamp, 'Asia/Tokyo') AS d
-       FROM events WHERE event = 'Application Opened'
+       SELECT person_id, toDate(toTimeZone(timestamp, 'Asia/Tokyo')) AS d
+       FROM events WHERE event = 'Application Opened'${C}
        GROUP BY person_id, d
      )
      SELECT toStartOfMonth(f.d0) AS first_month,
@@ -132,8 +134,8 @@ const monetization = async () => {
     `SELECT multiIf(days = 1, '1日だけ', days <= 3, '2〜3日', days <= 7, '4〜7日', days <= 14, '8〜14日', '15日以上') AS active_days,
             count() AS n_people
      FROM (
-       SELECT person_id, count(DISTINCT toDate(timestamp, 'Asia/Tokyo')) AS days
-       FROM events WHERE event = 'Application Opened' GROUP BY person_id
+       SELECT person_id, count(DISTINCT toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) AS days
+       FROM events WHERE event = 'Application Opened'${C} GROUP BY person_id
      )
      GROUP BY active_days ORDER BY min(days)`
   );
@@ -151,7 +153,7 @@ const monetization = async () => {
        count(DISTINCT if(event = 'paywall_shown', person_id, NULL)) AS saw_paywall,
        count(DISTINCT if(event = 'purchase_started', person_id, NULL)) AS started_purchase,
        count(DISTINCT if(event = 'purchase_completed', person_id, NULL)) AS purchased
-     FROM events`
+     FROM events WHERE 1=1${C}`
   );
 
   await section(
@@ -169,14 +171,14 @@ const monetization = async () => {
   await section(
     "6. ロックに触れた機能(回数と人数)",
     `SELECT properties.feature AS feature, count() AS n_events, count(DISTINCT person_id) AS n_people
-     FROM events WHERE event = 'plan_locked_tap'
+     FROM events WHERE event = 'plan_locked_tap'${C}
      GROUP BY feature ORDER BY n_people DESC`
   );
 
   await section(
     "7. プラン画面が開いたきっかけ(回数と人数)",
     `SELECT properties.source AS source, count() AS n_events, count(DISTINCT person_id) AS n_people
-     FROM events WHERE event = 'paywall_shown'
+     FROM events WHERE event = 'paywall_shown'${C}
      GROUP BY source ORDER BY n_people DESC`
   );
 
@@ -185,7 +187,7 @@ const monetization = async () => {
     `SELECT multiIf(dd = 0, '初日', dd <= 3, '1〜3日後', dd <= 7, '4〜7日後', dd <= 30, '8〜30日後', '31日以降') AS days_after,
             count() AS n_people
      FROM (
-       SELECT f.person_id, dateDiff('day', f.d0, min(toDate(e.timestamp, 'Asia/Tokyo'))) AS dd
+       SELECT f.person_id, dateDiff('day', f.d0, min(toDate(toTimeZone(e.timestamp, 'Asia/Tokyo')))) AS dd
        FROM (${FIRST_DAY}) f JOIN events e ON e.person_id = f.person_id
        WHERE e.event = 'paywall_shown'
        GROUP BY f.person_id, f.d0
@@ -205,7 +207,7 @@ const monetization = async () => {
               countIf(event = 'paywall_shown') AS views,
               countIf(event = 'purchase_started') AS started,
               countIf(event = 'purchase_completed') AS done
-       FROM events GROUP BY person_id HAVING views > 0
+       FROM events WHERE 1=1${C} GROUP BY person_id HAVING views > 0
      )`
   );
 
@@ -225,7 +227,7 @@ const monetization = async () => {
     "11. 使われた機能(人数)",
     `SELECT event AS feature, count(DISTINCT person_id) AS n_people, count() AS n_events
      FROM events
-     WHERE event IN ('item_added','item_sold','expense_added','csv_exported','kobutsu_csv_exported','import_completed','import_undone',
+     WHERE 1=1${C} AND event IN ('item_added','item_sold','expense_added','csv_exported','kobutsu_csv_exported','import_completed','import_undone',
                      'share_posted','share_saved','tell_friend_tapped','review_requested','review_page_opened','lang_changed',
                      'care_card_shown','profit_card_shown','feedback')
      GROUP BY feature ORDER BY n_people DESC`
@@ -239,8 +241,8 @@ const monetization = async () => {
 
   await section(
     "13. OS(人数)",
-    `SELECT properties.$os_name AS OS, count(DISTINCT person_id) AS n_people
-     FROM events WHERE event = 'Application Opened' GROUP BY OS ORDER BY n_people DESC`
+    `SELECT properties.$os AS OS, properties.$lib AS lib, count(DISTINCT person_id) AS n_people
+     FROM events WHERE 1=1${C} GROUP BY OS, lib ORDER BY n_people DESC`
   );
 
   await section(
@@ -251,8 +253,8 @@ const monetization = async () => {
 
   await section(
     "15. 今週と先週の起動人数",
-    `SELECT toStartOfWeek(toDate(timestamp, 'Asia/Tokyo')) AS week, count(DISTINCT person_id) AS opened_people
-     FROM events WHERE event = 'Application Opened' AND timestamp >= now() - interval 8 week
+    `SELECT toStartOfWeek(toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) AS week, count(DISTINCT person_id) AS opened_people
+     FROM events WHERE event = 'Application Opened'${C} AND timestamp >= now() - interval 8 week
      GROUP BY week ORDER BY week`
   );
 };
