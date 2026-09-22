@@ -38,6 +38,26 @@ const SB_URL = process.env.SEDORI_SUPABASE_URL || "";
 const SB_ANON = process.env.SEDORI_SUPABASE_ANON_KEY || "";
 const INQUIRY_TOKEN = process.env.SEDORI_INQUIRY_TOKEN || "";
 
+/** 写真共有(2.2.0〜)のファイル置き場の使用量。未設定・失敗は null。無料枠は 1GB */
+async function fetchStorageUsage() {
+  if (!(SB_URL && SB_ANON && INQUIRY_TOKEN)) return null;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/storage_usage_for_report`, {
+      method: "POST",
+      headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_token: INQUIRY_TOKEN }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!r.ok) return null;
+    const row = (await r.json())?.[0];
+    return row ? { files: Number(row.files) || 0, bytes: Number(row.bytes) || 0, ledgers: Number(row.ledgers) || 0 } : null;
+  } catch {
+    return null;
+  }
+}
+/** 800MB を超えたら件名と本文で知らせる(無料枠 1GB の手前) */
+const STORAGE_WARN_BYTES = 800 * 1024 * 1024;
+
 /** 直近7日のお問い合わせ(新しい順)。未設定・失敗は null */
 async function fetchInquiries() {
   if (!(SB_URL && SB_ANON && INQUIRY_TOKEN)) return null;
@@ -331,7 +351,11 @@ async function main() {
       ),
     ]);
 
-  const [appStoreLine, downloads, inquiries] = await Promise.all([fetchAppStore(), fetchDownloads(), fetchInquiries()]);
+  const [appStoreLine, downloads, inquiries, storage] = await Promise.all([fetchAppStore(), fetchDownloads(), fetchInquiries(), fetchStorageUsage()]);
+  const storageWarn = storage != null && storage.bytes >= STORAGE_WARN_BYTES;
+  const storageLine = storage
+    ? `共有画像 ${(storage.bytes / 1024 / 1024).toFixed(1)}MB / 1GB(${jp(storage.files)}枚・${jp(storage.ledgers)}帳簿)`
+    : null;
   // 届いた声 = 2.1.0 以前(PostHog・本文あり)+ 2.2.0〜(Supabase・kind=feedback)
   const voices = [
     ...(feedback || [])
@@ -372,9 +396,10 @@ async function main() {
   const end = jstDate();
   const start = jstDate(new Date(Date.now() - 6 * 86400 * 1000));
   const range = `${fmtMD(start)}〜${fmtMD(end)}`;
-  const subject = degraded
+  const subjectBase = degraded
     ? `せどり帳 週次 ${range}｜一部の数字を取得できませんでした`
     : `せどり帳 週次 ${range}｜使った人${users7}・7日継続${d7Now ? d7Now.p + "%" : "—"}・お試し/購入${paid}`;
+  const subject = storageWarn ? `⚠画像が800MB超 ${subjectBase}` : subjectBase;
 
   // ── 1行サマリー。読むのはここだけで済むように ──────────────
   const diff = users7 - usersPrev;
@@ -418,7 +443,7 @@ async function main() {
   const dlLine = downloads
     ? `DL ${jp(downloads.total)}件${downloads.days < 7 ? `(${downloads.days}日分)` : ""}${dlOverseas ? `（海外 ${jp(dlOverseas)}）` : ""}`
     : null;
-  const refLine = [`月間 ${users30Rows == null ? "—" : jp(users30) + "人"}`, dlLine, appStoreLine].filter(Boolean).join(" ／ ");
+  const refLine = [`月間 ${users30Rows == null ? "—" : jp(users30) + "人"}`, dlLine, storageLine, appStoreLine].filter(Boolean).join(" ／ ");
 
   // ── 届いた声。本文はそのまま出す(要約しない) ──────────────
   const feedbackBlock =
@@ -473,6 +498,7 @@ async function main() {
   </div>
   ${degraded ? `<p style="background:#FDF3F1;border:1px solid ${DOWN};color:${DOWN};font-size:12px;padding:8px 10px;margin:0 0 12px">⚠ 一部の数字を取得できませんでした。0と出ていても実際は不明です。</p>` : ""}
 
+  ${storageWarn ? `<p style="background:#FDF3F1;border:1px solid ${DOWN};color:${DOWN};font-size:12px;padding:8px 10px;margin:0 0 12px">⚠ 写真共有の画像が 800MB を超えました(無料枠 1GB)。Supabase を Pro($25/月)にするか、公式サイトの設定JSON の photoUploadPaused を true にして送信を止めてください。</p>` : ""}
   <p style="font-size:14px;margin:0 0 12px">${summary}</p>
   ${table}
   <p style="font-size:11px;color:${MUTED};margin:6px 0 20px">${refLine}</p>
