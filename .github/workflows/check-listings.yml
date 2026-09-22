@@ -16,6 +16,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # TCG買取表の Pixel ワーカーの見張り (2026-09-22 相乗り・オーナー指示「Pixel の動きが止まったらすぐにメール」)。
+  # 上の check-listings は輸出ラボを畳んで止めてあるが、cron-job.org からの15分ごとの dispatch は続いているので、
+  # それに乗せて見張る (GitHub の schedule は間引かれて3〜5時間おきにしか動かない実測がある・公開リポジトリなので無料)。
+  # Pixel が10分ごとに Actions の変数 TORECA_PIXEL_HEARTBEAT に合図を書き、途切れたらメール・戻ったらメール (scripts/torecaPixelWatch.mjs)。
+  toreca-pixel-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/torecaPixelWatch.mjs
+          sparse-checkout-cone-mode: false
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Pixel の合図を確かめる
+        env:
+          TORECA_PIXEL_HEARTBEAT: ${{ vars.TORECA_PIXEL_HEARTBEAT }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          MAIL_TO: chikara0323@gmail.com
+        run: node scripts/torecaPixelWatch.mjs
+
   check-listings:
     if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
     runs-on: ubuntu-latest
