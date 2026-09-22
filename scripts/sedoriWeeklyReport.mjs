@@ -34,36 +34,43 @@ const ASC_VENDOR_NUMBER = process.env.ASC_VENDOR_NUMBER || "";
 const ascReady = Boolean(ASC_KEY_ID && ASC_ISSUER_ID && ASC_PRIVATE_KEY && ASC_VENDOR_NUMBER);
 
 // アプリ側でtrack()を足したらここにも足す。載っていないイベントはメールに出ない。
+// 「今週の動き」の1行に、1以上のものだけ並ぶ(ACTIONS=件数 / PEOPLE=人数)
 const ACTIONS = [
-  ["item_added", "仕入れを登録"],
-  ["item_sold", "売却を登録"],
-  ["expense_added", "経費を登録"],
-  ["csv_exported", "確定申告・CSVを書き出し"],
-  ["kobutsu_csv_exported", "古物台帳を書き出し"],
-  ["share_posted", "SNSに投稿"],
-  ["share_saved", "画像を保存"],
+  ["item_added", "仕入れ"],
+  ["item_sold", "売却"],
+  ["import_completed", "取り込み"],
+  ["expense_added", "経費"],
+  ["csv_exported", "CSV書き出し"],
+  ["kobutsu_csv_exported", "古物台帳の書き出し"],
+  ["share_posted", "SNS投稿"],
 ];
-// 補足程度の数字。0件なら行ごと出さない
-const MINOR = [
-  ["Application Opened", "アプリ起動"],
-  ["profit_card_shown", "お祝いカード"],
-  ["review_requested", "レビュー依頼"],
-  ["lang_changed", "言語切替"],
+const PEOPLE = [
+  ["ad_interstitial_shown", "全画面広告を見た人"],
+  ["tutorial_done", "チュートリアル完了"],
+  ["tutorial_skip", "チュートリアルをスキップ"],
 ];
+// plan_locked_tap の feature。プランは月額¥150の1本(2026-09〜)なのでプラン名は付けない
 const FEATURE_LABEL = {
-  stats: "集計（スタンダード）",
-  fee: "手数料プリセット（スタンダード）",
-  category: "カテゴリ（プレミアム）",
-  kobutsu: "古物台帳（プレミアム）",
-  kobutsu_csv: "古物台帳の書き出し（プレミアム）",
-  ads: "広告を消す（広告の下の導線）",
-  ads_settings: "広告を消す（設定画面）",
-  group: "グループ共有（スタンダード）",
-  flags: "フラグ（スタンダード）",
-  ledgers: "帳簿の追加（プレミアム）",
+  fee: "手数料の自動計算",
+  stats: "集計の強化",
+  category: "カテゴリ",
+  flags: "色フラグ",
+  kobutsu: "古物台帳",
+  kobutsu_csv: "古物台帳の書き出し",
+  ads: "広告を消す(広告の下の導線)",
+  ads_settings: "広告を消す(設定)",
+  group: "3人以上の共有",
+  ledgers: "帳簿の追加",
+  import: "取り込み(上限超え)",
 };
-const TIER_LABEL = { lite: "ライト", standard: "スタンダード", premium: "プレミアム" };
-const PERIOD_LABEL = { monthly: "月額", yearly: "年額" };
+// purchase_completed の product。iOS は商品ID、Android は「商品ID:基本プランID」
+const PRODUCT_LABEL = (id) => {
+  const s = String(id || "");
+  if (!s) return "?";
+  const os = s.includes(":") ? "Android" : "iOS";
+  const period = /year/i.test(s) ? "年額" : /month/i.test(s) ? "月額" : s;
+  return `${os}・${period}`;
+};
 
 const INK = "#2D323B";
 const ACCENT = "#3D5166";
@@ -243,12 +250,23 @@ async function main() {
   const W = "timestamp >= now() - interval 7 day";
   const P = "timestamp >= now() - interval 14 day and timestamp < now() - interval 7 day";
 
-  const [ev7, ev14, feedback, purchases, locked, users7Rows, usersPrevRows, users30Rows, newUserRows, retainedRows, countryRows] =
+  // 日本の利用者の「初日」(JST)。継続率とファネルは日本だけで見る
+  // (米国は Apple/Google の審査端末が多く、ビルドのたびに新しい人として数えられるため)
+  const JP_FIRST = `(select person_id, min(toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) as d0 from events where properties.$geoip_country_code = 'JP' group by person_id)`;
+  // 7日継続: 初日から7〜13日目に一度でも使った人の割合。対象は初日が a〜b 日前の人(13日目まで見終わった人だけ)
+  const d7 = (a, b) => `select count() as cohort, countIf(back > 0) as kept from (
+      select f.person_id as pid,
+        countIf(toDate(toTimeZone(e.timestamp, 'Asia/Tokyo')) >= f.d0 + 7 and toDate(toTimeZone(e.timestamp, 'Asia/Tokyo')) <= f.d0 + 13) as back
+      from ${JP_FIRST} as f join events as e on e.person_id = f.person_id
+      where f.d0 >= today() - ${b} and f.d0 <= today() - ${a} and e.timestamp >= now() - interval ${b + 2} day
+      group by f.person_id)`;
+
+  const [ev7, ev14, feedback, purchases, locked, users7Rows, usersPrevRows, users30Rows, newUserRows, d7Rows, d7PrevRows, funnelRows, countryRows] =
     await Promise.all([
       tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${W} group by event`),
       tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${P} group by event`),
       tryQuery(`select timestamp, properties.message, properties.contact, properties.version from events where event = 'feedback' and ${W} order by timestamp desc limit 50`),
-      tryQuery(`select timestamp, properties.tier, properties.period from events where event = 'purchase_completed' and ${W} order by timestamp desc limit 50`),
+      tryQuery(`select timestamp, properties.product from events where event = 'purchase_completed' and ${W} order by timestamp desc limit 50`),
       tryQuery(`select properties.feature as f, count() as c from events where event = 'plan_locked_tap' and ${W} group by f order by c desc`),
       tryQuery(`select uniq(person_id) from events where ${W}`),
       tryQuery(`select uniq(person_id) from events where ${P}`),
@@ -258,8 +276,19 @@ async function main() {
         `select count() from (select person_id, min(timestamp) as fs from events group by person_id having fs >= now() - interval 7 day)`,
         `select uniq(person_id) from (select person_id, min(timestamp) as fs from events group by person_id) where fs >= now() - interval 7 day`
       ),
-      // 先週使った人のうち今週も使った人(継続率の分子)
-      tryQuery(`select uniq(person_id) from events where ${W} and person_id in (select person_id from events where ${P})`),
+      // 7日継続(日本)。今回=初日が2〜4週前の人、比較=4〜6週前の人
+      tryQuery(d7(14, 27)),
+      tryQuery(d7(28, 41)),
+      // 課金までの流れ(日本・直近30日に使い始めた人が、これまでにしたこと)
+      tryQuery(`select count() as users, countIf(added >= 1) as a1, countIf(added >= 3) as a3, countIf(locked >= 1) as lk,
+          countIf(paywall >= 1) as pw, countIf(started >= 1) as st, countIf(done >= 1) as dn
+        from (
+          select person_id,
+            countIf(event = 'item_added') as added, countIf(event = 'plan_locked_tap') as locked, countIf(event = 'paywall_shown') as paywall,
+            countIf(event = 'purchase_started') as started, countIf(event = 'purchase_completed') as done
+          from events
+          where person_id in (select person_id from events where properties.$geoip_country_code = 'JP' group by person_id having min(timestamp) >= now() - interval 30 day)
+          group by person_id)`),
       // 国別。PostHogがIPから付ける $geoip_country_code。取れない環境では null になる
       tryQuery(
         `select coalesce(nullIf(properties.$geoip_country_code, ''), '?') as cc, uniq(person_id) as u from events where ${W} group by cc order by u desc`,
@@ -270,16 +299,22 @@ async function main() {
   const [appStoreLine, downloads] = await Promise.all([fetchAppStore(), fetchDownloads()]);
 
   // クエリが落ちた分を0と読み違えないよう、失敗があれば本文と件名で断る
-  const degraded = [ev7, feedback, purchases, users7Rows, usersPrevRows].some((r) => r == null);
+  const degraded = [ev7, feedback, purchases, users7Rows, usersPrevRows, d7Rows, funnelRows].some((r) => r == null);
 
   const users7 = num(users7Rows?.[0]?.[0]);
   const usersPrev = num(usersPrevRows?.[0]?.[0]);
   const users30 = num(users30Rows?.[0]?.[0]);
   const newUsers = num(newUserRows?.[0]?.[0]);
-  const retained = num(retainedRows?.[0]?.[0]);
-  const retentionPct = retainedRows != null && usersPrev > 0 ? Math.round((retained / usersPrev) * 100) : null;
+  const pct = (rows) => {
+    const c = num(rows?.[0]?.[0]);
+    const k = num(rows?.[0]?.[1]);
+    return rows != null && c > 0 ? { c, k, p: Math.round((k / c) * 100) } : null;
+  };
+  const d7Now = pct(d7Rows);
+  const d7Prev = pct(d7PrevRows);
   const sold = num(pick(ev7, "item_sold")[1]);
   const soldPrev = num(pick(ev14, "item_sold")[1]);
+  // purchase_completed はお試し開始でも出る(お試し中も有料扱い)。本当の課金は RevenueCat 側で見る
   const paid = (purchases || []).length;
 
   // 海外 = 国が取れていて日本以外。不明(?)は母数から外す
@@ -294,7 +329,7 @@ async function main() {
   const range = `${fmtMD(start)}〜${fmtMD(end)}`;
   const subject = degraded
     ? `せどり帳 週次 ${range}｜一部の数字を取得できませんでした`
-    : `せどり帳 週次 ${range}｜使った人${users7}・海外${countryRows == null || known.length === 0 ? "—" : overseas}・課金${paid}`;
+    : `せどり帳 週次 ${range}｜使った人${users7}・7日継続${d7Now ? d7Now.p + "%" : "—"}・お試し/購入${paid}`;
 
   // ── 1行サマリー。読むのはここだけで済むように ──────────────
   const diff = users7 - usersPrev;
@@ -311,7 +346,7 @@ async function main() {
       ? "今週は利用がありませんでした。"
       : `今週は <b>${jp(users7)}人</b> が使い、${move}。${
           countryRows != null && known.length ? `うち海外が <b>${jp(overseas)}人</b>。` : ""
-        }課金は <b>${paid}件</b> でした。`;
+        }お試し開始・購入は <b>${paid}件</b> でした。`;
 
   const cell = (label, value, sub) => `<td width="33%" align="center" style="padding:10px 2px;border:1px solid ${LINE};background:#FAFBFC">
       <div style="font-size:11px;color:${MUTED}">${label}</div>
@@ -322,12 +357,12 @@ async function main() {
     <tr>
       ${cell("使った人", `${jp(users7)}人`, delta(users7, usersPrev))}
       ${cell("はじめての人", newUserRows == null ? "—" : `${jp(newUsers)}人`, "")}
-      ${cell("継続率", retentionPct != null ? `${retentionPct}%` : "—", retentionPct != null ? `${jp(usersPrev)}人中${jp(retained)}人` : "")}
+      ${cell("7日継続(日本)", d7Now ? `${d7Now.p}%` : "—", d7Now ? `${jp(d7Now.c)}人中${jp(d7Now.k)}人${d7Prev ? `(前${d7Prev.p}%)` : ""}` : "")}
     </tr>
     <tr>
-      ${cell("海外から", overseasCell, overseasTop)}
+      ${cell("海外から", overseasCell, overseasTop ? `${overseasTop}${overseasRows.some((r) => r[0] === "US") ? "<br>※米国は審査端末を含む" : ""}` : "")}
       ${cell("売却", `${jp(sold)}件`, delta(sold, soldPrev))}
-      ${cell("課金", `${jp(paid)}件`, "")}
+      ${cell("お試し・購入", `${jp(paid)}件`, (purchases || []).length ? esc(purchases.map((x) => PRODUCT_LABEL(x[1])).join(" / ")) : "")}
     </tr>
   </table>`;
 
@@ -361,17 +396,29 @@ async function main() {
       ? null
       : locked.slice(0, 3).map((l) => `${esc(FEATURE_LABEL[l[0]] || l[0] || "不明")} ${jp(l[1])}`).join(" / ");
 
-  // ── 課金の入口。誰も見ていない週は出さない ──────────────
-  const paywallUsers = num(pick(ev7, "paywall_shown")[2]);
-  const startedCount = num(pick(ev7, "purchase_started")[1]);
+  // ── 課金までの流れ(日本・直近30日に使い始めた人・人数) ──────────
+  const f = funnelRows?.[0];
   const funnelLine =
-    paywallUsers > 0
-      ? `プラン画面 ${jp(paywallUsers)}人 → 購入開始 ${jp(startedCount)} → 課金 ${jp(paid)}${
-          (purchases || []).length
-            ? `（${purchases.map((x) => `${esc(TIER_LABEL[x[1]] || x[1] || "?")}・${esc(PERIOD_LABEL[x[2]] || x[2] || "?")}`).join(" / ")}）`
-            : ""
-        }`
+    f && num(f[0]) > 0
+      ? [
+          ["はじめて", f[0]],
+          ["1件登録", f[1]],
+          ["3件", f[2]],
+          ["ロック", f[3]],
+          ["プラン画面", f[4]],
+          ["購入開始", f[5]],
+          ["お試し・購入", f[6]],
+        ]
+          .map(([label, n]) => `${label} ${jp(n)}`)
+          .join(" → ")
       : null;
+
+  // ── 今週の動き。1以上あるものだけ1行に ────────────────────
+  const moves = [
+    ...ACTIONS.map(([ev, label]) => [label, num(pick(ev7, ev)[1]), "件"]),
+    ...PEOPLE.map(([ev, label]) => [label, num(pick(ev7, ev)[2]), "人"]),
+  ].filter(([, n]) => n > 0);
+  const movesLine = ev7 == null || moves.length === 0 ? null : moves.map(([label, n, unit]) => `${label} ${jp(n)}${unit}`).join(" / ");
 
   const html = `
 <div style="font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;max-width:560px;margin:0 auto;color:${INK};line-height:1.7">
@@ -388,8 +435,9 @@ async function main() {
   <h3 style="font-size:14px;color:${ACCENT};margin:0 0 8px">届いた声${feedback && feedback.length ? ` ${feedback.length}件` : ""}</h3>
   ${feedbackBlock}
 
+  ${movesLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">今週の動き</h3><p style="font-size:13px;margin:0">${movesLine}</p>` : ""}
   ${wantedLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">有料機能で触られた場所</h3><p style="font-size:13px;margin:0">${wantedLine}</p>` : ""}
-  ${funnelLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">課金の入口</h3><p style="font-size:13px;margin:0">${funnelLine}</p>` : ""}
+  ${funnelLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">課金までの流れ(日本・直近30日に使い始めた人)</h3><p style="font-size:13px;margin:0">${funnelLine}</p>` : ""}
 
   <p style="color:#A6ABB3;font-size:11px;padding-top:8px;margin-top:20px;border-top:1px solid ${LINE}">
     毎週月曜の朝に自動送信 ／ 直近7日 ／ GitHub Actions sedori-weekly-report
