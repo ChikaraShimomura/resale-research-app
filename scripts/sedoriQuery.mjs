@@ -35,7 +35,18 @@ async function hogql(query) {
   return { columns: j.columns || [], results: j.results || [] };
 }
 
-function table(columns, rows) {
+const LABELS = {
+  n_people: "人数", new_in_days: `最近${DAYS}日に初めて使った人`, new_in_7d: "最近7日に初めて使った人", first_day_min: "最初の人の初日",
+  week: "週", cohort: "対象人数", d1: "翌日", within_7d: "7日以内", d8_30: "8〜30日", after_30: "31日以降", first_month: "初日の月",
+  active_days: "起動した日数", all_users: "全員", added_item: "仕入れ登録した", sold_item: "売却を記録した", saw_profit_card: "利益カードを見た",
+  imported: "取り込みをした", saw_interstitial: "全画面広告を見た", hit_lock: "ロックに触れた", saw_paywall: "プラン画面を見た",
+  started_purchase: "購入を始めた", purchased: "購入した", items_added_bucket: "登録件数", feature: "機能", n_events: "回数", source: "きっかけ",
+  days_after: "何日後", saw_paywall_people: "プラン画面を見た人", saw_twice: "2回以上見た人", started_people: "購入を始めた人",
+  purchased_people: "購入した人", views_bucket: "見た回数", country: "国", lang: "言語", opened_people: "起動した人",
+};
+
+function table(cols, rows) {
+  const columns = cols.map((c) => LABELS[c] || c);
   if (!rows.length) return "(0件)\n";
   const head = `| ${columns.join(" | ")} |\n| ${columns.map(() => "---").join(" | ")} |`;
   const body = rows.map((r) => `| ${r.map((v) => (v == null ? "" : String(v))).join(" | ")} |`).join("\n");
@@ -65,19 +76,19 @@ const monetization = async () => {
 
   await section(
     "1. 利用者の全体像",
-    `SELECT count() AS 人数,
-            countIf(d0 >= today() - ${DAYS}) AS 最近${DAYS}日に初めて使った人,
-            countIf(d0 >= today() - 7) AS 最近7日に初めて使った人,
-            min(d0) AS 最初の人の初日
+    `SELECT count() AS n_people,
+            countIf(d0 >= today() - ${DAYS}) AS new_in_days,
+            countIf(d0 >= today() - 7) AS new_in_7d,
+            min(d0) AS first_day_min
      FROM (${FIRST_DAY})`,
     "「人」は端末ごとの匿名ID。再インストールすると別の人に数えられる"
   );
 
   await section(
     "2. 初めて使った人の推移(週ごと)",
-    `SELECT toStartOfWeek(d0) AS 週, count() AS 人数
+    `SELECT toStartOfWeek(d0) AS week, count() AS n_people
      FROM (${FIRST_DAY})
-     GROUP BY 週 ORDER BY 週`
+     GROUP BY week ORDER BY week`
   );
 
   await section(
@@ -89,11 +100,11 @@ const monetization = async () => {
        GROUP BY person_id, d
      )
      SELECT
-       count(DISTINCT f.person_id) AS 対象人数,
-       countIf(DISTINCT f.person_id, o.d = f.d0 + 1) AS 翌日,
-       countIf(DISTINCT f.person_id, o.d > f.d0 AND o.d <= f.d0 + 7) AS 7日以内,
-       countIf(DISTINCT f.person_id, o.d > f.d0 + 7 AND o.d <= f.d0 + 30) AS 8〜30日,
-       countIf(DISTINCT f.person_id, o.d > f.d0 + 30) AS 31日以降
+       count(DISTINCT f.person_id) AS cohort,
+       countIf(DISTINCT f.person_id, o.d = f.d0 + 1) AS d1,
+       countIf(DISTINCT f.person_id, o.d > f.d0 AND o.d <= f.d0 + 7) AS within_7d,
+       countIf(DISTINCT f.person_id, o.d > f.d0 + 7 AND o.d <= f.d0 + 30) AS d8_30,
+       countIf(DISTINCT f.person_id, o.d > f.d0 + 30) AS after_30
      FROM f LEFT JOIN opens o ON o.person_id = f.person_id
      WHERE f.d0 <= today() - 8`,
     "対象は初日から8日以上たった人。8〜30日の列は初日から31日以上たった人だけで見ること"
@@ -107,88 +118,88 @@ const monetization = async () => {
        FROM events WHERE event = 'Application Opened'
        GROUP BY person_id, d
      )
-     SELECT toStartOfMonth(f.d0) AS 初日の月,
-       count(DISTINCT f.person_id) AS 人数,
-       countIf(DISTINCT f.person_id, o.d = f.d0 + 1) AS 翌日,
-       countIf(DISTINCT f.person_id, o.d > f.d0 AND o.d <= f.d0 + 7) AS 7日以内,
-       countIf(DISTINCT f.person_id, o.d > f.d0 + 7 AND o.d <= f.d0 + 30) AS 8〜30日
+     SELECT toStartOfMonth(f.d0) AS first_month,
+       count(DISTINCT f.person_id) AS n_people,
+       countIf(DISTINCT f.person_id, o.d = f.d0 + 1) AS d1,
+       countIf(DISTINCT f.person_id, o.d > f.d0 AND o.d <= f.d0 + 7) AS within_7d,
+       countIf(DISTINCT f.person_id, o.d > f.d0 + 7 AND o.d <= f.d0 + 30) AS d8_30
      FROM f LEFT JOIN opens o ON o.person_id = f.person_id
-     GROUP BY 初日の月 ORDER BY 初日の月`
+     GROUP BY first_month ORDER BY first_month`
   );
 
   await section(
     "4. 使い込みの深さ(起動した日数ごとの人数)",
-    `SELECT multiIf(days = 1, '1日だけ', days <= 3, '2〜3日', days <= 7, '4〜7日', days <= 14, '8〜14日', '15日以上') AS 起動した日数,
-            count() AS 人数
+    `SELECT multiIf(days = 1, '1日だけ', days <= 3, '2〜3日', days <= 7, '4〜7日', days <= 14, '8〜14日', '15日以上') AS active_days,
+            count() AS n_people
      FROM (
        SELECT person_id, count(DISTINCT toDate(timestamp, 'Asia/Tokyo')) AS days
        FROM events WHERE event = 'Application Opened' GROUP BY person_id
      )
-     GROUP BY 起動した日数 ORDER BY min(days)`
+     GROUP BY active_days ORDER BY min(days)`
   );
 
   await section(
     "5. 課金までの流れ(それぞれを1回以上した人の数)",
     `SELECT
-       count(DISTINCT person_id) AS 全員,
-       count(DISTINCT if(event = 'item_added', person_id, NULL)) AS 仕入れ登録した,
-       count(DISTINCT if(event = 'item_sold', person_id, NULL)) AS 売却を記録した,
-       count(DISTINCT if(event = 'profit_card_shown', person_id, NULL)) AS 利益カードを見た,
-       count(DISTINCT if(event = 'import_completed', person_id, NULL)) AS 取り込みをした,
-       count(DISTINCT if(event = 'ad_interstitial_shown', person_id, NULL)) AS 全画面広告を見た,
-       count(DISTINCT if(event = 'plan_locked_tap', person_id, NULL)) AS ロックに触れた,
-       count(DISTINCT if(event = 'paywall_shown', person_id, NULL)) AS プラン画面を見た,
-       count(DISTINCT if(event = 'purchase_started', person_id, NULL)) AS 購入を始めた,
-       count(DISTINCT if(event = 'purchase_completed', person_id, NULL)) AS 購入した
+       count(DISTINCT person_id) AS all_users,
+       count(DISTINCT if(event = 'item_added', person_id, NULL)) AS added_item,
+       count(DISTINCT if(event = 'item_sold', person_id, NULL)) AS sold_item,
+       count(DISTINCT if(event = 'profit_card_shown', person_id, NULL)) AS saw_profit_card,
+       count(DISTINCT if(event = 'import_completed', person_id, NULL)) AS imported,
+       count(DISTINCT if(event = 'ad_interstitial_shown', person_id, NULL)) AS saw_interstitial,
+       count(DISTINCT if(event = 'plan_locked_tap', person_id, NULL)) AS hit_lock,
+       count(DISTINCT if(event = 'paywall_shown', person_id, NULL)) AS saw_paywall,
+       count(DISTINCT if(event = 'purchase_started', person_id, NULL)) AS started_purchase,
+       count(DISTINCT if(event = 'purchase_completed', person_id, NULL)) AS purchased
      FROM events`
   );
 
   await section(
     "5b. 仕入れ登録の件数ごとの人数(何件入れた人がどれだけいるか)",
-    `SELECT multiIf(n = 0, '0件', n <= 2, '1〜2件', n <= 9, '3〜9件', n <= 29, '10〜29件', '30件以上') AS 登録件数,
-            count() AS 人数
+    `SELECT multiIf(n = 0, '0件', n <= 2, '1〜2件', n <= 9, '3〜9件', n <= 29, '10〜29件', '30件以上') AS items_added_bucket,
+            count() AS n_people
      FROM (
        SELECT f.person_id, countIf(e.event = 'item_added') AS n
        FROM (${FIRST_DAY}) f LEFT JOIN events e ON e.person_id = f.person_id
        GROUP BY f.person_id
      )
-     GROUP BY 登録件数 ORDER BY min(n)`
+     GROUP BY items_added_bucket ORDER BY min(n)`
   );
 
   await section(
     "6. ロックに触れた機能(回数と人数)",
-    `SELECT properties.feature AS 機能, count() AS 回数, count(DISTINCT person_id) AS 人数
+    `SELECT properties.feature AS feature, count() AS n_events, count(DISTINCT person_id) AS n_people
      FROM events WHERE event = 'plan_locked_tap'
-     GROUP BY 機能 ORDER BY 人数 DESC`
+     GROUP BY feature ORDER BY n_people DESC`
   );
 
   await section(
     "7. プラン画面が開いたきっかけ(回数と人数)",
-    `SELECT properties.source AS きっかけ, count() AS 回数, count(DISTINCT person_id) AS 人数
+    `SELECT properties.source AS source, count() AS n_events, count(DISTINCT person_id) AS n_people
      FROM events WHERE event = 'paywall_shown'
-     GROUP BY きっかけ ORDER BY 人数 DESC`
+     GROUP BY source ORDER BY n_people DESC`
   );
 
   await section(
     "8. 初日からプラン画面を初めて見るまでの日数",
-    `SELECT multiIf(dd = 0, '初日', dd <= 3, '1〜3日後', dd <= 7, '4〜7日後', dd <= 30, '8〜30日後', '31日以降') AS 何日後,
-            count() AS 人数
+    `SELECT multiIf(dd = 0, '初日', dd <= 3, '1〜3日後', dd <= 7, '4〜7日後', dd <= 30, '8〜30日後', '31日以降') AS days_after,
+            count() AS n_people
      FROM (
        SELECT f.person_id, dateDiff('day', f.d0, min(toDate(e.timestamp, 'Asia/Tokyo'))) AS dd
        FROM (${FIRST_DAY}) f JOIN events e ON e.person_id = f.person_id
        WHERE e.event = 'paywall_shown'
        GROUP BY f.person_id, f.d0
      )
-     GROUP BY 何日後 ORDER BY min(dd)`
+     GROUP BY days_after ORDER BY min(dd)`
   );
 
   await section(
     "9. プラン画面を見た人のその後(見た回数と、購入を始めたか)",
     `SELECT
-       count() AS プラン画面を見た人,
-       countIf(views >= 2) AS 2回以上見た人,
-       countIf(started > 0) AS 購入を始めた人,
-       countIf(done > 0) AS 購入した人
+       count() AS saw_paywall_people,
+       countIf(views >= 2) AS saw_twice,
+       countIf(started > 0) AS started_people,
+       countIf(done > 0) AS purchased_people
      FROM (
        SELECT person_id,
               countIf(event = 'paywall_shown') AS views,
@@ -200,49 +211,49 @@ const monetization = async () => {
 
   await section(
     "10. 全画面広告(見た回数の分布)",
-    `SELECT multiIf(n = 0, '0回', n <= 2, '1〜2回', n <= 5, '3〜5回', '6回以上') AS 見た回数, count() AS 人数
+    `SELECT multiIf(n = 0, '0回', n <= 2, '1〜2回', n <= 5, '3〜5回', '6回以上') AS views_bucket, count() AS n_people
      FROM (
        SELECT f.person_id, countIf(e.event = 'ad_interstitial_shown') AS n
        FROM (${FIRST_DAY}) f LEFT JOIN events e ON e.person_id = f.person_id
        GROUP BY f.person_id
      )
-     GROUP BY 見た回数 ORDER BY min(n)`,
+     GROUP BY views_bucket ORDER BY min(n)`,
     "新規インストールから14日は全画面を出さない設計。0回の人が多いのはそのため"
   );
 
   await section(
     "11. 使われた機能(人数)",
-    `SELECT event AS 機能, count(DISTINCT person_id) AS 人数, count() AS 回数
+    `SELECT event AS feature, count(DISTINCT person_id) AS n_people, count() AS n_events
      FROM events
      WHERE event IN ('item_added','item_sold','expense_added','csv_exported','kobutsu_csv_exported','import_completed','import_undone',
                      'share_posted','share_saved','tell_friend_tapped','review_requested','review_page_opened','lang_changed',
                      'care_card_shown','profit_card_shown','feedback')
-     GROUP BY 機能 ORDER BY 人数 DESC`
+     GROUP BY feature ORDER BY n_people DESC`
   );
 
   await section(
     "12. 国(人数)",
-    `SELECT properties.$geoip_country_code AS 国, count(DISTINCT person_id) AS 人数
-     FROM events GROUP BY 国 ORDER BY 人数 DESC LIMIT 12`
+    `SELECT properties.$geoip_country_code AS country, count(DISTINCT person_id) AS n_people
+     FROM events GROUP BY country ORDER BY n_people DESC LIMIT 12`
   );
 
   await section(
     "13. OS(人数)",
-    `SELECT properties.$os_name AS OS, count(DISTINCT person_id) AS 人数
-     FROM events WHERE event = 'Application Opened' GROUP BY OS ORDER BY 人数 DESC`
+    `SELECT properties.$os_name AS OS, count(DISTINCT person_id) AS n_people
+     FROM events WHERE event = 'Application Opened' GROUP BY OS ORDER BY n_people DESC`
   );
 
   await section(
     "14. 言語の切り替え(人数)",
-    `SELECT properties.lang AS 言語, count(DISTINCT person_id) AS 人数
-     FROM events WHERE event = 'lang_changed' GROUP BY 言語 ORDER BY 人数 DESC`
+    `SELECT properties.lang AS lang, count(DISTINCT person_id) AS n_people
+     FROM events WHERE event = 'lang_changed' GROUP BY lang ORDER BY n_people DESC`
   );
 
   await section(
     "15. 今週と先週の起動人数",
-    `SELECT toStartOfWeek(toDate(timestamp, 'Asia/Tokyo')) AS 週, count(DISTINCT person_id) AS 起動した人
+    `SELECT toStartOfWeek(toDate(timestamp, 'Asia/Tokyo')) AS week, count(DISTINCT person_id) AS opened_people
      FROM events WHERE event = 'Application Opened' AND timestamp >= now() - interval 8 week
-     GROUP BY 週 ORDER BY 週`
+     GROUP BY week ORDER BY week`
   );
 };
 
