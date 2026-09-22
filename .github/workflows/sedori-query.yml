@@ -1,0 +1,45 @@
+name: せどり帳 分析クエリ(手動)
+
+# せどり帳の PostHog データを HogQL で引いて、結果をジョブのログに Markdown 表で出す(送信はしない)。
+# 鍵は週次メールと同じ Secrets(SEDORI_POSTHOG_API_KEY)。手動実行のみ。
+# 読み方: gh run view <run-id> --log | grep -v "^\s*$"  または Actions の画面で。
+on:
+  workflow_dispatch:
+    inputs:
+      pack:
+        description: '定型セット(monetization=課金分析)'
+        default: 'monetization'
+        required: false
+      hogql:
+        description: '任意の HogQL(指定すると pack より優先)'
+        default: ''
+        required: false
+      days:
+        description: '「最近N日に初めて使った人」の N'
+        default: '90'
+        required: false
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run query
+        env:
+          POSTHOG_API_KEY: ${{ secrets.SEDORI_POSTHOG_API_KEY }}
+          PACK: ${{ inputs.pack }}
+          HOGQL: ${{ inputs.hogql }}
+          DAYS: ${{ inputs.days }}
+        run: node scripts/sedoriQuery.mjs | tee sedori-query.md
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: sedori-query
+          path: sedori-query.md
+          retention-days: 7
