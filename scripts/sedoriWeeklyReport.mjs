@@ -98,7 +98,7 @@ const PEOPLE = [
   // 2.2.0〜
   ["fee_auto_free_used", "手数料の無料枠を使った人"],
   ["upsell_card_tap", "集計のCSVカードを押した人"],
-  ["promo_tap", "おすすめを押した人"],
+  ["group_paused_shown", "グループの一時停止の画面を見た人"],
   ["paywall_dismissed", "プラン画面を閉じた人"],
   ["purchase_cancelled", "購入をやめた人"],
 ];
@@ -113,6 +113,7 @@ const FEATURE_LABEL = {
   ads: "広告を消す(バナーの導線・2.1以前)",
   ads_settings: "広告を消す(設定)",
   group: "3人以上の共有",
+  group_paused: "一時停止中のプラン再開",
   ledgers: "帳簿の追加",
   import: "取り込み(上限超え)",
   csv: "CSVの書き出し",
