@@ -1,1 +1,1 @@
-sedori-cron: am 22:00 UTC + pm 08:30 UTC (deployed 2026-08-13)
+sedori-cron: stopped (2026-09-23) / torecabank cron only
