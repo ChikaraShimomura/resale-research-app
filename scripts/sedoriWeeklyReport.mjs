@@ -303,18 +303,22 @@ const cname = (cc) => COUNTRY[cc] || cc || "不明";
 
 async function main() {
   // 集計窓 = 直近7日。前週比のため 14〜7日前 も取る
-  const W = "timestamp >= now() - interval 7 day";
-  const P = "timestamp >= now() - interval 14 day and timestamp < now() - interval 7 day";
+  // RevenueCat → PostHog 連携(2.2.0〜)がサーバーから送るイベント(接頭辞は全部 rc_)。
+  // 2.2.0 より前の利用者は $posthogUserId を持たず RevenueCat の ID で別人として入るうえ、
+  // アプリを開いていない人が「使った人」「継続」に化けるので必ず外す
+  const NOTRC = "not startsWith(event, 'rc_')";
+  const W = `timestamp >= now() - interval 7 day and ${NOTRC}`;
+  const P = `timestamp >= now() - interval 14 day and timestamp < now() - interval 7 day and ${NOTRC}`;
 
   // 日本の利用者の「初日」(JST)。継続率とファネルは日本だけで見る
   // (米国は Apple/Google の審査端末が多く、ビルドのたびに新しい人として数えられるため)
-  const JP_FIRST = `(select person_id, min(toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) as d0 from events where properties.$geoip_country_code = 'JP' group by person_id)`;
+  const JP_FIRST = `(select person_id, min(toDate(toTimeZone(timestamp, 'Asia/Tokyo'))) as d0 from events where properties.$geoip_country_code = 'JP' and ${NOTRC} group by person_id)`;
   // 7日継続: 初日から7〜13日目に一度でも使った人の割合。対象は初日が a〜b 日前の人(13日目まで見終わった人だけ)
   const d7 = (a, b) => `select count() as cohort, countIf(back > 0) as kept from (
       select f.person_id as pid,
         countIf(toDate(toTimeZone(e.timestamp, 'Asia/Tokyo')) >= f.d0 + 7 and toDate(toTimeZone(e.timestamp, 'Asia/Tokyo')) <= f.d0 + 13) as back
       from ${JP_FIRST} as f join events as e on e.person_id = f.person_id
-      where f.d0 >= today() - ${b} and f.d0 <= today() - ${a} and e.timestamp >= now() - interval ${b + 2} day
+      where f.d0 >= today() - ${b} and f.d0 <= today() - ${a} and e.timestamp >= now() - interval ${b + 2} day and not startsWith(e.event, 'rc_')
       group by f.person_id)`;
 
   const [ev7, ev14, feedback, purchases, locked, users7Rows, usersPrevRows, users30Rows, newUserRows, d7Rows, d7PrevRows, funnelRows, countryRows] =
@@ -326,11 +330,11 @@ async function main() {
       tryQuery(`select properties.feature as f, count() as c from events where event = 'plan_locked_tap' and ${W} group by f order by c desc`),
       tryQuery(`select uniq(person_id) from events where ${W}`),
       tryQuery(`select uniq(person_id) from events where ${P}`),
-      tryQuery(`select uniq(person_id) from events where timestamp >= now() - interval 30 day`),
+      tryQuery(`select uniq(person_id) from events where timestamp >= now() - interval 30 day and ${NOTRC}`),
       // 今週はじめて使った人。ダウンロード数の代わりに「使い始めた人」として見る
       tryQuery(
-        `select count() from (select person_id, min(timestamp) as fs from events group by person_id having fs >= now() - interval 7 day)`,
-        `select uniq(person_id) from (select person_id, min(timestamp) as fs from events group by person_id) where fs >= now() - interval 7 day`
+        `select count() from (select person_id, min(timestamp) as fs from events where ${NOTRC} group by person_id having fs >= now() - interval 7 day)`,
+        `select uniq(person_id) from (select person_id, min(timestamp) as fs from events where ${NOTRC} group by person_id) where fs >= now() - interval 7 day`
       ),
       // 7日継続(日本)。今回=初日が2〜4週前の人、比較=4〜6週前の人
       tryQuery(d7(14, 27)),
@@ -343,7 +347,8 @@ async function main() {
             countIf(event = 'item_added') as added, countIf(event = 'plan_locked_tap') as locked, countIf(event = 'paywall_shown') as paywall,
             countIf(event = 'purchase_started') as started, countIf(event = 'purchase_completed') as done
           from events
-          where person_id in (select person_id from events where properties.$geoip_country_code = 'JP' group by person_id having min(timestamp) >= now() - interval 30 day)
+          where ${NOTRC}
+            and person_id in (select person_id from events where properties.$geoip_country_code = 'JP' and ${NOTRC} group by person_id having min(timestamp) >= now() - interval 30 day)
           group by person_id)`),
       // 国別。PostHogがIPから付ける $geoip_country_code。取れない環境では null になる
       tryQuery(

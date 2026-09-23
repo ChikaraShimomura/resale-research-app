@@ -18,7 +18,11 @@ const PACK = process.env.PACK || "monetization";
 const HOGQL = process.env.HOGQL || "";
 const DAYS = Number(process.env.DAYS) || 90;
 const COUNTRY = process.env.COUNTRY || ""; // 例 JP。空なら全員
-const C = COUNTRY ? ` AND properties.$geoip_country_code = '${COUNTRY}'` : "";
+// RevenueCat → PostHog 連携(2.2.0〜)がサーバーから送るイベント(接頭辞は全部 rc_)。
+// 2.2.0 より前の利用者は $posthogUserId を持たず RevenueCat の ID で別人として入るので、
+// 「人」を数えるクエリからは必ず外す(アプリを開いていない人が人数に入るのも防ぐ)
+const NOTRC = "NOT startsWith(event, 'rc_')";
+const C = `${COUNTRY ? ` AND properties.$geoip_country_code = '${COUNTRY}'` : ""} AND ${NOTRC}`;
 
 if (!POSTHOG_API_KEY) {
   console.error("POSTHOG_API_KEY がありません");
@@ -236,7 +240,7 @@ const monetization = async () => {
   await section(
     "12. 国(人数)",
     `SELECT properties.$geoip_country_code AS country, count(DISTINCT person_id) AS n_people
-     FROM events GROUP BY country ORDER BY n_people DESC LIMIT 12`
+     FROM events WHERE ${NOTRC} GROUP BY country ORDER BY n_people DESC LIMIT 12`
   );
 
   await section(
