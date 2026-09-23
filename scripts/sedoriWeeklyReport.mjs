@@ -321,8 +321,45 @@ async function main() {
       where f.d0 >= today() - ${b} and f.d0 <= today() - ${a} and e.timestamp >= now() - interval ${b + 2} day and not startsWith(e.event, 'rc_')
       group by f.person_id)`;
 
-  const [ev7, ev14, feedback, purchases, locked, users7Rows, usersPrevRows, users30Rows, newUserRows, d7Rows, d7PrevRows, funnelRows, countryRows] =
+  // ── OSの内訳(iOS / Android)──────────────────────────────
+  // 人ごとにOSを決める: その人のイベントのうち platform が入っている一番新しいものを採る。
+  // platform はアプリ 2.2.0(2026-09-22)から付くので、それ以前しか使っていない人は 'unknown'(不明)。
+  // 一度でも 2.2.0 を開けば、その人の過去のイベントもそのOSとして数えられる。
+  // properties.platform は欠損時 NULL になる(355行が coalesce しているのと同じ理由)。
+  // 大文字小文字で group が割れないよう lower() で揃え、条件側もまったく同じ式を使う
+  const PLAT = "lower(toString(properties.platform))";
+  const PLAT_OK = `ifNull(${PLAT} in ('ios', 'android', 'web'), 0)`;
+  // 第1候補。argMax は Nullable の引数を嫌うことがあるので coalesce で String に落としてから渡す。
+  // 該当行が無い人は空文字か NULL が返るが、どちらでも nullIf→coalesce で 'unknown' になる
+  const OS_PICK = `coalesce(nullIf(argMaxIf(coalesce(${PLAT}, ''), timestamp, ${PLAT_OK}), ''), 'unknown')`;
+  // 第2候補。argMaxIf はこのプロジェクトで実績が無いので、実績のある multiIf + countIf で同じことをする。
+  // person_id はほぼ端末ごとなので1人が複数OSを持つことは実質なく、結果は第1候補と同じになる
+  const OS_PICK_ALT = `multiIf(countIf(ifNull(${PLAT} = 'android', 0)) > 0, 'android', countIf(ifNull(${PLAT} = 'ios', 0)) > 0, 'ios', countIf(ifNull(${PLAT} = 'web', 0)) > 0, 'web', 'unknown')`;
+  // 列は [os, 使った人, はじめての人, 売却]。既存の合計と同じ定義のまま os で割るだけ。
+  // 外側の別名は内側の列名と必ず変える(同じ名前にすると Cyclic aliases で落ちる)。
+  // 「はじめての人」は全期間の min(timestamp) が要るので内側に時間窓を掛けない
+  // (30日などで切ると、休眠から戻ってきた人が新規に化ける)
+  const osQuery = (pick) => `select os,
+      countIf(ev7 > 0) as u7,
+      countIf(fs >= now() - interval 7 day) as n7,
+      sum(sold) as s7
+    from (
+      select person_id, ${pick} as os, min(timestamp) as fs,
+        countIf(timestamp >= now() - interval 7 day) as ev7,
+        countIf(event = 'item_sold' and timestamp >= now() - interval 7 day) as sold
+      from events where ${NOTRC} group by person_id)
+    group by os`;
+  // 最後の砦: 人数だけ返す(はじめて/売却は NULL にして、その行は出さない)
+  const osQueryMin = `select os, countIf(ev7 > 0) as u7, NULL as n7, NULL as s7
+    from (
+      select person_id, ${OS_PICK_ALT} as os,
+        countIf(timestamp >= now() - interval 7 day) as ev7
+      from events where ${NOTRC} group by person_id)
+    group by os`;
+
+  const [ev7, ev14, feedback, purchases, locked, users7Rows, usersPrevRows, users30Rows, newUserRows, d7Rows, d7PrevRows, funnelRows, countryRows, osRows] =
     await Promise.all([
+
       tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${W} group by event`),
       tryQuery(`select event, count() as c, uniq(person_id) as u from events where ${P} group by event`),
       tryQuery(`select timestamp, properties.message, properties.contact, properties.version from events where event = 'feedback' and ${W} order by timestamp desc limit 50`),
@@ -355,7 +392,11 @@ async function main() {
         `select coalesce(nullIf(properties.$geoip_country_code, ''), '?') as cc, uniq(person_id) as u from events where ${W} group by cc order by u desc`,
         `select properties['$geoip_country_code'] as cc, uniq(person_id) as u from events where ${W} group by cc order by u desc`
       ),
+      // OSの内訳。必ず tryQuery に包む(生の hogql を混ぜると Promise.all ごと落ちてメールが届かない)。
+      // 3つの候補は列の数と順番が同じ([os, u7, n7, s7])でなければならない
+      tryQuery(osQuery(OS_PICK), osQuery(OS_PICK_ALT), osQueryMin),
     ]);
+
 
   const [appStoreLine, downloads, inquiries, storage] = await Promise.all([fetchAppStore(), fetchDownloads(), fetchInquiries(), fetchStorageUsage()]);
   const storageWarn = storage != null && storage.bytes >= STORAGE_WARN_BYTES;
@@ -374,7 +415,10 @@ async function main() {
   const businessCount = (inquiries || []).filter((q) => q.kind === "business").length;
 
   // クエリが落ちた分を0と読み違えないよう、失敗があれば本文と件名で断る
+  // osRows はここに入れない: OSの内訳は補助なので、落ちても件名と赤帯は動かさず
+  // その行だけ「取得できませんでした」にする(既存の数字と送信を巻き添えにしない)
   const degraded = [ev7, feedback, purchases, users7Rows, usersPrevRows, d7Rows, funnelRows].some((r) => r == null);
+
 
   const users7 = num(users7Rows?.[0]?.[0]);
   const usersPrev = num(usersPrevRows?.[0]?.[0]);
@@ -429,7 +473,53 @@ async function main() {
       <div style="font-size:20px;font-weight:bold;color:${INK};padding:1px 0">${value}</div>
       <div style="font-size:11px;color:${MUTED}">${sub || "&nbsp;"}</div>
     </td>`;
+
+  // ── OSの内訳。カードの3行目として横いっぱいに1本足す(合計の定義は変えない)──
+  // osRows の列は [os, 使った人, はじめての人, 売却]。
+  // 「不明」はSQLで数えず「カードの合計 − 判明分」の引き算で作る。
+  // (「使った人」の合計は uniq の近似、内訳は厳密な countIf なので、別々に数えると食い違って見える)
+  const OS_KNOWN = [["ios", "iOS"], ["android", "Android"], ["web", "ブラウザ"]];
+  const osNum = (key, col) => {
+    const r = (osRows || []).find((x) => String(x[0] ?? "") === key);
+    return r == null || r[col] == null ? 0 : num(r[col]);
+  };
+  const osHas = (col) => (osRows || []).some((r) => r[col] != null);
+  const osKnownSum = (col) => OS_KNOWN.reduce((n, [k]) => n + osNum(k, col), 0);
+  /** 内訳1行。total = カードに出ている合計。出せないときは null(=その行は出さない) */
+  const osLine = (label, col, total, ok, unit) => {
+    if (osRows == null || !ok || !osHas(col) || num(total) <= 0) return null;
+    const rest = num(total) - osKnownSum(col);
+    // 合計を超えたらメールには書かず、Actionsのログにだけ残す(オーナーを混乱させない)
+    if (rest < 0) console.error(`OS内訳が合計を超えました(${label}): ${osKnownSum(col)} > ${num(total)}`);
+    const parts = OS_KNOWN.filter(([k], i) => i < 2 || osNum(k, col) > 0).map(([k, name]) => `${name} ${jp(osNum(k, col))}${unit}`);
+    if (rest > 0) parts.push(`不明 ${jp(rest)}${unit}`);
+    return `<div style="padding:1px 0">${label} ${parts.map((s) => `<span style="white-space:nowrap">${s}</span>`).join(" ／ ")}</div>`;
+  };
+  const osLines = [
+    osLine("使った人", 1, users7, users7Rows != null, "人"),
+    osLine("はじめての人", 2, newUsers, newUserRows != null, "人"),
+    osLine("売却", 3, sold, ev7 != null, "件"),
+  ].filter(Boolean);
+  // 注記は「不明」の割合で自動的に短くなり、0人になれば消える(日付では切らない)
+  const osUnknown = osRows == null || users7Rows == null ? 0 : Math.max(0, users7 - osKnownSum(1));
+  const osNote =
+    osLines.length === 0 || osUnknown === 0
+      ? ""
+      : osUnknown / Math.max(users7, 1) >= 0.2
+        ? "※OSは2.2.0以降のアプリから分かります。それ以前に使った人は「不明」です"
+        : "※「不明」は2.2.0より前から使っている人";
+  const osBand = (inner) => `<tr>
+      <td colspan="3" align="center" style="padding:7px 8px;border:1px solid ${LINE};background:#FAFBFC;font-size:12px;color:${MUTED};line-height:1.6">${inner}</td>
+    </tr>`;
+  const osRow =
+    osLines.length > 0
+      ? osBand(`${osLines.join("")}${osNote ? `<div style="font-size:10px;padding-top:2px">${osNote}</div>` : ""}`)
+      : osRows == null && users7 > 0
+        ? osBand("OSの内訳は取得できませんでした")
+        : "";
+
   const table = `<table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse">
+
     <tr>
       ${cell("使った人", `${jp(users7)}人`, delta(users7, usersPrev))}
       ${cell("はじめての人", newUserRows == null ? "—" : `${jp(newUsers)}人`, "")}
@@ -440,7 +530,9 @@ async function main() {
       ${cell("売却", `${jp(sold)}件`, delta(sold, soldPrev))}
       ${cell("お試し・購入", `${jp(paid)}件`, (purchases || []).length ? esc(purchases.map((x) => PRODUCT_LABEL(x[1])).join(" / ")) : "")}
     </tr>
+    ${osRow}
   </table>`;
+
 
   // ── 参考。1行に収める ────────────────────────────
   const dlOverseas = downloads?.byCountry
