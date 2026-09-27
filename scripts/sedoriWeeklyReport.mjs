@@ -90,6 +90,8 @@ const ACTIONS = [
   ["csv_exported", "CSV書き出し"],
   ["kobutsu_csv_exported", "古物台帳の書き出し"],
   ["share_posted", "SNS投稿"],
+  // 2.2.2〜(写真の同期そのもの photo_sync は「写真の同期」の行に別で出す)
+  ["photo_upload_existing", "写真のまとめてアップロード"],
 ];
 const PEOPLE = [
   ["ad_interstitial_shown", "全画面広告を見た人"],
@@ -398,6 +400,24 @@ async function main() {
     ]);
 
 
+  // 写真の同期(2.2.2〜 photo_sync)。枚数は properties の数を足す。補助なので degraded には入れない
+  // (落ちてもその行を出さないだけ)。列は [送れた, 送れなかった, 受け取れた, 受け取れなかった, 上限, 権限, サイズ, 読めない, 停止中, 通信, 上書きせず]
+  const PHOTO_COLS = ["uploaded", "upload_failed", "downloaded", "download_failed", "fail_limit", "fail_denied", "fail_too_large", "fail_unreadable", "fail_paused", "fail_network", "fail_conflict"];
+  const photoRows = await tryQuery(
+    `select ${PHOTO_COLS.map((c) => `sum(coalesce(toInt(properties.${c}), 0))`).join(", ")} from events where event = 'photo_sync' and ${W}`,
+    `select ${PHOTO_COLS.map((c) => `sum(toFloat(ifNull(properties.${c}, '0')))`).join(", ")} from events where event = 'photo_sync' and ${W}`
+  );
+  const photoLine = (() => {
+    const r = photoRows?.[0];
+    if (!r) return null;
+    const [up, upFail, down, downFail, ...fails] = r.map(num);
+    if (up + upFail + down + downFail === 0) return null;
+    const failLabels = ["上限", "権限", "サイズ", "読めない", "停止中", "通信", "上書きせず"];
+    const why = fails.map((n, i) => (n > 0 ? `${failLabels[i]} ${jp(n)}` : null)).filter(Boolean).join("・");
+    // 送れなかった・受け取れなかったは、起動し直すたびに同じ画像を数え直す(延べ)。多い理由を見る目安
+    return `送れた ${jp(up)}枚 / 送れなかった 延べ${jp(upFail)}回${why ? `(${why})` : ""} / 受け取れた ${jp(down)}枚 / 受け取れなかった 延べ${jp(downFail)}回`;
+  })();
+
   const [appStoreLine, downloads, inquiries, storage] = await Promise.all([fetchAppStore(), fetchDownloads(), fetchInquiries(), fetchStorageUsage()]);
   const storageWarn = storage != null && storage.bytes >= STORAGE_WARN_BYTES;
   const storageLine = storage
@@ -606,6 +626,7 @@ async function main() {
   ${businessCount ? `<p style="font-size:13px;margin:8px 0 0">お仕事・コラボのご相談 <b>${businessCount}件</b>(中身は届いたときのメールで)</p>` : ""}
 
   ${movesLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">今週の動き</h3><p style="font-size:13px;margin:0">${movesLine}</p>` : ""}
+  ${photoLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">写真の同期(グループ・2.2.2〜)</h3><p style="font-size:13px;margin:0">${photoLine}</p>` : ""}
   ${wantedLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">有料機能で触られた場所</h3><p style="font-size:13px;margin:0">${wantedLine}</p>` : ""}
   ${funnelLine ? `<h3 style="font-size:14px;color:${ACCENT};margin:20px 0 4px">課金までの流れ(日本・直近30日に使い始めた人)</h3><p style="font-size:13px;margin:0">${funnelLine}</p>` : ""}
 
