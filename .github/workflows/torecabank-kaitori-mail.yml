@@ -6,12 +6,14 @@ name: トレカバンク買取ウォッチ メール
 # 信頼性: Vercel Cron(10:00 JST・vercel.json→/api/cron/torecabank)を主系統に、このGitHub Actions(10:05/11:00 JST)を予備に二重化。KV「本日送信済み」ガードで二重送信防止(1日1通)。
 # 手動(workflow_dispatch / トリガーpush)は FORCE_SEND=1 でガード無視して必ず送る。失敗時は末尾ステップが警告メール。
 on:
-  schedule:
-    # 毎日10:00 JST(ユーザー指示2026-07-11)。JST=UTC+9 → 10:00 JST=01:00 UTC。曜日判定はスクリプト側(JST)。
-    - cron: '5 1 * * *'    # 毎日 約10:05 JST（GitHub予備）
-    - cron: '0 2 * * *'    # 毎日 約11:00 JST（GitHub予備の予備）。主系統は Vercel Cron(10:00)。
-    - cron: '5 9 * * *'    # 毎日 約18:05 JST（夕方便のGitHub予備）。主系統は Vercel Cron(18:00)。2026-08-05 1日2通化。
-    - cron: '0 10 * * *'   # 毎日 約19:00 JST（夕方便の予備の予備）。二重送信はスロット別ガード tb_sent:{date}:{am|pm} が防ぐ。
+  # 🛑 自動配信を停止(ユーザー指示2026-09-29「1,4は止めていいや」)。Vercel Cron 側の主系統2本も vercel.json から外した。
+  #   コード/ルート(app/api/cron/torecabank)は残置＝手動だけ動く。再開はここの schedule を戻し、
+  #   vercel.json に {"crons":[{"path":"/api/cron/torecabank","schedule":"0 1 * * *"},{...,"schedule":"0 9 * * *"}]} を戻す。
+  # schedule:
+  #   - cron: '5 1 * * *'    # 毎日 約10:05 JST（GitHub予備）
+  #   - cron: '0 2 * * *'    # 毎日 約11:00 JST（GitHub予備の予備）。主系統は Vercel Cron(10:00)。
+  #   - cron: '5 9 * * *'    # 毎日 約18:05 JST（夕方便のGitHub予備）。主系統は Vercel Cron(18:00)。
+  #   - cron: '0 10 * * *'   # 毎日 約19:00 JST（夕方便の予備の予備）。
   workflow_dispatch:
   push:
     paths:

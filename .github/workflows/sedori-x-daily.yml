@@ -2,8 +2,10 @@ name: sedori-x-daily
 
 # せどり帳のX投稿文を毎朝7時(JST)にメール配信
 on:
-  schedule:
-    - cron: "0 22 * * *" # 22:00 UTC = 翌朝 07:00 JST
+  # 🛑 自動配信を停止(ユーザー指示2026-09-29「1,4は止めていいや」)。初週(Day1〜7)を配信し終えた後は
+  #   月曜だけ「翌週分が未作成です」のリマインドが出るだけになっていた。手動だけ残す＝再開は schedule を戻す。
+  # schedule:
+  #   - cron: "0 22 * * *" # 22:00 UTC = 翌朝 07:00 JST
   workflow_dispatch:
     inputs:
       day:
