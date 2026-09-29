@@ -9,6 +9,10 @@
 //   - git の取り込み/送信が GIT_FAIL_LIMIT 回続けて失敗 (gitFails) → 「データを送れていない」
 //   - 見守りが直近 RESTART_WINDOW_H 時間に固まった本体を止めて起こし直した (stuckAt) → 「固まった」
 //   - 合図は来ているがループが STUCK_MIN 分進んでいない → 「固まった」(見守りが起動し直しても戻らない)
+//   - 合図に「GitHub の鍵が通らない」(authCode = 401/403) が載っている → 「鍵が通らない」(2026-09-29)
+//   メールの本文には、合図が途絶えた時刻・最後の出来事・最後の巡回/送信・鍵の様子を書く (2026-09-29・9/28 18:45 に鍵が 401 で
+//   止まったとき「電源・Wi-Fi を確かめて」だけのメールになり、原因が分からなかった)。鍵が死ぬと合図そのものも書けないので、
+//   「止まった」のメールにも鍵の失効を原因の候補として書く
 //   (2026-09-22 夜の点検で、git の失敗・本体の起動失敗・固まり→起こし直しの繰り返しがメールにならない穴を塞いだ)
 // になった瞬間にメールを1通、戻った瞬間に1通送る。止まったままなら REMIND_H 時間ごとにもう1通。
 // 状態は KV (Upstash) の toreca_pixel_watch に持つ (二重送信しない)。
@@ -48,6 +52,11 @@ export function judge(hbRaw, nowMs) {
   const loopAgeMin = loopAt > 0 ? (nowMs / 1000 - loopAt) / 60 : null;
   const base = { hb, hbAgeMin, loopAgeMin };
   if (hbAgeMin > DOWN_MIN) return { ...base, state: "down", kind: "down", reason: `最後の合図から ${dur(hbAgeMin)}` };
+  const authCode = Number(hb.authCode) || 0;
+  if (authCode >= 400) {
+    const since = Number(hb.authSince) || 0;
+    return { ...base, state: "stuck", kind: "auth", reason: `GitHub の鍵が通らない (HTTP ${authCode}${since > 0 ? `・${jst(since * 1000)} から` : ""})` };
+  }
   const deadSince = Number(hb.deadSince) || 0;
   const deadMin = deadSince > 0 ? (nowMs / 1000 - deadSince) / 60 : 0;
   if (deadMin >= DEAD_MIN) return { ...base, state: "stuck", kind: "dead", reason: `ワーカー本体が ${dur(deadMin)} 起動できていない` };
@@ -108,6 +117,7 @@ function mailOf(kind, cur, prev, nowMs) {
     git: "Pixel が取ったデータを送れていません",
     restart: "Pixel のワーカーが固まり、起こし直しました",
     loop: "Pixel のワーカーが固まっています",
+    auth: "Pixel の GitHub の鍵が通りません",
   };
   const WHAT = {
     down: "Pixel ごと止まっているか、通信が切れている可能性が高いです。<b>Pixel の電源・Wi-Fi・充電</b>を確かめてください (電源が入っていれば、再起動するだけで自動で動き出します)。",
@@ -115,16 +125,32 @@ function mailOf(kind, cur, prev, nowMs) {
     git: "Pixel は動いていますが、取ったデータを GitHub に送れていません。PC 側で原因を調べて直します (状態は pixel-status.md に出ています)。",
     restart: "Pixel の中の見守りが、進まなくなったワーカーを止めて起動し直しました。繰り返すようなら PC 側で原因を調べます。",
     loop: "Pixel の中の見守りが起動し直していますが、まだ進んでいません。",
+    auth: "Pixel の中の GitHub の鍵が失効しているか消されています。取り込み・送信・6:00 の日次の起動が止まっています。PC に保管した鍵で入れ直すと戻ります (toreca-kaitori-app の worker/README.md の手順1)。",
   };
   const k = cur.kind && SUBJECT[cur.kind] ? cur.kind : "down";
+  const hb = cur.hb || {};
+  const at = (sec) => (Number(sec) > 0 ? jst(Number(sec) * 1000) : "記録なし");
+  const authCode = Number(hb.authCode) || 0;
+  const details = [
+    `最後の店の巡回: ${esc(at(hb.lastPass))} / 最後の送信: ${esc(at(hb.lastPush))}`,
+    `鍵: ${authCode >= 400 ? `🔴 通らない (HTTP ${authCode}・${esc(at(hb.authSince))} から)` : "最後の合図の時点では通っていた"} / git の失敗の連続: ${Number(hb.gitFails) || 0} 回 / 版: ${esc(hb.ver || "?")}`,
+  ];
+  // 合図が途絶えたときの原因の候補 (鍵が死ぬと合図も書けないので、電源・通信と見分けがつかない)
+  const causes =
+    k === "down"
+      ? `<p>考えられる原因: ① Pixel の電源・Wi-Fi・充電 ② <b>GitHub の鍵の失効 (401)</b> — 鍵が通らないと合図も書けないので「止まった」に見えます (2026-09-28 18:45 の例)。` +
+        `最後の合図が正常 (鍵が通っていた・git の失敗 0 回) のまま途切れたなら両方ありえます。Pixel の Termux を開くと様子の画面が出て、鍵なら「🔴 GitHub の鍵が通らない」と出ます。</p>`
+      : "";
   return {
     subject: `${head}${SUBJECT[k]}`,
     html: `<p>TCG買取表の Pixel ワーカーについて、${esc(cur.reason)}。</p>
 <ul>
 <li>最後の合図: ${esc(last)} (${lastEvent})</li>
+${details.map((d) => `<li>${d}</li>`).join("\n")}
 <li>止まっていると: カードラッシュ・クローブベース・遊々亭の価格が更新されない / X の新着・公式マスタの取得が止まる。日次ジョブ自体は安全網の定期実行で回ります</li>
 </ul>
-<p>${WHAT[k]} 戻ったらもう一度メールでお知らせします。</p>
+${causes}
+<p>${WHAT[k]} 戻ったらもう一度メールでお知らせします (戻ったあと、止まっていた間の巡回と 6:00 の日次の起動は Pixel が自動で取り戻します)。</p>
 <p style="color:#666;font-size:12px">様子: <a href="${STATUS_URL}">pixel-status.md</a> ・ 止まったままなら ${REMIND_H} 時間ごとにお知らせします</p>`,
   };
 }
