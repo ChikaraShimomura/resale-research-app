@@ -48,16 +48,32 @@ const jst = (iso) => {
   return `${j.getUTCFullYear()}-${p(j.getUTCMonth() + 1)}-${p(j.getUTCDate())} ${p(j.getUTCHours())}:${p(j.getUTCMinutes())}`;
 };
 
+// PostHog の一時的な不調 (5xx・429・通信の失敗) は 15 秒・30 秒あけて 2 回まで取り直す。
+// それでも取れなければ PosthogError (下の main で「注意」として 0 で終える = 失敗のメールを出さない)。
+// 🔴 声は取りこぼさない: 既読の印 (KV) は送れた声にだけ付くので、次の回 (30 分後・直近 24 時間を見る) がそのまま拾う。
+//    2026-09-30 09:38 に PostHog の 400 (decimal_overflow・一時的) で回が赤になり、オーナーに失敗のメールが届いた。
+class PosthogError extends Error {}
 async function hogql(query) {
-  const r = await fetch(`${PH_HOST}/api/environments/${PH_PROJECT}/query/`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${POSTHOG_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: { kind: "HogQLQuery", query } }),
-    signal: AbortSignal.timeout(30000),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new Error(`PostHog ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
-  return j.results || [];
+  let last = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((res) => setTimeout(res, attempt * 15000));
+    let r;
+    try {
+      r = await fetch(`${PH_HOST}/api/environments/${PH_PROJECT}/query/`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${POSTHOG_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ query: { kind: "HogQLQuery", query } }),
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (e) {
+      last = `PostHog 通信: ${e.message}`;
+      continue;
+    }
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) return j.results || [];
+    last = `PostHog ${r.status}: ${JSON.stringify(j).slice(0, 300)}`;
+  }
+  throw new PosthogError(last);
 }
 
 async function kvCmd(cmd) {
@@ -150,6 +166,11 @@ async function main() {
 }
 
 main().catch((e) => {
+  if (e instanceof PosthogError) {
+    // PostHog の不調だけは赤にしない (次の回が拾う)。続くなら週次のまとめで気づける
+    console.log(`::warning title=PostHog::${String(e.message).slice(0, 300)} (次の回で取り直す)`);
+    process.exit(0);
+  }
   console.error(e.message || e);
   process.exit(1);
 });
