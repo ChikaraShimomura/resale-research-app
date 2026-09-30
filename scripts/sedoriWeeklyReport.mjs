@@ -92,6 +92,8 @@ const ACTIONS = [
   ["share_posted", "SNS投稿"],
   // 2.2.2〜(写真の同期そのもの photo_sync は「写真の同期」の行に別で出す)
   ["photo_upload_existing", "写真のまとめてアップロード"],
+  // 2.3.0〜
+  ["item_split_set", "共同仕入れの設定"],
 ];
 const PEOPLE = [
   ["ad_interstitial_shown", "全画面広告を見た人"],
