@@ -22,8 +22,13 @@
 //   - DOWN_MIN 25 → 60 (自分で戻る短い途切れでは送らない。気付くのは 25 分後 → 60 分後に延びる)
 //   - DEAD_MIN 9 → 45 (見守りの起こし直しは 5〜16 分かかる。9 分のままだと起こし直しの途中で「起動できていません」が出る)
 //   - REMIND_H 12 → 72 (止まったままの続報は 3 日に 1 通)
-//   - 種類が変わった時の 1 通は「止まった ⇔ 固まった の入れ替わり」と「鍵が通らなくなった時」だけ
-//     (固まった中での種類の入れ替わり = 起動できない → 起こし直した → git の失敗… では送らない)
+//   - 種類が変わった時の 1 通は「止まった ⇔ 固まった の入れ替わり」「鍵が通らなくなった時」と、
+//     「『起こし直しました』と知らせた後で、別の固まり方 (起動できない・git の失敗・ループ) になった時」だけ
+//     (ほかの、固まった中での種類の入れ替わり = 起動できない → 起こし直した・git の失敗 → ループ… では送らない)
+//     🔴 3 つ目は 2026-10-14 の点検で足した: 「起こし直しました」は「自分で直した」という知らせなので、その後で直っていない時に
+//        黙ると、本体が動いていないのに手元には「起こし直しました」の 1 通だけが 72 時間残る
+//        (見守りが止めた後、残った取得の子で起こし直しが通らない筋書き = +1 時間で「起動できない」に移る)。
+//        送った後は「最後に知らせた種類」が起こし直しでなくなるので、同じ停止の中で増えるのは 1 通だけ
 //   - 🔴 黙って終わらない: メールを送れない時・状態 (KV) を読めない/書けない時は例外で終える
 //     (下の exitCodeFor が 6 時間に 1 回だけ回を赤くする = GitHub の失敗メールが最後の砦)。前は送信の失敗でも緑で終わっていた
 // 決める所は judge・decide・kvDownMail・exitCodeFor の 4 つの純粋な関数 (試験 scripts/torecaPixelWatch.test.mjs が表で固定)。
@@ -90,15 +95,20 @@ export function judge(hbRaw, nowMs) {
  * 返す: { mail: "alert" | "remind" | "recovered" | null, next: 次に KV に持つ状態 }
  *   - 始まり (ok → 止まった/固まった): alert を 1 通
  *   - 続いている間: REMIND_H 時間ごとに remind を 1 通。それまでは送らない
- *   - 続いている間に種類が変わった時: 「止まった ⇔ 固まった」の入れ替わりと、鍵が通らなくなった (auth) 時だけ alert
- *     (直し方が変わる = 電源・通信を見る / PC で直す / 鍵を入れ直す)。固まった中での種類の入れ替わりでは送らない
- *     (prev.kind は「最後に alert を送った時の種類」のまま持つ = 同じ停止の中で auth を 2 度は送らない)
+ *   - 続いている間に種類が変わった時: 次の 3 つだけ alert。ほかの、固まった中での種類の入れ替わりでは送らない
+ *       1. 「止まった ⇔ 固まった」の入れ替わり
+ *       2. 鍵が通らなくなった (auth) 時
+ *          (1・2 は直し方が変わる = 電源・通信を見る / PC で直す / 鍵を入れ直す)
+ *       3. 「起こし直しました」(restart) と知らせた後で、別の固まり方 (dead・git・loop) になった時
+ *          (起こし直しても直っていない。黙ると「起こし直しました」の 1 通だけが 72 時間残る)
+ *     (prev.kind は「最後に alert を送った時の種類」のまま持つ = 同じ停止の中で auth を 2 度は送らない・
+ *      3 も送った後は prev.kind が restart でなくなるので 1 通しか増えない)
  *   - 戻り (止まった/固まった → ok): recovered を 1 通
  */
 export function decide(prev, cur, nowMs) {
   if (isBad(cur.state)) {
     if (!prev || !isBad(prev.state)) return { mail: "alert", next: { state: cur.state, kind: cur.kind, since: nowMs, lastMailAt: nowMs } };
-    if (prev.state !== cur.state || (cur.kind === "auth" && prev.kind !== "auth")) {
+    if (prev.state !== cur.state || (cur.kind === "auth" && prev.kind !== "auth") || (prev.kind === "restart" && cur.kind !== "restart")) {
       return { mail: "alert", next: { ...prev, state: cur.state, kind: cur.kind, lastMailAt: nowMs } };
     }
     if (nowMs - (prev.lastMailAt || 0) >= REMIND_H * 3600e3) return { mail: "remind", next: { ...prev, lastMailAt: nowMs } };

@@ -55,7 +55,7 @@ test("judge の表: 合図の古さ・本体の様子から状態と種類を決
   }
 });
 
-test("decide の表: 始まりに 1 通・続報は 72 時間ごと・戻りに 1 通・種類の入れ替わりは 止まった⇔固まった と 鍵 だけ", () => {
+test("decide の表: 始まりに 1 通・続報は 72 時間ごと・戻りに 1 通・種類の入れ替わりは 止まった⇔固まった と 鍵 と「起こし直しました」の後 だけ", () => {
   const bad = (state, kind, hAgo = 1, mailHAgo = hAgo) => ({ state, kind, since: T0 - hAgo * H, lastMailAt: T0 - mailHAgo * H });
   const ok = { state: "ok", since: T0 - 5 * H };
   const rows = [
@@ -75,10 +75,19 @@ test("decide の表: 始まりに 1 通・続報は 72 時間ごと・戻りに 
     ["止まって 144 時間・続報から 72 時間", bad("down", "down", 144, 72), { state: "down", kind: "down" }, "remind"],
     ["固まったまま 72 時間", bad("stuck", "loop", 72), { state: "stuck", kind: "loop" }, "remind"],
     // 固まった中での種類の入れ替わりは送らない (前は種類が変わるたびに 1 通)
-    ["起動できない → 起こし直した", bad("stuck", "dead"), { state: "stuck", kind: "restart" }, null],
-    ["起こし直した → git の失敗", bad("stuck", "restart"), { state: "stuck", kind: "git" }, null],
+    ["起動できない → 起こし直した (今のまま送らない)", bad("stuck", "dead"), { state: "stuck", kind: "restart" }, null],
+    ["git の失敗 → 起こし直した", bad("stuck", "git"), { state: "stuck", kind: "restart" }, null],
     ["git の失敗 → ループが進まない", bad("stuck", "git"), { state: "stuck", kind: "loop" }, null],
+    ["起動できない → git の失敗", bad("stuck", "dead"), { state: "stuck", kind: "git" }, null],
     ["鍵が通らない → git の失敗 (鍵は戻った)", bad("stuck", "auth"), { state: "stuck", kind: "git" }, null],
+    // 🔴 「起こし直しました」と知らせた後で、別の固まり方になった時は 1 通 (2026-10-14 の点検)。
+    //    「起こし直しました」は「自分で直した」という知らせ = その後で直っていないのに黙ると、その 1 通だけが 72 時間残る
+    ["起こし直した → 起動できない", bad("stuck", "restart"), { state: "stuck", kind: "dead" }, "alert"],
+    ["起こし直した → git の失敗", bad("stuck", "restart"), { state: "stuck", kind: "git" }, "alert"],
+    ["起こし直した → ループが進まない", bad("stuck", "restart"), { state: "stuck", kind: "loop" }, "alert"],
+    ["起こし直した → 鍵が通らない", bad("stuck", "restart"), { state: "stuck", kind: "auth" }, "alert"],
+    ["起こし直した → 起こし直した (繰り返し・6 時間の窓の中)", bad("stuck", "restart", 5), { state: "stuck", kind: "restart" }, null],
+    ["起こし直した → 起こし直した 72 時間", bad("stuck", "restart", 72), { state: "stuck", kind: "restart" }, "remind"],
     // 直し方が変わる時だけ送る
     ["起動できない → 鍵が通らない", bad("stuck", "dead"), { state: "stuck", kind: "auth" }, "alert"],
     ["git の失敗 → 鍵が通らない", bad("stuck", "git"), { state: "stuck", kind: "auth" }, "alert"],
@@ -98,6 +107,10 @@ test("decide の表: 始まりに 1 通・続報は 72 時間ごと・戻りに 
   assert.deepEqual(started, { state: "down", kind: "down", since: T0, lastMailAt: T0 }, "始まり: since と lastMailAt を今に");
   const quiet = bad("stuck", "dead");
   assert.equal(decide(quiet, { state: "stuck", kind: "restart" }, T0).next, quiet, "送らない時は状態を動かさない");
+  const notFixed = decide(bad("stuck", "restart", 1), { state: "stuck", kind: "dead" }, T0).next;
+  assert.deepEqual(notFixed, { state: "stuck", kind: "dead", since: T0 - 1 * H, lastMailAt: T0 }, "起こし直しの後: 種類を今の物に進める (次の回からは送らない)・始まりの時刻は保つ");
+  assert.equal(decide(notFixed, { state: "stuck", kind: "git" }, T0 + 15 * MIN).mail, null, "起こし直しの後の 1 通は、同じ停止の中で 1 回だけ");
+  assert.equal(decide(notFixed, { state: "stuck", kind: "restart" }, T0 + 15 * MIN).mail, null, "起動できない → また起こし直した では送らない");
   const swapped = decide(bad("stuck", "dead", 5), { state: "down", kind: "down" }, T0).next;
   assert.deepEqual(swapped, { state: "down", kind: "down", since: T0 - 5 * H, lastMailAt: T0 }, "入れ替わり: 始まりの時刻は保つ・続報の時計は送った時から");
   const reminded = decide(bad("down", "down", 72), { state: "down", kind: "down" }, T0).next;
@@ -160,6 +173,29 @@ test("流してみる: 固まったまま種類が入れ替わり続けても 1 
     (now) => hbAt(now, 2), // 戻った
   ];
   assert.deepEqual(replay(steps), ["1:alert:dead", "5:alert:auth", "8:recovered:ok"]);
+});
+
+test("🔴 流してみる: 見守りが固まった本体を止めた後、起こし直しが通らないまま 73 時間 → 「起こし直しました」の後に「起動できていません」が届く", () => {
+  // toreca-kaitori-app の worker/heartbeat.sh の動きを写した合図 (10 分おき):
+  //   固まった本体を止めて stuckAt を書く → start_worker が通らない (残った取得の子で assert-idle が待たせる等) →
+  //   次の回 (10 分後) から deadSince が付く。合図は届き続けるので「止まった (down)」にはならない
+  const S = sec(T0);
+  const beat = (now) => {
+    const k = Math.floor((sec(now) - S) / 600);
+    return JSON.stringify({ at: S + k * 600, loopAt: S - 7200, worker: "dead", deadSince: k >= 1 ? S + 600 : 0, gitFails: 0, stuckAt: S });
+  };
+  const runs = (73 * 60) / 15;
+  const steps = [(now) => hbAt(now, 2)];
+  for (let i = 0; i <= runs; i++) steps.push(beat);
+  // 見張りは止めた 2 分後から 15 分おき (steps[0] は止まる前の正常な回)
+  const mails = replay(steps, T0 + 2 * MIN - 15 * MIN);
+  // 1 回目 (+2 分) に「起こし直しました」。deadSince (+10 分) から 45 分 = +55 分を過ぎた最初の回 (+62 分 = 5 回目) に「起動できていません」。
+  // 前はここで黙り、次のメールは 72 時間後の続報だった。続報の時計は 2 通目から 72 時間 = 288 回後。増えたのは 1 通だけ
+  assert.deepEqual(mails, ["1:alert:restart", "5:alert:dead", `${5 + 288}:remind:dead`]);
+  // 起こし直しが効いた時 (本体が立ち上がり、6 時間の窓が明けて正常) は、今までどおり始まりと戻りの 2 通だけ
+  const fine = [(now) => hbAt(now, 2)];
+  for (let i = 0; i < 26; i++) fine.push((now) => JSON.stringify({ at: sec(now - 2 * MIN), loopAt: sec(now - 4 * MIN), worker: "alive", deadSince: 0, gitFails: 0, stuckAt: S }));
+  assert.deepEqual(replay(fine, T0 + 2 * MIN - 15 * MIN), ["1:alert:restart", "25:recovered:ok"]);
 });
 
 test("kvDownMail の表: 状態が読めない回は、止まっている時だけ・毎時 0〜14 分の回だけ送る", () => {
