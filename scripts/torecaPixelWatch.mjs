@@ -16,7 +16,20 @@
 //   (2026-09-22 夜の点検で、git の失敗・本体の起動失敗・固まり→起こし直しの繰り返しがメールにならない穴を塞いだ)
 // になった瞬間にメールを1通、戻った瞬間に1通送る。止まったままなら REMIND_H 時間ごとにもう1通。
 // 状態は KV (Upstash) の toreca_pixel_watch に持つ (二重送信しない)。
+//
+// 🔴 2026-10-13 静かにする直し (オーナー「毎日メールが来るような状況にせんといてほしい」・ただし止まった事を知らせる道は失わない):
+//   見張りが生きていた 9/22〜9/30 の 8 日で 14 通・6 日に届いていた。うち 6 通は 31〜43 分の途切れの「止まった→戻った」。
+//   - DOWN_MIN 25 → 60 (自分で戻る短い途切れでは送らない。気付くのは 25 分後 → 60 分後に延びる)
+//   - DEAD_MIN 9 → 45 (見守りの起こし直しは 5〜16 分かかる。9 分のままだと起こし直しの途中で「起動できていません」が出る)
+//   - REMIND_H 12 → 72 (止まったままの続報は 3 日に 1 通)
+//   - 種類が変わった時の 1 通は「止まった ⇔ 固まった の入れ替わり」と「鍵が通らなくなった時」だけ
+//     (固まった中での種類の入れ替わり = 起動できない → 起こし直した → git の失敗… では送らない)
+//   - 🔴 黙って終わらない: メールを送れない時・状態 (KV) を読めない/書けない時は例外で終える
+//     (下の exitCodeFor が 6 時間に 1 回だけ回を赤くする = GitHub の失敗メールが最後の砦)。前は送信の失敗でも緑で終わっていた
+// 決める所は judge・decide・kvDownMail・exitCodeFor の 4 つの純粋な関数 (試験 scripts/torecaPixelWatch.test.mjs が表で固定)。
+//
 // 🔴 このリポジトリは公開なので、ログには合図の中身 (出来事の文) を出さない。経過時間と状態だけ。
+// 🔴 check-listings.yml はこのファイル 1 つだけを取り出して動かす (sparse-checkout)。ほかのファイルを import しない。
 // env: TORECA_PIXEL_HEARTBEAT / RESEND_API_KEY / KV_REST_API_URL / KV_REST_API_TOKEN / MAIL_TO(任意) / MAIL_FROM(任意)
 //      --dry = 送らずに判定だけ
 const HB_RAW = process.env.TORECA_PIXEL_HEARTBEAT || "";
@@ -27,16 +40,18 @@ const MAIL_FROM = process.env.MAIL_FROM || "TCG買取表 見張り <noreply@yush
 const MAIL_TO = (process.env.MAIL_TO || "chikara0323@gmail.com").split(",").map((s) => s.trim()).filter(Boolean);
 const DRY = process.argv.includes("--dry");
 const KV_KEY = "toreca_pixel_watch";
-const DOWN_MIN = 25; // 合図は10分ごと。2回続けて来なければ止まったとみなす
-const STUCK_MIN = 150; // 見守りは2時間で起動し直す (本体は長い処理の前にも印を打つ)。それでも2時間半進んでいなければ固まったまま
-const DEAD_MIN = 9; // 合図は10分ごと。2回続けて本体が死んでいた (起こし直しても立ち上がらない)
-const GIT_FAIL_LIMIT = 6; // 本体のループは5分ごと。約30分ぶん続けて git が失敗
-const RESTART_WINDOW_H = 6; // 見守りが固まった本体を起こし直してから、この時間は「固まった」として扱う
-const REMIND_H = 12;
+export const DOWN_MIN = 60; // 合図は10分ごと。31〜43 分の途切れ (9/23・9/24・9/25) は自分で戻ったので、1 時間来なければ止まったとみなす
+export const STUCK_MIN = 150; // 見守りは2時間で起動し直す (本体は長い処理の前にも印を打つ)。それでも2時間半進んでいなければ固まったまま
+export const DEAD_MIN = 45; // 見守りは10分ごとに起こし直す (立ち上がるまで 5〜16 分)。45 分たっても本体が立ち上がらない
+export const GIT_FAIL_LIMIT = 6; // 本体のループは5分ごと。約30分ぶん続けて git が失敗
+export const RESTART_WINDOW_H = 6; // 見守りが固まった本体を起こし直してから、この時間は「固まった」として扱う
+export const REMIND_H = 72; // 止まったままの続報は 3 日に 1 通 (前は 12 時間 = 長い停止で 1 日 2 通)
+export const RED_EVERY_H = 6; // 例外で終わる時に回を赤くする間隔 (exitCodeFor)
 const STATUS_URL = "https://github.com/ChikaraShimomura/toreca-kaitori-app/blob/worker-status/pixel-status.md";
 
 const jst = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(5, 16).replace("-", "/").replace("T", " ");
 const dur = (min) => (min >= 60 ? `${Math.floor(min / 60)}時間${Math.round(min % 60)}分` : `${Math.round(min)}分`);
+const isBad = (state) => state === "down" || state === "stuck";
 
 /** 合図の読み取りと判定 (テストから読むので export) */
 export function judge(hbRaw, nowMs) {
@@ -70,19 +85,46 @@ export function judge(hbRaw, nowMs) {
   return { ...base, state: "ok", kind: "ok", reason: "" };
 }
 
-/** 前回の状態と今の判定から、送るメールを決める (テストから読むので export) */
+/**
+ * 前回の状態と今の判定から、送るメールを決める (テストから読むので export)。
+ * 返す: { mail: "alert" | "remind" | "recovered" | null, next: 次に KV に持つ状態 }
+ *   - 始まり (ok → 止まった/固まった): alert を 1 通
+ *   - 続いている間: REMIND_H 時間ごとに remind を 1 通。それまでは送らない
+ *   - 続いている間に種類が変わった時: 「止まった ⇔ 固まった」の入れ替わりと、鍵が通らなくなった (auth) 時だけ alert
+ *     (直し方が変わる = 電源・通信を見る / PC で直す / 鍵を入れ直す)。固まった中での種類の入れ替わりでは送らない
+ *     (prev.kind は「最後に alert を送った時の種類」のまま持つ = 同じ停止の中で auth を 2 度は送らない)
+ *   - 戻り (止まった/固まった → ok): recovered を 1 通
+ */
 export function decide(prev, cur, nowMs) {
-  const bad = (s) => s === "down" || s === "stuck";
-  if (bad(cur.state)) {
-    if (!prev || !bad(prev.state)) return { mail: "alert", next: { state: cur.state, kind: cur.kind, since: nowMs, lastMailAt: nowMs } };
-    if (prev.state !== cur.state || (prev.kind && cur.kind && prev.kind !== cur.kind)) {
+  if (isBad(cur.state)) {
+    if (!prev || !isBad(prev.state)) return { mail: "alert", next: { state: cur.state, kind: cur.kind, since: nowMs, lastMailAt: nowMs } };
+    if (prev.state !== cur.state || (cur.kind === "auth" && prev.kind !== "auth")) {
       return { mail: "alert", next: { ...prev, state: cur.state, kind: cur.kind, lastMailAt: nowMs } };
     }
     if (nowMs - (prev.lastMailAt || 0) >= REMIND_H * 3600e3) return { mail: "remind", next: { ...prev, lastMailAt: nowMs } };
     return { mail: null, next: prev };
   }
-  if (prev && bad(prev.state)) return { mail: "recovered", next: { state: "ok", since: nowMs, downSince: prev.since } };
+  if (prev && isBad(prev.state)) return { mail: "recovered", next: { state: "ok", since: nowMs, downSince: prev.since } };
   return { mail: null, next: prev && prev.state === "ok" ? prev : { state: "ok", since: nowMs } };
+}
+
+/**
+ * 状態 (KV) が読めない回に送るメール (テストから読むので export)。
+ * 状態が読めなくても警報は出す。重ならないよう 1 時間に 1 回 (毎時 0〜14 分の回) だけ。戻りは分からないので送らない
+ */
+export function kvDownMail(cur, nowMs) {
+  return isBad(cur.state) && new Date(nowMs).getUTCMinutes() < 15 ? "alert" : null;
+}
+
+/**
+ * 例外で終わる時の終了コード = 回を赤くするか (テストから読むので export)。赤い回は GitHub が失敗メールを出す。
+ *   - 鍵の設定漏れ (「足りない:」) は毎回赤くする (一度直せば終わる)
+ *   - ほか (メールを送れない・KV が読めない/書けない・一時的な失敗) は RED_EVERY_H 時間に 1 回だけ赤くする
+ *     = UTC の 0・6・12・18 時台の最初の 15 分に終わった回 (cron-job.org が15分ごとに起動するので、毎回赤いと失敗メールが 1 日 96 通になる)
+ */
+export function exitCodeFor(message, date) {
+  if (/足りない:/.test(String(message))) return 1;
+  return date.getUTCHours() % RED_EVERY_H === 0 && date.getUTCMinutes() < 15 ? 1 : 0;
 }
 
 async function kv(cmd) {
@@ -98,7 +140,8 @@ async function kv(cmd) {
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-function mailOf(kind, cur, prev, nowMs) {
+/** メールの件名と本文 (テストから読むので export) */
+export function mailOf(kind, cur, prev, nowMs) {
   const last = cur.hb ? jst(Number(cur.hb.at) * 1000) : "不明";
   const lastEvent = cur.hb?.event ? esc(cur.hb.event) : "—";
   if (kind === "recovered") {
@@ -167,68 +210,84 @@ async function send({ subject, html }) {
   return j.id;
 }
 
+/**
+ * 1 回ぶんの見張り (テストから読むので export)。外とのやり取りは渡された関数だけ (kvGet・kvSet・sendMail)。
+ * 返す: { cur, mail, wrote }
+ * 🔴 黙って終わらない (2026-10-13): 次の時は例外を投げる (回を赤くするかは exitCodeFor)。
+ *   - メールを送れない → その場で投げる。状態は進めない (次の回にもう一度送る・先に書くと送れなかった通知が二度と出ない)
+ *   - 状態 (KV) が読めない → 警報は kvDownMail の決まりで出してから、最後に投げる
+ *   - 状態 (KV) に書けない → メールは送り済み。最後に投げる (次の回に同じメールが重なる = 直すまで赤で知らせる)
+ */
+export async function run({ hbRaw, nowMs, kvGet, kvSet, sendMail, dry = false, log = console.log }) {
+  const cur = judge(hbRaw, nowMs);
+  const age = (m) => (m == null ? "-" : Number.isFinite(m) ? `${Math.round(m)}分` : "不明");
+  log(`判定: ${cur.state} (合図 ${age(cur.hbAgeMin)}前・ループ ${age(cur.loopAgeMin)}前)`);
+  if (dry) {
+    log("DRY: 送らない");
+    return { cur, mail: null, wrote: false };
+  }
+  const problems = [];
+  let prev = null;
+  let kvDown = false;
+  try {
+    const raw = await kvGet();
+    prev = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    kvDown = true;
+    problems.push(`KV が読めない (${e?.message || e})`);
+    log(`::error::KV が読めない (${e?.message || e})`);
+  }
+  let mail = null;
+  let next = null;
+  if (kvDown) mail = kvDownMail(cur, nowMs);
+  else ({ mail, next } = decide(prev, cur, nowMs));
+  if (mail) {
+    const m = mailOf(mail, cur, prev, nowMs);
+    if (kvDown) m.html += '<p style="color:#666;font-size:12px">⚠ 状態の記録が読めないため、同じお知らせが重なることがあります</p>';
+    let id = null;
+    try {
+      id = await sendMail(m);
+    } catch (e) {
+      log(`::error::メールを送れなかった (${e?.message || e})`);
+      throw new Error(`メールを送れなかった: ${mail} (${e?.message || e})`);
+    }
+    log(`メールを送った: ${mail} (${id})`);
+  }
+  // 送れたときだけ状態を進める (先に書くと、送れなかった通知が二度と出ない)
+  let wrote = false;
+  if (next && !kvDown && JSON.stringify(next) !== JSON.stringify(prev)) {
+    try {
+      await kvSet(JSON.stringify(next));
+      wrote = true;
+    } catch (e) {
+      problems.push(`KV に書けない (${e?.message || e})`);
+      log(`::error::KV に書けない (${e?.message || e})`);
+    }
+  }
+  if (problems.length) throw new Error(problems.join(" / "));
+  return { cur, mail, wrote };
+}
+
 async function main() {
   // 🔴 鍵が無ければ大きな声で落とす (静かに正常終了すると止まったことに誰も気づけない)
   const missing = [];
   if (!DRY && !RESEND_API_KEY) missing.push("RESEND_API_KEY");
   if (!DRY && !(KV_URL && KV_TOKEN)) missing.push("KV_REST_API_URL / KV_REST_API_TOKEN");
   if (missing.length) throw new Error(`足りない: ${missing.join(", ")}`);
-  const now = Date.now();
-  const cur = judge(HB_RAW, now);
-  const age = (m) => (m == null ? "-" : Number.isFinite(m) ? `${Math.round(m)}分` : "不明");
-  console.log(`判定: ${cur.state} (合図 ${age(cur.hbAgeMin)}前・ループ ${age(cur.loopAgeMin)}前)`);
-  if (DRY) {
-    console.log("DRY: 送らない");
-    return;
-  }
-  let prev = null;
-  let kvDown = false;
-  try {
-    const raw = await kv(["GET", KV_KEY]);
-    prev = raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    kvDown = true;
-    console.log(`::error::KV が読めない (${e?.message || e})`);
-  }
-  const isBad = cur.state === "down" || cur.state === "stuck";
-  let mail = null;
-  let next = null;
-  if (kvDown) {
-    // 状態が読めなくても警報は出す。重ならないよう1時間に1回 (毎時0〜14分の回) だけ
-    mail = isBad && new Date(now).getUTCMinutes() < 15 ? "alert" : null;
-  } else {
-    ({ mail, next } = decide(prev, cur, now));
-  }
-  if (mail) {
-    const m = mailOf(mail, cur, prev, now);
-    if (kvDown) m.html += '<p style="color:#666;font-size:12px">⚠ 状態の記録が読めないため、同じお知らせが重なることがあります</p>';
-    try {
-      const id = await send(m);
-      console.log(`メールを送った: ${mail} (${id})`);
-    } catch (e) {
-      // 送れなかったら状態を進めない (次の回にもう一度送る)。ジョブを毎回赤くしない
-      console.log(`::error::メールを送れなかった (${e?.message || e})`);
-      return;
-    }
-  }
-  // 送れたときだけ状態を進める (先に書くと、送れなかった通知が二度と出ない)
-  if (next && !kvDown && JSON.stringify(next) !== JSON.stringify(prev)) {
-    try {
-      await kv(["SET", KV_KEY, JSON.stringify(next)]);
-    } catch (e) {
-      console.log(`::error::KV に書けない (${e?.message || e})`);
-    }
-  }
+  await run({
+    hbRaw: HB_RAW,
+    nowMs: Date.now(),
+    kvGet: () => kv(["GET", KV_KEY]),
+    kvSet: (value) => kv(["SET", KV_KEY, value]),
+    sendMail: send,
+    dry: DRY,
+  });
 }
 
 if (process.argv[1] && /torecaPixelWatch\.mjs$/.test(process.argv[1])) {
   main().catch((e) => {
     const msg = String(e?.message || e);
     console.error(`torecaPixelWatch: ${msg}`);
-    // 鍵の設定漏れは毎回赤くする (一度直せば終わる)。ほかの一時的な失敗は6時間に1回だけ赤くする
-    // (cron-job.org が15分ごとに起動するので、毎回赤いと GitHub の失敗メールが1日96通になる)
-    const d = new Date();
-    const always = /足りない:/.test(msg);
-    process.exit(always || (d.getUTCHours() % 6 === 0 && d.getUTCMinutes() < 15) ? 1 : 0);
+    process.exit(exitCodeFor(msg, new Date()));
   });
 }
