@@ -26,8 +26,11 @@ jobs:
   # 上の check-listings は輸出ラボを畳んで止めてあるが、cron-job.org からの15分ごとの dispatch は続いているので、
   # それに乗せて見張る (GitHub の schedule は間引かれて3〜5時間おきにしか動かない実測がある・公開リポジトリなので無料)。
   # Pixel が10分ごとに Actions の変数 TORECA_PIXEL_HEARTBEAT に合図を書き、途切れたらメール・戻ったらメール (scripts/torecaPixelWatch.mjs)。
+  # 2026-10-13 静かにする直し: 合図が 60 分途切れたら 1 通・止まったままなら 72 時間ごとに続報・戻ったら 1 通。
+  #   メールを送れない・状態 (KV) が読めない/書けない時は例外で終わり、6 時間に 1 回だけ回が赤くなる (GitHub の失敗メールが最後の砦)。
   toreca-pixel-watch:
-    runs-on: ubuntu-latest
+    # 2026-10-13: 実行機を固定する (ubuntu-latest は 2026-10-19 から Ubuntu 26 に切り替わる予告。見張りが切り替えで止まらないように。中身は今と同じ)
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - name: Checkout
@@ -50,7 +53,7 @@ jobs:
 
   check-listings:
     if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
