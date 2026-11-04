@@ -51,6 +51,49 @@ jobs:
           MAIL_TO: chikara0323@gmail.com
         run: node scripts/torecaPixelWatch.mjs
 
+  # TCG買取表の販売の写し (2026-11-04 相乗り・オーナー承認「鍵を置いてよい」)。
+  # 販売は貸しサーバーが毎時 38/51 分に取り、束 3 本を置き場 (Supabase の sales-bundles) に置く。それを枝 sales-feed へ写す
+  # (toreca-kaitori-app の日次の起動の時だけだと 17:10〜翌 6:05 に販売が動かない・あちらは Actions の分数が有料)。
+  # 新しい回が無ければ何も送らない。台本は toreca-kaitori-app の main の scripts/import-server-sales.mjs (落ちても exit 0)。
+  # 鍵 = toreca-kaitori-app だけに書ける配置鍵 (secrets.TORECA_SALES_FEED_KEY)。ファイルにして ssh -i で渡し、終わったら消す
+  toreca-sales-copy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: TCG買取表の台本を取る
+        uses: actions/checkout@v4
+        with:
+          repository: ChikaraShimomura/toreca-kaitori-app
+          ref: main
+          ssh-key: ${{ secrets.TORECA_SALES_FEED_KEY }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/import-server-sales.mjs
+            scripts/lib/sales-bundle.mjs
+            scripts/lib/server-jobs.mjs
+            sales/cloud/worker-put/validate.mjs
+            worker/server-jobs.txt
+          sparse-checkout-cone-mode: false
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 販売の束を枝 sales-feed へ写す
+        env:
+          REPO: ChikaraShimomura/toreca-kaitori-app
+          SALES_FEED_KEY: ${{ secrets.TORECA_SALES_FEED_KEY }}
+          GH_META_TOKEN: ${{ github.token }}
+        run: |
+          d="$RUNNER_TEMP/sales-feed-ssh"
+          mkdir -p "$d" && chmod 700 "$d"
+          trap 'rm -rf "$d"' EXIT
+          printf '%s\n' "$SALES_FEED_KEY" > "$d/key" && chmod 600 "$d/key"
+          # GitHub の SSH の鍵 (公開の一覧) だけを信じる
+          curl -fsS -H "Authorization: Bearer $GH_META_TOKEN" https://api.github.com/meta \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const k of JSON.parse(s).ssh_keys)console.log("github.com "+k)})' > "$d/known_hosts"
+          export SALES_FEED_SSH_COMMAND="ssh -i $d/key -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 -o UserKnownHostsFile=$d/known_hosts -o StrictHostKeyChecking=yes"
+          node scripts/import-server-sales.mjs
+
   check-listings:
     if: ${{ false }}  # ⏸ 2026-07-22 輸出ラボ全体を畳む(ユーザー指示)。cron-job.orgが叩いてもskip=課金ゼロ。再開はこの行を削除。
     runs-on: ubuntu-24.04
