@@ -41,7 +41,14 @@ jobs:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           MAIL_TO: chikara0323@gmail.com
-        run: node scripts/sedoriFeedbackMail.mjs --hours ${{ github.event.inputs.hours || '24' }}
+          # 手動起動の入力は run: に直に埋めない(シェルに注入されないよう env で渡し、数字だけ通す)
+          HOURS_INPUT: ${{ github.event.inputs.hours }}
+        run: |
+          HOURS="${HOURS_INPUT:-24}"
+          case "$HOURS" in
+            ''|*[!0-9]*) echo "::error::hours は数字だけ"; exit 1 ;;
+          esac
+          node scripts/sedoriFeedbackMail.mjs --hours "$HOURS"
       - name: Send new inquiries (business / feedback from 2.2.0)
         if: ${{ always() && env.SEDORI_INQUIRY_TOKEN != '' }}
         env:

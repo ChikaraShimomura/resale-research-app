@@ -23,9 +23,14 @@ jobs:
       - name: Send today's post via email
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # 手動起動の入力は run: に直に埋めない(シェルに注入されないよう env で渡し、数字だけ通す)
+          DAY_INPUT: ${{ github.event.inputs.day }}
         run: |
-          if [ -n "${{ github.event.inputs.day }}" ]; then
-            node scripts/sedoriXDaily.mjs --day "${{ github.event.inputs.day }}"
+          if [ -n "$DAY_INPUT" ]; then
+            case "$DAY_INPUT" in
+              *[!0-9]*) echo "::error::day は数字だけ"; exit 1 ;;
+            esac
+            node scripts/sedoriXDaily.mjs --day "$DAY_INPUT"
           else
             node scripts/sedoriXDaily.mjs
           fi
