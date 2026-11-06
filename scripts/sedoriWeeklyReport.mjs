@@ -42,7 +42,9 @@ const PRODUCT_LABEL = (id) => {
   if (!s) return "?";
   const os = s.includes(":") ? "Android" : "iOS";
   const period = /year/i.test(s) ? "年額" : /month/i.test(s) ? "月額" : s;
-  return `${os}・${period}`;
+  // 2.10.0〜 ¥500 (pro) と ¥150 (lite) を分けて出す。古い 3 プランの商品はそのまま
+  const plan = /(^|[.:_])pro[._]/i.test(s) ? "スタンダード¥500・" : /(^|[.:_])lite[._]/i.test(s) ? "ライト¥150・" : "";
+  return `${os}・${plan}${period}`;
 };
 
 // 届いた声のうち「不具合の報告かもしれない」もの(「気になること」に件数を出し、声に印を付ける)。
